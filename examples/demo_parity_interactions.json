@@ -1,0 +1,349 @@
+{
+  "note": "Demo-parity interactions: the three demo screens the canary tile does not use (find the problems, safe analysis file, ordering workflow). Used by selftest.py and as reference for the frontend.",
+  "items": [
+    {
+      "name": "find_issues",
+      "step_id": "demo.s01",
+      "interaction": {
+        "type": "find_issues",
+        "interaction_id": "ix.demo.find_issues",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "data.data_quality_basics",
+            "capability": "spot_missing_or_duplicate_records",
+            "fact_ids": [
+              "f2",
+              "f3"
+            ]
+          }
+        ],
+        "anchors": [
+          "data.data_quality_basics#practice"
+        ],
+        "public": {
+          "asset_ref": {
+            "asset_id": "northstar_orders",
+            "variant_id": "messy"
+          },
+          "instructions": "Find four things you would investigate before analysing this dataset.",
+          "categories": [
+            {
+              "category_id": "missing",
+              "label": "Missing value"
+            },
+            {
+              "category_id": "impossible",
+              "label": "Impossible value"
+            },
+            {
+              "category_id": "duplicate",
+              "label": "Duplicate"
+            },
+            {
+              "category_id": "inconsistent",
+              "label": "Inconsistent category"
+            }
+          ],
+          "goal_count": 4
+        },
+        "grading": {
+          "issues": [
+            {
+              "issue_id": "i_missing_city",
+              "category_id": "missing",
+              "explanation": "Order NS1003 has no city recorded.",
+              "locations": [
+                {
+                  "where": {
+                    "order_id": "NS1003"
+                  },
+                  "column": "city"
+                }
+              ]
+            },
+            {
+              "issue_id": "i_impossible_items",
+              "category_id": "impossible",
+              "explanation": "An order cannot contain -2 items.",
+              "locations": [
+                {
+                  "where": {
+                    "order_id": "NS1004"
+                  },
+                  "occurrence": 0,
+                  "column": "items"
+                }
+              ]
+            },
+            {
+              "issue_id": "i_duplicate_order",
+              "category_id": "duplicate",
+              "explanation": "Order NS1004 appears twice with identical values.",
+              "locations": [
+                {
+                  "where": {
+                    "order_id": "NS1004"
+                  },
+                  "occurrence": 1,
+                  "column": "order_id"
+                }
+              ]
+            },
+            {
+              "issue_id": "i_inconsistent_payment",
+              "category_id": "inconsistent",
+              "explanation": "The same method is written 'Card' and 'card'.",
+              "locations": [
+                {
+                  "where": {
+                    "order_id": "NS1005"
+                  },
+                  "column": "payment_method"
+                }
+              ]
+            }
+          ],
+          "decoys": [
+            {
+              "location": {
+                "where": {
+                  "order_id": "NS1004"
+                },
+                "occurrence": 0,
+                "column": "order_value_ngn"
+              },
+              "message": "That value might be unusual, but nothing we've learned tells us it's definitely a quality problem."
+            }
+          ],
+          "wrong_category_message": "You found something real, but it belongs under a different kind of problem.",
+          "completion_message": "Four problems found. Next you decide what to do about each."
+        },
+        "feedback": {
+          "correct": {
+            "message": "All four quality problems found."
+          },
+          "incorrect": {
+            "message": "Keep looking: one problem is a gap, one is impossible, one is repeated, one is written two ways."
+          },
+          "hints": [
+            "Scan each column for a blank, a value that cannot happen, a repeated order and a label spelled two ways."
+          ]
+        }
+      }
+    },
+    {
+      "name": "field_selection",
+      "step_id": "demo.s02",
+      "interaction": {
+        "type": "field_selection",
+        "interaction_id": "ix.demo.field_selection",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "data.ethics_privacy_basics",
+            "capability": "choose_minimum_needed_fields",
+            "fact_ids": [
+              "f1"
+            ]
+          }
+        ],
+        "anchors": [],
+        "public": {
+          "prompt": "Choose only the fields needed for the analysis.",
+          "scenario": "Northstar wants to understand delivery time by customer segment.",
+          "fields": [
+            {
+              "field_id": "customer_name",
+              "label": "customer_name",
+              "description": "Identifies a specific person"
+            },
+            {
+              "field_id": "customer_email",
+              "label": "customer_email",
+              "description": "A direct contact identifier"
+            },
+            {
+              "field_id": "phone_number",
+              "label": "phone_number",
+              "description": "A direct contact identifier"
+            },
+            {
+              "field_id": "customer_segment",
+              "label": "customer_segment",
+              "description": "The grouping Northstar asked about"
+            },
+            {
+              "field_id": "city",
+              "label": "city",
+              "description": "A geographic grouping"
+            },
+            {
+              "field_id": "order_value_ngn",
+              "label": "order_value_ngn",
+              "description": "Value of the order"
+            },
+            {
+              "field_id": "delivery_minutes",
+              "label": "delivery_minutes",
+              "description": "The measurement Northstar asked about"
+            }
+          ]
+        },
+        "grading": {
+          "rules": [
+            {
+              "field_id": "customer_name",
+              "role": "forbidden",
+              "rationale": "Identifies a specific person and is not needed to compare delivery time by segment."
+            },
+            {
+              "field_id": "customer_email",
+              "role": "forbidden",
+              "rationale": "A direct contact identifier; this question has no reason to touch it."
+            },
+            {
+              "field_id": "phone_number",
+              "role": "forbidden",
+              "rationale": "A direct contact identifier, same reasoning as email."
+            },
+            {
+              "field_id": "customer_segment",
+              "role": "required",
+              "rationale": "The exact grouping Northstar asked about."
+            },
+            {
+              "field_id": "city",
+              "role": "acceptable",
+              "rationale": "Not required, but a reasonable non-identifying addition for a geographic breakdown."
+            },
+            {
+              "field_id": "order_value_ngn",
+              "role": "unneeded",
+              "rationale": "Not part of this question; leaving it out keeps the file focused."
+            },
+            {
+              "field_id": "delivery_minutes",
+              "role": "required",
+              "rationale": "The exact measurement Northstar asked about."
+            }
+          ],
+          "outcome_messages": {
+            "missing_required": "This analysis needs a couple more fields than you've picked.",
+            "includes_forbidden": "That still includes personal identifiers this question doesn't need.",
+            "includes_unneeded": "That still includes more than this question needs.",
+            "ok": "A safe, focused analysis file."
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "Prepared: only what the question needs."
+          },
+          "incorrect": {
+            "message": "Check each field against the question: required, harmless extra, or more than the question needs?"
+          }
+        }
+      }
+    },
+    {
+      "name": "ordering",
+      "step_id": "demo.s03",
+      "interaction": {
+        "type": "ordering",
+        "interaction_id": "ix.demo.ordering",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "data.analysis_workflow",
+            "capability": "order_workflow_steps",
+            "fact_ids": [
+              "f1",
+              "f2",
+              "f3",
+              "f4",
+              "f5",
+              "f6"
+            ]
+          }
+        ],
+        "anchors": [
+          "data.analysis_workflow#practice"
+        ],
+        "public": {
+          "prompt": "Put the six stages in order, then decide Northstar's next move.",
+          "items": [
+            {
+              "item_id": "clean",
+              "text": "Clean"
+            },
+            {
+              "item_id": "communicate",
+              "text": "Communicate"
+            },
+            {
+              "item_id": "ask",
+              "text": "Ask"
+            },
+            {
+              "item_id": "analyze",
+              "text": "Analyze"
+            },
+            {
+              "item_id": "inspect",
+              "text": "Inspect"
+            },
+            {
+              "item_id": "visualize",
+              "text": "Visualize"
+            }
+          ],
+          "follow_up": {
+            "prompt": "The analysis turns up a delivery time of -5 minutes. Where do you go next?",
+            "options": [
+              {
+                "option_id": "f1",
+                "text": "Back to inspect and clean"
+              },
+              {
+                "option_id": "f2",
+                "text": "Straight to communicate"
+              },
+              {
+                "option_id": "f3",
+                "text": "Delete the column"
+              }
+            ]
+          }
+        },
+        "grading": {
+          "correct_order": [
+            "ask",
+            "inspect",
+            "clean",
+            "analyze",
+            "visualize",
+            "communicate"
+          ],
+          "loop_back_note": "Analysis can send you back to inspecting or cleaning.",
+          "follow_up_correct_option_ids": [
+            "f1"
+          ]
+        },
+        "feedback": {
+          "correct": {
+            "message": "The workflow is in order, and you looped back when the data looked wrong."
+          },
+          "incorrect": {
+            "message": "Start with the question, look at the data before cleaning it, and keep analyze and visualize separate."
+          }
+        }
+      }
+    }
+  ]
+}
