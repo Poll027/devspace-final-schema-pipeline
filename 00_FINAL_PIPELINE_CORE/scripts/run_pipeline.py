@@ -103,13 +103,13 @@ class Ctx:
     def py(self, script, *a):
         return f"'{sys.executable}' '{SCRIPTS / script}' " + " ".join(f"'{x}'" for x in a)
 
-    def agent(self, role, task, label):
+    def agent(self, role, task, label, tiles=1):
         t = (ROOT / ".claude" / "agents" / ("final-generator.md" if role == "GEN" else "final-evaluator.md")).read_text()
         system = (t.split("---", 2)[2].strip() + "\n\nYou have three tools: read_file, write_file (only under the batch folder), bash "
                   "(run from the pack root; `python3` has jsonschema; no web access). The pack root is the working directory. "
                   "Finish by replying with the requested summary.")
         model = (self.gen_pin if role == "GEN" else self.ev_pin) or role
-        return run_agent(model, system, task, self.budget, role=role, write_roots=[self.B, ROOT / "scratch"], label=label, call_cap_usd=self.call_cap)
+        return run_agent(model, system, task, self.budget, role=role, write_roots=[self.B, ROOT / "scratch"], label=label, call_cap_usd=self.call_cap * max(tiles, 1))  # the ceiling is per tile: a 3-tile chunk call may cost 3x
 
 
 # ---------- chunks ----------
@@ -253,7 +253,7 @@ def ensure_gate(c, sid, chunk, ids):
         if i == MAX_ROUNDS:
             raise Stuck(f"{sid}:{chunk} still failing its deterministic gate after {MAX_ROUNDS} generator repairs:\n{msg[-2000:]}")
         c.log(f"{sid}:{chunk} gate failed, generator repair {i + 1}")
-        c.agent("GEN", generator_task(c, sid, chunk, ids, gate_msg=msg), f"{sid}:{chunk}:gatefix")
+        c.agent("GEN", generator_task(c, sid, chunk, ids, gate_msg=msg), f"{sid}:{chunk}:gatefix", tiles=len(ids or []))
 
 
 def chunk_gen_eval(c, sid, chunk, ids):
@@ -264,14 +264,14 @@ def chunk_gen_eval(c, sid, chunk, ids):
     if not c.part(sid, chunk).exists() or not part_gate(c, sid, chunk, ids)[0]:
         if not c.part(sid, chunk).exists():
             c.log(f"{sid}:{chunk} generating")
-            c.agent("GEN", generator_task(c, sid, chunk, ids), f"{sid}:{chunk}:gen")
+            c.agent("GEN", generator_task(c, sid, chunk, ids), f"{sid}:{chunk}:gen", tiles=len(ids or []))
         ensure_gate(c, sid, chunk, ids)
     prior, prev_keys = None, None
     for rnd in range(1, MAX_ROUNDS + 1):
         c.log(f"{sid}:{chunk} evaluating (round {rnd})")
         verdict, defects = None, []
         for _ in range(2):
-            verdict, defects = parse_eval(c.agent("EVAL", evaluator_task(c, sid, chunk, ids, prior), f"{sid}:{chunk}:eval"))
+            verdict, defects = parse_eval(c.agent("EVAL", evaluator_task(c, sid, chunk, ids, prior), f"{sid}:{chunk}:eval", tiles=len(ids or [])))
             if verdict:
                 break
         (c.B / "working" / f"eval_{sid}_{chunk}_r{rnd}.txt").write_text(f"{verdict}\n" + "\n".join(defects))
@@ -281,7 +281,7 @@ def chunk_gen_eval(c, sid, chunk, ids):
         if not blocking:
             if defects:  # one reword-only repair, script gate, no re-evaluation (START_HERE)
                 c.log(f"{sid}:{chunk} PASS with {len(defects)} advisories; one repair, no re-evaluation")
-                c.agent("GEN", generator_task(c, sid, chunk, ids, repair="\n".join(defects)), f"{sid}:{chunk}:repair")
+                c.agent("GEN", generator_task(c, sid, chunk, ids, repair="\n".join(defects)), f"{sid}:{chunk}:repair", tiles=len(ids or []))
                 ensure_gate(c, sid, chunk, ids)
             done.write_text(json.dumps({"passed": True, "advisories": 0, "rounds": rnd}))
             return 0
@@ -292,7 +292,7 @@ def chunk_gen_eval(c, sid, chunk, ids):
         prev_keys = keys
         if rnd == MAX_ROUNDS:
             raise Stuck(f"{sid}:{chunk} still failing after {MAX_ROUNDS} rounds:\n" + "\n".join(blocking[:15]))
-        c.agent("GEN", generator_task(c, sid, chunk, ids, repair="\n".join(defects)), f"{sid}:{chunk}:repair")
+        c.agent("GEN", generator_task(c, sid, chunk, ids, repair="\n".join(defects)), f"{sid}:{chunk}:repair", tiles=len(ids or []))
         ensure_gate(c, sid, chunk, ids)
         prior = "\n".join(defects)
 

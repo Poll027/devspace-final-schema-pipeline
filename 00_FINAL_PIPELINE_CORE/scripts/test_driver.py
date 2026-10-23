@@ -63,7 +63,7 @@ class Stub:
 
 
 def run(B, stub, cap=25):
-    rp.Ctx.agent = lambda self, role, task, label: stub(self, role, task, label)
+    rp.Ctx.agent = lambda self, role, task, label, tiles=1: stub(self, role, task, label)
     sys.argv = ["run_pipeline.py", str(B), "--max-usd", str(cap)]
     try:
         rp.main()
