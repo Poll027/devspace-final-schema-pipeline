@@ -21,7 +21,7 @@ def _graph(C, step, b, rep):
     ids = {n["id"] for n in b["nodes"]}
     if len(ids) != len(b["nodes"]):
         rep.e(f"{step['step_id']}/{b['type']}: duplicate node ids")
-    for ed in b["edges"]:
+    for ed in b.get("edges", []):  # edges are optional: venn/layers/array/... diagrams have none
         if ed["from"] not in ids or ed["to"] not in ids:
             rep.e(f"{step['step_id']}/{b['type']}: edge {ed['from']}->{ed['to']} references an unknown node")
 
@@ -29,7 +29,7 @@ def _graph(C, step, b, rep):
 def process_flow(C, step, b, rep):
     _graph(C, step, b, rep)
     kinds = {n.get("kind") for n in b["nodes"]}
-    if "decision" in kinds and not any(e.get("kind") in ("yes", "no", "branch") or e.get("label") for e in b["edges"]):
+    if "decision" in kinds and not any(e.get("kind") in ("yes", "no", "branch") or e.get("label") for e in b.get("edges", [])):
         rep.w(f"{step['step_id']}/process_flow: a decision node but no labelled/yes/no edge")
 
 

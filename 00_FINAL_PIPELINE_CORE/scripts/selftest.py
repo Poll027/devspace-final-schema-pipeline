@@ -157,10 +157,37 @@ def unit_fail_closed(src):
     return 0 if ok else 1
 
 
+def unit_graph_blocks():
+    """Diagrams without edges (venn, layers, array...) are valid and must not crash the checker; broken ones must still be caught."""
+    sys.path.insert(0, str(S))
+    from checkers import core
+
+    class Rep:
+        def __init__(self): self.E, self.W = [], []
+        def e(self, m): self.E.append(m)
+        def w(self, m): self.W.append(m)
+    step = {"step_id": "t.s01"}
+    cases = [("edgeless diagram is accepted", {"type": "diagram", "nodes": [{"id": "a", "label": "A"}, {"id": "b", "label": "B"}]}, 0),
+             ("edgeless diagram with duplicate node ids is rejected", {"type": "diagram", "nodes": [{"id": "a", "label": "A"}, {"id": "a", "label": "B"}]}, 1),
+             ("edge to an unknown node is rejected", {"type": "diagram", "nodes": [{"id": "a", "label": "A"}], "edges": [{"from": "a", "to": "zz"}]}, 1)]
+    bad = 0
+    for name, b, want in cases:
+        rep = Rep()
+        try:
+            core.diagram({}, step, b, rep)
+            ok = len(rep.E) == want
+        except Exception as ex:
+            ok = False
+            name += f" (checker crashed: {type(ex).__name__})"
+        bad += not ok
+        print(("caught " if ok else "MISSED ") + "graph blocks: " + name)
+    return bad
+
+
 def main():
     src = Path(sys.argv[1]).resolve()
     tmp_root = src.parent / "_selftest_tmp"
-    failures = unit_interactions(src) + unit_fail_closed(src)
+    failures = unit_interactions(src) + unit_fail_closed(src) + unit_graph_blocks()
     for name, fn, expect in MUTATIONS:
         d = tmp_root / "case"
         if d.exists():
