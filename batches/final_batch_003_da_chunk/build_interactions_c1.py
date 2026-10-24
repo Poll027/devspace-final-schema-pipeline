@@ -1,0 +1,1335 @@
+"""
+Build interactions.part.c1.json for tile_ids:
+  - tile_stats_correlation
+  - tile_datamodel_entities_keys
+  - tile_datamodel_foreign_keys_one_to_many
+
+Interactions are authored for every check/hands_on step in those tiles.
+Answer keys are derived from the registered asset data — never hand-typed.
+fact_ids in measures are SHORT form (e.g. "f1"), not qualified.
+remediation_step_id uses the tile's r-steps (e.g. tile_xxx.r01).
+"""
+import json, pathlib
+
+BATCH = pathlib.Path("batches/final_batch_003_da_chunk")
+
+# ── load registry for data-derived answers ──────────────────────────────────
+with open(BATCH / "scenario_asset_registry.json") as f:
+    reg = json.load(f)
+
+def get_asset(asset_id):
+    for a in reg["assets"]:
+        if a["asset_id"] == asset_id:
+            return a
+    raise KeyError(asset_id)
+
+# Pull specific values from assets
+corr_matrix = get_asset("ds_correlation_matrix")
+# rows: [variable, distance_km, package_weight_kg, delivery_minutes]
+# distance/delivery_minutes = row[0][3] = 0.82
+# weight/delivery_minutes   = row[1][3] = -0.41
+# distance/weight           = row[0][2] = -0.38
+dist_del = corr_matrix["rows"][0][3]   # 0.82
+wt_del   = corr_matrix["rows"][1][3]   # -0.41
+dist_wt  = corr_matrix["rows"][0][2]   # -0.38
+
+pk_cand = get_asset("ds_customers_pk_candidates")
+# rows: [customer_id, name, phone, signup_date]
+# customer_id=4 -> phone=None (null)
+# customer_id=5 -> name='Amara Okafor' (duplicate)
+
+orders = get_asset("ds_orders")
+# rows: [order_id, customer_id, delivery_minutes]
+# orphan variant: order_id=107 -> customer_id=99
+
+# ── build interactions ───────────────────────────────────────────────────────
+
+tiles = []
+
+# ============================================================
+# TILE: tile_stats_correlation
+# Remediation steps:
+#   r01 -> stats.correlation
+#   r02 -> stats.correlation_interpretation
+#   r03 -> stats.correlation_vs_causation_caveat
+# ============================================================
+corr_interactions = []
+
+# s04 — check — choice — distinguish_positive_from_negative_association (f2)
+# Taught by: s01 (tb1,tb2,tb3 teach f1,f2), s03 (tb4,tb5 teach f3,m1)
+# fact_ids in measures: short form ["f2"]
+corr_interactions.append({
+    "step_id": "tile_stats_correlation.s04",
+    "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_stats_correlation.s04",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": False,
+        "measures": [
+            {
+                "concept_id": "stats.correlation",
+                "capability": "distinguish_positive_from_negative_association",
+                "fact_ids": ["f2"]
+            }
+        ],
+        "anchors": [
+            "stats.correlation#assessment:distinguish_positive_from_negative_association"
+        ],
+        "public": {
+            "prompt": "QuickShip data shows that as distance_km increases, delivery_minutes also tends to increase. What kind of association is this?",
+            "options": [
+                {"option_id": "opt_positive", "text": "Positive association"},
+                {"option_id": "opt_negative", "text": "Negative association"},
+                {"option_id": "opt_no_assoc", "text": "No association — the variables are unrelated"},
+                {"option_id": "opt_causal", "text": "Causal relationship — distance causes longer delivery"}
+            ],
+            "selection": "single",
+            "shuffle": True
+        },
+        "grading": {
+            "correct_option_ids": ["opt_positive"],
+            "option_feedback": {
+                "opt_positive": {
+                    "message": "Correct. When higher values of one variable tend to go with higher values of the other, that is a positive association."
+                },
+                "opt_negative": {
+                    "message": "Not quite. A negative association means higher values of one variable tend to go with lower values of the other. Here both distance and delivery time increase together, so the association is positive."
+                },
+                "opt_no_assoc": {
+                    "message": "Not quite. The variables do move together — farther orders tend to take longer. That is a positive association, not no association."
+                },
+                "opt_causal": {
+                    "message": "Not quite. Correlation describes the direction of an association, not causation. The correct term for this pattern is a positive association."
+                }
+            }
+        },
+        "feedback": {
+            "correct": {
+                "message": "Right. Higher distance tends to go with higher delivery time — that is the definition of a positive association."
+            },
+            "incorrect": {
+                "message": "Remember: positive means both variables tend to move in the same direction; negative means they move in opposite directions."
+            },
+            "hints": [
+                "Think about whether the two variables move in the same direction or opposite directions.",
+                "In a positive association, higher values of one variable tend to go with higher values of the other."
+            ],
+            "remediation_step_id": "tile_stats_correlation.r01"
+        }
+    }
+})
+
+# s05 — check — choice — recognize_linear_only_limit (m1)
+# Taught by: s03 (tb4,tb5 teach m1)
+# m1 is a misconception — fact_ids: ["m1"]
+corr_interactions.append({
+    "step_id": "tile_stats_correlation.s05",
+    "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_stats_correlation.s05",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": False,
+        "measures": [
+            {
+                "concept_id": "stats.correlation",
+                "capability": "recognize_linear_only_limit",
+                "fact_ids": ["m1"]
+            }
+        ],
+        "anchors": [
+            "stats.correlation#assessment:recognize_linear_only_limit"
+        ],
+        "public": {
+            "prompt": "A scatter plot shows a clear U-shaped curve between two variables, yet the computed correlation coefficient is close to 0. What does this tell you?",
+            "options": [
+                {"option_id": "opt_no_rel", "text": "There is no relationship between the two variables"},
+                {"option_id": "opt_linear_only", "text": "Correlation only captures linear relationships; a strong nonlinear relationship can still produce a near-zero value"},
+                {"option_id": "opt_weak", "text": "The relationship is weak because the correlation is near 0"},
+                {"option_id": "opt_error", "text": "The correlation was calculated incorrectly"}
+            ],
+            "selection": "single",
+            "shuffle": True
+        },
+        "grading": {
+            "correct_option_ids": ["opt_linear_only"],
+            "option_feedback": {
+                "opt_linear_only": {
+                    "message": "Correct. Correlation quantifies the strength of a linear relationship only. A nonlinear relationship can be strong even when its correlation value looks weak."
+                },
+                "opt_no_rel": {
+                    "message": "Not quite. The U-shaped curve is a clear relationship — it is just nonlinear. Correlation near 0 means little or no linear relationship, not no relationship at all."
+                },
+                "opt_weak": {
+                    "message": "Not quite. The relationship is strong — it is just nonlinear. Correlation near 0 only means the linear component is weak; it says nothing about nonlinear patterns."
+                },
+                "opt_error": {
+                    "message": "Not quite. The calculation is correct. Correlation near 0 for a U-shaped pattern is expected because correlation only measures linear association."
+                }
+            }
+        },
+        "feedback": {
+            "correct": {
+                "message": "Exactly. Correlation measures only linear association; a strong nonlinear pattern can still yield a near-zero correlation."
+            },
+            "incorrect": {
+                "message": "Recall that correlation is limited to linear relationships. A near-zero value does not rule out a strong nonlinear pattern."
+            },
+            "hints": [
+                "What kind of relationship does the correlation coefficient measure?",
+                "A U-shaped curve is a nonlinear pattern. Does correlation capture nonlinear patterns?"
+            ],
+            "remediation_step_id": "tile_stats_correlation.r01"
+        }
+    }
+})
+
+# s06 — hands_on — table_select — state_correlation_range_and_meaning (f1) + read_correlation_strength_and_direction (f3)
+# Taught by: s01 (tb1,tb2,tb3 teach f1,f2), s03 (tb4,tb5 teach f3,m1)
+# Uses ds_correlation_matrix; answers derived from asset rows
+corr_interactions.append({
+    "step_id": "tile_stats_correlation.s06",
+    "interaction": {
+        "type": "table_select",
+        "interaction_id": "ix.tile_stats_correlation.s06",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": False,
+        "measures": [
+            {
+                "concept_id": "stats.correlation",
+                "capability": "state_correlation_range_and_meaning",
+                "fact_ids": ["f1"]
+            },
+            {
+                "concept_id": "stats.correlation",
+                "capability": "read_correlation_strength_and_direction",
+                "fact_ids": ["f3"]
+            }
+        ],
+        "anchors": [
+            "stats.correlation#practice",
+            "stats.correlation#assessment:state_correlation_range_and_meaning",
+            "stats.correlation#assessment:read_correlation_strength_and_direction"
+        ],
+        "public": {
+            "asset_ref": {
+                "asset_id": "ds_correlation_matrix",
+                "variant_id": None,
+                "columns": ["variable", "distance_km", "package_weight_kg", "delivery_minutes"]
+            },
+            "intro": "The table shows pairwise Pearson correlation coefficients for three QuickShip variables. Use it to answer the tasks below.",
+            "tasks": [
+                {
+                    "task_id": "task_strongest_pair",
+                    "prompt": "Select the cell showing the strongest linear relationship between any two different variables (highest absolute value, excluding the diagonal).",
+                    "target_kind": "cell"
+                },
+                {
+                    "task_id": "task_negative_pair",
+                    "prompt": "Select the cell showing a negative association between package_weight_kg and delivery_minutes.",
+                    "target_kind": "cell"
+                },
+                {
+                    "task_id": "task_weakest_pair",
+                    "prompt": "Select the cell showing the weakest relationship between any two different variables (lowest absolute value, excluding the diagonal).",
+                    "target_kind": "cell"
+                }
+            ]
+        },
+        "grading": {
+            "answers": [
+                {
+                    "task_id": "task_strongest_pair",
+                    "row": {"where": {"variable": "distance_km"}},
+                    "column": "delivery_minutes",
+                    "expect_value": dist_del
+                },
+                {
+                    "task_id": "task_negative_pair",
+                    "row": {"where": {"variable": "package_weight_kg"}},
+                    "column": "delivery_minutes",
+                    "expect_value": wt_del
+                },
+                {
+                    "task_id": "task_weakest_pair",
+                    "row": {"where": {"variable": "distance_km"}},
+                    "column": "package_weight_kg",
+                    "expect_value": dist_wt
+                }
+            ],
+            "task_feedback": {
+                "task_strongest_pair": {
+                    "correct": f"Correct. The distance_km / delivery_minutes correlation is {dist_del}, the largest absolute value in the matrix.",
+                    "incorrect": "Not quite. Compare the absolute values of all off-diagonal cells and pick the largest."
+                },
+                "task_negative_pair": {
+                    "correct": f"Correct. The package_weight_kg / delivery_minutes correlation is {wt_del} — negative, meaning heavier packages tend to have slightly shorter delivery times.",
+                    "incorrect": "Not quite. Look for the cell in the package_weight_kg row (or column) for delivery_minutes and check its sign."
+                },
+                "task_weakest_pair": {
+                    "correct": f"Correct. The distance_km / package_weight_kg correlation is {dist_wt}, the smallest absolute value among the off-diagonal pairs.",
+                    "incorrect": "Not quite. Compare the absolute values of all off-diagonal cells and pick the smallest."
+                }
+            }
+        },
+        "feedback": {
+            "correct": {
+                "message": "Well done. You read the sign for direction and the absolute value for strength across all three pairs."
+            },
+            "incorrect": {
+                "message": "Focus on the absolute value for strength and the sign for direction. The diagonal (1.0) is each variable with itself — skip those."
+            },
+            "hints": [
+                "Ignore the diagonal (1.0 values). Compare the absolute values of the remaining cells to rank strength.",
+                "A negative sign means the two variables move in opposite directions; a positive sign means they move together."
+            ],
+            "remediation_step_id": "tile_stats_correlation.r01"
+        }
+    }
+})
+
+# s09 — check — choice — explain_confounding_possibility (f2)
+# Taught by: s07 (tb1,tb2 teach f1), s08 (tb3 teaches f2)
+corr_interactions.append({
+    "step_id": "tile_stats_correlation.s09",
+    "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_stats_correlation.s09",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": False,
+        "measures": [
+            {
+                "concept_id": "stats.correlation_interpretation",
+                "capability": "explain_confounding_possibility",
+                "fact_ids": ["f2"]
+            }
+        ],
+        "anchors": [
+            "stats.correlation_interpretation#assessment:explain_confounding_possibility"
+        ],
+        "public": {
+            "prompt": "QuickShip finds that distance_km and delivery_minutes have a strong positive correlation (0.82). A colleague says this proves distance is the direct cause of longer delivery times. What is the best response?",
+            "options": [
+                {"option_id": "opt_confound", "text": "A confounding variable — such as traffic zone, which correlates with both distance and delivery time — could produce this association without distance being the direct cause"},
+                {"option_id": "opt_agree", "text": "The colleague is right: a correlation of 0.82 is strong enough to confirm causation"},
+                {"option_id": "opt_weak", "text": "The correlation is too weak to draw any conclusion"},
+                {"option_id": "opt_reverse", "text": "The association must run the other way: longer delivery times cause greater distances"}
+            ],
+            "selection": "single",
+            "shuffle": True
+        },
+        "grading": {
+            "correct_option_ids": ["opt_confound"],
+            "option_feedback": {
+                "opt_confound": {
+                    "message": "Correct. A confounding variable correlated with both distance and delivery time could produce the observed association without distance being the direct cause."
+                },
+                "opt_agree": {
+                    "message": "Not quite. No matter how strong a correlation is, it cannot by itself confirm causation. A confounding variable could explain the association."
+                },
+                "opt_weak": {
+                    "message": "Not quite. A correlation of 0.82 is strong, not weak. The issue is not the strength but the fact that correlation alone cannot establish causation."
+                },
+                "opt_reverse": {
+                    "message": "Not quite. Reversing the direction is one possibility, but the key point is that a confounding variable could also explain the association — correlation alone cannot determine the causal direction."
+                }
+            }
+        },
+        "feedback": {
+            "correct": {
+                "message": "Right. A strong correlation is consistent with causation but does not prove it — a confounding variable could be responsible."
+            },
+            "incorrect": {
+                "message": "Remember: a confounding variable is one that correlates with both variables being studied, producing an association that is not a direct link."
+            },
+            "hints": [
+                "Could a third variable — one correlated with both distance and delivery time — explain the association?",
+                "A confounding variable is correlated with both of the variables being studied."
+            ],
+            "remediation_step_id": "tile_stats_correlation.r02"
+        }
+    }
+})
+
+# s10 — hands_on — table_select — rank_relationships_by_magnitude (f1)
+# Taught by: s07 (tb1,tb2 teach f1), s08 (tb3 teaches f2)
+corr_interactions.append({
+    "step_id": "tile_stats_correlation.s10",
+    "interaction": {
+        "type": "table_select",
+        "interaction_id": "ix.tile_stats_correlation.s10",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": False,
+        "measures": [
+            {
+                "concept_id": "stats.correlation_interpretation",
+                "capability": "rank_relationships_by_magnitude",
+                "fact_ids": ["f1"]
+            }
+        ],
+        "anchors": [
+            "stats.correlation_interpretation#practice",
+            "stats.correlation_interpretation#assessment:rank_relationships_by_magnitude"
+        ],
+        "public": {
+            "asset_ref": {
+                "asset_id": "ds_correlation_matrix",
+                "variant_id": None,
+                "columns": ["variable", "distance_km", "package_weight_kg", "delivery_minutes"]
+            },
+            "intro": "Use the correlation matrix to rank the three variable pairs by the strength of their linear relationship.",
+            "tasks": [
+                {
+                    "task_id": "task_strongest_magnitude",
+                    "prompt": "Select the cell showing the pair with the strongest linear relationship (highest absolute value, excluding the diagonal).",
+                    "target_kind": "cell"
+                },
+                {
+                    "task_id": "task_middle_magnitude",
+                    "prompt": "Select the cell showing the pair with the middle-ranked strength.",
+                    "target_kind": "cell"
+                },
+                {
+                    "task_id": "task_weakest_magnitude",
+                    "prompt": "Select the cell showing the pair with the weakest linear relationship (lowest absolute value, excluding the diagonal).",
+                    "target_kind": "cell"
+                }
+            ]
+        },
+        "grading": {
+            "answers": [
+                {
+                    "task_id": "task_strongest_magnitude",
+                    "row": {"where": {"variable": "distance_km"}},
+                    "column": "delivery_minutes",
+                    "expect_value": dist_del
+                },
+                {
+                    "task_id": "task_middle_magnitude",
+                    "row": {"where": {"variable": "package_weight_kg"}},
+                    "column": "delivery_minutes",
+                    "expect_value": wt_del
+                },
+                {
+                    "task_id": "task_weakest_magnitude",
+                    "row": {"where": {"variable": "distance_km"}},
+                    "column": "package_weight_kg",
+                    "expect_value": dist_wt
+                }
+            ],
+            "task_feedback": {
+                "task_strongest_magnitude": {
+                    "correct": f"Correct. |{dist_del}| = {abs(dist_del)} is the largest absolute value — distance_km and delivery_minutes have the strongest relationship.",
+                    "incorrect": "Not quite. Take the absolute value of each off-diagonal cell and pick the largest."
+                },
+                "task_middle_magnitude": {
+                    "correct": f"Correct. |{wt_del}| = {abs(wt_del)} is the middle value — package_weight_kg and delivery_minutes have a moderate relationship.",
+                    "incorrect": "Not quite. After finding the strongest and weakest, the remaining pair is the middle-ranked one."
+                },
+                "task_weakest_magnitude": {
+                    "correct": f"Correct. |{dist_wt}| = {abs(dist_wt)} is the smallest absolute value — distance_km and package_weight_kg have the weakest relationship.",
+                    "incorrect": "Not quite. Take the absolute value of each off-diagonal cell and pick the smallest."
+                }
+            }
+        },
+        "feedback": {
+            "correct": {
+                "message": "Excellent. You ranked all three pairs correctly by absolute value, ignoring the sign."
+            },
+            "incorrect": {
+                "message": "Strength is judged by absolute value — ignore the sign and compare the magnitudes."
+            },
+            "hints": [
+                "Ignore the sign. Take the absolute value of each off-diagonal cell to compare strengths.",
+                "The diagonal (1.0) is each variable with itself — skip those cells."
+            ],
+            "remediation_step_id": "tile_stats_correlation.r02"
+        }
+    }
+})
+
+# s12 — check — choice — restate_finding_as_association (f2)
+# Taught by: s11 (tb1,tb2,tb3 teach f1,f2)
+corr_interactions.append({
+    "step_id": "tile_stats_correlation.s12",
+    "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_stats_correlation.s12",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": False,
+        "measures": [
+            {
+                "concept_id": "stats.correlation_vs_causation_caveat",
+                "capability": "restate_finding_as_association",
+                "fact_ids": ["f2"]
+            }
+        ],
+        "anchors": [
+            "stats.correlation_vs_causation_caveat#assessment:restate_finding_as_association"
+        ],
+        "public": {
+            "prompt": "A report states: 'Priority deliveries cause faster delivery times.' The only evidence is observational data showing priority orders tend to have shorter delivery times. Which restatement is correct?",
+            "options": [
+                {"option_id": "opt_assoc", "text": "Priority orders are associated with shorter delivery times, though we cannot confirm from this data that priority status causes the difference"},
+                {"option_id": "opt_causal_ok", "text": "The original statement is fine — observational data is sufficient to claim causation"},
+                {"option_id": "opt_no_rel", "text": "The finding should be dropped entirely because observational data proves nothing"},
+                {"option_id": "opt_hypothesis_only", "text": "The finding should be stated only as a hypothesis with no supporting evidence"}
+            ],
+            "selection": "single",
+            "shuffle": True
+        },
+        "grading": {
+            "correct_option_ids": ["opt_assoc"],
+            "option_feedback": {
+                "opt_assoc": {
+                    "message": "Correct. When only observational data supports a finding, it should be restated as an association rather than a causal claim."
+                },
+                "opt_causal_ok": {
+                    "message": "Not quite. Observational data alone cannot establish causation. The finding should be restated as an association or a hypothesis to check later."
+                },
+                "opt_no_rel": {
+                    "message": "Not quite. The finding is still useful — it just needs to be restated as an association rather than a causal claim. Observational findings are valid evidence of association."
+                },
+                "opt_hypothesis_only": {
+                    "message": "Not quite. The observational data does support the association — it just cannot confirm causation. The correct restatement acknowledges the association while flagging the causal claim."
+                }
+            }
+        },
+        "feedback": {
+            "correct": {
+                "message": "Right. Observational data supports an association, not a causal claim. Restate the finding accordingly."
+            },
+            "incorrect": {
+                "message": "When only observational data is available, restate the finding as an association or a hypothesis to check later — not as a causal claim."
+            },
+            "hints": [
+                "What kind of data supports this finding — experimental or observational?",
+                "Observational data can show that two things tend to occur together, but cannot prove one causes the other."
+            ],
+            "remediation_step_id": "tile_stats_correlation.r03"
+        }
+    }
+})
+
+# s13 — hands_on — table_select — flag_unsupported_causal_claim (f1) + restate_finding_as_association (f2)
+# Taught by: s11 (tb1,tb2,tb3 teach f1,f2)
+# Use ds_delivery_orders_extended to show priority flag vs delivery_minutes
+corr_interactions.append({
+    "step_id": "tile_stats_correlation.s13",
+    "interaction": {
+        "type": "table_select",
+        "interaction_id": "ix.tile_stats_correlation.s13",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": False,
+        "measures": [
+            {
+                "concept_id": "stats.correlation_vs_causation_caveat",
+                "capability": "flag_unsupported_causal_claim",
+                "fact_ids": ["f1"]
+            },
+            {
+                "concept_id": "stats.correlation_vs_causation_caveat",
+                "capability": "restate_finding_as_association",
+                "fact_ids": ["f2"]
+            }
+        ],
+        "anchors": [
+            "stats.correlation_vs_causation_caveat#practice",
+            "stats.correlation_vs_causation_caveat#assessment:flag_unsupported_causal_claim",
+            "stats.correlation_vs_causation_caveat#assessment:restate_finding_as_association"
+        ],
+        "public": {
+            "asset_ref": {
+                "asset_id": "ds_delivery_orders_extended",
+                "variant_id": None,
+                "columns": ["order_id", "priority", "delivery_minutes"]
+            },
+            "intro": "The table shows QuickShip orders with their priority flag and delivery time. A colleague claims: 'Selecting priority causes faster delivery.' Use the data to evaluate this claim.",
+            "tasks": [
+                {
+                    "task_id": "task_priority_true_fast",
+                    "prompt": "Select a row where priority is true and delivery_minutes is among the shortest in the dataset — evidence the two variables are associated.",
+                    "target_kind": "row"
+                },
+                {
+                    "task_id": "task_priority_true_slow",
+                    "prompt": "Select a row where priority is true but delivery_minutes is not especially short — evidence that priority alone does not guarantee fast delivery.",
+                    "target_kind": "row"
+                }
+            ]
+        },
+        "grading": {
+            "answers": [
+                {
+                    "task_id": "task_priority_true_fast",
+                    "row": {"where": {"order_id": "ORD-113"}},
+                    "column": "delivery_minutes",
+                    "expect_value": 17
+                },
+                {
+                    "task_id": "task_priority_true_slow",
+                    "row": {"where": {"order_id": "ORD-103"}},
+                    "column": "delivery_minutes",
+                    "expect_value": 36
+                }
+            ],
+            "task_feedback": {
+                "task_priority_true_fast": {
+                    "correct": "Correct. ORD-113 is a priority order with a delivery time of 17 minutes — one of the shortest in the dataset.",
+                    "incorrect": "Look for a row where priority is true and delivery_minutes is very low (17 or 18 minutes)."
+                },
+                "task_priority_true_slow": {
+                    "correct": "Correct. ORD-103 is a priority order with a delivery time of 36 minutes — not especially fast. This shows priority is associated with, but does not guarantee, faster delivery.",
+                    "incorrect": "Look for a row where priority is true but delivery_minutes is 36 or higher."
+                }
+            }
+        },
+        "feedback": {
+            "correct": {
+                "message": "Well done. The data shows an association between priority and delivery time, but the variation in priority rows shows it is not a guaranteed causal link."
+            },
+            "incorrect": {
+                "message": "Look for rows where priority is true. Do all of them have short delivery times? That variation is the key evidence against a simple causal claim."
+            },
+            "hints": [
+                "Find rows where priority is true. Are all their delivery times short?",
+                "If priority caused faster delivery in every case, all priority rows would have short delivery times."
+            ],
+            "remediation_step_id": "tile_stats_correlation.r03"
+        }
+    }
+})
+
+tiles.append({
+    "tile_id": "tile_stats_correlation",
+    "interactions": corr_interactions
+})
+
+# ============================================================
+# TILE: tile_datamodel_entities_keys
+# Remediation steps:
+#   r01 -> datamodel.entities_tables
+#   r02 -> datamodel.primary_keys
+# ============================================================
+ek_interactions = []
+
+# s02 — check — choice — list_attributes_for_an_entity (f4)
+# Taught by: s01 (tb1,tb2,tb3 teach f1,f2,f3,f4)
+ek_interactions.append({
+    "step_id": "tile_datamodel_entities_keys.s02",
+    "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_datamodel_entities_keys.s02",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": False,
+        "measures": [
+            {
+                "concept_id": "datamodel.entities_tables",
+                "capability": "list_attributes_for_an_entity",
+                "fact_ids": ["f4"]
+            }
+        ],
+        "anchors": [
+            "datamodel.entities_tables#assessment:list_attributes_for_an_entity"
+        ],
+        "public": {
+            "prompt": "Which set of attributes best describes the Customer entity in the QuickShip database?",
+            "options": [
+                {"option_id": "opt_correct", "text": "customer_id, name, city"},
+                {"option_id": "opt_order_attrs", "text": "order_id, delivery_minutes, priority"},
+                {"option_id": "opt_mixed", "text": "customer_id, order_id, delivery_minutes"},
+                {"option_id": "opt_too_few", "text": "name only"}
+            ],
+            "selection": "single",
+            "shuffle": True
+        },
+        "grading": {
+            "correct_option_ids": ["opt_correct"],
+            "option_feedback": {
+                "opt_correct": {
+                    "message": "Correct. customer_id, name, and city are all attributes that describe a customer — they belong to the Customer entity."
+                },
+                "opt_order_attrs": {
+                    "message": "Not quite. order_id, delivery_minutes, and priority describe an order, not a customer. Each entity is described by attributes that belong to that specific real-world thing."
+                },
+                "opt_mixed": {
+                    "message": "Not quite. order_id and delivery_minutes are attributes of the Order entity, not the Customer entity. Attributes should describe the same real-world thing."
+                },
+                "opt_too_few": {
+                    "message": "Not quite. While name is one attribute of a customer, an entity is described by a set of attributes — customer_id and city also describe a customer."
+                }
+            }
+        },
+        "feedback": {
+            "correct": {
+                "message": "Right. Each entity is described by the set of attributes that belong to that real-world thing."
+            },
+            "incorrect": {
+                "message": "Think about which attributes describe a customer specifically — not an order or any other entity."
+            },
+            "hints": [
+                "Attributes describe the entity they belong to. Which of these values tell you something about a customer?",
+                "An entity's attributes are the columns in its table. What columns would you expect in a Customers table?"
+            ],
+            "remediation_step_id": "tile_datamodel_entities_keys.r01"
+        }
+    }
+})
+
+# s03 — hands_on — classify — identify_entities_in_a_scenario (f1,f2) + distinguish_entity_type_from_entity_set (f3,f5) + list_attributes_for_an_entity (f4)
+# Taught by: s01 (tb1,tb2,tb3 teach f1,f2,f3,f4)
+# classify: buckets = entity types; items = real-world things from the scenario
+# Items: customer, order, product (entities) + delivery_minutes, city (attributes — trap items)
+ek_interactions.append({
+    "step_id": "tile_datamodel_entities_keys.s03",
+    "interaction": {
+        "type": "classify",
+        "interaction_id": "ix.tile_datamodel_entities_keys.s03",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": False,
+        "measures": [
+            {
+                "concept_id": "datamodel.entities_tables",
+                "capability": "identify_entities_in_a_scenario",
+                "fact_ids": ["f1", "f2"]
+            },
+            {
+                "concept_id": "datamodel.entities_tables",
+                "capability": "distinguish_entity_type_from_entity_set",
+                "fact_ids": ["f3", "f5"]
+            },
+            {
+                "concept_id": "datamodel.entities_tables",
+                "capability": "list_attributes_for_an_entity",
+                "fact_ids": ["f4"]
+            }
+        ],
+        "anchors": [
+            "datamodel.entities_tables#practice",
+            "datamodel.entities_tables#assessment:identify_entities_in_a_scenario",
+            "datamodel.entities_tables#assessment:distinguish_entity_type_from_entity_set",
+            "datamodel.entities_tables#assessment:list_attributes_for_an_entity"
+        ],
+        "public": {
+            "prompt": "QuickShip tracks customers, the orders they place, and the products in each order. Each customer has a name and a city; each order has a delivery time; each product has a name. Classify each item below as either an Entity (a real-world thing that gets its own table) or an Attribute (a property that describes an entity).",
+            "buckets": [
+                {"bucket_id": "bucket_entity", "label": "Entity — gets its own table"},
+                {"bucket_id": "bucket_attribute", "label": "Attribute — describes an entity"}
+            ],
+            "items": [
+                {
+                    "item_id": "item_customer",
+                    "text": "Customer",
+                    "source": {
+                        "asset_id": "ds_customers",
+                        "row": {"where": {"customer_id": 1}},
+                        "column": "name"
+                    }
+                },
+                {
+                    "item_id": "item_order",
+                    "text": "Order",
+                    "source": {
+                        "asset_id": "ds_orders",
+                        "row": {"where": {"order_id": 101}},
+                        "column": "order_id"
+                    }
+                },
+                {
+                    "item_id": "item_product",
+                    "text": "Product",
+                    "source": {
+                        "asset_id": "ds_products",
+                        "row": {"where": {"product_id": 10}},
+                        "column": "name"
+                    }
+                },
+                {
+                    "item_id": "item_delivery_minutes",
+                    "text": "delivery_minutes"
+                },
+                {
+                    "item_id": "item_city",
+                    "text": "city"
+                }
+            ]
+        },
+        "grading": {
+            "assignments": {
+                "item_customer": "bucket_entity",
+                "item_order": "bucket_entity",
+                "item_product": "bucket_entity",
+                "item_delivery_minutes": "bucket_attribute",
+                "item_city": "bucket_attribute"
+            },
+            "role_map": {
+                "bucket_entity": "entity",
+                "bucket_attribute": "attribute"
+            },
+            "item_feedback": {
+                "item_customer": {
+                    "message": "Correct. Customer is an entity — a real-world thing with independent existence that gets its own table."
+                },
+                "item_order": {
+                    "message": "Correct. Order is an entity — each order is a distinct real-world event that gets its own table."
+                },
+                "item_product": {
+                    "message": "Correct. Product is an entity — a real-world thing (physical or conceptual) that gets its own table."
+                },
+                "item_delivery_minutes": {
+                    "message": "Correct. delivery_minutes is an attribute — it describes an order, not a real-world thing that gets its own table."
+                },
+                "item_city": {
+                    "message": "Correct. city is an attribute — it describes a customer, not a real-world thing that gets its own table."
+                }
+            }
+        },
+        "feedback": {
+            "correct": {
+                "message": "Well done. You correctly separated the real-world things (entities) from the properties that describe them (attributes)."
+            },
+            "incorrect": {
+                "message": "An entity is a real-world thing with independent existence that gets its own table. An attribute is a property that describes an entity."
+            },
+            "hints": [
+                "Ask: does this thing exist independently in the real world, or does it describe something else?",
+                "Entities become tables; attributes become columns in those tables."
+            ],
+            "remediation_step_id": "tile_datamodel_entities_keys.r01"
+        }
+    }
+})
+
+# s05 — check — choice — apply_entity_integrity (f3)
+# Taught by: s04 (tb1,tb2,tb3 teach f1,f2)
+ek_interactions.append({
+    "step_id": "tile_datamodel_entities_keys.s05",
+    "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_datamodel_entities_keys.s05",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": False,
+        "measures": [
+            {
+                "concept_id": "datamodel.primary_keys",
+                "capability": "apply_entity_integrity",
+                "fact_ids": ["f3"]
+            }
+        ],
+        "anchors": [
+            "datamodel.primary_keys#assessment:apply_entity_integrity"
+        ],
+        "public": {
+            "prompt": "A new row is inserted into the customers table with a NULL value in the customer_id column. What does entity integrity say about this?",
+            "options": [
+                {"option_id": "opt_violates", "text": "This violates entity integrity — the primary key must never be null"},
+                {"option_id": "opt_ok_null", "text": "This is acceptable — null means the value is unknown, which is allowed in a primary key"},
+                {"option_id": "opt_ok_if_unique", "text": "This is acceptable as long as no other row has the same null value"},
+                {"option_id": "opt_depends", "text": "It depends on whether the table has other non-null columns"}
+            ],
+            "selection": "single",
+            "shuffle": True
+        },
+        "grading": {
+            "correct_option_ids": ["opt_violates"],
+            "option_feedback": {
+                "opt_violates": {
+                    "message": "Correct. Entity integrity requires that every table have a primary key and that neither the primary key nor any part of it contain null values."
+                },
+                "opt_ok_null": {
+                    "message": "Not quite. Entity integrity explicitly forbids null values in the primary key. A null primary key means the row cannot be uniquely identified."
+                },
+                "opt_ok_if_unique": {
+                    "message": "Not quite. Null values are not comparable — two null values are not considered equal or unequal. Entity integrity forbids null in the primary key regardless of other rows."
+                },
+                "opt_depends": {
+                    "message": "Not quite. Entity integrity applies to the primary key column specifically. A null primary key always violates entity integrity, regardless of other columns."
+                }
+            }
+        },
+        "feedback": {
+            "correct": {
+                "message": "Right. Entity integrity requires the primary key to be both unique and never null."
+            },
+            "incorrect": {
+                "message": "Entity integrity has two requirements: the primary key must be unique, and it must never contain null values."
+            },
+            "hints": [
+                "What are the two requirements entity integrity places on a primary key?",
+                "If a primary key is null, can you uniquely identify that row?"
+            ],
+            "remediation_step_id": "tile_datamodel_entities_keys.r02"
+        }
+    }
+})
+
+# s06 — hands_on — table_select — identify_a_valid_primary_key (f1) + recognize_a_composite_key (f2)
+# Taught by: s04 (tb1,tb2,tb3 teach f1,f2)
+# Uses ds_customers_pk_candidates
+# Answers derived from asset: customer_id is valid PK (unique, never null)
+# name fails (duplicate: customer_id=5 has same name as customer_id=1)
+# phone fails (null: customer_id=4 has null phone)
+ek_interactions.append({
+    "step_id": "tile_datamodel_entities_keys.s06",
+    "interaction": {
+        "type": "table_select",
+        "interaction_id": "ix.tile_datamodel_entities_keys.s06",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": False,
+        "measures": [
+            {
+                "concept_id": "datamodel.primary_keys",
+                "capability": "identify_a_valid_primary_key",
+                "fact_ids": ["f1"]
+            },
+            {
+                "concept_id": "datamodel.primary_keys",
+                "capability": "recognize_a_composite_key",
+                "fact_ids": ["f2"]
+            }
+        ],
+        "anchors": [
+            "datamodel.primary_keys#practice",
+            "datamodel.primary_keys#assessment:identify_a_valid_primary_key",
+            "datamodel.primary_keys#assessment:recognize_a_composite_key"
+        ],
+        "public": {
+            "asset_ref": {
+                "asset_id": "ds_customers_pk_candidates",
+                "variant_id": None,
+                "columns": ["customer_id", "name", "phone", "signup_date"]
+            },
+            "intro": "The table shows four candidate columns for the primary key of the customers table. Examine each column's values to decide which can serve as the primary key.",
+            "tasks": [
+                {
+                    "task_id": "task_valid_pk_column",
+                    "prompt": "Select the column that can serve as the primary key — its values are unique and never null.",
+                    "target_kind": "column"
+                },
+                {
+                    "task_id": "task_null_fail",
+                    "prompt": "Select the cell that shows why the phone column cannot be the primary key.",
+                    "target_kind": "cell"
+                },
+                {
+                    "task_id": "task_duplicate_fail",
+                    "prompt": "Select a cell that shows why the name column cannot be the primary key (a duplicate value).",
+                    "target_kind": "cell"
+                }
+            ]
+        },
+        "grading": {
+            "answers": [
+                {
+                    "task_id": "task_valid_pk_column",
+                    "column": "customer_id"
+                },
+                {
+                    "task_id": "task_null_fail",
+                    "row": {"where": {"customer_id": 4}},
+                    "column": "phone",
+                    "expect_value": None
+                },
+                {
+                    "task_id": "task_duplicate_fail",
+                    "row": {"where": {"customer_id": 5}},
+                    "column": "name",
+                    "expect_value": "Amara Okafor"
+                }
+            ],
+            "task_feedback": {
+                "task_valid_pk_column": {
+                    "correct": "Correct. customer_id has unique values and no nulls — it satisfies both requirements for a primary key.",
+                    "incorrect": "Check each column: does it have unique values in every row? Does it have any null values? Only one column passes both tests."
+                },
+                "task_null_fail": {
+                    "correct": "Correct. Customer 4 has a null phone value. A primary key must never be null, so phone cannot serve as the primary key.",
+                    "incorrect": "Look for the row where the phone column is empty (null). That null value is why phone fails as a primary key."
+                },
+                "task_duplicate_fail": {
+                    "correct": "Correct. Customer 5 shares the name 'Amara Okafor' with customer 1. A primary key must be unique, so name cannot serve as the primary key.",
+                    "incorrect": "Look for a name value that appears more than once. That duplicate is why name fails as a primary key."
+                }
+            }
+        },
+        "feedback": {
+            "correct": {
+                "message": "Well done. You identified the valid primary key and spotted the exact values that disqualify the other candidates."
+            },
+            "incorrect": {
+                "message": "A valid primary key must have unique values in every row and no null values. Check each column against both requirements."
+            },
+            "hints": [
+                "Scan each column for repeated values or blank (null) cells.",
+                "A primary key fails if any value is null or if any value appears more than once."
+            ],
+            "remediation_step_id": "tile_datamodel_entities_keys.r02"
+        }
+    }
+})
+
+tiles.append({
+    "tile_id": "tile_datamodel_entities_keys",
+    "interactions": ek_interactions
+})
+
+# ============================================================
+# TILE: tile_datamodel_foreign_keys_one_to_many
+# Remediation steps:
+#   r01 -> datamodel.foreign_keys_referential_integrity
+#   r02 -> datamodel.one_to_many
+# ============================================================
+fk_interactions = []
+
+# s03 — check — choice — explain_what_breaks_referential_integrity (f2,f3)
+# Taught by: s01 (tb1,tb2,tb3 teach f1,f2,f3)
+fk_interactions.append({
+    "step_id": "tile_datamodel_foreign_keys_one_to_many.s03",
+    "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_datamodel_foreign_keys_one_to_many.s03",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": False,
+        "measures": [
+            {
+                "concept_id": "datamodel.foreign_keys_referential_integrity",
+                "capability": "explain_what_breaks_referential_integrity",
+                "fact_ids": ["f2", "f3"]
+            }
+        ],
+        "anchors": [
+            "datamodel.foreign_keys_referential_integrity#assessment:explain_what_breaks_referential_integrity"
+        ],
+        "public": {
+            "prompt": "An orders row has customer_id = 99, but no row in the customers table has customer_id = 99. What is this row called, and what rule does it break?",
+            "options": [
+                {"option_id": "opt_orphan", "text": "An orphan record — it breaks referential integrity because the foreign key value has no matching primary key in the referenced table"},
+                {"option_id": "opt_null_ok", "text": "A valid row — a null or unmatched foreign key is always acceptable"},
+                {"option_id": "opt_duplicate", "text": "A duplicate record — it breaks the uniqueness requirement of the primary key"},
+                {"option_id": "opt_entity", "text": "An entity integrity violation — the primary key of the orders table is null"}
+            ],
+            "selection": "single",
+            "shuffle": True
+        },
+        "grading": {
+            "correct_option_ids": ["opt_orphan"],
+            "option_feedback": {
+                "opt_orphan": {
+                    "message": "Correct. A row whose foreign key value is not found in the referenced table is called an orphan record, and referential integrity is what prevents these."
+                },
+                "opt_null_ok": {
+                    "message": "Not quite. A null foreign key is acceptable, but a non-null foreign key that has no matching primary key in the referenced table is not. That creates an orphan record and breaks referential integrity."
+                },
+                "opt_duplicate": {
+                    "message": "Not quite. This is not a duplicate-row issue. The problem is that the foreign key value (99) does not match any primary key in the customers table — that is an orphan record violating referential integrity."
+                },
+                "opt_entity": {
+                    "message": "Not quite. Entity integrity is about the primary key being non-null. The issue here is the foreign key value (99) having no match in the referenced table — that is a referential integrity violation."
+                }
+            }
+        },
+        "feedback": {
+            "correct": {
+                "message": "Right. A non-null foreign key that has no matching primary key in the referenced table creates an orphan record and breaks referential integrity."
+            },
+            "incorrect": {
+                "message": "Remember: referential integrity requires that a non-null foreign key value must match an existing primary key in the referenced table."
+            },
+            "hints": [
+                "What is the term for a row whose foreign key value has no matching row in the referenced table?",
+                "A null foreign key is fine. A non-null foreign key with no match is the problem."
+            ],
+            "remediation_step_id": "tile_datamodel_foreign_keys_one_to_many.r01"
+        }
+    }
+})
+
+# s04 — hands_on — table_select — identify_the_foreign_key_column (f1) + explain_what_breaks_referential_integrity (f2,f3)
+# Taught by: s01 (tb1,tb2,tb3 teach f1,f2,f3)
+# Uses ds_orders with orphan variant (order_id=107 -> customer_id=99)
+fk_interactions.append({
+    "step_id": "tile_datamodel_foreign_keys_one_to_many.s04",
+    "interaction": {
+        "type": "table_select",
+        "interaction_id": "ix.tile_datamodel_foreign_keys_one_to_many.s04",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": False,
+        "measures": [
+            {
+                "concept_id": "datamodel.foreign_keys_referential_integrity",
+                "capability": "identify_the_foreign_key_column",
+                "fact_ids": ["f1"]
+            },
+            {
+                "concept_id": "datamodel.foreign_keys_referential_integrity",
+                "capability": "explain_what_breaks_referential_integrity",
+                "fact_ids": ["f2", "f3"]
+            }
+        ],
+        "anchors": [
+            "datamodel.foreign_keys_referential_integrity#practice",
+            "datamodel.foreign_keys_referential_integrity#assessment:identify_the_foreign_key_column",
+            "datamodel.foreign_keys_referential_integrity#assessment:explain_what_breaks_referential_integrity"
+        ],
+        "public": {
+            "asset_ref": {
+                "asset_id": "ds_orders",
+                "variant_id": "ds_orders.with_orphan",
+                "columns": ["order_id", "customer_id", "delivery_minutes"]
+            },
+            "intro": "The orders table has been modified so that one row references a customer that does not exist in the customers table. Use the table to answer the tasks below.",
+            "tasks": [
+                {
+                    "task_id": "task_fk_column",
+                    "prompt": "Select the column in the orders table that is the foreign key referencing the customers table.",
+                    "target_kind": "column"
+                },
+                {
+                    "task_id": "task_orphan_row",
+                    "prompt": "Select the row that creates an orphan record — its foreign key value has no matching primary key in the customers table.",
+                    "target_kind": "row"
+                },
+                {
+                    "task_id": "task_orphan_cell",
+                    "prompt": "Select the specific cell containing the foreign key value that breaks referential integrity.",
+                    "target_kind": "cell"
+                }
+            ]
+        },
+        "grading": {
+            "answers": [
+                {
+                    "task_id": "task_fk_column",
+                    "column": "customer_id"
+                },
+                {
+                    "task_id": "task_orphan_row",
+                    "row": {"where": {"order_id": 107}},
+                    "column": "customer_id",
+                    "expect_value": 99
+                },
+                {
+                    "task_id": "task_orphan_cell",
+                    "row": {"where": {"order_id": 107}},
+                    "column": "customer_id",
+                    "expect_value": 99
+                }
+            ],
+            "task_feedback": {
+                "task_fk_column": {
+                    "correct": "Correct. customer_id in the orders table is the foreign key — its values must match a customer_id in the customers table.",
+                    "incorrect": "The foreign key is the column whose values reference the primary key of another table. Which column in orders points to the customers table?"
+                },
+                "task_orphan_row": {
+                    "correct": "Correct. Order 107 has customer_id = 99, which does not exist in the customers table — making it an orphan record.",
+                    "incorrect": "Check each row's customer_id value. Which one does not appear in the customers table (valid customer_ids are 1–5)?"
+                },
+                "task_orphan_cell": {
+                    "correct": "Correct. The value 99 in the customer_id column of order 107 has no matching row in the customers table, breaking referential integrity.",
+                    "incorrect": "Find the row with the unmatched customer_id and select the cell in the customer_id column for that row."
+                }
+            }
+        },
+        "feedback": {
+            "correct": {
+                "message": "Excellent. You identified the foreign key column and pinpointed the exact cell that breaks referential integrity."
+            },
+            "incorrect": {
+                "message": "The foreign key column links orders to customers. An orphan record has a foreign key value that matches no primary key in the referenced table."
+            },
+            "hints": [
+                "The foreign key is the column that references another table's primary key. Which column in orders does that?",
+                "Valid customer_ids in the customers table are 1 through 5. Which order row has a customer_id outside that range?"
+            ],
+            "remediation_step_id": "tile_datamodel_foreign_keys_one_to_many.r01"
+        }
+    }
+})
+
+# s07 — check — choice — place_the_foreign_key_on_the_many_side (f2)
+# Taught by: s05 (tb1,tb2,tb3 teach f1,f2)
+fk_interactions.append({
+    "step_id": "tile_datamodel_foreign_keys_one_to_many.s07",
+    "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_datamodel_foreign_keys_one_to_many.s07",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": False,
+        "measures": [
+            {
+                "concept_id": "datamodel.one_to_many",
+                "capability": "place_the_foreign_key_on_the_many_side",
+                "fact_ids": ["f2"]
+            }
+        ],
+        "anchors": [
+            "datamodel.one_to_many#assessment:place_the_foreign_key_on_the_many_side"
+        ],
+        "public": {
+            "prompt": "In the QuickShip database, one customer can place many orders. Where should the foreign key (customer_id) be placed?",
+            "options": [
+                {"option_id": "opt_orders", "text": "In the orders table — the many side holds the foreign key"},
+                {"option_id": "opt_customers", "text": "In the customers table — the one side holds the foreign key"},
+                {"option_id": "opt_both", "text": "In both tables — each side needs a copy of the foreign key"},
+                {"option_id": "opt_neither", "text": "In neither table — a separate linking table is always required"}
+            ],
+            "selection": "single",
+            "shuffle": True
+        },
+        "grading": {
+            "correct_option_ids": ["opt_orders"],
+            "option_feedback": {
+                "opt_orders": {
+                    "message": "Correct. In a one-to-many relationship, the foreign key is placed in the table on the many side — here, the orders table."
+                },
+                "opt_customers": {
+                    "message": "Not quite. Placing the foreign key in the customers table would require storing multiple order IDs in one customer row, which is not how relational tables work. The foreign key goes in the orders table (the many side)."
+                },
+                "opt_both": {
+                    "message": "Not quite. Only the many side needs the foreign key. Placing it in both tables would create redundancy and inconsistency."
+                },
+                "opt_neither": {
+                    "message": "Not quite. A separate junction table is needed for many-to-many relationships, not one-to-many. In a 1:M relationship, the foreign key goes directly in the many-side table."
+                }
+            }
+        },
+        "feedback": {
+            "correct": {
+                "message": "Right. The foreign key always goes in the many-side table — here, orders holds customer_id to reference the customers table."
+            },
+            "incorrect": {
+                "message": "In a one-to-many relationship, the many side holds the foreign key. Think about which table has multiple rows per entity on the other side."
+            },
+            "hints": [
+                "Which table has multiple rows for a single customer? That is the many side.",
+                "The many side holds the foreign key because each row on the many side references exactly one row on the one side."
+            ],
+            "remediation_step_id": "tile_datamodel_foreign_keys_one_to_many.r02"
+        }
+    }
+})
+
+# s08 — hands_on — table_select — identify_the_one_and_many_sides (f1) + place_the_foreign_key_on_the_many_side (f2)
+# Taught by: s05 (tb1,tb2,tb3 teach f1,f2)
+# Uses ds_orders
+fk_interactions.append({
+    "step_id": "tile_datamodel_foreign_keys_one_to_many.s08",
+    "interaction": {
+        "type": "table_select",
+        "interaction_id": "ix.tile_datamodel_foreign_keys_one_to_many.s08",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": False,
+        "measures": [
+            {
+                "concept_id": "datamodel.one_to_many",
+                "capability": "identify_the_one_and_many_sides",
+                "fact_ids": ["f1"]
+            },
+            {
+                "concept_id": "datamodel.one_to_many",
+                "capability": "place_the_foreign_key_on_the_many_side",
+                "fact_ids": ["f2"]
+            }
+        ],
+        "anchors": [
+            "datamodel.one_to_many#practice",
+            "datamodel.one_to_many#assessment:identify_the_one_and_many_sides",
+            "datamodel.one_to_many#assessment:place_the_foreign_key_on_the_many_side"
+        ],
+        "public": {
+            "asset_ref": {
+                "asset_id": "ds_orders",
+                "variant_id": None,
+                "columns": ["order_id", "customer_id", "delivery_minutes"]
+            },
+            "intro": "The orders table is shown below. Customer 1 (Amara Okafor) has placed orders 101 and 103; customer 2 (Emeka Nwosu) has placed orders 102 and 106. Use the table to answer the tasks.",
+            "tasks": [
+                {
+                    "task_id": "task_many_side_evidence",
+                    "prompt": "Select a row that shows the same customer_id appearing more than once — evidence that orders is the many side of the relationship.",
+                    "target_kind": "row"
+                },
+                {
+                    "task_id": "task_fk_in_orders",
+                    "prompt": "Select the column in the orders table that is the foreign key linking each order to its customer.",
+                    "target_kind": "column"
+                }
+            ]
+        },
+        "grading": {
+            "answers": [
+                {
+                    "task_id": "task_many_side_evidence",
+                    "row": {"where": {"order_id": 103}},
+                    "column": "customer_id",
+                    "expect_value": 1
+                },
+                {
+                    "task_id": "task_fk_in_orders",
+                    "column": "customer_id"
+                }
+            ],
+            "task_feedback": {
+                "task_many_side_evidence": {
+                    "correct": "Correct. Order 103 also has customer_id = 1, showing that customer 1 has multiple orders — confirming orders is the many side.",
+                    "incorrect": "Look for a customer_id value that appears in more than one row. That repetition shows orders is the many side."
+                },
+                "task_fk_in_orders": {
+                    "correct": "Correct. customer_id in the orders table is the foreign key — it references the primary key of the customers table and is placed on the many side.",
+                    "incorrect": "The foreign key is the column that references another table's primary key. Which column in orders points to the customers table?"
+                }
+            }
+        },
+        "feedback": {
+            "correct": {
+                "message": "Well done. You identified the many side (orders) and the foreign key column (customer_id) that links each order to its customer."
+            },
+            "incorrect": {
+                "message": "The many side is the table where the same value from the other table appears in multiple rows. The foreign key is the column that creates that link."
+            },
+            "hints": [
+                "Look for a customer_id value that appears in more than one row in the orders table.",
+                "The foreign key is in the orders table because each order belongs to exactly one customer, but one customer can have many orders."
+            ],
+            "remediation_step_id": "tile_datamodel_foreign_keys_one_to_many.r02"
+        }
+    }
+})
+
+tiles.append({
+    "tile_id": "tile_datamodel_foreign_keys_one_to_many",
+    "interactions": fk_interactions
+})
+
+# ── assemble output ──────────────────────────────────────────────────────────
+output = {
+    "schema_version": "1.0.0",
+    "kind": "interactions_part",
+    "path_id": "data_analyst",
+    "batch_id": "final_batch_003_da_chunk",
+    "tiles": tiles
+}
+
+out_path = BATCH / "interactions.part.c1.json"
+with open(out_path, "w") as f:
+    json.dump(output, f, indent=2)
+
+print(f"Written: {out_path}")
+total = sum(len(t["interactions"]) for t in tiles)
+for t in tiles:
+    print(f"  {t['tile_id']}: {len(t['interactions'])} interactions")
+print(f"  TOTAL: {total}")

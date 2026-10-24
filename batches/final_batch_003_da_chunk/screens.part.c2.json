@@ -1,0 +1,1464 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "screens_part",
+  "path_id": "data_analyst",
+  "batch_id": "final_batch_003_da_chunk",
+  "tiles": [
+    {
+      "tile_id": "tile_datamodel_normalization_many_to_many",
+      "title": "Normalization and Many-to-Many Relationships",
+      "summary": "Learn why repeating data in a single table causes update anomalies, how splitting tables into separate entities removes that redundancy, and how a junction table resolves a many-to-many relationship into two ordinary one-to-many links.",
+      "steps": [
+        {
+          "step_id": "tile_datamodel_normalization_many_to_many.s01",
+          "type": "explainer",
+          "concept_ids": [
+            "datamodel.normalization_basics"
+          ],
+          "eyebrow": "Normalization",
+          "title": "One big table — and its hidden cost",
+          "lede": "Imagine every order row repeating the customer's name and city. That design looks simple, but it carries a real cost.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_datamodel_normalization_many_to_many.s01.b1",
+              "role": "intro",
+              "text": "Imagine, instead of separate customers and orders tables, one wide orders table that repeats each customer's name and city on every order row they place. A customer with five orders would have their name and city written out five separate times. Normalization is the process of determining how much redundancy exists in a table, with the goal of transforming the schema to remove that redundancy.",
+              "lineage": {
+                "concept_ids": [
+                  "datamodel.normalization_basics"
+                ],
+                "teaching_block_ids": [
+                  "datamodel.normalization_basics#tb1",
+                  "datamodel.normalization_basics#tb2"
+                ],
+                "fact_ids": [
+                  "datamodel.normalization_basics#f1"
+                ]
+              }
+            },
+            {
+              "type": "side_by_side",
+              "block_id": "tile_datamodel_normalization_many_to_many.s01.b2",
+              "left_label": "Un-normalized (redundant)",
+              "right_label": "Normalized (split)",
+              "left": {
+                "type": "diagram",
+                "diagram_kind": "container",
+                "title": "orders_flat (un-normalized)",
+                "nodes": [
+                  {
+                    "id": "col_order_id",
+                    "label": "order_id",
+                    "kind": "column"
+                  },
+                  {
+                    "id": "col_customer_name",
+                    "label": "customer_name  ← repeats per order",
+                    "kind": "column_bad"
+                  },
+                  {
+                    "id": "col_customer_city",
+                    "label": "customer_city  ← repeats per order",
+                    "kind": "column_bad"
+                  },
+                  {
+                    "id": "col_delivery_minutes",
+                    "label": "delivery_minutes",
+                    "kind": "column"
+                  }
+                ],
+                "alt_text": "A single flat orders table with columns order_id, customer_name, customer_city, delivery_minutes. customer_name and customer_city are marked as repeating on every order row — the un-normalized design that causes update anomalies."
+              },
+              "right": {
+                "type": "data_table",
+                "asset_ref": {
+                  "asset_id": "ds_customers",
+                  "variant_id": null,
+                  "columns": [
+                    "customer_id",
+                    "name",
+                    "city"
+                  ]
+                },
+                "caption": "customers table — name and city stored once; orders link back via customer_id",
+                "tag_columns": [
+                  {
+                    "column": "customer_id",
+                    "tag": "primary key",
+                    "tone": "good"
+                  }
+                ]
+              },
+              "takeaway": "Moving customer_name and customer_city into their own table stores each value exactly once. The orders table keeps only customer_id to link back — no more repeated values, no update anomaly.",
+              "lineage": {
+                "concept_ids": [
+                  "datamodel.normalization_basics"
+                ],
+                "teaching_block_ids": [
+                  "datamodel.normalization_basics#tb1",
+                  "datamodel.normalization_basics#tb2"
+                ],
+                "fact_ids": [
+                  "datamodel.normalization_basics#f1"
+                ],
+                "anchors": [
+                  "datamodel.normalization_basics#visual"
+                ]
+              }
+            }
+          ],
+          "reward": {
+            "gems": 5
+          },
+          "lineage": {
+            "concept_ids": [
+              "datamodel.normalization_basics"
+            ],
+            "teaching_block_ids": [
+              "datamodel.normalization_basics#tb1",
+              "datamodel.normalization_basics#tb2"
+            ],
+            "fact_ids": [
+              "datamodel.normalization_basics#f1"
+            ],
+            "anchors": [
+              "datamodel.normalization_basics#visual"
+            ]
+          }
+        },
+        {
+          "step_id": "tile_datamodel_normalization_many_to_many.s02",
+          "type": "explainer",
+          "concept_ids": [
+            "datamodel.normalization_basics"
+          ],
+          "eyebrow": "Normalization",
+          "title": "Update anomalies and the fix",
+          "lede": "Repeated data doesn't just waste space — it creates a consistency trap every time a value needs to change.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_datamodel_normalization_many_to_many.s02.b1",
+              "role": "mechanism",
+              "text": "Redundant data is generally undesirable because it causes problems maintaining consistency after updates. If a customer's city changes, every one of the repeated rows must be updated. Missing even one leaves inconsistent data — an update anomaly, where the same customer appears to live in two different cities depending on which order row you read.",
+              "lineage": {
+                "concept_ids": [
+                  "datamodel.normalization_basics"
+                ],
+                "teaching_block_ids": [
+                  "datamodel.normalization_basics#tb3"
+                ],
+                "fact_ids": [
+                  "datamodel.normalization_basics#f2"
+                ]
+              }
+            },
+            {
+              "type": "prose",
+              "block_id": "tile_datamodel_normalization_many_to_many.s02.b2",
+              "role": "definition",
+              "text": "One way to remove the redundancy is to move the data that would otherwise repeat across many rows into a new, separate table, linked back to the original record by a key column — exactly the split into customers (name and city stored once each) and orders (which keeps only customer_id to identify the customer) that the QuickShip schema already uses.",
+              "lineage": {
+                "concept_ids": [
+                  "datamodel.normalization_basics"
+                ],
+                "teaching_block_ids": [
+                  "datamodel.normalization_basics#tb3"
+                ],
+                "fact_ids": [
+                  "datamodel.normalization_basics#f3"
+                ]
+              }
+            }
+          ],
+          "reward": {
+            "gems": 5
+          },
+          "lineage": {
+            "concept_ids": [
+              "datamodel.normalization_basics"
+            ],
+            "teaching_block_ids": [
+              "datamodel.normalization_basics#tb3"
+            ],
+            "fact_ids": [
+              "datamodel.normalization_basics#f2",
+              "datamodel.normalization_basics#f3"
+            ]
+          }
+        },
+        {
+          "step_id": "tile_datamodel_normalization_many_to_many.s03",
+          "type": "check",
+          "concept_ids": [
+            "datamodel.normalization_basics"
+          ],
+          "eyebrow": "Quick Check",
+          "title": "Splitting a table to remove redundancy",
+          "lede": "A single orders table stores customer_id, customer_name, customer_city, and delivery_minutes on every row. Which change removes the redundancy?",
+          "reward": {
+            "gems": 10,
+            "first_try_bonus": 5
+          },
+          "lineage": {
+            "concept_ids": [
+              "datamodel.normalization_basics"
+            ],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "datamodel.normalization_basics#f3"
+            ],
+            "anchors": [
+              "datamodel.normalization_basics#assessment:split_a_table_to_remove_redundancy"
+            ]
+          }
+        },
+        {
+          "step_id": "tile_datamodel_normalization_many_to_many.s04",
+          "type": "hands_on",
+          "concept_ids": [
+            "datamodel.normalization_basics"
+          ],
+          "eyebrow": "Hands-On Practice",
+          "title": "Find the redundancy and redesign the table",
+          "lede": "The QuickShip orders table has customer details repeated on every row. Identify the redundant columns and redesign the schema into two tables that remove the update anomaly.",
+          "reward": {
+            "gems": 15,
+            "first_try_bonus": 5
+          },
+          "lineage": {
+            "concept_ids": [
+              "datamodel.normalization_basics"
+            ],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "datamodel.normalization_basics#f1",
+              "datamodel.normalization_basics#f2",
+              "datamodel.normalization_basics#f3"
+            ],
+            "anchors": [
+              "datamodel.normalization_basics#practice",
+              "datamodel.normalization_basics#assessment:identify_redundancy_and_its_update_problem",
+              "datamodel.normalization_basics#assessment:split_a_table_to_remove_redundancy"
+            ]
+          }
+        },
+        {
+          "step_id": "tile_datamodel_normalization_many_to_many.s05",
+          "type": "explainer",
+          "concept_ids": [
+            "datamodel.many_to_many_junction_tables"
+          ],
+          "eyebrow": "Many-to-Many Relationships",
+          "title": "When both sides can have many — the junction table",
+          "lede": "One order can include several products, and one product can appear in several orders. That shape of relationship needs a different solution.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_datamodel_normalization_many_to_many.s05.b1",
+              "role": "intro",
+              "text": "One order can include several products, and one product — say, a rice bag — can show up in several different orders. Neither side is limited to 'one' the way customer/order was. A many-to-many (M:N) relationship cannot be implemented directly in the relational model; it is resolved into two one-to-many relationships using a composite entity, also called a junction or bridge table.",
+              "lineage": {
+                "concept_ids": [
+                  "datamodel.many_to_many_junction_tables"
+                ],
+                "teaching_block_ids": [
+                  "datamodel.many_to_many_junction_tables#tb1",
+                  "datamodel.many_to_many_junction_tables#tb2"
+                ],
+                "fact_ids": [
+                  "datamodel.many_to_many_junction_tables#f1"
+                ]
+              }
+            },
+            {
+              "type": "prose",
+              "block_id": "tile_datamodel_normalization_many_to_many.s05.b2",
+              "role": "example",
+              "text": "Between orders and products, that junction table — order_items — holds one row for every order/product pairing: order 101 paired with the rice bag, order 101 paired with cooking oil, order 103 paired with the rice bag again. Each pairing is its own row; the two sides connect through two one-to-many links.",
+              "lineage": {
+                "concept_ids": [
+                  "datamodel.many_to_many_junction_tables"
+                ],
+                "teaching_block_ids": [
+                  "datamodel.many_to_many_junction_tables#tb2"
+                ],
+                "fact_ids": [
+                  "datamodel.many_to_many_junction_tables#f1"
+                ]
+              }
+            },
+            {
+              "type": "diagram",
+              "block_id": "tile_datamodel_normalization_many_to_many.s05.b3",
+              "diagram_kind": "erd",
+              "title": "Many-to-many resolved via order_items junction table",
+              "nodes": [
+                {
+                  "id": "orders_node",
+                  "label": "orders",
+                  "kind": "entity",
+                  "fields": [
+                    "order_id (PK)",
+                    "customer_id",
+                    "delivery_minutes"
+                  ]
+                },
+                {
+                  "id": "order_items_node",
+                  "label": "order_items",
+                  "kind": "entity",
+                  "fields": [
+                    "order_id (FK, PK)",
+                    "product_id (FK, PK)"
+                  ]
+                },
+                {
+                  "id": "products_node",
+                  "label": "products",
+                  "kind": "entity",
+                  "fields": [
+                    "product_id (PK)",
+                    "name"
+                  ]
+                }
+              ],
+              "edges": [
+                {
+                  "from": "orders_node",
+                  "to": "order_items_node",
+                  "label": "1:N",
+                  "cardinality": "1:N"
+                },
+                {
+                  "from": "products_node",
+                  "to": "order_items_node",
+                  "label": "1:N",
+                  "cardinality": "1:N"
+                }
+              ],
+              "alt_text": "ERD showing orders linked to order_items (1:N) and products linked to order_items (1:N). order_items has a composite primary key of order_id and product_id, both foreign keys. The many-to-many between orders and products is resolved through the junction table.",
+              "lineage": {
+                "concept_ids": [
+                  "datamodel.many_to_many_junction_tables"
+                ],
+                "teaching_block_ids": [
+                  "datamodel.many_to_many_junction_tables#tb1",
+                  "datamodel.many_to_many_junction_tables#tb2"
+                ],
+                "fact_ids": [
+                  "datamodel.many_to_many_junction_tables#f1"
+                ],
+                "anchors": [
+                  "datamodel.many_to_many_junction_tables#visual"
+                ]
+              }
+            }
+          ],
+          "reward": {
+            "gems": 5
+          },
+          "lineage": {
+            "concept_ids": [
+              "datamodel.many_to_many_junction_tables"
+            ],
+            "teaching_block_ids": [
+              "datamodel.many_to_many_junction_tables#tb1",
+              "datamodel.many_to_many_junction_tables#tb2"
+            ],
+            "fact_ids": [
+              "datamodel.many_to_many_junction_tables#f1"
+            ],
+            "anchors": [
+              "datamodel.many_to_many_junction_tables#visual"
+            ]
+          }
+        },
+        {
+          "step_id": "tile_datamodel_normalization_many_to_many.s06",
+          "type": "explainer",
+          "concept_ids": [
+            "datamodel.many_to_many_junction_tables"
+          ],
+          "eyebrow": "Many-to-Many Relationships",
+          "title": "What goes inside the junction table",
+          "lede": "The junction table must carry the right columns — and those columns together form its primary key.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_datamodel_normalization_many_to_many.s06.b1",
+              "role": "mechanism",
+              "text": "The junction table must contain at least the primary keys of the two original tables, used as foreign keys, and may also contain additional attributes of its own. order_items holds order_id (a foreign key to orders) and product_id (a foreign key to products). The combination of those two foreign keys makes the primary key of the junction table — the pair (order_id, product_id) together is unique, since the same order won't list the same product twice.",
+              "lineage": {
+                "concept_ids": [
+                  "datamodel.many_to_many_junction_tables"
+                ],
+                "teaching_block_ids": [
+                  "datamodel.many_to_many_junction_tables#tb3"
+                ],
+                "fact_ids": [
+                  "datamodel.many_to_many_junction_tables#f2",
+                  "datamodel.many_to_many_junction_tables#f3"
+                ]
+              }
+            }
+          ],
+          "reward": {
+            "gems": 5
+          },
+          "lineage": {
+            "concept_ids": [
+              "datamodel.many_to_many_junction_tables"
+            ],
+            "teaching_block_ids": [
+              "datamodel.many_to_many_junction_tables#tb3"
+            ],
+            "fact_ids": [
+              "datamodel.many_to_many_junction_tables#f2",
+              "datamodel.many_to_many_junction_tables#f3"
+            ]
+          }
+        },
+        {
+          "step_id": "tile_datamodel_normalization_many_to_many.s07",
+          "type": "video",
+          "concept_ids": [
+            "datamodel.many_to_many_junction_tables"
+          ],
+          "eyebrow": "Video",
+          "title": "Resolving many-to-many with a junction table",
+          "lede": "Watch two failed designs — storing many students in a class row, or many classes in a student row — then see how a junction table fixes both.",
+          "blocks": [
+            {
+              "type": "media_group",
+              "block_id": "tile_datamodel_normalization_many_to_many.s07.b1",
+              "group_title": "Resolving many-to-many with a junction table",
+              "segment_ids": [
+                "seg_datamodel.many_to_many_junction_tables_ztHopE5Wnpc_9049_9568"
+              ]
+            }
+          ],
+          "reward": {
+            "gems": 5
+          },
+          "lineage": {
+            "concept_ids": [
+              "datamodel.many_to_many_junction_tables"
+            ],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "datamodel.many_to_many_junction_tables#f1",
+              "datamodel.many_to_many_junction_tables#f2"
+            ],
+            "segment_ids": [
+              "seg_datamodel.many_to_many_junction_tables_ztHopE5Wnpc_9049_9568"
+            ]
+          }
+        },
+        {
+          "step_id": "tile_datamodel_normalization_many_to_many.s08",
+          "type": "check",
+          "concept_ids": [
+            "datamodel.many_to_many_junction_tables"
+          ],
+          "eyebrow": "Quick Check",
+          "title": "Designing the junction table's keys",
+          "lede": "A junction table called enrollments resolves a many-to-many between students and courses. Which columns must it contain, and what forms its primary key?",
+          "reward": {
+            "gems": 10,
+            "first_try_bonus": 5
+          },
+          "lineage": {
+            "concept_ids": [
+              "datamodel.many_to_many_junction_tables"
+            ],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "datamodel.many_to_many_junction_tables#f2",
+              "datamodel.many_to_many_junction_tables#f3"
+            ],
+            "anchors": [
+              "datamodel.many_to_many_junction_tables#assessment:design_the_junction_table_keys"
+            ]
+          }
+        },
+        {
+          "step_id": "tile_datamodel_normalization_many_to_many.s09",
+          "type": "hands_on",
+          "concept_ids": [
+            "datamodel.many_to_many_junction_tables"
+          ],
+          "eyebrow": "Hands-On Practice",
+          "title": "Design a junction table for students and courses",
+          "lede": "A students table and a courses table have a many-to-many relationship. Select the columns the junction table needs and identify the composite primary key.",
+          "reward": {
+            "gems": 15,
+            "first_try_bonus": 5
+          },
+          "lineage": {
+            "concept_ids": [
+              "datamodel.many_to_many_junction_tables"
+            ],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "datamodel.many_to_many_junction_tables#f1",
+              "datamodel.many_to_many_junction_tables#f2",
+              "datamodel.many_to_many_junction_tables#f3"
+            ],
+            "anchors": [
+              "datamodel.many_to_many_junction_tables#practice",
+              "datamodel.many_to_many_junction_tables#assessment:recognize_that_many_to_many_needs_a_junction_table",
+              "datamodel.many_to_many_junction_tables#assessment:design_the_junction_table_keys"
+            ]
+          }
+        },
+        {
+          "step_id": "tile_datamodel_normalization_many_to_many.s10",
+          "type": "recap",
+          "concept_ids": [
+            "datamodel.normalization_basics",
+            "datamodel.many_to_many_junction_tables"
+          ],
+          "eyebrow": "Recap",
+          "title": "What you've learned",
+          "lede": "Two ideas that shape every well-designed relational schema.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_datamodel_normalization_many_to_many.s10.b1",
+              "role": "takeaway",
+              "text": "Normalization removes redundancy by moving repeated data into its own table, linked back by a key — the customers/orders split is normalization already applied. When both sides of a relationship can have many, a junction table resolves it into two one-to-many links; order_items holds a foreign key to each side, and the pair of those keys forms the junction table's primary key.",
+              "lineage": {
+                "concept_ids": [
+                  "datamodel.normalization_basics",
+                  "datamodel.many_to_many_junction_tables"
+                ],
+                "teaching_block_ids": [
+                  "datamodel.normalization_basics#tb4",
+                  "datamodel.many_to_many_junction_tables#tb4"
+                ],
+                "fact_ids": [
+                  "datamodel.normalization_basics#f3",
+                  "datamodel.many_to_many_junction_tables#f1"
+                ]
+              }
+            },
+            {
+              "type": "up_next",
+              "block_id": "tile_datamodel_normalization_many_to_many.s10.b2",
+              "title": "Up next: Reading ER Diagrams",
+              "text": "In the next tile you'll read entity-relationship diagrams — boxes for entities, ovals for attributes, and marked lines for relationship cardinality — so you can interpret any schema at a glance."
+            }
+          ],
+          "reward": {
+            "gems": 10
+          },
+          "lineage": {
+            "concept_ids": [
+              "datamodel.normalization_basics",
+              "datamodel.many_to_many_junction_tables"
+            ],
+            "teaching_block_ids": [
+              "datamodel.normalization_basics#tb4",
+              "datamodel.many_to_many_junction_tables#tb4"
+            ],
+            "fact_ids": [
+              "datamodel.normalization_basics#f3",
+              "datamodel.many_to_many_junction_tables#f1"
+            ]
+          }
+        }
+      ],
+      "remediation_steps": [
+        {
+          "step_id": "tile_datamodel_normalization_many_to_many.r01",
+          "type": "remediation",
+          "concept_ids": [
+            "datamodel.normalization_basics"
+          ],
+          "eyebrow": "Let's revisit",
+          "title": "Splitting a table: a clear contrast",
+          "lede": "Compare a merged table with repeated values against the split design.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_datamodel_normalization_many_to_many.r01.b1",
+              "role": "example",
+              "text": "Un-normalized: one orders table with columns order_id, customer_name, customer_city, delivery_minutes. Customer Amara Okafor in Lagos appears on rows 101 and 103 — her city is stored twice. If she moves, both rows must be updated; missing one creates an update anomaly. Normalized: a customers table stores name and city once (customer_id 1 → Amara Okafor, Lagos). The orders table keeps only customer_id 1 on both rows — one update to customers fixes everything.",
+              "lineage": {
+                "concept_ids": [
+                  "datamodel.normalization_basics"
+                ],
+                "teaching_block_ids": [
+                  "datamodel.normalization_basics#tb2",
+                  "datamodel.normalization_basics#tb3"
+                ],
+                "fact_ids": [
+                  "datamodel.normalization_basics#f2",
+                  "datamodel.normalization_basics#f3"
+                ]
+              }
+            }
+          ],
+          "lineage": {
+            "concept_ids": [
+              "datamodel.normalization_basics"
+            ],
+            "teaching_block_ids": [
+              "datamodel.normalization_basics#tb2",
+              "datamodel.normalization_basics#tb3"
+            ],
+            "fact_ids": [
+              "datamodel.normalization_basics#f2",
+              "datamodel.normalization_basics#f3"
+            ]
+          }
+        },
+        {
+          "step_id": "tile_datamodel_normalization_many_to_many.r02",
+          "type": "remediation",
+          "concept_ids": [
+            "datamodel.many_to_many_junction_tables"
+          ],
+          "eyebrow": "Let's revisit",
+          "title": "Junction table keys: a clear contrast",
+          "lede": "Two designs — one missing a foreign key, one correct.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_datamodel_normalization_many_to_many.r02.b1",
+              "role": "example",
+              "text": "Incomplete: order_items has only order_id — it can't identify which product is in the order, so the link to products is broken. Correct: order_items has order_id (foreign key to orders) and product_id (foreign key to products). The pair (order_id, product_id) is the composite primary key — unique because the same order won't list the same product twice. Both foreign keys are required; either one alone is insufficient.",
+              "lineage": {
+                "concept_ids": [
+                  "datamodel.many_to_many_junction_tables"
+                ],
+                "teaching_block_ids": [
+                  "datamodel.many_to_many_junction_tables#tb3"
+                ],
+                "fact_ids": [
+                  "datamodel.many_to_many_junction_tables#f2",
+                  "datamodel.many_to_many_junction_tables#f3"
+                ]
+              }
+            }
+          ],
+          "lineage": {
+            "concept_ids": [
+              "datamodel.many_to_many_junction_tables"
+            ],
+            "teaching_block_ids": [
+              "datamodel.many_to_many_junction_tables#tb3"
+            ],
+            "fact_ids": [
+              "datamodel.many_to_many_junction_tables#f2",
+              "datamodel.many_to_many_junction_tables#f3"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "tile_id": "tile_datamodel_dimensional_er",
+      "title": "Reading ER Diagrams",
+      "summary": "Learn to read an entity-relationship diagram: boxes for entity types, ovals for attributes with underlined primary keys, and marked relationship lines showing cardinality and connectivity.",
+      "steps": [
+        {
+          "step_id": "tile_datamodel_dimensional_er.s01",
+          "type": "explainer",
+          "concept_ids": [
+            "datamodel.er_diagram_reading"
+          ],
+          "eyebrow": "ER Diagrams",
+          "title": "Boxes, ovals, and relationship lines",
+          "lede": "An entity-relationship diagram gives you a map of a schema — every entity, every attribute, and every relationship at a glance.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_datamodel_dimensional_er.s01.b1",
+              "role": "definition",
+              "text": "In an entity-relationship diagram (ERD), an entity type is represented by its name inside a box — Customer, Order, Product, and Order_Item would each get their own box. Each attribute is represented by an oval with its name inside, attached to its entity's box. The primary key attribute is shown by underlining it — customer_id, underlined, inside an oval attached to the Customer box.",
+              "lineage": {
+                "concept_ids": [
+                  "datamodel.er_diagram_reading"
+                ],
+                "teaching_block_ids": [
+                  "datamodel.er_diagram_reading#tb1"
+                ],
+                "fact_ids": [
+                  "datamodel.er_diagram_reading#f1",
+                  "datamodel.er_diagram_reading#f2"
+                ]
+              }
+            },
+            {
+              "type": "prose",
+              "block_id": "tile_datamodel_dimensional_er.s01.b2",
+              "role": "example",
+              "text": "An ERD shows relationships between entities as lines: one-to-one (1:1), one-to-many (1:M), and many-to-many (M:N). The Customer-to-Order line would be drawn as 1:M, matching that pair. Markings on a relationship line show cardinality and connectivity — the minimum and maximum number of related entities on each side. A three-pronged symbol means 'many'; a zero and one together mean 'zero or one'; a one-and-only-one symbol means that side is mandatory.",
+              "lineage": {
+                "concept_ids": [
+                  "datamodel.er_diagram_reading"
+                ],
+                "teaching_block_ids": [
+                  "datamodel.er_diagram_reading#tb2"
+                ],
+                "fact_ids": [
+                  "datamodel.er_diagram_reading#f3",
+                  "datamodel.er_diagram_reading#f4"
+                ]
+              }
+            },
+            {
+              "type": "diagram",
+              "block_id": "tile_datamodel_dimensional_er.s01.b3",
+              "diagram_kind": "erd",
+              "title": "QuickShip ER diagram — customers, orders, products, order_items",
+              "nodes": [
+                {
+                  "id": "customer_ent",
+                  "label": "Customer",
+                  "kind": "entity",
+                  "fields": [
+                    "customer_id (PK, underlined)",
+                    "name",
+                    "city"
+                  ]
+                },
+                {
+                  "id": "order_ent",
+                  "label": "Order",
+                  "kind": "entity",
+                  "fields": [
+                    "order_id (PK, underlined)",
+                    "customer_id (FK)",
+                    "delivery_minutes"
+                  ]
+                },
+                {
+                  "id": "order_item_ent",
+                  "label": "Order_Item",
+                  "kind": "entity",
+                  "fields": [
+                    "order_id (FK, PK)",
+                    "product_id (FK, PK)"
+                  ]
+                },
+                {
+                  "id": "product_ent",
+                  "label": "Product",
+                  "kind": "entity",
+                  "fields": [
+                    "product_id (PK, underlined)",
+                    "name"
+                  ]
+                }
+              ],
+              "edges": [
+                {
+                  "from": "customer_ent",
+                  "to": "order_ent",
+                  "label": "1:M",
+                  "cardinality": "1:N"
+                },
+                {
+                  "from": "order_ent",
+                  "to": "order_item_ent",
+                  "label": "1:M",
+                  "cardinality": "1:N"
+                },
+                {
+                  "from": "product_ent",
+                  "to": "order_item_ent",
+                  "label": "1:M",
+                  "cardinality": "1:N"
+                }
+              ],
+              "alt_text": "ERD with four entity boxes: Customer (customer_id underlined as PK, name, city), Order (order_id underlined as PK, customer_id FK, delivery_minutes), Order_Item (order_id FK+PK, product_id FK+PK), Product (product_id underlined as PK, name). Customer-to-Order line marked 1:M; Order-to-Order_Item marked 1:M; Product-to-Order_Item marked 1:M.",
+              "lineage": {
+                "concept_ids": [
+                  "datamodel.er_diagram_reading"
+                ],
+                "teaching_block_ids": [
+                  "datamodel.er_diagram_reading#tb1",
+                  "datamodel.er_diagram_reading#tb2"
+                ],
+                "fact_ids": [
+                  "datamodel.er_diagram_reading#f1",
+                  "datamodel.er_diagram_reading#f2",
+                  "datamodel.er_diagram_reading#f3",
+                  "datamodel.er_diagram_reading#f4"
+                ],
+                "anchors": [
+                  "datamodel.er_diagram_reading#visual"
+                ]
+              }
+            }
+          ],
+          "reward": {
+            "gems": 5
+          },
+          "lineage": {
+            "concept_ids": [
+              "datamodel.er_diagram_reading"
+            ],
+            "teaching_block_ids": [
+              "datamodel.er_diagram_reading#tb1",
+              "datamodel.er_diagram_reading#tb2"
+            ],
+            "fact_ids": [
+              "datamodel.er_diagram_reading#f1",
+              "datamodel.er_diagram_reading#f2",
+              "datamodel.er_diagram_reading#f3",
+              "datamodel.er_diagram_reading#f4"
+            ],
+            "anchors": [
+              "datamodel.er_diagram_reading#visual"
+            ]
+          }
+        },
+        {
+          "step_id": "tile_datamodel_dimensional_er.s02",
+          "type": "video",
+          "concept_ids": [
+            "datamodel.er_diagram_reading"
+          ],
+          "eyebrow": "Video",
+          "title": "Reading an ER diagram",
+          "lede": "Watch how boxes, ovals, and relationship lines combine to describe the shape of a relational schema.",
+          "blocks": [
+            {
+              "type": "media_group",
+              "block_id": "tile_datamodel_dimensional_er.s02.b1",
+              "group_title": "Reading an ER diagram",
+              "segment_ids": [
+                "seg_datamodel.er_diagram_reading_NdeeSEknp58_4252_4368"
+              ]
+            }
+          ],
+          "reward": {
+            "gems": 5
+          },
+          "lineage": {
+            "concept_ids": [
+              "datamodel.er_diagram_reading"
+            ],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "datamodel.er_diagram_reading#f1"
+            ],
+            "segment_ids": [
+              "seg_datamodel.er_diagram_reading_NdeeSEknp58_4252_4368"
+            ]
+          }
+        },
+        {
+          "step_id": "tile_datamodel_dimensional_er.s03",
+          "type": "check",
+          "concept_ids": [
+            "datamodel.er_diagram_reading"
+          ],
+          "eyebrow": "Quick Check",
+          "title": "Reading cardinality markings",
+          "lede": "A relationship line between Customer and Order has a three-pronged symbol on the Order side and a one-and-only-one symbol on the Customer side. What does this mean?",
+          "reward": {
+            "gems": 10,
+            "first_try_bonus": 5
+          },
+          "lineage": {
+            "concept_ids": [
+              "datamodel.er_diagram_reading"
+            ],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "datamodel.er_diagram_reading#f3",
+              "datamodel.er_diagram_reading#f4"
+            ],
+            "anchors": [
+              "datamodel.er_diagram_reading#assessment:read_relationship_cardinality_markings"
+            ]
+          }
+        },
+        {
+          "step_id": "tile_datamodel_dimensional_er.s04",
+          "type": "hands_on",
+          "concept_ids": [
+            "datamodel.er_diagram_reading"
+          ],
+          "eyebrow": "Hands-On Practice",
+          "title": "Classify ERD elements and read relationships",
+          "lede": "Given the QuickShip ER diagram, classify each element as an entity, attribute, or primary key, and read each relationship line's cardinality.",
+          "reward": {
+            "gems": 15,
+            "first_try_bonus": 5
+          },
+          "lineage": {
+            "concept_ids": [
+              "datamodel.er_diagram_reading"
+            ],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "datamodel.er_diagram_reading#f1",
+              "datamodel.er_diagram_reading#f2",
+              "datamodel.er_diagram_reading#f3",
+              "datamodel.er_diagram_reading#f4"
+            ],
+            "anchors": [
+              "datamodel.er_diagram_reading#practice",
+              "datamodel.er_diagram_reading#assessment:identify_entities_and_attributes_in_an_erd",
+              "datamodel.er_diagram_reading#assessment:read_relationship_cardinality_markings"
+            ]
+          }
+        },
+        {
+          "step_id": "tile_datamodel_dimensional_er.s05",
+          "type": "recap",
+          "concept_ids": [
+            "datamodel.er_diagram_reading"
+          ],
+          "eyebrow": "Recap",
+          "title": "What you've learned",
+          "lede": "One diagram type that maps an entire relational schema.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_datamodel_dimensional_er.s05.b1",
+              "role": "takeaway",
+              "text": "In an ERD, each entity type is a box, each attribute is an oval attached to its box, and the primary key attribute is underlined. Relationship lines show cardinality: a three-pronged symbol means 'many', a one-and-only-one symbol means mandatory, and a zero-and-one symbol means optional. Reading those markings tells you the minimum and maximum number of related entities on each side of every relationship.",
+              "lineage": {
+                "concept_ids": [
+                  "datamodel.er_diagram_reading"
+                ],
+                "teaching_block_ids": [
+                  "datamodel.er_diagram_reading#tb1",
+                  "datamodel.er_diagram_reading#tb2"
+                ],
+                "fact_ids": [
+                  "datamodel.er_diagram_reading#f1",
+                  "datamodel.er_diagram_reading#f2",
+                  "datamodel.er_diagram_reading#f3",
+                  "datamodel.er_diagram_reading#f4"
+                ]
+              }
+            },
+            {
+              "type": "up_next",
+              "block_id": "tile_datamodel_dimensional_er.s05.b2",
+              "title": "Up next: Joining Tables in SQL",
+              "text": "In the next tile you'll use the relationships you've just mapped to write SQL JOIN queries — combining rows from two tables using the foreign key links the ER diagram describes."
+            }
+          ],
+          "reward": {
+            "gems": 10
+          },
+          "lineage": {
+            "concept_ids": [
+              "datamodel.er_diagram_reading"
+            ],
+            "teaching_block_ids": [
+              "datamodel.er_diagram_reading#tb1",
+              "datamodel.er_diagram_reading#tb2"
+            ],
+            "fact_ids": [
+              "datamodel.er_diagram_reading#f1",
+              "datamodel.er_diagram_reading#f2",
+              "datamodel.er_diagram_reading#f3",
+              "datamodel.er_diagram_reading#f4"
+            ]
+          }
+        }
+      ],
+      "remediation_steps": [
+        {
+          "step_id": "tile_datamodel_dimensional_er.r01",
+          "type": "remediation",
+          "concept_ids": [
+            "datamodel.er_diagram_reading"
+          ],
+          "eyebrow": "Let's revisit",
+          "title": "Cardinality markings: a clear contrast",
+          "lede": "Two relationship lines — one mandatory one-to-many, one optional.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_datamodel_dimensional_er.r01.b1",
+              "role": "example",
+              "text": "Line A: Customer — Order, with a one-and-only-one symbol on the Customer side and a three-pronged symbol on the Order side. Reading: each order belongs to exactly one customer (mandatory), and one customer can have many orders. Line B: Customer — Order, with a zero-and-one symbol on the Customer side and a three-pronged symbol on the Order side. Reading: each order may belong to zero or one customer (optional). The symbol on each side tells you the minimum and maximum for that side — not the other.",
+              "lineage": {
+                "concept_ids": [
+                  "datamodel.er_diagram_reading"
+                ],
+                "teaching_block_ids": [
+                  "datamodel.er_diagram_reading#tb2"
+                ],
+                "fact_ids": [
+                  "datamodel.er_diagram_reading#f3",
+                  "datamodel.er_diagram_reading#f4"
+                ]
+              }
+            }
+          ],
+          "lineage": {
+            "concept_ids": [
+              "datamodel.er_diagram_reading"
+            ],
+            "teaching_block_ids": [
+              "datamodel.er_diagram_reading#tb2"
+            ],
+            "fact_ids": [
+              "datamodel.er_diagram_reading#f3",
+              "datamodel.er_diagram_reading#f4"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "tile_id": "tile_stakeholder_recommendation_translation",
+      "title": "Recommendations and Plain-Language Translation",
+      "summary": "Learn to turn analytical findings into concrete recommendations using the 'because we found X, we recommend Y' pattern, and to rewrite technical results in plain language by glossing specialist terms and replacing formal words with simpler ones.",
+      "steps": [
+        {
+          "step_id": "tile_stakeholder_recommendation_translation.s01",
+          "type": "explainer",
+          "concept_ids": [
+            "stakeholder.data_driven_recommendation"
+          ],
+          "eyebrow": "Data-Driven Recommendations",
+          "title": "From finding to action: the 'because X, recommend Y' pattern",
+          "lede": "A finding that sits in a report, unconnected to any suggested action, may not help the manager who needs to decide something.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_stakeholder_recommendation_translation.s01.b1",
+              "role": "intro",
+              "text": "Having found that Lagos delivery times rose, the next step is turning that finding into something the operations manager can act on. The value of analytical efforts is only truly realized when the insights discovered are acted upon — a finding that sits in a report, unconnected to any suggested action, may not do much for the manager who needs to decide something.",
+              "lineage": {
+                "concept_ids": [
+                  "stakeholder.data_driven_recommendation"
+                ],
+                "teaching_block_ids": [
+                  "stakeholder.data_driven_recommendation#tb1",
+                  "stakeholder.data_driven_recommendation#tb2"
+                ],
+                "fact_ids": [
+                  "stakeholder.data_driven_recommendation#f1"
+                ]
+              }
+            },
+            {
+              "type": "prose",
+              "block_id": "tile_stakeholder_recommendation_translation.s01.b2",
+              "role": "example",
+              "text": "The pattern is: 'because we found X, we recommend Y.' For example: '...was successful and, because of the success, we recommend continuing to offer it going forward; please approve our budget for this program.' Following that same pattern for the delivery finding: 'because the average Lagos delivery time rose from 22 to 30 minutes this month, we recommend adding one more courier to the Lagos route.' The finding directly justifies the action.",
+              "lineage": {
+                "concept_ids": [
+                  "stakeholder.data_driven_recommendation"
+                ],
+                "teaching_block_ids": [
+                  "stakeholder.data_driven_recommendation#tb3"
+                ],
+                "fact_ids": [
+                  "stakeholder.data_driven_recommendation#f2"
+                ]
+              }
+            }
+          ],
+          "reward": {
+            "gems": 5
+          },
+          "lineage": {
+            "concept_ids": [
+              "stakeholder.data_driven_recommendation"
+            ],
+            "teaching_block_ids": [
+              "stakeholder.data_driven_recommendation#tb1",
+              "stakeholder.data_driven_recommendation#tb2",
+              "stakeholder.data_driven_recommendation#tb3"
+            ],
+            "fact_ids": [
+              "stakeholder.data_driven_recommendation#f1",
+              "stakeholder.data_driven_recommendation#f2"
+            ]
+          }
+        },
+        {
+          "step_id": "tile_stakeholder_recommendation_translation.s02",
+          "type": "check",
+          "concept_ids": [
+            "stakeholder.data_driven_recommendation"
+          ],
+          "eyebrow": "Quick Check",
+          "title": "Spotting a data-grounded recommendation",
+          "lede": "Which of the following best follows the 'because we found X, we recommend Y' pattern for a finding that average Kano delivery times rose from 21 to 22.5 minutes?",
+          "reward": {
+            "gems": 10,
+            "first_try_bonus": 5
+          },
+          "lineage": {
+            "concept_ids": [
+              "stakeholder.data_driven_recommendation"
+            ],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "stakeholder.data_driven_recommendation#f1",
+              "stakeholder.data_driven_recommendation#f2"
+            ],
+            "anchors": [
+              "stakeholder.data_driven_recommendation#assessment:write_data_grounded_recommendation"
+            ]
+          }
+        },
+        {
+          "step_id": "tile_stakeholder_recommendation_translation.s03",
+          "type": "hands_on",
+          "concept_ids": [
+            "stakeholder.data_driven_recommendation"
+          ],
+          "eyebrow": "Hands-On Practice",
+          "title": "Write a data-grounded recommendation",
+          "lede": "Review a set of QuickShip delivery findings. Select the columns and values that justify a recommendation, then connect them to a concrete suggested action.",
+          "reward": {
+            "gems": 15,
+            "first_try_bonus": 5
+          },
+          "lineage": {
+            "concept_ids": [
+              "stakeholder.data_driven_recommendation"
+            ],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "stakeholder.data_driven_recommendation#f1",
+              "stakeholder.data_driven_recommendation#f2"
+            ],
+            "anchors": [
+              "stakeholder.data_driven_recommendation#practice",
+              "stakeholder.data_driven_recommendation#assessment:write_data_grounded_recommendation"
+            ]
+          }
+        },
+        {
+          "step_id": "tile_stakeholder_recommendation_translation.s04",
+          "type": "explainer",
+          "concept_ids": [
+            "stakeholder.plain_language_translation"
+          ],
+          "eyebrow": "Plain-Language Translation",
+          "title": "Replacing jargon and formal words",
+          "lede": "An analysis can accumulate technical terms that a non-technical manager won't follow. Two rules keep your writing clear.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_stakeholder_recommendation_translation.s04.b1",
+              "role": "mechanism",
+              "text": "Specialist terms can be used where needed — they are not always jargon — but explain them in plain English the first time they appear. If 'the average delivery time' needs to be called out as a mean for precision, saying 'the average (mean) delivery time' once keeps both the plain and the technical reader covered.",
+              "lineage": {
+                "concept_ids": [
+                  "stakeholder.plain_language_translation"
+                ],
+                "teaching_block_ids": [
+                  "stakeholder.plain_language_translation#tb1",
+                  "stakeholder.plain_language_translation#tb2"
+                ],
+                "fact_ids": [
+                  "stakeholder.plain_language_translation#f1"
+                ]
+              }
+            },
+            {
+              "type": "prose",
+              "block_id": "tile_stakeholder_recommendation_translation.s04.b2",
+              "role": "mechanism",
+              "text": "Formal or long words should be avoided when an easy or short one will do — for example 'buy' instead of 'purchase', 'help' instead of 'assist', 'about' instead of 'approximately'. Jargon and buzzwords should also be avoided because they are often vague and can be misinterpreted. 'Delivery times got worse this month' reads more plainly than 'delivery time performance exhibited negative variance this period.'",
+              "lineage": {
+                "concept_ids": [
+                  "stakeholder.plain_language_translation"
+                ],
+                "teaching_block_ids": [
+                  "stakeholder.plain_language_translation#tb3"
+                ],
+                "fact_ids": [
+                  "stakeholder.plain_language_translation#f2"
+                ]
+              }
+            },
+            {
+              "type": "before_after",
+              "block_id": "tile_stakeholder_recommendation_translation.s04.b3",
+              "before": {
+                "type": "diagram",
+                "diagram_kind": "mapping",
+                "nodes": [
+                  {
+                    "id": "tech_sentence",
+                    "label": "Technical: 'The mean delivery time exhibited a statistically significant increase of approximately 8 minutes, suggesting negative operational variance in the Lagos route.'"
+                  }
+                ],
+                "alt_text": "A technically-worded sentence using 'mean', 'statistically significant', 'approximately', and 'negative operational variance'."
+              },
+              "after": {
+                "type": "diagram",
+                "diagram_kind": "mapping",
+                "nodes": [
+                  {
+                    "id": "plain_sentence",
+                    "label": "Plain: 'The average (mean) delivery time rose by about 8 minutes in Lagos this month — deliveries got slower.'"
+                  }
+                ],
+                "alt_text": "The plain-language rewrite: 'mean' is glossed as 'average (mean)', 'approximately' becomes 'about', and 'negative operational variance' becomes 'got slower'."
+              },
+              "change_summary": "'approximately' → 'about'; 'exhibited a statistically significant increase' → 'rose'; 'negative operational variance' → 'got slower'; 'mean' glossed as 'average (mean)' on first use.",
+              "lineage": {
+                "concept_ids": [
+                  "stakeholder.plain_language_translation"
+                ],
+                "teaching_block_ids": [
+                  "stakeholder.plain_language_translation#tb2",
+                  "stakeholder.plain_language_translation#tb3"
+                ],
+                "fact_ids": [
+                  "stakeholder.plain_language_translation#f1",
+                  "stakeholder.plain_language_translation#f2"
+                ],
+                "anchors": [
+                  "stakeholder.plain_language_translation#visual"
+                ]
+              }
+            }
+          ],
+          "reward": {
+            "gems": 5
+          },
+          "lineage": {
+            "concept_ids": [
+              "stakeholder.plain_language_translation"
+            ],
+            "teaching_block_ids": [
+              "stakeholder.plain_language_translation#tb1",
+              "stakeholder.plain_language_translation#tb2",
+              "stakeholder.plain_language_translation#tb3"
+            ],
+            "fact_ids": [
+              "stakeholder.plain_language_translation#f1",
+              "stakeholder.plain_language_translation#f2"
+            ],
+            "anchors": [
+              "stakeholder.plain_language_translation#visual"
+            ]
+          }
+        },
+        {
+          "step_id": "tile_stakeholder_recommendation_translation.s05",
+          "type": "check",
+          "concept_ids": [
+            "stakeholder.plain_language_translation"
+          ],
+          "eyebrow": "Quick Check",
+          "title": "Replacing a formal word with a simpler one",
+          "lede": "Which word best replaces 'utilise' in the sentence: 'We should utilise the new courier route to reduce delivery times'?",
+          "reward": {
+            "gems": 10,
+            "first_try_bonus": 5
+          },
+          "lineage": {
+            "concept_ids": [
+              "stakeholder.plain_language_translation"
+            ],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "stakeholder.plain_language_translation#f2"
+            ],
+            "anchors": [
+              "stakeholder.plain_language_translation#assessment:replace_formal_or_long_word_with_simpler_equivalent"
+            ]
+          }
+        },
+        {
+          "step_id": "tile_stakeholder_recommendation_translation.s06",
+          "type": "hands_on",
+          "concept_ids": [
+            "stakeholder.plain_language_translation"
+          ],
+          "eyebrow": "Hands-On Practice",
+          "title": "Match technical results to their plain-language rewrites",
+          "lede": "Each technical result below has one plain-language rewrite that correctly applies the two rules: specialist terms glossed on first use, and formal words replaced with simpler equivalents. Match them.",
+          "reward": {
+            "gems": 15,
+            "first_try_bonus": 5
+          },
+          "lineage": {
+            "concept_ids": [
+              "stakeholder.plain_language_translation"
+            ],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "stakeholder.plain_language_translation#f1",
+              "stakeholder.plain_language_translation#f2"
+            ],
+            "anchors": [
+              "stakeholder.plain_language_translation#practice",
+              "stakeholder.plain_language_translation#assessment:restate_technical_result_in_plain_language",
+              "stakeholder.plain_language_translation#assessment:introduce_specialist_term_with_plain_english_gloss",
+              "stakeholder.plain_language_translation#assessment:replace_formal_or_long_word_with_simpler_equivalent"
+            ]
+          }
+        },
+        {
+          "step_id": "tile_stakeholder_recommendation_translation.s07",
+          "type": "recap",
+          "concept_ids": [
+            "stakeholder.data_driven_recommendation",
+            "stakeholder.plain_language_translation"
+          ],
+          "eyebrow": "Recap",
+          "title": "What you've learned",
+          "lede": "Two moves that turn analysis into communication a stakeholder can act on.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_stakeholder_recommendation_translation.s07.b1",
+              "role": "takeaway",
+              "text": "Analytical value is only realized when findings lead to action. The 'because we found X, we recommend Y' pattern connects a specific finding directly to a concrete suggested action. Plain-language translation keeps the message accessible: gloss specialist terms on first use, and replace formal or long words with simpler equivalents — 'about' not 'approximately', 'help' not 'assist'.",
+              "lineage": {
+                "concept_ids": [
+                  "stakeholder.data_driven_recommendation",
+                  "stakeholder.plain_language_translation"
+                ],
+                "teaching_block_ids": [
+                  "stakeholder.data_driven_recommendation#tb2",
+                  "stakeholder.data_driven_recommendation#tb3",
+                  "stakeholder.plain_language_translation#tb2",
+                  "stakeholder.plain_language_translation#tb3"
+                ],
+                "fact_ids": [
+                  "stakeholder.data_driven_recommendation#f1",
+                  "stakeholder.data_driven_recommendation#f2",
+                  "stakeholder.plain_language_translation#f1",
+                  "stakeholder.plain_language_translation#f2"
+                ]
+              }
+            },
+            {
+              "type": "up_next",
+              "block_id": "tile_stakeholder_recommendation_translation.s07.b2",
+              "title": "Up next: Prioritizing Findings for Your Audience",
+              "text": "In the next tile you'll learn how to decide which findings to lead with and which to leave out, so your stakeholder hears the most relevant information first."
+            }
+          ],
+          "reward": {
+            "gems": 10
+          },
+          "lineage": {
+            "concept_ids": [
+              "stakeholder.data_driven_recommendation",
+              "stakeholder.plain_language_translation"
+            ],
+            "teaching_block_ids": [
+              "stakeholder.data_driven_recommendation#tb2",
+              "stakeholder.data_driven_recommendation#tb3",
+              "stakeholder.plain_language_translation#tb2",
+              "stakeholder.plain_language_translation#tb3"
+            ],
+            "fact_ids": [
+              "stakeholder.data_driven_recommendation#f1",
+              "stakeholder.data_driven_recommendation#f2",
+              "stakeholder.plain_language_translation#f1",
+              "stakeholder.plain_language_translation#f2"
+            ]
+          }
+        }
+      ],
+      "remediation_steps": [
+        {
+          "step_id": "tile_stakeholder_recommendation_translation.r01",
+          "type": "remediation",
+          "concept_ids": [
+            "stakeholder.data_driven_recommendation"
+          ],
+          "eyebrow": "Let's revisit",
+          "title": "Data-grounded vs. ungrounded recommendation: a clear contrast",
+          "lede": "Two recommendations about Lagos delivery times — one grounded in data, one not.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_stakeholder_recommendation_translation.r01.b1",
+              "role": "example",
+              "text": "Ungrounded: 'We should add more couriers to Lagos.' No finding is cited — the recommendation floats free of the data. Grounded: 'Because the average Lagos delivery time rose from 22 to 30 minutes this month, we recommend adding one more courier to the Lagos route.' The specific finding (22 → 30 minutes) directly justifies the specific action (one more courier). The 'because X, recommend Y' structure makes the link explicit.",
+              "lineage": {
+                "concept_ids": [
+                  "stakeholder.data_driven_recommendation"
+                ],
+                "teaching_block_ids": [
+                  "stakeholder.data_driven_recommendation#tb2",
+                  "stakeholder.data_driven_recommendation#tb3"
+                ],
+                "fact_ids": [
+                  "stakeholder.data_driven_recommendation#f1",
+                  "stakeholder.data_driven_recommendation#f2"
+                ]
+              }
+            }
+          ],
+          "lineage": {
+            "concept_ids": [
+              "stakeholder.data_driven_recommendation"
+            ],
+            "teaching_block_ids": [
+              "stakeholder.data_driven_recommendation#tb2",
+              "stakeholder.data_driven_recommendation#tb3"
+            ],
+            "fact_ids": [
+              "stakeholder.data_driven_recommendation#f1",
+              "stakeholder.data_driven_recommendation#f2"
+            ]
+          }
+        },
+        {
+          "step_id": "tile_stakeholder_recommendation_translation.r02",
+          "type": "remediation",
+          "concept_ids": [
+            "stakeholder.plain_language_translation"
+          ],
+          "eyebrow": "Let's revisit",
+          "title": "Plain language: a clear contrast",
+          "lede": "The same finding — one version technical, one plain.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_stakeholder_recommendation_translation.r02.b1",
+              "role": "example",
+              "text": "Technical: 'The median (M = 26 min) was below the mean (M = 29.2 min), indicating positive skewness in the delivery-time distribution.' Plain: 'Most deliveries finished in about 26 minutes, but a few very slow orders pulled the average (mean) up to about 29 minutes — the data is skewed right.' Changes: 'M = 26 min' → 'about 26 minutes'; 'positive skewness' → 'skewed right'; 'mean' glossed as 'average (mean)' on first use; 'indicating' → dropped in favour of a plain causal phrase.",
+              "lineage": {
+                "concept_ids": [
+                  "stakeholder.plain_language_translation"
+                ],
+                "teaching_block_ids": [
+                  "stakeholder.plain_language_translation#tb2",
+                  "stakeholder.plain_language_translation#tb3"
+                ],
+                "fact_ids": [
+                  "stakeholder.plain_language_translation#f1",
+                  "stakeholder.plain_language_translation#f2"
+                ]
+              }
+            }
+          ],
+          "lineage": {
+            "concept_ids": [
+              "stakeholder.plain_language_translation"
+            ],
+            "teaching_block_ids": [
+              "stakeholder.plain_language_translation#tb2",
+              "stakeholder.plain_language_translation#tb3"
+            ],
+            "fact_ids": [
+              "stakeholder.plain_language_translation#f1",
+              "stakeholder.plain_language_translation#f2"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

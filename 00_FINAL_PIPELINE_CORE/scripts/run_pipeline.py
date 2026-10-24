@@ -396,8 +396,20 @@ def run_script_stage(c, sid):
     for line in lines:
         c.log(f"{sid}: {line[:140]}")
         c.sh(line.replace("python3 ", f"'{sys.executable}' ", 1))
+    if sid == "02_tile_plan":
+        check_plan_gaps(c)
     if c.artifact(sid) != UL.LEDGER:  # the ledger can't gate itself
         gate(c, sid)
+
+
+def check_plan_gaps(c):
+    """A tile whose plan says 'NO interaction type registered' (or no block mapping) can't be authored: stop before any generator spend."""
+    gaps = {t["tile_id"]: [w for w in t["warnings"] if "NO " in w and "registered" in w or "no block mapping" in w.lower()]
+            for t in load(c.B / "tile_plans.json")["tiles"]}
+    gaps = {k: v for k, v in gaps.items() if v}
+    if gaps:
+        raise Stuck("tile plans have type gaps (NEW_ROLE_RUNBOOK step 4): build the type or remove these tiles from run_config.json/chunks.json, then rerun.\n"
+                    + json.dumps(gaps, indent=1))
 
 
 def check_planned(c, sid):

@@ -1,0 +1,1037 @@
+{
+  "schema_version": "1.0",
+  "kind": "scenario_asset_registry",
+  "path_id": "data_analyst",
+  "batch_id": "final_batch_003_da_chunk",
+  "scenarios": [
+    {
+      "scenario_id": "scen_quickship",
+      "name": "QuickShip Delivery Analytics",
+      "summary": "QuickShip is a fictional last-mile delivery company operating in three Nigerian cities: Lagos, Abuja, and Kano. A junior data analyst is investigating delivery-time performance, exploring distributions and outliers, computing correlations between distance, package weight, and delivery time, and preparing findings for the operations manager.",
+      "locale": "NG",
+      "currency": "NGN",
+      "domain": "logistics / delivery operations",
+      "glossary_example_vocab": [
+        "delivery_minutes",
+        "distance_km",
+        "package_weight_kg",
+        "priority",
+        "city",
+        "Lagos",
+        "Abuja",
+        "Kano",
+        "order_id",
+        "customer_id",
+        "right-skewed distribution",
+        "symmetric distribution",
+        "outlier",
+        "frequency table",
+        "histogram",
+        "modal range",
+        "correlation",
+        "positive association",
+        "negative association",
+        "confounding variable",
+        "association does not imply causation",
+        "operations manager",
+        "courier",
+        "average delivery time rose from 22 to 30 minutes"
+      ]
+    },
+    {
+      "scenario_id": "scen_quickship_db",
+      "name": "QuickShip Relational Database",
+      "summary": "The relational schema behind QuickShip: customers, orders, products, and order_items tables. Used to teach entities, primary keys, foreign keys, referential integrity, one-to-many and many-to-many relationships, normalization, and ER diagram reading.",
+      "locale": "NG",
+      "currency": "NGN",
+      "domain": "relational data modelling / e-commerce logistics",
+      "glossary_example_vocab": [
+        "customers",
+        "orders",
+        "products",
+        "order_items",
+        "customer_id",
+        "order_id",
+        "product_id",
+        "name",
+        "city",
+        "delivery_minutes",
+        "primary key",
+        "foreign key",
+        "referential integrity",
+        "orphan record",
+        "one-to-many",
+        "many-to-many",
+        "junction table",
+        "normalization",
+        "update anomaly",
+        "entity",
+        "entity type",
+        "entity set",
+        "composite key",
+        "entity integrity",
+        "rice bag",
+        "cooking oil",
+        "Customer",
+        "Order",
+        "Product",
+        "Order_Item"
+      ]
+    }
+  ],
+  "assets": [
+    {
+      "asset_id": "ds_delivery_times_sample",
+      "asset_kind": "dataset",
+      "scenario_id": "scen_quickship",
+      "title": "QuickShip Delivery Times — Small Sample (9 orders)",
+      "description": "Nine delivery-time observations used to illustrate distribution shape. Values: 18, 20, 22, 22, 26, 28, 34, 41, 52 minutes. Right-skewed: bulk sits 18–28 min, tail trails right. Mean ≈ 29.2, median = 26.",
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "string",
+          "semantic_role": "identifier",
+          "description": "Unique order reference"
+        },
+        {
+          "name": "delivery_minutes",
+          "type": "integer",
+          "semantic_role": "numerical",
+          "unit": "minutes",
+          "description": "Actual delivery time in minutes from dispatch to doorstep"
+        }
+      ],
+      "rows": [
+        [
+          "ORD-001",
+          18
+        ],
+        [
+          "ORD-002",
+          20
+        ],
+        [
+          "ORD-003",
+          22
+        ],
+        [
+          "ORD-004",
+          22
+        ],
+        [
+          "ORD-005",
+          26
+        ],
+        [
+          "ORD-006",
+          28
+        ],
+        [
+          "ORD-007",
+          34
+        ],
+        [
+          "ORD-008",
+          41
+        ],
+        [
+          "ORD-009",
+          52
+        ]
+      ],
+      "provenance": "authored",
+      "variants": [
+        {
+          "variant_id": "ds_delivery_times_sample.outlier",
+          "derived_from": "ds_delivery_times_sample",
+          "purpose": "Outlier version: the 52-minute order is replaced with an 80-minute order and the 34/41 orders are dropped, leaving the 7-value batch from the outlier teaching block.",
+          "ops": [
+            {
+              "op": "drop_rows",
+              "where": {
+                "order_id": "ORD-007"
+              }
+            },
+            {
+              "op": "drop_rows",
+              "where": {
+                "order_id": "ORD-008"
+              }
+            },
+            {
+              "op": "set_cell",
+              "where": {
+                "order_id": "ORD-009"
+              },
+              "column": "delivery_minutes",
+              "value": 80
+            }
+          ],
+          "planted_issues": [
+            {
+              "issue_id": "issue_outlier_80min",
+              "kind": "outlier_suspicious",
+              "locations": [
+                {
+                  "where": {
+                    "order_id": "ORD-009"
+                  },
+                  "column": "delivery_minutes"
+                }
+              ],
+              "description": "80-minute delivery is extreme relative to the rest of the batch (18–28 min); could be a data-entry error (8.0 → 80) or a genuine event such as a road closure.",
+              "rule": {
+                "column": "delivery_minutes",
+                "op": "gt",
+                "value": 60
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "asset_id": "ds_delivery_frequency_table",
+      "asset_kind": "dataset",
+      "scenario_id": "scen_quickship",
+      "title": "QuickShip Delivery Frequency Table — 21 Orders",
+      "description": "Frequency table of 21 delivery times grouped into 10-minute bins (with a single 50–80 min bin matching the glossary). Bins: 10–20 min: 4 orders, 20–30 min: 9 orders (modal bin), 30–40 min: 5 orders, 40–50 min: 2 orders, 50–80 min: 0 orders, 80–90 min: 1 order. Right-skewed with a single far-out delivery past 80 minutes.",
+      "columns": [
+        {
+          "name": "bin_label",
+          "type": "string",
+          "semantic_role": "categorical",
+          "description": "10-minute delivery-time bin label (e.g. '10–20 min')"
+        },
+        {
+          "name": "bin_lower",
+          "type": "integer",
+          "semantic_role": "numerical",
+          "unit": "minutes",
+          "description": "Lower bound of the bin (inclusive)"
+        },
+        {
+          "name": "bin_upper",
+          "type": "integer",
+          "semantic_role": "numerical",
+          "unit": "minutes",
+          "description": "Upper bound of the bin (exclusive)"
+        },
+        {
+          "name": "order_count",
+          "type": "integer",
+          "semantic_role": "numerical",
+          "unit": "orders",
+          "description": "Number of orders whose delivery time falls in this bin"
+        }
+      ],
+      "rows": [
+        [
+          "10–20 min",
+          10,
+          20,
+          4
+        ],
+        [
+          "20–30 min",
+          20,
+          30,
+          9
+        ],
+        [
+          "30–40 min",
+          30,
+          40,
+          5
+        ],
+        [
+          "40–50 min",
+          40,
+          50,
+          2
+        ],
+        [
+          "50–80 min",
+          50,
+          80,
+          0
+        ],
+        [
+          "80–90 min",
+          80,
+          90,
+          1
+        ]
+      ],
+      "provenance": "authored"
+    },
+    {
+      "asset_id": "ds_delivery_orders_extended",
+      "asset_kind": "dataset",
+      "scenario_id": "scen_quickship",
+      "title": "QuickShip Delivery Orders — Extended (20 orders)",
+      "description": "Twenty delivery orders with distance, package weight, city, priority flag, and delivery time. Supports correlation analysis (distance/time ≈ 0.83 strong positive; weight/time ≈ -0.42 moderate negative; distance/weight ≈ -0.37 weak negative) and city-level comparisons (Lagos, Abuja, Kano). Priority toggle illustrates correlation-vs-causation caveat.",
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "string",
+          "semantic_role": "identifier",
+          "description": "Unique order reference"
+        },
+        {
+          "name": "city",
+          "type": "string",
+          "semantic_role": "categorical",
+          "description": "Delivery city: Lagos, Abuja, or Kano"
+        },
+        {
+          "name": "distance_km",
+          "type": "number",
+          "semantic_role": "numerical",
+          "unit": "km",
+          "description": "Distance from dispatch hub to delivery address in kilometres"
+        },
+        {
+          "name": "package_weight_kg",
+          "type": "number",
+          "semantic_role": "numerical",
+          "unit": "kg",
+          "description": "Package weight in kilograms"
+        },
+        {
+          "name": "priority",
+          "type": "boolean",
+          "semantic_role": "categorical",
+          "description": "Whether the customer selected the priority delivery toggle"
+        },
+        {
+          "name": "delivery_minutes",
+          "type": "integer",
+          "semantic_role": "numerical",
+          "unit": "minutes",
+          "description": "Actual delivery time in minutes from dispatch to doorstep"
+        }
+      ],
+      "rows": [
+        [
+          "ORD-101",
+          "Lagos",
+          3.2,
+          7.4,
+          false,
+          28
+        ],
+        [
+          "ORD-102",
+          "Lagos",
+          5.1,
+          8.6,
+          false,
+          20
+        ],
+        [
+          "ORD-103",
+          "Lagos",
+          7.4,
+          4.0,
+          true,
+          36
+        ],
+        [
+          "ORD-104",
+          "Lagos",
+          9.8,
+          7.7,
+          false,
+          29
+        ],
+        [
+          "ORD-105",
+          "Lagos",
+          12.3,
+          5.5,
+          false,
+          41
+        ],
+        [
+          "ORD-106",
+          "Lagos",
+          14.0,
+          2.9,
+          true,
+          37
+        ],
+        [
+          "ORD-107",
+          "Lagos",
+          16.5,
+          6.8,
+          false,
+          46
+        ],
+        [
+          "ORD-108",
+          "Abuja",
+          2.8,
+          7.2,
+          true,
+          18
+        ],
+        [
+          "ORD-109",
+          "Abuja",
+          4.5,
+          4.3,
+          false,
+          31
+        ],
+        [
+          "ORD-110",
+          "Abuja",
+          6.2,
+          9.1,
+          true,
+          20
+        ],
+        [
+          "ORD-111",
+          "Abuja",
+          8.0,
+          4.9,
+          false,
+          34
+        ],
+        [
+          "ORD-112",
+          "Abuja",
+          10.5,
+          8.3,
+          false,
+          26
+        ],
+        [
+          "ORD-113",
+          "Kano",
+          2.0,
+          5.9,
+          true,
+          17
+        ],
+        [
+          "ORD-114",
+          "Kano",
+          3.5,
+          9.3,
+          false,
+          23
+        ],
+        [
+          "ORD-115",
+          "Kano",
+          5.0,
+          4.2,
+          true,
+          18
+        ],
+        [
+          "ORD-116",
+          "Kano",
+          7.0,
+          7.2,
+          false,
+          35
+        ],
+        [
+          "ORD-117",
+          "Kano",
+          9.5,
+          5.5,
+          false,
+          24
+        ],
+        [
+          "ORD-118",
+          "Lagos",
+          18.0,
+          4.4,
+          false,
+          52
+        ],
+        [
+          "ORD-119",
+          "Lagos",
+          11.0,
+          2.2,
+          true,
+          34
+        ],
+        [
+          "ORD-120",
+          "Abuja",
+          5.5,
+          8.0,
+          true,
+          30
+        ]
+      ],
+      "provenance": "authored"
+    },
+    {
+      "asset_id": "ds_correlation_matrix",
+      "asset_kind": "dataset",
+      "scenario_id": "scen_quickship",
+      "title": "QuickShip Pairwise Correlation Matrix (3 variables)",
+      "description": "Pairwise Pearson correlation coefficients for distance_km, package_weight_kg, and delivery_minutes. Values: distance/delivery_minutes=0.82 (strong positive), weight/delivery_minutes=-0.41 (moderate negative), distance/weight=-0.38 (weak negative). Used to teach ranking by magnitude and confounding variable reasoning.",
+      "columns": [
+        {
+          "name": "variable",
+          "type": "string",
+          "semantic_role": "identifier",
+          "description": "Row variable name"
+        },
+        {
+          "name": "distance_km",
+          "type": "number",
+          "semantic_role": "numerical",
+          "description": "Correlation with distance_km"
+        },
+        {
+          "name": "package_weight_kg",
+          "type": "number",
+          "semantic_role": "numerical",
+          "description": "Correlation with package_weight_kg"
+        },
+        {
+          "name": "delivery_minutes",
+          "type": "number",
+          "semantic_role": "numerical",
+          "description": "Correlation with delivery_minutes"
+        }
+      ],
+      "rows": [
+        [
+          "distance_km",
+          1.0,
+          -0.38,
+          0.82
+        ],
+        [
+          "package_weight_kg",
+          -0.38,
+          1.0,
+          -0.41
+        ],
+        [
+          "delivery_minutes",
+          0.82,
+          -0.41,
+          1.0
+        ]
+      ],
+      "provenance": "authored"
+    },
+    {
+      "asset_id": "ds_city_delivery_summary",
+      "asset_kind": "dataset",
+      "scenario_id": "scen_quickship",
+      "title": "QuickShip City Delivery Summary — Two Months",
+      "description": "Monthly average delivery times and order volumes for Lagos, Abuja, and Kano across two months. Lagos average rose from 22 to 30 minutes. Supports bar chart (city comparison), line chart (trend over time), pie chart (share of total orders), and stakeholder recommendation teaching.",
+      "columns": [
+        {
+          "name": "city",
+          "type": "string",
+          "semantic_role": "categorical",
+          "description": "Delivery city"
+        },
+        {
+          "name": "month",
+          "type": "string",
+          "semantic_role": "categorical",
+          "description": "Month label (e.g. 'Month 1', 'Month 2')"
+        },
+        {
+          "name": "avg_delivery_minutes",
+          "type": "number",
+          "semantic_role": "numerical",
+          "unit": "minutes",
+          "description": "Average delivery time in minutes for that city and month"
+        },
+        {
+          "name": "order_count",
+          "type": "integer",
+          "semantic_role": "numerical",
+          "unit": "orders",
+          "description": "Total number of orders delivered in that city and month"
+        }
+      ],
+      "rows": [
+        [
+          "Lagos",
+          "Month 1",
+          22.0,
+          210
+        ],
+        [
+          "Lagos",
+          "Month 2",
+          30.0,
+          198
+        ],
+        [
+          "Abuja",
+          "Month 1",
+          23.5,
+          145
+        ],
+        [
+          "Abuja",
+          "Month 2",
+          24.0,
+          152
+        ],
+        [
+          "Kano",
+          "Month 1",
+          21.0,
+          118
+        ],
+        [
+          "Kano",
+          "Month 2",
+          22.5,
+          124
+        ]
+      ],
+      "provenance": "authored"
+    },
+    {
+      "asset_id": "ds_customers",
+      "asset_kind": "dataset",
+      "scenario_id": "scen_quickship_db",
+      "title": "QuickShip Customers Table",
+      "description": "The customers entity table: customer_id (primary key), name, city. Used to teach entities/tables, primary keys, entity integrity, one-to-many relationships, normalization, and foreign key referencing.",
+      "columns": [
+        {
+          "name": "customer_id",
+          "type": "integer",
+          "semantic_role": "identifier",
+          "numeric_looking_label": true,
+          "description": "Primary key — unique integer label for each customer (not a quantity)"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "semantic_role": "text",
+          "description": "Customer full name"
+        },
+        {
+          "name": "city",
+          "type": "string",
+          "semantic_role": "categorical",
+          "description": "Customer's city: Lagos, Abuja, or Kano"
+        }
+      ],
+      "rows": [
+        [
+          1,
+          "Amara Okafor",
+          "Lagos"
+        ],
+        [
+          2,
+          "Emeka Nwosu",
+          "Abuja"
+        ],
+        [
+          3,
+          "Fatima Bello",
+          "Kano"
+        ],
+        [
+          4,
+          "Chidi Eze",
+          "Lagos"
+        ],
+        [
+          5,
+          "Ngozi Adeyemi",
+          "Abuja"
+        ]
+      ],
+      "provenance": "authored",
+      "variants": [
+        {
+          "variant_id": "ds_customers.with_duplicate",
+          "derived_from": "ds_customers",
+          "purpose": "Duplicate-row variant to illustrate normalization: same customer appears twice, violating primary key uniqueness.",
+          "ops": [
+            {
+              "op": "duplicate_row",
+              "where": {
+                "customer_id": 1
+              },
+              "occurrence": 0
+            }
+          ],
+          "planted_issues": [
+            {
+              "issue_id": "issue_duplicate_customer",
+              "kind": "duplicate_row",
+              "locations": [
+                {
+                  "where": {
+                    "customer_id": 1
+                  },
+                  "column": "customer_id",
+                  "occurrence": 0
+                },
+                {
+                  "where": {
+                    "customer_id": 1
+                  },
+                  "column": "customer_id",
+                  "occurrence": 1
+                }
+              ],
+              "description": "customer_id 1 appears twice — a duplicate row that violates the primary key uniqueness requirement and illustrates the update anomaly risk in un-normalized data."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "asset_id": "ds_orders",
+      "asset_kind": "dataset",
+      "scenario_id": "scen_quickship_db",
+      "title": "QuickShip Orders Table",
+      "description": "The orders entity table: order_id (primary key), customer_id (foreign key → customers), delivery_minutes. Used to teach foreign keys, referential integrity, one-to-many relationships, and normalization. Multiple orders per customer demonstrate the 1:M relationship.",
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "integer",
+          "semantic_role": "identifier",
+          "numeric_looking_label": true,
+          "description": "Primary key — unique integer label for each order (not a quantity)"
+        },
+        {
+          "name": "customer_id",
+          "type": "integer",
+          "semantic_role": "identifier",
+          "numeric_looking_label": true,
+          "description": "Foreign key referencing customers.customer_id — identifies which customer placed this order"
+        },
+        {
+          "name": "delivery_minutes",
+          "type": "integer",
+          "semantic_role": "numerical",
+          "unit": "minutes",
+          "description": "Actual delivery time in minutes"
+        }
+      ],
+      "rows": [
+        [
+          101,
+          1,
+          22
+        ],
+        [
+          102,
+          2,
+          28
+        ],
+        [
+          103,
+          1,
+          35
+        ],
+        [
+          104,
+          3,
+          20
+        ],
+        [
+          105,
+          4,
+          30
+        ],
+        [
+          106,
+          2,
+          24
+        ],
+        [
+          107,
+          5,
+          18
+        ]
+      ],
+      "provenance": "authored",
+      "variants": [
+        {
+          "variant_id": "ds_orders.with_orphan",
+          "derived_from": "ds_orders",
+          "purpose": "Orphan-record variant: order 107 references customer_id 99 which does not exist in the customers table, illustrating a referential integrity violation.",
+          "ops": [
+            {
+              "op": "set_cell",
+              "where": {
+                "order_id": 107
+              },
+              "column": "customer_id",
+              "value": 99
+            }
+          ],
+          "planted_issues": [
+            {
+              "issue_id": "issue_orphan_customer_id",
+              "kind": "impossible_value",
+              "locations": [
+                {
+                  "where": {
+                    "order_id": 107
+                  },
+                  "column": "customer_id"
+                }
+              ],
+              "description": "customer_id 99 does not exist in the customers table — this order row is an orphan record that violates referential integrity.",
+              "rule": {
+                "column": "customer_id",
+                "op": "eq",
+                "value": 99
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "asset_id": "ds_products",
+      "asset_kind": "dataset",
+      "scenario_id": "scen_quickship_db",
+      "title": "QuickShip Products Table",
+      "description": "The products entity table: product_id (primary key), name. An independent entity — a product can exist without any orders. Used to teach many-to-many relationships and junction tables. Includes the rice bag and cooking oil mentioned in teaching blocks.",
+      "columns": [
+        {
+          "name": "product_id",
+          "type": "integer",
+          "semantic_role": "identifier",
+          "numeric_looking_label": true,
+          "description": "Primary key — unique integer label for each product (not a quantity)"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "semantic_role": "text",
+          "description": "Product name"
+        }
+      ],
+      "rows": [
+        [
+          10,
+          "Rice bag"
+        ],
+        [
+          11,
+          "Cooking oil"
+        ],
+        [
+          12,
+          "Tomato paste"
+        ],
+        [
+          13,
+          "Bottled water"
+        ],
+        [
+          14,
+          "Laundry detergent"
+        ]
+      ],
+      "provenance": "authored"
+    },
+    {
+      "asset_id": "ds_order_items",
+      "asset_kind": "dataset",
+      "scenario_id": "scen_quickship_db",
+      "title": "QuickShip Order Items Table (Junction)",
+      "description": "Junction table resolving the many-to-many relationship between orders and products. Each row is one (order, product) pairing. Composite primary key: (order_id, product_id). Teaching block pairings: order 101 with rice bag (product 10), order 101 with cooking oil (product 11), order 103 with rice bag (product 10).",
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "integer",
+          "semantic_role": "identifier",
+          "numeric_looking_label": true,
+          "description": "Foreign key referencing orders.order_id — part of composite primary key"
+        },
+        {
+          "name": "product_id",
+          "type": "integer",
+          "semantic_role": "identifier",
+          "numeric_looking_label": true,
+          "description": "Foreign key referencing products.product_id — part of composite primary key"
+        }
+      ],
+      "rows": [
+        [
+          101,
+          10
+        ],
+        [
+          101,
+          11
+        ],
+        [
+          102,
+          12
+        ],
+        [
+          103,
+          10
+        ],
+        [
+          104,
+          13
+        ],
+        [
+          105,
+          14
+        ],
+        [
+          106,
+          10
+        ],
+        [
+          107,
+          11
+        ]
+      ],
+      "provenance": "authored"
+    },
+    {
+      "asset_id": "ds_customers_pk_candidates",
+      "asset_kind": "dataset",
+      "scenario_id": "scen_quickship_db",
+      "title": "QuickShip Customer Candidate Keys Table",
+      "description": "A customers table with four candidate columns to evaluate as primary key: customer_id (valid PK: unique, never null), name (fails: two customers share a name), phone (fails: one null), signup_date (fails: two customers signed up on the same date). Used to teach primary key selection and entity integrity.",
+      "columns": [
+        {
+          "name": "customer_id",
+          "type": "integer",
+          "semantic_role": "identifier",
+          "numeric_looking_label": true,
+          "description": "Valid primary key candidate: unique integer, never null"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "semantic_role": "text",
+          "description": "Customer name — fails as PK because two customers share a name"
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "semantic_role": "text",
+          "description": "Phone number — fails as PK because one row has a null value"
+        },
+        {
+          "name": "signup_date",
+          "type": "date",
+          "semantic_role": "datetime",
+          "description": "Signup date — fails as PK because two customers share the same date"
+        }
+      ],
+      "rows": [
+        [
+          1,
+          "Amara Okafor",
+          "+234-801-111-0001",
+          "2024-01-15"
+        ],
+        [
+          2,
+          "Emeka Nwosu",
+          "+234-802-222-0002",
+          "2024-01-15"
+        ],
+        [
+          3,
+          "Fatima Bello",
+          "+234-803-333-0003",
+          "2024-02-10"
+        ],
+        [
+          4,
+          "Chidi Eze",
+          null,
+          "2024-02-20"
+        ],
+        [
+          5,
+          "Amara Okafor",
+          "+234-805-555-0005",
+          "2024-03-05"
+        ]
+      ],
+      "provenance": "authored",
+      "variants": [
+        {
+          "variant_id": "ds_customers_pk_candidates.name_dup_highlighted",
+          "derived_from": "ds_customers_pk_candidates",
+          "purpose": "Highlights the duplicate-name issue: customer 5 shares the name 'Amara Okafor' with customer 1, showing why name fails as a primary key.",
+          "ops": [],
+          "planted_issues": [
+            {
+              "issue_id": "issue_duplicate_name",
+              "kind": "inconsistent_category",
+              "locations": [
+                {
+                  "where": {
+                    "customer_id": 1
+                  },
+                  "column": "name"
+                },
+                {
+                  "where": {
+                    "customer_id": 5
+                  },
+                  "column": "name"
+                }
+              ],
+              "description": "Two customers share the name 'Amara Okafor' — name is not unique and therefore cannot serve as a primary key.",
+              "rule": {
+                "column": "name",
+                "op": "eq",
+                "value": "Amara Okafor"
+              }
+            }
+          ]
+        },
+        {
+          "variant_id": "ds_customers_pk_candidates.phone_null_highlighted",
+          "derived_from": "ds_customers_pk_candidates",
+          "purpose": "Highlights the null phone issue: customer 4 has no phone number, showing why phone fails as a primary key (entity integrity requires no nulls in the PK).",
+          "ops": [],
+          "planted_issues": [
+            {
+              "issue_id": "issue_null_phone",
+              "kind": "missing_value",
+              "locations": [
+                {
+                  "where": {
+                    "customer_id": 4
+                  },
+                  "column": "phone"
+                }
+              ],
+              "description": "Customer 4 has a null phone value — phone cannot serve as a primary key because entity integrity requires the PK to be never null."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "provenance": {
+    "model": "claude-opus-4-5",
+    "generated_at": "2026-10-23T15:41:14Z"
+  }
+}
