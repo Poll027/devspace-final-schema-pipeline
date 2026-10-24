@@ -13,7 +13,7 @@ Stops (exit 2, writes working/DRIVER_STOPPED.md, SNS if SNS_TOPIC_ARN is set) on
 unchanged, a failed script, or the spend cap (exit 3). Fix the cause and rerun the same command.
 
 run_config.json: {"path_id","glossary_bundle","glossary_batch_id","toc_workspace","tiles":[...]?,"player_version"?}
-Env: GEN_MODEL_ID / EVAL_MODEL_ID (pin one model) or GEN_LADDER / EVAL_LADDER, MAX_USD, CALL_CAP_USD (per agent call, default 4),
+Env: GEN_MODEL_ID / EVAL_MODEL_ID (pin one model) or GEN_LADDER / EVAL_LADDER, MAX_USD, CALL_CAP_USD (per agent call and tile, default 8),
      CHUNK_WORKERS (default 2), SNS_TOPIC_ARN, AWS_REGION.
 # ponytail: the driver never commits or pushes; chunks need >12 tiles to fan out; a blocking 08/09/11 result stops for a human
 # instead of auto-routing the fix to the stage it names.
@@ -55,7 +55,7 @@ class Ctx:
         self.gen_pin, self.ev_pin = os.environ.get("GEN_MODEL_ID"), os.environ.get("EVAL_MODEL_ID")
         (B / "working").mkdir(exist_ok=True)
         self.budget = Budget(args.max_usd, B / "working" / "cost_log.jsonl")
-        self.call_cap = float(os.environ.get("CALL_CAP_USD", 4))
+        self.call_cap = float(os.environ.get("CALL_CAP_USD", 8))
         self.manifest = load(CORE / "pipeline_manifest.json")
         self.stage = {s["id"]: s for s in self.manifest["stages"]}
         self.env = {**os.environ, "PATH": f"{Path(sys.executable).parent}:{os.environ['PATH']}"}
