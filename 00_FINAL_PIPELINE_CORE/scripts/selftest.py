@@ -184,10 +184,23 @@ def unit_graph_blocks():
     return bad
 
 
+def unit_stale_cleanup(src):
+    """assemble_tiles.py must delete compiled files of tiles that are not in the batch."""
+    d = src.parent / "_selftest_tmp" / "stale"
+    shutil.rmtree(d, ignore_errors=True)
+    shutil.copytree(src, d, ignore=shutil.ignore_patterns("reports", "final_stage_gate_ledger.json"))
+    for sub in ("tile_lessons", "tile_lessons_public", "grading"):
+        (d / sub / "tile_not_in_batch.json").write_text("{}")
+    rc, _ = run("assemble_tiles.py", d)
+    ok = rc == 0 and not any((d / sub / "tile_not_in_batch.json").exists() for sub in ("tile_lessons", "tile_lessons_public", "grading"))
+    print(("caught " if ok else "MISSED ") + "assemble leaves a compiled lesson of a tile that is not in the batch")
+    return 0 if ok else 1
+
+
 def main():
     src = Path(sys.argv[1]).resolve()
     tmp_root = src.parent / "_selftest_tmp"
-    failures = unit_interactions(src) + unit_fail_closed(src) + unit_graph_blocks()
+    failures = unit_interactions(src) + unit_fail_closed(src) + unit_graph_blocks() + unit_stale_cleanup(src)
     for name, fn, expect in MUTATIONS:
         d = tmp_root / "case"
         if d.exists():

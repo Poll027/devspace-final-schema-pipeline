@@ -84,6 +84,10 @@ def main():
     bad = 0
     for d in ("tile_lessons", "tile_lessons_public", "grading"):
         (B / d).mkdir(exist_ok=True)
+        for stale in (B / d).glob("*.json"):  # a tile dropped from the batch must not linger as a compiled lesson
+            if stale.stem not in ctx["tile_ids"]:
+                stale.unlink()
+                print(f"removed stale {d}/{stale.name} (not in this batch)")
     for tile_id in ctx["tile_ids"]:
         errs = []
         plan, sc, ix = plans[tile_id], screens.get(tile_id), inters.get(tile_id, {})
