@@ -97,6 +97,14 @@ def run_tool(name, args, write_roots):
         return f"ERROR: {type(e).__name__}: {e}"
 
 
+TRANSIENT = ("Throttling", "ConnectionClosed", "EndpointConnection", "Timeout", "ProtocolError", "ServiceUnavailable", "InternalServer", "ModelStreamError")
+
+
+def transient(e):
+    """Errors a plain retry usually clears: throttling, dropped connections, timeouts, 5xx. (Quota-per-day and access errors are not.)"""
+    return isinstance(e, (ConnectionError, TimeoutError)) or any(k in type(e).__name__ + str(e) for k in TRANSIENT)
+
+
 def _elide_old(messages, keep=10, limit_chars=500_000):
     if len(json.dumps(messages)) < limit_chars:
         return
@@ -124,7 +132,7 @@ def run_agent(model_id, system, task, budget, role="GEN", write_roots=(), max_tu
                     log_usage(model_id, r["usage"], label)
                 break
             except Exception as e:
-                if attempt == 5 or "per day" in str(e) or "Throttling" not in type(e).__name__ + str(e):
+                if attempt == 5 or "per day" in str(e) or not transient(e):
                     raise
                 time.sleep(5 * 2 ** attempt)
         mine += LAST.get("usd", 0.0)

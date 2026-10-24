@@ -72,8 +72,42 @@ def run(B, stub, cap=25):
         return e.code
 
 
+def retry_test():
+    """A dropped connection is retried with backoff and the call still succeeds; a non-transient error is not retried."""
+    import bedrock_agent as BA
+    from botocore.exceptions import ConnectionClosedError
+
+    class Fake:
+        def __init__(self, errs): self.errs, self.n = errs, 0
+
+        def converse(self, **kw):
+            self.n += 1
+            if self.errs:
+                raise self.errs.pop(0)
+            return {"usage": {"inputTokens": 1, "outputTokens": 1}, "stopReason": "end_turn", "output": {"message": {"role": "assistant", "content": [{"text": "done"}]}}}
+    keep = BA.make_client
+    import time
+    real_sleep = time.sleep
+    time.sleep = lambda s: None
+    try:
+        f = Fake([ConnectionClosedError(error=Exception("x"), request=None, endpoint_url="u")] * 2)
+        BA.make_client = lambda: f
+        b = BA.Budget(5, Path(tempfile.mkdtemp()) / "c.jsonl")
+        assert BA.run_agent("us.anthropic.claude-sonnet-4-6", "s", "t", b) == "done" and f.n == 3, f.n
+        f2 = Fake([ValueError("not transient")])
+        BA.make_client = lambda: f2
+        try:
+            BA.run_agent("us.anthropic.claude-sonnet-4-6", "s", "t", b)
+            raise AssertionError("non-transient error was swallowed")
+        except ValueError:
+            assert f2.n == 1
+    finally:
+        BA.make_client, time.sleep = keep, real_sleep
+    return "connection-retry OK"
+
+
 def main():
-    out = []
+    out = [retry_test()]
     # 1. happy path
     B = make_batch("_drvtest_a")
     s = Stub(B, evals={"03_screens": ["BLOCKING t/s01: wrong\nVERDICT: FAIL", "ADVISORY t/s02: reword\nVERDICT: PASS"],

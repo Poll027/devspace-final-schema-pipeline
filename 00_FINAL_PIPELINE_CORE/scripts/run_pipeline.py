@@ -484,6 +484,10 @@ def main():
     except (Stuck, BudgetExceeded) as e:
         notify(c, f"STOPPED {c.id}", f"{e}\n\nSpend so far ${c.budget.spent():.2f}. Fix the cause, then rerun the same command (finished stages are skipped).")
         sys.exit(3 if isinstance(e, BudgetExceeded) else 2)
+    except Exception as e:  # an unexpected crash must still leave a stop file (and the SNS/supervisor path), not just a traceback
+        import traceback
+        notify(c, f"STOPPED {c.id}", f"unexpected {type(e).__name__}: {e}\n\n{traceback.format_exc()[-2500:]}\nSpend so far ${c.budget.spent():.2f}. Rerun the same command (finished stages are skipped).")
+        sys.exit(2)
 
 
 if __name__ == "__main__":
