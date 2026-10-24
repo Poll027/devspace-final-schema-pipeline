@@ -369,7 +369,7 @@ def run_evaluator_only(c, sid):
             f"End your reply with `VERDICT: PASS`, `VERDICT: PASS_WITH_NONBLOCKING_CHANGES` or `VERDICT: FAIL`.")
     text = ""
     for _ in range(2):
-        text = c.agent("EVAL", task, f"{sid}:eval")
+        text = c.agent("EVAL", task, f"{sid}:eval", tiles=len(load(c.B / "tile_plans.json")["tiles"]))  # whole-batch review: ceiling scales with tiles
         if art.exists() and VERDICT.findall(text):
             break
     else:
