@@ -105,6 +105,22 @@ def transient(e):
     return isinstance(e, (ConnectionError, TimeoutError)) or any(k in type(e).__name__ + str(e) for k in TRANSIENT)
 
 
+CACHE = {"cachePoint": {"type": "default"}}
+_NO_CACHE = set()  # models that rejected a cachePoint: stop sending it
+
+
+def with_cache(model_id, system, messages):
+    """Prompt caching: checkpoints after the system prompt, the tool list and the newest message, so each turn re-reads the whole
+    earlier conversation at 10% of the input price. Only one message carries a checkpoint (the previous one is stripped): the cache
+    prefix is everything before it. Returns (system, toolConfig, messages) for one call; ponytail: 5-minute cache, no 1-hour TTL."""
+    for m in messages:
+        m["content"] = [b for b in m["content"] if "cachePoint" not in b]
+    if model_id in _NO_CACHE:
+        return [{"text": system}], TOOLS, messages
+    messages[-1]["content"].append(dict(CACHE))
+    return [{"text": system}, dict(CACHE)], {"tools": TOOLS["tools"] + [dict(CACHE)]}, messages
+
+
 def _elide_old(messages, keep=10, limit_chars=500_000):
     if len(json.dumps(messages)) < limit_chars:
         return
@@ -124,7 +140,8 @@ def run_agent(model_id, system, task, budget, role="GEN", write_roots=(), max_tu
         _elide_old(messages)
         for attempt in range(6):
             try:
-                kw = dict(system=[{"text": system}], messages=messages, toolConfig=TOOLS, inferenceConfig={"maxTokens": 32000, "temperature": 0.2})
+                sysb, tools, msgs = with_cache(model_id, system, messages)
+                kw = dict(system=sysb, messages=msgs, toolConfig=tools, inferenceConfig={"maxTokens": 32000, "temperature": 0.2})
                 if model_id in ("GEN", "EVAL"):  # role ladder: falls back per call when a model's daily quota is hit
                     r = converse_ladder(client, model_id, label=label, **kw)
                 else:
@@ -132,6 +149,9 @@ def run_agent(model_id, system, task, budget, role="GEN", write_roots=(), max_tu
                     log_usage(model_id, r["usage"], label)
                 break
             except Exception as e:
+                if "cachePoint" in str(e) and model_id not in _NO_CACHE:  # this model does not support caching: retry once without it
+                    _NO_CACHE.add(model_id)
+                    continue
                 if attempt == 5 or "per day" in str(e) or not transient(e):
                     raise
                 time.sleep(5 * 2 ** attempt)

@@ -106,8 +106,40 @@ def retry_test():
     return "connection-retry OK"
 
 
+def cache_test():
+    """Each call carries at most 4 cache checkpoints, exactly one on the newest message; reads/writes are priced at 0.1x/1.25x."""
+    import bedrock_agent as BA
+    import bedrock_llm as BL
+
+    class Fake:
+        def __init__(self): self.calls = []
+
+        def converse(self, **kw):
+            self.calls.append(json.loads(json.dumps(kw)))
+            n = len(self.calls)
+            if n < 4:
+                m = {"role": "assistant", "content": [{"toolUse": {"toolUseId": f"t{n}", "name": "bash", "input": {"command": "echo hi"}}}]}
+                return {"usage": {"inputTokens": 10, "outputTokens": 5, "cacheReadInputTokens": 1000, "cacheWriteInputTokens": 100}, "stopReason": "tool_use", "output": {"message": m}}
+            return {"usage": {"inputTokens": 10, "outputTokens": 5}, "stopReason": "end_turn", "output": {"message": {"role": "assistant", "content": [{"text": "done"}]}}}
+    keep, f = BA.make_client, Fake()
+    BA.make_client = lambda: f
+    try:
+        b = BA.Budget(5, Path(tempfile.mkdtemp()) / "c.jsonl")
+        assert BA.run_agent("us.anthropic.claude-sonnet-4-6", "sys", "task", b) == "done"
+    finally:
+        BA.make_client = keep
+    for kw in f.calls:
+        pts = sum("cachePoint" in x for x in kw["system"]) + sum("cachePoint" in x for x in kw["toolConfig"]["tools"]) \
+            + sum("cachePoint" in x for m in kw["messages"] for x in m["content"])
+        last = sum("cachePoint" in x for x in kw["messages"][-1]["content"])
+        assert pts == 3 and last == 1, (pts, last)
+    u = {"inputTokens": 1_000_000, "cacheReadInputTokens": 1_000_000, "cacheWriteInputTokens": 1_000_000, "outputTokens": 0}
+    assert abs(BL.price_usd("us.anthropic.claude-sonnet-4-6", u) - 3.0 * (1 + 0.1 + 1.25)) < 1e-9
+    return "prompt-cache checkpoints + pricing OK"
+
+
 def main():
-    out = [retry_test()]
+    out = [retry_test(), cache_test()]
     # 1. happy path
     B = make_batch("_drvtest_a")
     s = Stub(B, evals={"03_screens": ["BLOCKING t/s01: wrong\nVERDICT: FAIL", "ADVISORY t/s02: reword\nVERDICT: PASS"],

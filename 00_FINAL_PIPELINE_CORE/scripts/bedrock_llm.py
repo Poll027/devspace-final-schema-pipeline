@@ -46,7 +46,9 @@ def price_usd(model, usage):
     pin, pout = (5.0, 25.0) if role == "EVAL" else (3.0, 15.0)
     if os.environ.get(f"PRICE_{role}"):
         pin, pout = (float(x) for x in os.environ[f"PRICE_{role}"].split(","))
-    return usage.get("inputTokens", 0) / 1e6 * pin + usage.get("outputTokens", 0) / 1e6 * pout
+    # prompt caching: cache reads bill at 10% of the input rate, cache writes at 125% (5-minute cache)
+    return (usage.get("inputTokens", 0) + 0.1 * usage.get("cacheReadInputTokens", 0) + 1.25 * usage.get("cacheWriteInputTokens", 0)) / 1e6 * pin \
+        + usage.get("outputTokens", 0) / 1e6 * pout
 
 
 def log_usage(model, usage, label=""):
@@ -57,7 +59,7 @@ def log_usage(model, usage, label=""):
     if p:
         with open(p, "a") as f:
             f.write(json.dumps({"t": datetime.now(timezone.utc).isoformat(timespec="seconds"), "model": model, "label": label or Path(sys.argv[0]).name,
-                                "in": usage.get("inputTokens", 0), "out": usage.get("outputTokens", 0), "usd": usd}) + "\n")
+                                "in": usage.get("inputTokens", 0), "cache_read": usage.get("cacheReadInputTokens", 0), "cache_write": usage.get("cacheWriteInputTokens", 0), "out": usage.get("outputTokens", 0), "usd": usd}) + "\n")
     return usd
 
 
