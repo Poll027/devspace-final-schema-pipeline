@@ -106,6 +106,20 @@ def retry_test():
     return "connection-retry OK"
 
 
+def protect_test():
+    """write_file refuses gated artifacts and the ledger, but still lets an agent write its own stage's file."""
+    import bedrock_agent as BA
+    d = Path(tempfile.mkdtemp())
+    (d / "inputs").mkdir()
+    prot = [d / "batch_run_context.json", d / "inputs"]
+    for name in ("batch_run_context.json", "inputs/x.json"):
+        r = BA.run_tool("write_file", {"path": str(d / name), "content": "{}"}, [d], prot)
+        assert r.startswith("ERROR") and not (d / name).exists(), (name, r)
+    r = BA.run_tool("write_file", {"path": str(d / "screens.json"), "content": "{}"}, [d], prot)
+    assert r.startswith("wrote") and (d / "screens.json").exists(), r
+    return "write-protection OK"
+
+
 def cache_test():
     """Each call carries at most 4 cache checkpoints, exactly one on the newest message; reads/writes are priced at 0.1x/1.25x."""
     import bedrock_agent as BA
@@ -139,7 +153,7 @@ def cache_test():
 
 
 def main():
-    out = [retry_test(), cache_test()]
+    out = [retry_test(), cache_test(), protect_test()]
     # 1. happy path
     B = make_batch("_drvtest_a")
     s = Stub(B, evals={"03_screens": ["BLOCKING t/s01: wrong\nVERDICT: FAIL", "ADVISORY t/s02: reword\nVERDICT: PASS"],

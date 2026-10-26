@@ -103,13 +103,23 @@ class Ctx:
     def py(self, script, *a):
         return f"'{sys.executable}' '{SCRIPTS / script}' " + " ".join(f"'{x}'" for x in a)
 
+    def protected(self):
+        """Files an agent's write_file must refuse: every gated artifact, the ledger and the staged inputs. (Bash can still write; the ledger's
+        hash check is the backstop that caught the batch-004 edit.)"""
+        out = [self.B / UL.LEDGER, self.B / "inputs", self.B / "run_config.json", self.B / "chunks.json"]
+        if (self.B / UL.LEDGER).exists():
+            for g in UL.load_ledger(str(self.B))["gates"]:
+                out += list(self.B.glob(g["artifact"]))
+        return out
+
     def agent(self, role, task, label, tiles=1):
         t = (ROOT / ".claude" / "agents" / ("final-generator.md" if role == "GEN" else "final-evaluator.md")).read_text()
         system = (t.split("---", 2)[2].strip() + "\n\nYou have three tools: read_file, write_file (only under the batch folder), bash "
                   "(run from the pack root; `python3` has jsonschema; no web access). The pack root is the working directory. "
                   "Finish by replying with the requested summary.")
         model = (self.gen_pin if role == "GEN" else self.ev_pin) or role
-        return run_agent(model, system, task, self.budget, role=role, write_roots=[self.B, ROOT / "scratch"], label=label, call_cap_usd=self.call_cap * max(tiles, 1))  # the ceiling is per tile: a 3-tile chunk call may cost 3x
+        return run_agent(model, system, task, self.budget, role=role, write_roots=[self.B, ROOT / "scratch"], label=label,
+                         call_cap_usd=self.call_cap * max(tiles, 1), protected=self.protected())  # the ceiling is per tile: a 3-tile chunk call may cost 3x
 
 
 # ---------- chunks ----------

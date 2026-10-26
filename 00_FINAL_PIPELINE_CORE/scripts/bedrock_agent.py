@@ -67,7 +67,7 @@ def _resolve(p):
     return (p if p.is_absolute() else ROOT / p).resolve()
 
 
-def run_tool(name, args, write_roots):
+def run_tool(name, args, write_roots, protected=()):
     try:
         if name == "read_file":
             f = _resolve(args["path"])
@@ -80,6 +80,8 @@ def run_tool(name, args, write_roots):
             f = _resolve(args["path"])
             if not any(f.is_relative_to(Path(r).resolve()) for r in write_roots):
                 return f"ERROR: writes are only allowed under {[str(r) for r in write_roots]}"
+            if any(f == Path(q).resolve() or f.is_relative_to(Path(q).resolve()) for q in protected):
+                return f"ERROR: {f.name} belongs to a finished stage (or is pipeline-owned) and may not be edited; write only your own stage's artifact"
             f.parent.mkdir(parents=True, exist_ok=True)
             f.write_text(args["content"])
             return f"wrote {len(args['content'])} chars to {f}"
@@ -129,7 +131,7 @@ def _elide_old(messages, keep=10, limit_chars=500_000):
         b["toolResult"]["content"] = [{"text": "[old tool result elided to save context; re-read the file if you need it]"}]
 
 
-def run_agent(model_id, system, task, budget, role="GEN", write_roots=(), max_turns=90, label="", call_cap_usd=None):
+def run_agent(model_id, system, task, budget, role="GEN", write_roots=(), max_turns=90, label="", call_cap_usd=None, protected=()):
     load_env()
     client = make_client()
     messages = [{"role": "user", "content": [{"text": task}]}]
@@ -165,5 +167,5 @@ def run_agent(model_id, system, task, budget, role="GEN", write_roots=(), max_tu
         if call_cap_usd and mine > call_cap_usd:
             raise BudgetExceeded(f"agent call '{label}' spent ${mine:.2f}, over its per-call ceiling ${call_cap_usd:.2f}")
         messages.append({"role": "user", "content": [
-            {"toolResult": {"toolUseId": u["toolUseId"], "content": [{"text": run_tool(u["name"], u["input"], write_roots)}]}} for u in uses]})
+            {"toolResult": {"toolUseId": u["toolUseId"], "content": [{"text": run_tool(u["name"], u["input"], write_roots, protected)}]}} for u in uses]})
     return "ERROR: agent hit the turn limit without finishing"
