@@ -294,6 +294,31 @@ def unit_sql_runner():
     ok = any("exceeded" in e or "does not run" in e or "crashed" in e for e in rep.E) and time.time() - t0 < 40
     print(("caught " if ok else "MISSED ") + f"sql: a runaway query is stopped by the timeout ({time.time() - t0:.0f}s: {rep.E[:1]})")
     fails += not ok
+    # data_table.result_of: query-result tables are computed, never typed (the batch-005 DISTINCT-panel finding)
+    from checkers import data as datachk
+    tbl = {"type": "data_table", "result_of": {"runtime": "sql", "sql": "SELECT DISTINCT city FROM customers ORDER BY city", "asset_mounts": [{"asset_id": "ds_customers", "mount_path": "customers"}]}}
+    res, probs = sandbox.run_query(reg, tbl["result_of"])
+    ok = not probs and res["columns"] == ["city"] and res["rows"] == [["Abuja"], ["Lagos"]]
+    print(("caught " if ok else "MISSED ") + f"result_of: DISTINCT is computed by the engine, not truncated or typed ({probs or res['rows']})")
+    fails += not ok
+
+    def tcheck(b):
+        rep = Rep()
+        datachk.data_table(C, {"step_id": "t.s05"}, b, rep)
+        return rep
+    ok = not tcheck({**tbl, "result": res}).E
+    print(("caught " if ok else "MISSED ") + "result_of: a correctly computed result is accepted")
+    fails += not ok
+    for name, b, expect in [
+            ("a typed result that is not what the query returns", {**tbl, "result": {**res, "rows": [["Lagos"], ["Abuja"], ["Kano"]]}}, "does not match a fresh run"),
+            ("a result_of table with no computed result", dict(tbl), "result missing"),
+            ("a result_of whose SQL does not run", {**tbl, "result_of": {**tbl["result_of"], "sql": "SELECT nope FROM customers"}, "result": res}, "does not run"),
+            ("a result_of mounting a dataset that is not registered", {**tbl, "result_of": {**tbl["result_of"], "asset_mounts": [{"asset_id": "ds_ghost", "mount_path": "customers"}]}, "result": res}, "no dataset asset"),
+            ("a highlight on a column the result does not have", {**tbl, "result": res, "highlight": [{"target": {"kind": "column", "column": "spend"}}]}, "not a result column")]:
+        rep = tcheck(b)
+        ok = any(expect in e for e in rep.E)
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + "result_of: " + name + ("" if ok else f"\n    expected {expect!r}; got {rep.E}"))
     tampered = variant(lambda ix: ix["grading"].update(execution_provenance={**out.provenance, "solution_sha256": "0" * 64}))
     ok = any("does not match a fresh run" in e for e in check(tampered).E)
     print(("caught " if ok else "MISSED ") + "sql: provenance that does not match a fresh run")

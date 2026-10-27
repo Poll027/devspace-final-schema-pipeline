@@ -64,7 +64,7 @@ class Stub:
 
 def run(B, stub, cap=25):
     rp.Ctx.agent = lambda self, role, task, label, tiles=1: stub(self, role, task, label)
-    sys.argv = ["run_pipeline.py", str(B), "--max-usd", str(cap)]
+    sys.argv = ["run_pipeline.py", str(B), "--max-usd", str(cap), "--allow-dirty-code"]
     try:
         rp.main()
         return 0
@@ -120,6 +120,42 @@ def protect_test():
     return "write-protection OK"
 
 
+def guard_test():
+    """An agent that edits a schema, adds a file to the pipeline code, or deletes an instruction is caught, undone and stopped."""
+    class A:
+        max_usd, allow_dirty_code = 1, True
+    B = Path(tempfile.mkdtemp())
+    c = rp.Ctx(B, A())
+    c.guard_snapshot()
+    schema = ROOT / "00_FINAL_PIPELINE_CORE" / "schemas" / "ix.code_exercise.schema.json"
+    orig = schema.read_bytes()
+    stray = ROOT / "01_FINAL_PACK_TEMPLATE" / "_guard_test_stray.md"
+    try:
+        schema.write_bytes(orig.replace(b'"forbidden_syntax"', b'"forbidden_syntax", "required_syntax"'))  # the batch-005 trick: widen the gate
+        stray.write_text("x")
+        try:
+            c.guard_check("test")
+            raise AssertionError("guard did not stop an edit of pipeline code")
+        except rp.Stuck as e:
+            assert "ix.code_exercise.schema.json" in str(e) and "_guard_test_stray.md" in str(e), str(e)
+        assert schema.read_bytes() == orig and not stray.exists(), "guard did not restore the files"
+        c.guard_check("clean")  # unchanged code passes
+    finally:
+        schema.write_bytes(orig)
+        stray.unlink(missing_ok=True)
+    c.args.allow_dirty_code = False  # the startup check: uncommitted edits to pipeline code refuse to run
+    probe = ROOT / "01_FINAL_PACK_TEMPLATE" / "_guard_test_dirty.md"
+    probe.write_text("x")
+    try:
+        c.guard_snapshot()
+        raise AssertionError("startup did not refuse uncommitted pipeline code")
+    except rp.Stuck as e:
+        assert "differs from the committed version" in str(e)
+    finally:
+        probe.unlink(missing_ok=True)
+    return "agent-edit guard OK"
+
+
 def cache_test():
     """Each call carries at most 4 cache checkpoints, exactly one on the newest message; reads/writes are priced at 0.1x/1.25x."""
     import bedrock_agent as BA
@@ -153,7 +189,7 @@ def cache_test():
 
 
 def main():
-    out = [retry_test(), cache_test(), protect_test()]
+    out = [retry_test(), cache_test(), protect_test(), guard_test()]
     # 1. happy path
     B = make_batch("_drvtest_a")
     s = Stub(B, evals={"03_screens": ["BLOCKING t/s01: wrong\nVERDICT: FAIL", "ADVISORY t/s02: reword\nVERDICT: PASS"],

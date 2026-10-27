@@ -103,6 +103,49 @@ class Ctx:
     def py(self, script, *a):
         return f"'{sys.executable}' '{SCRIPTS / script}' " + " ".join(f"'{x}'" for x in a)
 
+    # ---- integrity guard: an agent has a shell, so it must not be able to change the gates it is judged by
+    GUARDED = ["00_FINAL_PIPELINE_CORE/schemas", "00_FINAL_PIPELINE_CORE/scripts", "00_FINAL_PIPELINE_CORE/registry", "00_FINAL_PIPELINE_CORE/sandbox/run_sql.mjs",
+               "00_FINAL_PIPELINE_CORE/sandbox/package.json", "00_FINAL_PIPELINE_CORE/pipeline_manifest.json", "01_FINAL_PACK_TEMPLATE", ".claude/agents"]
+
+    def _guard_files(self):
+        out = []
+        for g in self.GUARDED:
+            p = ROOT / g
+            out += [f for f in ([p] if p.is_file() else sorted(p.rglob("*"))) if f.is_file() and "__pycache__" not in f.parts and f.suffix != ".pyc"]
+        return out
+
+    def guard_snapshot(self):
+        """Copy every pipeline-code file (schemas, scripts, registry, instructions) aside; the copy is the truth for this run. The code must
+        first match the committed version: a schema an earlier agent quietly edited would otherwise be adopted as correct."""
+        if not self.args.allow_dirty_code:
+            r = subprocess.run(["git", "status", "--porcelain", "--", *self.GUARDED], cwd=ROOT, capture_output=True, text=True)
+            if r.returncode == 0 and r.stdout.strip():
+                raise Stuck("pipeline code differs from the committed version (an agent or a person edited it):\n" + r.stdout[:1500]
+                            + "\nIf the edit is intentional, commit it; if not, run `git checkout -- <path>`. (--allow-dirty-code overrides, for development only.)")
+        snap = self.B / "working" / "guard"
+        shutil.rmtree(snap, ignore_errors=True)
+        for f in self._guard_files():
+            dst = snap / f.relative_to(ROOT)
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(f, dst)
+
+    def guard_check(self, label):
+        """After an agent call: any change to pipeline code is reverted and stops the run (the agent was gaming or breaking its own gate)."""
+        snap = self.B / "working" / "guard"
+        before = {str(f.relative_to(snap)): f for f in snap.rglob("*") if f.is_file()}
+        now = {str(f.relative_to(ROOT)): f for f in self._guard_files()}
+        changed = sorted(r for r in set(before) | set(now) if (r not in now or r not in before or now[r].read_bytes() != before[r].read_bytes()))
+        for r in changed:  # restore the snapshot: modified/deleted files come back, files the agent created are removed
+            dst = ROOT / r
+            if r in before:
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(before[r], dst)
+            elif dst.exists():
+                dst.unlink()
+        if changed:
+            raise Stuck(f"the agent call '{label}' modified pipeline code ({', '.join(changed[:8])}{' ...' if len(changed) > 8 else ''}). Those files were restored. "
+                        f"An agent must never change schemas, checkers, registries or instructions; treat the artifact it produced with that call as untrusted and rerun the stage.")
+
     def protected(self):
         """Files an agent's write_file must refuse: every gated artifact, the ledger and the staged inputs. (Bash can still write; the ledger's
         hash check is the backstop that caught the batch-004 edit.)"""
@@ -118,8 +161,10 @@ class Ctx:
                   "(run from the pack root; `python3` has jsonschema; no web access). The pack root is the working directory. "
                   "Finish by replying with the requested summary.")
         model = (self.gen_pin if role == "GEN" else self.ev_pin) or role
-        return run_agent(model, system, task, self.budget, role=role, write_roots=[self.B, ROOT / "scratch"], label=label,
-                         call_cap_usd=self.call_cap * max(tiles, 1), protected=self.protected())  # the ceiling is per tile: a 3-tile chunk call may cost 3x
+        out = run_agent(model, system, task, self.budget, role=role, write_roots=[self.B, ROOT / "scratch"], label=label,
+                        call_cap_usd=self.call_cap * max(tiles, 1), protected=self.protected())
+        self.guard_check(label)
+        return out  # the ceiling is per tile: a 3-tile chunk call may cost 3x
 
 
 # ---------- chunks ----------
@@ -460,6 +505,7 @@ def main():
                     help="hard spend cap in USD (required: no default, so a run can't start uncapped)")
     ap.add_argument("--plan", action="store_true", help="walk the manifest and print what would run; no model calls, no spend")
     ap.add_argument("--selftest-batch", help="a PASSing batch to run selftest.py on first (must report 0 missed)")
+    ap.add_argument("--allow-dirty-code", action="store_true", help="development only: run even if schemas/scripts/instructions differ from the committed version")
     a = ap.parse_args()
     load_env()
     B = Path(a.batch_dir)
@@ -469,6 +515,8 @@ def main():
     if not a.plan:
         (B / "working" / "DRIVER_STOPPED.md").unlink(missing_ok=True)
     c.log(f"start {c.id}; cap ${a.max_usd}; spent so far ${c.budget.spent():.2f}")
+    if not a.plan:
+        c.guard_snapshot()
     try:
         if a.selftest_batch and not a.plan:
             r = c.sh(c.py("selftest.py", a.selftest_batch), check=False)

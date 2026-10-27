@@ -180,6 +180,26 @@ def run_sql(registry, ix):
     return o
 
 
+def run_query(registry, result_of):
+    """Computed table for a data_table `result_of`: returns ({columns, rows, execution_provenance}, problems)."""
+    pin = RUNTIMES.get(result_of["runtime"])
+    if not pin or pin["status"] != "verified":
+        return None, [f"no verified runner for runtime {result_of['runtime']!r}"]
+    problems = []
+    tables, _ = _tables(registry, result_of["asset_mounts"], {}, problems)
+    stmts = sqlsyntax.split_statements(result_of["sql"])
+    if problems or not stmts:
+        return None, problems or ["empty sql"]
+    try:
+        r = node_run({"tables": tables, "scripts": [{"id": "q", "statements": stmts}]}, pin["runner"])["results"]["q"]
+    except SandboxError as ex:
+        return None, [f"sandbox: {ex}"]
+    if not r["ok"]:
+        return None, [f"query does not run: {r['error'].splitlines()[0]}"]
+    return {"columns": r["columns"], "rows": r["rows"],
+            "execution_provenance": {"runtime": pin["engine"], "runtime_version": pin["version"], "sql_sha256": sha(result_of["sql"])}}, []
+
+
 RUNNERS = {"sql": run_sql}
 
 

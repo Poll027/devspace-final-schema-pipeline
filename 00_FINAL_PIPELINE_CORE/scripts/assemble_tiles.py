@@ -34,6 +34,18 @@ def iter_blocks(blocks):
             yield b["right"]
 
 
+def compute_results(blocks, registry, errs):
+    """data_table.result_of -> data_table.result, from a real sandbox run (displayed rows are computed, never typed)."""
+    for b in iter_blocks(blocks):
+        if b["type"] == "data_table" and "result_of" in b:
+            b.pop("result", None)
+            res, problems = sandbox.run_query(registry, b["result_of"])
+            if problems:
+                errs += [f"data_table result_of: {p}" for p in problems]
+            else:
+                b["result"] = res
+
+
 def inline_media(block, cid_by_seg, bundles, errs):
     ids = block["segment_ids"]
     segs, cids = [], set()
@@ -59,6 +71,7 @@ def asset_ids_used(steps):
         for b in iter_blocks(s.get("blocks")):
             if "asset_ref" in b:
                 ids.add(b["asset_ref"]["asset_id"])
+            ids.update(m["asset_id"] for m in b.get("result_of", {}).get("asset_mounts", []))
             if b["type"] == "annotated_image":
                 ids.add(b["asset_id"])
         ix = s.get("interaction")
@@ -112,14 +125,17 @@ def main():
             for b in iter_blocks(s.get("blocks")):
                 if b["type"] == "media_group":
                     inline_media(b, cid_by_seg, bundles, errs)
+            compute_results(s.get("blocks"), registry, errs)
         rem = copy.deepcopy(sc.get("remediation_steps", []))
         for s in rem:
             for b in iter_blocks(s.get("blocks")):
                 if b["type"] == "media_group":
                     inline_media(b, cid_by_seg, bundles, errs)
+            compute_results(s.get("blocks"), registry, errs)
         used_blocks = sorted({b["type"] for s in steps + rem for b in iter_blocks(s.get("blocks"))})
         used_ix = sorted({s["interaction"]["type"] for s in steps if "interaction" in s})
-        runtimes = sorted({s["interaction"]["public"]["runtime"]["kind"] for s in steps if s.get("interaction", {}).get("type") == "code_exercise"})
+        runtimes = sorted({s["interaction"]["public"]["runtime"]["kind"] for s in steps if s.get("interaction", {}).get("type") == "code_exercise"}
+                          | {b["result_of"]["runtime"] for s in steps + rem for b in iter_blocks(s.get("blocks")) if b["type"] == "data_table" and "result_of" in b})
         text_words = sum(words(b.get("text", "")) for s in steps for b in s.get("blocks", []) if b["type"] in ("prose", "callout"))
         minutes = round(text_words / 180 + 0.75 * sum(s["type"] == "check" for s in steps) + 2 * sum(s["type"] == "hands_on" for s in steps)
                         + sum((g["end_seconds"] - g["start_seconds"]) / 60 for s in steps for b in s.get("blocks", []) if b["type"] == "media_group" for g in b.get("segments", [])), 1)

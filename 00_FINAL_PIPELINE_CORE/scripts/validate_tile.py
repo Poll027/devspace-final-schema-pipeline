@@ -122,6 +122,13 @@ def validate_tile(C, tile_id, strict=False):
         rep.e(f"duplicate interaction_id {d}")
     rem_ids = {s["step_id"] for s in L["remediation_steps"]}
     referenced = {s["interaction"]["feedback"]["remediation_step_id"] for s in L["steps"] if s.get("interaction", {}).get("feedback", {}).get("remediation_step_id")}
+    rem_facts = {s["step_id"]: set(s.get("lineage", {}).get("fact_ids", [])) for s in L["remediation_steps"]}
+    for s in L["steps"]:  # a remediation must re-teach what the check measures, not an unrelated fact
+        ix, rid = s.get("interaction"), (s.get("interaction") or {}).get("feedback", {}).get("remediation_step_id")
+        if ix and rid in rem_facts:
+            measured = {f"{m['concept_id']}#{f}" for m in ix["measures"] for f in m["fact_ids"]}
+            if measured and not (measured & rem_facts[rid]):
+                rep.w(f"{s['step_id']}: remediation {rid} re-teaches {sorted(rem_facts[rid])} but the check measures {sorted(measured)} — a learner who fails it is sent to an unrelated fact")
     for r in referenced - rem_ids:
         rep.e(f"feedback.remediation_step_id {r} is not a remediation step")
     for r in rem_ids - referenced:

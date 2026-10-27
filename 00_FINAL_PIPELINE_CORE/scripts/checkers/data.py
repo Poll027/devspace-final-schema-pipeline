@@ -26,7 +26,38 @@ def cell_value(rows, row_ref, column, rep, where):
 
 
 # ---------------------------------------------------------------- blocks
+def data_table_result(C, step, b, rep):
+    """A query-result table: re-run the query and require the stored `result` to equal a fresh run (computed, never typed)."""
+    from . import sandbox
+    here = f"{step['step_id']}/data_table"
+    fresh, problems = sandbox.run_query(C.registry, b["result_of"])
+    for p in problems:
+        rep.e(f"{here}: result_of {p}")
+    if problems:
+        return
+    if "result" not in b:
+        rep.e(f"{here}: result missing (run assemble_tiles.py: the rows are computed from result_of, never typed)")
+    elif b["result"] != fresh:
+        rep.e(f"{here}: stored result does not match a fresh run of result_of.sql")
+    names = fresh["columns"]
+    rows = [dict(zip(names, r)) for r in fresh["rows"]]
+    sel = (b.get("asset_ref") or {}).get("columns") or []
+    for h in b.get("highlight", []):
+        tg = h["target"]
+        if tg["kind"] in ("row", "cell") and ("row" not in tg or cell_value(rows, tg["row"], None, rep, here)[0] is None):
+            rep.e(f"{here}: {tg['kind']} highlight needs a `row` that matches a result row")
+        if tg["kind"] in ("column", "cell") and tg.get("column") not in names:
+            rep.e(f"{here}: highlight column {tg.get('column')!r} is not a result column")
+    for tc in b.get("tag_columns", []):
+        if tc["column"] not in names:
+            rep.e(f"{here}: tag_columns column {tc['column']!r} is not a result column")
+    if sel:
+        rep.w(f"{here}: asset_ref.columns is ignored when result_of is set")
+
+
 def data_table(C, step, b, rep):
+    if "result_of" in b:
+        return data_table_result(C, step, b, rep)
     here = f"{step['step_id']}/data_table"
     res = resolve_ref(C, b["asset_ref"], rep, here)
     if not res:
