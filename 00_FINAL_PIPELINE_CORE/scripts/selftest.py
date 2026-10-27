@@ -197,10 +197,132 @@ def unit_stale_cleanup(src):
     return 0 if ok else 1
 
 
+def unit_sql_runner():
+    """The SQL sandbox: a good exercise passes and gets provenance; every way to be wrong or to escape is caught."""
+    import copy
+    sys.path.insert(0, str(S))
+    from checkers import code, sandbox
+
+    reg = {"assets": [{"asset_id": "ds_customers", "asset_kind": "dataset", "columns": [
+        {"name": "customer_id", "type": "integer"}, {"name": "city", "type": "string"}, {"name": "spend", "type": "number"}, {"name": "joined", "type": "date"}],
+        "rows": [[1, "Lagos", 10.5, "2024-01-05"], [2, "Abuja", 20.0, "2024-02-10"], [3, "Lagos", 7.0, "2024-03-15"]],
+        "variants": [{"variant_id": "v_two", "derived_from": "base", "ops": [{"op": "drop_rows", "where": {"customer_id": 3}}]}]}]}
+    allowed = ["SELECT", "FROM", "AS output_name", "WHERE", "< > <= >= = <> !=", "ORDER BY"]
+    good = {"type": "code_exercise", "interaction_id": "ix.t.s01", "anchors": ["sql.demo#practice"], "difficulty": "core", "grading_mode": "client", "standalone": False,
+        "measures": [{"concept_id": "sql.demo", "capability": "write_filtered_select", "fact_ids": ["f1"]}],
+        "feedback": {"correct": {"message": "Right."}, "incorrect": {"message": "Not yet."}, "hints": ["Filter with WHERE."]}, "public": {
+        "prompt": "p", "runtime": {"kind": "sql", "version": "1.32.0"},
+        "workspace": {"files": [{"path": "q.sql", "role": "editable", "content": "SELECT 1 AS customer_id"}], "entry": "q.sql",
+                      "asset_mounts": [{"asset_id": "ds_customers", "mount_path": "customers"}]},
+        "constraints": {"allowed_syntax": allowed, "blocked_syntax": ["GROUP BY"]}},
+        "grading": {"solution_files": [{"path": "q.sql", "content": "SELECT customer_id, city AS town FROM customers WHERE spend > 8 ORDER BY customer_id"}],
+                    "tests": [{"test_id": "t1", "kind": "query_result_equals", "message_on_fail": "no",
+                               "spec": {"expected": {"columns": ["customer_id", "town"], "rows": [[1, "Lagos"], [2, "Abuja"]]}, "ordered": True}}]}}
+
+    class Rep:
+        def __init__(self): self.E, self.W = [], []
+        def e(self, m): self.E.append(m)
+        def w(self, m): self.W.append(m)
+
+    class _B:
+        by_id = {"sql.demo": {"practice_anchor": {"live_code": {"allowed_syntax": allowed, "blocked_syntax": ["GROUP BY"]}}}}
+
+    class C:
+        registry = reg
+        bundles = _B()
+
+    def check(ix):
+        rep = Rep()
+        code.code_exercise(C, {"step_id": "t.s01"}, ix, rep)
+        return rep
+
+    def variant(mutate):
+        ix = copy.deepcopy(good)
+        mutate(ix)
+        return ix
+    fails = 0
+    from schema_check import errors as schema_errors
+    se = schema_errors(good, "ix.code_exercise.schema.json")
+    print(("caught " if not se else "MISSED ") + f"sql: the fixture is a schema-valid code_exercise ({se[:2] or ''})")
+    fails += bool(se)
+    out = sandbox.run_exercise(reg, good)
+    ok = not out.problems and out.provenance and out.provenance["tests_passed"] == 1
+    print(("caught " if ok else "MISSED ") + f"sql: a correct exercise passes and gets provenance ({out.problems or ''})")
+    fails += not ok
+    stamped = variant(lambda ix: ix["grading"].update(execution_provenance=out.provenance))
+    ok = not check(stamped).E
+    print(("caught " if ok else "MISSED ") + "sql: the validator accepts matching provenance")
+    fails += not ok
+    cases = [
+        ("a solution that does not return the expected rows", lambda ix: ix["grading"]["solution_files"][0].update(content="SELECT customer_id, city AS town FROM customers WHERE spend > 15"), "differs from spec.expected"),
+        ("a wrong expected row typed in the key", lambda ix: ix["grading"]["tests"][0]["spec"]["expected"]["rows"].append([9, "Kano"]), "differs from spec.expected"),
+        ("a starter that already solves the task", lambda ix: ix["public"]["workspace"]["files"][0].update(content=ix["grading"]["solution_files"][0]["content"]), "starter code already passes"),
+        ("a solution using blocked syntax", lambda ix: (ix["grading"]["solution_files"][0].update(content="SELECT customer_id, city AS town FROM customers WHERE spend > 8 GROUP BY customer_id, city"), ix["grading"]["tests"][0]["spec"].update(ordered=False)), "blocks for this practice"),
+        ("a solution using syntax not yet taught", lambda ix: ix["public"]["constraints"].update(allowed_syntax=["SELECT", "FROM", "AS output_name", "WHERE", "< > <= >= = <> !="]), "not yet taught"),
+        ("constraints widened beyond the glossary's allowed syntax", lambda ix: ix["public"]["constraints"].update(allowed_syntax=allowed + ["GROUP BY"]), "differs from sql.demo's glossary practice anchor"),
+        ("an unpinned runtime version", lambda ix: ix["public"]["runtime"].update(version="9.9.9"), "pinned"),
+        ("a solution that reads a host file", lambda ix: ix["grading"]["solution_files"][0].update(content="SELECT * FROM read_csv_auto('/etc/passwd')"), "solution does not run"),
+        ("a solution that fetches from the network", lambda ix: ix["grading"]["solution_files"][0].update(content="SELECT * FROM read_csv_auto('https://example.com/x.csv')"), "solution does not run"),
+        ("a solution that tries to unlock the sandbox", lambda ix: ix["grading"]["solution_files"][0].update(content="SET enable_external_access=true"), "solution does not run"),
+        ("a hidden test whose data variant gives different rows", lambda ix: ix["grading"]["tests"].append({"test_id": "t2", "kind": "query_result_equals", "message_on_fail": "no", "spec": {"mount_variants": {"customers": "v_two"}, "ordered": True, "expected": {"columns": ["customer_id", "town"], "rows": [[1, "Lagos"], [2, "Abuja"], [3, "Lagos"]]}}}), "differs from spec.expected"),
+        ("an unsupported test kind", lambda ix: ix["grading"]["tests"].append({"test_id": "t3", "kind": "dataframe_equals", "message_on_fail": "no", "spec": {}}), "not supported by the sql runtime"),
+        ("a forbidden_syntax test the solution violates", lambda ix: ix["grading"]["tests"].append({"test_id": "t4", "kind": "forbidden_syntax", "message_on_fail": "no", "spec": {"descriptors": ["WHERE"]}}), "forbidden syntax"),
+    ]
+    for name, mut, expect in cases:
+        rep = check(stamped_for(variant, out, mut))
+        ok = any(expect in e for e in rep.E)
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + "sql: " + name + ("" if ok else f"\n    expected {expect!r}; got {rep.E}"))
+    job = {"tables": [{"name": "t", "columns": [{"name": c, "type": ty} for c, ty in (("a", "integer"), ("p", "number"), ("d", "date"), ("ts", "datetime"), ("ok", "boolean"))],
+                       "rows": [[1, 12.5, "2024-03-05", "2024-03-05 10:11:12", True], [2, None, None, None, None]]}],
+           "scripts": [{"id": "x", "statements": ["SELECT SUM(a) AS s, AVG(a) AS av, COUNT(*) AS n, SUM(p) AS sp, MAX(d) AS md, MAX(ts) AS mts, CAST(12.50 AS DECIMAL(10,2)) AS dec, MAX(ok) AS ok FROM t"]}]}
+    got = sandbox.node_run(job, "sandbox/run_sql.mjs")["results"]["x"]["rows"]
+    want = [[3, 1.5, 2, 12.5, "2024-03-05", "2024-03-05 10:11:12", 12.5, True]]
+    ok = got == want
+    print(("caught " if ok else "MISSED ") + f"sql: SUM/AVG/DECIMAL/DATE/TIMESTAMP/NULL/BOOLEAN come back as plain values ({got if not ok else ''})")
+    fails += not ok
+    pkg = json.loads((S.parent / "sandbox" / "package.json").read_text())["dependencies"]["@duckdb/duckdb-wasm"]
+    ok = pkg == sandbox.RUNTIMES["sql"]["version"] == sandbox.node_run({"tables": [], "scripts": []}, "sandbox/run_sql.mjs")["version"]
+    print(("caught " if ok else "MISSED ") + f"sql: registry/runtimes.json, package.json and the running engine agree on the version ({pkg})")
+    fails += not ok
+    import time
+    keep, sandbox.NODE_TIMEOUT_S = sandbox.NODE_TIMEOUT_S, 8
+    t0 = time.time()
+    heavy = variant(lambda ix: ix["grading"]["solution_files"][0].update(content="WITH RECURSIVE r(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM r) SELECT COUNT(*) AS n FROM r"))
+    rep = check(heavy)
+    sandbox.NODE_TIMEOUT_S = keep
+    ok = any("exceeded" in e or "does not run" in e or "crashed" in e for e in rep.E) and time.time() - t0 < 40
+    print(("caught " if ok else "MISSED ") + f"sql: a runaway query is stopped by the timeout ({time.time() - t0:.0f}s: {rep.E[:1]})")
+    fails += not ok
+    tampered = variant(lambda ix: ix["grading"].update(execution_provenance={**out.provenance, "solution_sha256": "0" * 64}))
+    ok = any("does not match a fresh run" in e for e in check(tampered).E)
+    print(("caught " if ok else "MISSED ") + "sql: provenance that does not match a fresh run")
+    fails += not ok
+    ok = any("missing" in e for e in check(copy.deepcopy(good)).E)
+    print(("caught " if ok else "MISSED ") + "sql: provenance missing from a compiled lesson")
+    fails += not ok
+    py = variant(lambda ix: ix["public"]["runtime"].update(kind="python", version="3.12"))
+    rep = check(py)
+    ok = not rep.E and any("UNVERIFIED" in w for w in rep.W)
+    print(("caught " if ok else "MISSED ") + "sql: an unsupported runtime is UNVERIFIED, not a pass")
+    fails += not ok
+    unm = variant(lambda ix: ix["public"]["constraints"].update(allowed_syntax=allowed + ["MYSTERY SYNTAX"]))
+    rep = check(stamped_for(variant, out, lambda ix: ix["public"]["constraints"].update(allowed_syntax=allowed + ["MYSTERY SYNTAX"])))
+    ok = any("no detector" in w for w in rep.W)
+    print(("caught " if ok else "MISSED ") + "sql: a syntax descriptor with no detector is UNVERIFIED")
+    fails += not ok
+    return fails
+
+
+def stamped_for(variant, out, mutate):
+    """A mutated copy of the good exercise carrying the good run's provenance, so only the mutation is under test."""
+    return variant(lambda ix: (ix["grading"].update(execution_provenance=out.provenance), mutate(ix)))
+
+
 def main():
     src = Path(sys.argv[1]).resolve()
     tmp_root = src.parent / "_selftest_tmp"
-    failures = unit_interactions(src) + unit_fail_closed(src) + unit_graph_blocks() + unit_stale_cleanup(src)
+    failures = unit_interactions(src) + unit_fail_closed(src) + unit_graph_blocks() + unit_stale_cleanup(src) + unit_sql_runner()
     for name, fn, expect in MUTATIONS:
         d = tmp_root / "case"
         if d.exists():

@@ -4,6 +4,7 @@ media segments + bridge notes (copied verbatim from the glossary bundle), hashes
   python3 assemble_tiles.py batches/<batch_id>
 
 Reads : batch_run_context.json, inputs/path_glossary_bundle.json, tile_plans.json, scenario_asset_registry.json, screens.json, interactions.json
+Computes: media segments/bridge notes, hashes, requires, pacing, the public/grading split, and code_exercise execution_provenance (a real sandbox run)
 Writes: tile_lessons/<tile_id>.json          full lesson (grading included)
         tile_lessons_public/<tile_id>.json   what the backend serves: `grading` removed from every grading_mode=server interaction
         grading/<tile_id>.json               interaction_id -> grading, for server-graded interactions
@@ -14,6 +15,7 @@ import sys
 from pathlib import Path
 
 from finlib import CORE, Bundles, load, save, sha, words
+from checkers import sandbox
 from schema_check import errors
 
 BLOCK_PACK = {b["type"]: b["pack"] for b in load(CORE / "registry" / "block_registry.json")["blocks"]}
@@ -102,6 +104,11 @@ def main():
         for s in steps:
             if s["step_id"] in ix:
                 s["interaction"] = copy.deepcopy(ix[s["step_id"]])
+                if s["interaction"]["type"] == "code_exercise":  # provenance comes from a real run, never from the model
+                    s["interaction"]["grading"].pop("execution_provenance", None)
+                    run = sandbox.run_exercise(registry, s["interaction"])
+                    if run.provenance:
+                        s["interaction"]["grading"]["execution_provenance"] = run.provenance
             for b in iter_blocks(s.get("blocks")):
                 if b["type"] == "media_group":
                     inline_media(b, cid_by_seg, bundles, errs)

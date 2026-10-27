@@ -39,7 +39,7 @@ SCRIPTS = CORE / "scripts"
 TEMPLATE = ROOT / "01_FINAL_PACK_TEMPLATE"
 MAX_ROUNDS = 3
 MAX_TILES_PER_CHUNK = 12
-SANDBOX_TYPES = {"code_exercise", "formula_entry", "spreadsheet_grid"}  # no runner yet: UNVERIFIED by design
+SANDBOX_TYPES = {"code_exercise", "formula_entry", "spreadsheet_grid"}  # need a verified runtime (registry/runtimes.json)
 VERDICT = re.compile(r"VERDICT:\s*(PASS_WITH_NONBLOCKING_CHANGES|PASS|FAIL)")
 SEVERITY = re.compile(r"^\s*[-*]?\s*(BLOCKING|ADVISORY)\b")
 
@@ -412,25 +412,28 @@ def run_script_stage(c, sid):
         gate(c, sid)
 
 
+def verified_runtimes():
+    return {k for k, v in load(CORE / "registry" / "runtimes.json")["runtimes"].items() if v["status"] == "verified"}
+
+
 def check_plan_gaps(c):
-    """A tile whose plan says 'NO interaction type registered' (or no block mapping) can't be authored: stop before any generator spend."""
-    gaps = {t["tile_id"]: [w for w in t["warnings"] if "NO " in w and "registered" in w or "no block mapping" in w.lower()]
-            for t in load(c.B / "tile_plans.json")["tiles"]}
-    gaps = {k: v for k, v in gaps.items() if v}
+    """Stop BEFORE any generator spend if a planned tile can't be authored or verified: a type gap ('NO interaction type registered' /
+    no block mapping), or code/formula/spreadsheet content whose runtime has no verified runner (registry/runtimes.json)."""
+    ok_rt, gaps = verified_runtimes(), {}
+    for t in load(c.B / "tile_plans.json")["tiles"]:
+        g = [w for w in t["warnings"] if "NO " in w and "registered" in w or "no block mapping" in w.lower()]
+        needs = set(t["needs"]["interaction_types"]) | set(t["needs"]["block_types"])
+        if needs & SANDBOX_TYPES and (not t["needs"]["runtimes"] or not set(t["needs"]["runtimes"]) <= ok_rt):
+            g.append(f"needs runtime(s) {t['needs']['runtimes'] or ['<none inferred>']} with no verified runner (verified: {sorted(ok_rt)})")
+        if g:
+            gaps[t["tile_id"]] = g
     if gaps:
-        raise Stuck("tile plans have type gaps (NEW_ROLE_RUNBOOK step 4): build the type or remove these tiles from run_config.json/chunks.json, then rerun.\n"
+        raise Stuck("tile plans have gaps (NEW_ROLE_RUNBOOK step 4 / build the runner): fix them or remove these tiles from run_config.json/chunks.json, then rerun.\n"
                     + json.dumps(gaps, indent=1))
 
 
 def check_planned(c, sid):
-    if sid != "05_code_exercises":
-        c.log(f"{sid}: planned stage, not implemented; skipping")
-        return
-    need = {t["tile_id"]: sorted(set(t["needs"]["interaction_types"]) & SANDBOX_TYPES) for t in load(c.B / "tile_plans.json")["tiles"]}
-    need = {k: v for k, v in need.items() if v}
-    if need:
-        raise Stuck(f"05 needs the sandbox runner (not built): {need}. Remove these tiles from the batch or build the runner.")
-    c.log("05: no tile needs a sandbox type; skipping")
+    c.log(f"{sid}: planned stage, not run" + (" (code exercises are authored in stage 04 and executed by its gate)" if sid == "05_code_exercises" else ""))
 
 
 def is_done(c, sid):

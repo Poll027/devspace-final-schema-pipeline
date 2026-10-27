@@ -10,5 +10,7 @@ Read `inputs/path_glossary_bundle.json` (all concepts in scope: teaching blocks,
 5. Other asset kinds (`code_workspace`, `image`) only if an anchor needs them.
 6. Gate before handing off: `python3 00_FINAL_PIPELINE_CORE/scripts/validate_tile.py batches/<batch_id> --registry` must PASS.
 
+7. **SQL paths:** each dataset becomes a SQL table the learner queries. Use the table and column names the glossary's SQL examples use, declare real column `type`s (`integer`, `number`, `string`, `date`, `boolean`) because the SQL engine loads them as such, and give enough rows (and variants) for hidden tests to distinguish a correct query from a lazy one.
+
 Mistakes to avoid: row width != column count; semantic_role contradicting type; a planted issue that does not hold after the ops; wrong `occurrence` for duplicates; a dataset too small/narrow for later tiles; values that contradict glossary examples (a city or column the text names but the table lacks); two defensible readings of a column's role.
 Reply with: artifact path, asset ids, anything you were unsure about.
