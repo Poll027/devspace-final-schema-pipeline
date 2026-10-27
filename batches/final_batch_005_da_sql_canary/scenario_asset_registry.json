@@ -5,12 +5,12 @@
   "batch_id": "final_batch_005_da_sql_canary",
   "scenarios": [
     {
-      "scenario_id": "scenario_sql_shop",
-      "name": "Greenleaf Online Shop",
-      "summary": "A small fictional e-commerce business, Greenleaf Online Shop, stores its data in a relational database with a customers table and an orders table. Learners query these tables to practise SELECT, aliasing, DISTINCT and basic data-quality checks.",
-      "locale": "NG",
+      "scenario_id": "scen.sql_delivery_shop",
+      "name": "QuickDeliver \u2014 a small delivery-order business",
+      "summary": "A fictional small delivery business called QuickDeliver stores its data in three SQL tables: customers (who placed orders), orders (each delivery request), and products (items available for delivery). The schema is introduced in sql.relational_model and reused across the whole SQL run.",
+      "locale": "en-NG",
       "currency": "NGN",
-      "domain": "e-commerce",
+      "domain": "retail_delivery",
       "glossary_example_vocab": [
         "customers",
         "orders",
@@ -20,47 +20,48 @@
         "city",
         "order_id",
         "delivery_time_minutes",
-        "o",
+        "product_id",
+        "price",
         "Lagos",
-        "Abuja",
-        "Kano",
-        "customer_name",
-        "first_name",
-        "country",
+        "o",
         "SELECT",
         "FROM",
         "AS",
         "DISTINCT",
-        "ALL"
+        "ALL",
+        "customer_name",
+        "o.order_id",
+        "o.delivery_time_minutes",
+        "o.customer_id"
       ]
     }
   ],
   "assets": [
     {
-      "asset_id": "ds_customers",
+      "asset_id": "ds.customers",
       "asset_kind": "dataset",
-      "scenario_id": "scenario_sql_shop",
-      "title": "customers",
-      "description": "The customers table for Greenleaf Online Shop. Each row is one customer. Used for SELECT, AS, and DISTINCT examples.",
+      "scenario_id": "scen.sql_delivery_shop",
+      "title": "customers \u2014 QuickDeliver customer records",
+      "description": "One row per customer. Columns: customer_id (integer PK), name, city. Used in sql.relational_model, sql.select_fundamentals, sql.distinct.",
       "columns": [
         {
           "name": "customer_id",
           "type": "integer",
           "semantic_role": "identifier",
-          "description": "Unique integer identifier for each customer",
-          "numeric_looking_label": true
+          "numeric_looking_label": true,
+          "description": "Unique integer identifier for each customer (used as a label, not a quantity)."
         },
         {
           "name": "name",
           "type": "string",
           "semantic_role": "text",
-          "description": "Full name of the customer"
+          "description": "Full name of the customer."
         },
         {
           "name": "city",
           "type": "string",
           "semantic_role": "categorical",
-          "description": "City where the customer is located"
+          "description": "City where the customer is located."
         }
       ],
       "rows": [
@@ -71,7 +72,7 @@
         ],
         [
           2,
-          "Chidi Nwosu",
+          "Emeka Nwosu",
           "Abuja"
         ],
         [
@@ -81,83 +82,93 @@
         ],
         [
           4,
-          "Emeka Eze",
+          "Chidi Eze",
           "Kano"
         ],
         [
           5,
           "Ngozi Adeyemi",
-          "Abuja"
-        ],
-        [
-          6,
-          "Tunde Adesanya",
           "Lagos"
         ],
         [
+          6,
+          "Yusuf Musa",
+          "Abuja"
+        ],
+        [
           7,
-          "Aisha Musa",
+          "Aisha Garba",
           "Kano"
         ],
         [
           8,
-          "Yemi Okonkwo",
-          "Abuja"
+          "Tunde Fashola",
+          "Port Harcourt"
         ]
       ],
       "variants": [
         {
-          "variant_id": "ds_customers_messy",
-          "derived_from": "ds_customers",
-          "purpose": "find_issues practice: one inconsistent-casing city value and one duplicate row",
+          "variant_id": "customers.messy_v1",
+          "derived_from": "ds.customers",
+          "purpose": "find_issues practice: one duplicate row and one inconsistent city casing",
           "ops": [
-            {
-              "op": "set_cell",
-              "where": {
-                "customer_id": 1
-              },
-              "column": "city",
-              "value": "lagos"
-            },
             {
               "op": "duplicate_row",
               "where": {
-                "customer_id": 4
+                "customer_id": 3
               },
+              "occurrence": 0,
               "insert": "end"
+            },
+            {
+              "op": "set_cell",
+              "where": {
+                "customer_id": 6
+              },
+              "occurrence": 0,
+              "column": "city",
+              "value": "abuja"
             }
           ],
           "planted_issues": [
             {
-              "issue_id": "issue_cust_city_casing",
-              "kind": "inconsistent_category",
-              "locations": [
-                {
-                  "where": {
-                    "customer_id": 1
-                  },
-                  "column": "city"
-                }
-              ],
-              "description": "City value 'lagos' uses lower-case while all other city values use title-case (e.g. 'Lagos').",
-              "rule": {
-                "column": "city",
-                "op": "casing_differs_from_siblings"
-              }
-            },
-            {
-              "issue_id": "issue_cust_duplicate",
+              "issue_id": "issue.customers.dup_row_3",
               "kind": "duplicate_row",
               "locations": [
                 {
                   "where": {
-                    "customer_id": 4
+                    "customer_id": 3
+                  },
+                  "occurrence": 0,
+                  "column": "customer_id"
+                },
+                {
+                  "where": {
+                    "customer_id": 3
                   },
                   "occurrence": 1,
                   "column": "customer_id"
                 }
               ],
-              "description": "Customer 4 (Emeka Eze, Kano) appears twice \u2014 the second row is an exact duplicate."
+              "description": "Row for customer_id=3 (Fatima Bello, Lagos) appears twice after the duplicate_row op."
+            },
+            {
+              "issue_id": "issue.customers.casing_city_6",
+              "kind": "inconsistent_category",
+              "locations": [
+                {
+                  "where": {
+                    "customer_id": 6
+                  },
+                  "occurrence": 0,
+                  "column": "city"
+                }
+              ],
+              "description": "City value for customer_id=6 is 'abuja' (lowercase) while all other Abuja entries use 'Abuja'.",
+              "rule": {
+                "column": "city",
+                "op": "casing_differs_from_siblings"
+              }
             }
           ]
         }
@@ -165,122 +176,124 @@
       "provenance": "authored"
     },
     {
-      "asset_id": "ds_orders",
+      "asset_id": "ds.orders",
       "asset_kind": "dataset",
-      "scenario_id": "scenario_sql_shop",
-      "title": "orders",
-      "description": "The orders table for Greenleaf Online Shop. Each row is one order. Used for aliasing (FROM orders AS o) and delivery-time queries.",
+      "scenario_id": "scen.sql_delivery_shop",
+      "title": "orders \u2014 QuickDeliver delivery orders",
+      "description": "One row per delivery order. Columns: order_id (integer PK), customer_id (integer FK), delivery_time_minutes (integer). Used in sql.relational_model, sql.aliasing.",
       "columns": [
         {
           "name": "order_id",
           "type": "integer",
           "semantic_role": "identifier",
-          "description": "Unique integer identifier for each order",
-          "numeric_looking_label": true
+          "numeric_looking_label": true,
+          "description": "Unique integer identifier for each order (label, not a quantity)."
         },
         {
           "name": "customer_id",
           "type": "integer",
           "semantic_role": "identifier",
-          "description": "Foreign key referencing the customer who placed the order",
-          "numeric_looking_label": true
+          "numeric_looking_label": true,
+          "description": "Foreign key referencing customers.customer_id."
         },
         {
           "name": "delivery_time_minutes",
           "type": "integer",
           "semantic_role": "numerical",
           "unit": "minutes",
-          "description": "Number of minutes from order placement to delivery"
+          "description": "Time in minutes from order placement to delivery."
         }
       ],
       "rows": [
         [
           1001,
           1,
-          32
+          42
         ],
         [
           1002,
-          3,
-          47
+          2,
+          31
         ],
         [
           1003,
-          2,
-          19
-        ],
-        [
-          1004,
-          5,
+          3,
           55
         ],
         [
-          1005,
-          1,
+          1004,
+          4,
           28
         ],
         [
+          1005,
+          5,
+          67
+        ],
+        [
           1006,
-          4,
-          63
+          6,
+          19
         ],
         [
           1007,
-          6,
-          41
+          7,
+          83
         ],
         [
           1008,
-          2,
-          22
+          8,
+          45
         ],
         [
           1009,
-          7,
+          1,
           38
         ],
         [
           1010,
-          8,
-          51
+          3,
+          72
         ]
       ],
       "variants": [
         {
-          "variant_id": "ds_orders_messy",
-          "derived_from": "ds_orders",
-          "purpose": "find_issues practice: one impossible negative delivery time and one missing customer_id",
+          "variant_id": "orders.messy_v1",
+          "derived_from": "ds.orders",
+          "purpose": "find_issues practice: one impossible value (negative delivery time) and one duplicate row",
           "ops": [
             {
               "op": "set_cell",
               "where": {
-                "order_id": 1006
+                "order_id": 1005
               },
+              "occurrence": 0,
               "column": "delivery_time_minutes",
               "value": -5
             },
             {
-              "op": "set_cell",
+              "op": "duplicate_row",
               "where": {
-                "order_id": 1003
+                "order_id": 1002
               },
-              "column": "customer_id",
-              "value": null
+              "occurrence": 0,
+              "insert": "end"
             }
           ],
           "planted_issues": [
             {
-              "issue_id": "issue_ord_negative_delivery",
+              "issue_id": "issue.orders.impossible_delivery_time",
               "kind": "impossible_value",
               "locations": [
                 {
                   "where": {
-                    "order_id": 1006
+                    "order_id": 1005
                   },
+                  "occurrence": 0,
                   "column": "delivery_time_minutes"
                 }
               ],
-              "description": "delivery_time_minutes is -5, which is impossible \u2014 delivery time cannot be negative.",
+              "description": "delivery_time_minutes is -5 for order_id=1005, which is impossible (time cannot be negative).",
               "rule": {
                 "column": "delivery_time_minutes",
                 "op": "lt",
@@ -288,20 +301,85 @@
               }
             },
             {
-              "issue_id": "issue_ord_missing_customer",
-              "kind": "missing_value",
+              "issue_id": "issue.orders.dup_row_1002",
+              "kind": "duplicate_row",
               "locations": [
                 {
                   "where": {
-                    "order_id": 1003
+                    "order_id": 1002
                   },
-                  "column": "customer_id"
+                  "occurrence": 0,
+                  "column": "order_id"
+                },
+                {
+                  "where": {
+                    "order_id": 1002
+                  },
+                  "occurrence": 1,
+                  "column": "order_id"
                 }
               ],
-              "description": "customer_id is NULL for order 1003 \u2014 every order must reference a customer."
+              "description": "Row for order_id=1002 appears twice after the duplicate_row op."
             }
           ]
         }
+      ],
+      "provenance": "authored"
+    },
+    {
+      "asset_id": "ds.products",
+      "asset_kind": "dataset",
+      "scenario_id": "scen.sql_delivery_shop",
+      "title": "products \u2014 QuickDeliver product catalogue",
+      "description": "One row per product. Columns: product_id (integer PK), name, price (NGN). Introduced in sql.relational_model to complete the three-table database picture.",
+      "columns": [
+        {
+          "name": "product_id",
+          "type": "integer",
+          "semantic_role": "identifier",
+          "numeric_looking_label": true,
+          "description": "Unique integer identifier for each product (label, not a quantity)."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "semantic_role": "text",
+          "description": "Name of the product."
+        },
+        {
+          "name": "price",
+          "type": "number",
+          "semantic_role": "numerical",
+          "unit": "NGN",
+          "description": "Price of the product in Nigerian Naira."
+        }
+      ],
+      "rows": [
+        [
+          101,
+          "Jollof Rice (large)",
+          2500.0
+        ],
+        [
+          102,
+          "Fried Chicken (4 pcs)",
+          3200.0
+        ],
+        [
+          103,
+          "Puff Puff (dozen)",
+          800.0
+        ],
+        [
+          104,
+          "Suya (500g)",
+          1800.0
+        ],
+        [
+          105,
+          "Moi Moi (6 pcs)",
+          1200.0
+        ]
       ],
       "provenance": "authored"
     }
