@@ -1,0 +1,2 @@
+# 09 leakage check — EVALUATOR (evaluator_only; writes `leakage_report.json`)
+Fresh context. For each step's text and each interaction prompt/option, ask: would a learner need to **understand** any concept in the tile's `blocked_future_concepts` to follow it? A passing mention is not blocked; an example that only makes sense if you know the later idea is. Exhaustive over text blocks; interactions sampled at about a third. Report `BLOCKING <tile>/<step>: <blocked concept id> → fix`. `blocking_count > 0` stops the run for a human (the fix routes to stage 03/04).

@@ -115,31 +115,24 @@ class Ctx:
         return out
 
     def guard_snapshot(self):
-        """Copy every pipeline-code file (schemas, scripts, registry, instructions) aside; the copy is the truth for this run. The code must
+        """Hold every pipeline-code file (schemas, scripts, registry, instructions) in memory; that copy is the truth for this run. The code must
         first match the committed version: a schema an earlier agent quietly edited would otherwise be adopted as correct."""
         if not self.args.allow_dirty_code:
             r = subprocess.run(["git", "status", "--porcelain", "--", *self.GUARDED], cwd=ROOT, capture_output=True, text=True)
             if r.returncode == 0 and r.stdout.strip():
                 raise Stuck("pipeline code differs from the committed version (an agent or a person edited it):\n" + r.stdout[:1500]
                             + "\nIf the edit is intentional, commit it; if not, run `git checkout -- <path>`. (--allow-dirty-code overrides, for development only.)")
-        snap = self.B / "working" / "guard"
-        shutil.rmtree(snap, ignore_errors=True)
-        for f in self._guard_files():
-            dst = snap / f.relative_to(ROOT)
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(f, dst)
+        self._snap = {str(f.relative_to(ROOT)): f.read_bytes() for f in self._guard_files()}  # in driver memory: no agent can reach it
 
     def guard_check(self, label):
         """After an agent call: any change to pipeline code is reverted and stops the run (the agent was gaming or breaking its own gate)."""
-        snap = self.B / "working" / "guard"
-        before = {str(f.relative_to(snap)): f for f in snap.rglob("*") if f.is_file()}
         now = {str(f.relative_to(ROOT)): f for f in self._guard_files()}
-        changed = sorted(r for r in set(before) | set(now) if (r not in now or r not in before or now[r].read_bytes() != before[r].read_bytes()))
+        changed = sorted(r for r in set(self._snap) | set(now) if (r not in now or r not in self._snap or now[r].read_bytes() != self._snap[r]))
         for r in changed:  # restore the snapshot: modified/deleted files come back, files the agent created are removed
             dst = ROOT / r
-            if r in before:
+            if r in self._snap:
                 dst.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(before[r], dst)
+                dst.write_bytes(self._snap[r])
             elif dst.exists():
                 dst.unlink()
         if changed:

@@ -1,0 +1,188 @@
+{
+  "pipeline_name": "devspace_final_schema_pipeline",
+  "version": "0.1.0",
+  "spec": "00_FINAL_PIPELINE_CORE/PLAYBOOK.md",
+  "depends_on_pipeline": "devspace_glossary_pipeline",
+  "eligibility_rule": "A path may enter a batch only if its TOC workspace has freeze_manifest.json AND every chosen glossary bundle has validation.ready_for_final_schema.",
+  "stage_kinds": {
+    "script": "RUN.md \u2014 deterministic script, no model judgment, must exit 0",
+    "generate_evaluate": "GENERATOR.md then deterministic gate then EVALUATOR.md in a fresh subagent; blocking/advisory",
+    "evaluator_only": "EVALUATOR.md in a fresh subagent; it writes the stage artifact"
+  },
+  "stages": [
+    {
+      "id": "00_preflight",
+      "kind": "script",
+      "script": "preflight.py",
+      "outputs": [
+        "batch_run_context.json",
+        "inputs/path_glossary_bundle.json"
+      ],
+      "depends_on": [],
+      "status": "implemented"
+    },
+    {
+      "id": "01_scenario_assets",
+      "kind": "generate_evaluate",
+      "gate_script": "validate_tile.py --registry",
+      "outputs": [
+        "scenario_asset_registry.json"
+      ],
+      "depends_on": [
+        "inputs/path_glossary_bundle.json"
+      ],
+      "status": "implemented",
+      "gate": {
+        "cmds": [
+          "validate_tile.py {B} --registry"
+        ],
+        "part_schema": "scenario_asset_registry.schema.json"
+      }
+    },
+    {
+      "id": "02_tile_plan",
+      "kind": "script",
+      "script": "plan_tiles.py",
+      "outputs": [
+        "tile_plans.json"
+      ],
+      "depends_on": [
+        "inputs/path_glossary_bundle.json",
+        "batch_run_context.json"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": "03_screens",
+      "kind": "generate_evaluate",
+      "gate_script": "assemble_tiles.py + validate_tile.py",
+      "outputs": [
+        "screens.json"
+      ],
+      "depends_on": [
+        "tile_plans.json",
+        "scenario_asset_registry.json"
+      ],
+      "status": "implemented",
+      "chunk_by": "tile",
+      "gate": {
+        "part_schema": "screens_part.schema.json"
+      }
+    },
+    {
+      "id": "04_interactions",
+      "kind": "generate_evaluate",
+      "gate_script": "assemble_tiles.py + validate_tile.py",
+      "outputs": [
+        "interactions.json"
+      ],
+      "depends_on": [
+        "screens.json",
+        "tile_plans.json",
+        "scenario_asset_registry.json"
+      ],
+      "status": "implemented",
+      "chunk_by": "tile",
+      "gate": {
+        "part_schema": "interactions_part.schema.json",
+        "sandbox": [
+          "assemble_tiles.py {B}",
+          "validate_tile.py {B} --strict"
+        ]
+      }
+    },
+    {
+      "id": "05_code_exercises",
+      "kind": "generate_evaluate",
+      "outputs": [
+        "code_exercises.json"
+      ],
+      "depends_on": [
+        "interactions.json"
+      ],
+      "status": "planned: no separate stage. code_exercise interactions are authored by stage 04; the stage-04 gate runs them in the pinned sandbox (registry/runtimes.json) and stage 06 stamps execution_provenance"
+    },
+    {
+      "id": "06_assemble",
+      "kind": "script",
+      "script": "assemble_tiles.py",
+      "outputs": [
+        "tile_lessons/*.json",
+        "tile_lessons_public/*.json",
+        "grading/*.json"
+      ],
+      "depends_on": [
+        "screens.json",
+        "interactions.json",
+        "tile_plans.json",
+        "scenario_asset_registry.json"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": "07_validate",
+      "kind": "script",
+      "script": "validate_tile.py",
+      "outputs": [
+        "reports/validation.tiles.json"
+      ],
+      "depends_on": [
+        "tile_lessons/*.json"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": "08_pedagogy_review",
+      "kind": "evaluator_only",
+      "outputs": [
+        "pedagogy_review.md"
+      ],
+      "depends_on": [
+        "reports/validation.tiles.json"
+      ],
+      "status": "implemented (instructions only; not yet run)"
+    },
+    {
+      "id": "09_leakage_check",
+      "kind": "evaluator_only",
+      "outputs": [
+        "leakage_report.json"
+      ],
+      "depends_on": [
+        "tile_lessons/*.json"
+      ],
+      "status": "implemented (instructions only; not yet run)"
+    },
+    {
+      "id": "10_stage_gate_ledger",
+      "kind": "script",
+      "script": "update_ledger.py verify",
+      "outputs": [
+        "final_stage_gate_ledger.json"
+      ],
+      "depends_on": [],
+      "status": "implemented"
+    },
+    {
+      "id": "11_final_audit",
+      "kind": "evaluator_only",
+      "outputs": [
+        "final_audit_report.json"
+      ],
+      "depends_on": [
+        "final_stage_gate_ledger.json"
+      ],
+      "status": "implemented (instructions only; not yet run)"
+    },
+    {
+      "id": "12_publish",
+      "kind": "script",
+      "outputs": [],
+      "depends_on": [
+        "final_audit_report.json"
+      ],
+      "status": "planned: needs backend contract"
+    }
+  ],
+  "driver_notes": "gate.cmds run in the batch; gate.part_schema checks each part file; gate.sandbox runs on a copy of the batch holding only the chunk's tiles (chunk_by=tile). Placeholders: {B} batch dir. Stages whose status starts with 'planned' are skipped (05 only when the tile plans need no sandbox types; 12 always)."
+}

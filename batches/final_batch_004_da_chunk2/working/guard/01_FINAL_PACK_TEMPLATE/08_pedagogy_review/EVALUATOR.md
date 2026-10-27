@@ -1,0 +1,5 @@
+# 08 pedagogy review — EVALUATOR (evaluator_only; writes `pedagogy_review.md`)
+Fresh context. Judge each reviewed tile as a learner journey, from `tile_lessons/<tile>.json` (and screenshots once the reference player exists). Canary: every tile; later: a third by risk (core-tier concepts, HIGH video need, most steps).
+Check: explain → check → apply flow (a check never arrives before its idea); one idea per step; no dead text; reading load per step; difficulty ramp; remediation that actually helps the specific mistake; each visual earns its place (supports the text, not decoration); 8–14 steps and about 6–12 minutes per tile; the video step adds something the text doesn't repeat.
+BLOCKING: a learner cannot succeed from what was taught; a step that teaches two ideas at once and hides one; a remediation that doesn't address the wrong answer; a visual that contradicts the text. ADVISORY: pacing, wording, ordering preferences.
+`VERDICT: PASS|FAIL` here means you completed the review honestly, not that the content is good. List findings as `BLOCKING|ADVISORY <tile>/<step>: problem → fix`.
