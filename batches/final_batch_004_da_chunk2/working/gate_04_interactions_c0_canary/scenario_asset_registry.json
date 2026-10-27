@@ -1,0 +1,768 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "scenario_asset_registry",
+  "path_id": "data_analyst",
+  "batch_id": "final_batch_004_da_chunk2",
+  "scenarios": [
+    {
+      "scenario_id": "scen_quickship_ab",
+      "name": "QuickShip Checkout A/B Test",
+      "summary": "QuickShip is a fictional last-mile delivery company. Its product team ran an A/B test on a redesigned checkout button, comparing completion rates between the original (control) and redesigned (variation) button. Two versions of the test exist: a small pilot (50 users per group) and a full run (5,000 users per group), both showing a 10% lift. A data analyst must interpret sample size, p-values, confidence intervals, and statistical vs practical significance to advise whether to roll out the redesign company-wide.",
+      "locale": "NG",
+      "currency": "NGN",
+      "domain": "e-commerce / product experimentation",
+      "glossary_example_vocab": [
+        "checkout button",
+        "A/B test",
+        "control",
+        "variation",
+        "lift",
+        "10% lift",
+        "50 users per group",
+        "5000 users per group",
+        "completion rate",
+        "null hypothesis",
+        "alternative hypothesis",
+        "H0",
+        "HA",
+        "p-value",
+        "confidence interval",
+        "95% confidence interval",
+        "null value",
+        "0.333",
+        "p = 0.88",
+        "statistical significance",
+        "practical significance",
+        "point estimate",
+        "sample size",
+        "precision",
+        "reject the null hypothesis",
+        "fail to reject",
+        "baseline",
+        "completed order"
+      ]
+    },
+    {
+      "scenario_id": "scen_quickship_ops",
+      "name": "QuickShip Delivery Operations",
+      "summary": "QuickShip operates last-mile delivery across three Nigerian cities: Lagos, Abuja, and Kano. The operations team raised a complaint that deliveries feel slow. A data analyst scopes the question to: 'Which delivery zones are missing the delivery-time target, and by how much, over the last quarter?' Order records live in a SQL database (orders table: zone, driver_id, delivery_time_min, order_date); the driver roster is kept in an Excel workbook (driver_id, name, zone, shift). The analyst retrieves, cleans, models, analyzes, visualizes, and communicates findings to the Head of Operations, framing the Lagos slowdown as the priority finding and recommending adding one courier to the Lagos route.",
+      "locale": "NG",
+      "currency": "NGN",
+      "domain": "logistics / delivery operations",
+      "glossary_example_vocab": [
+        "Lagos",
+        "Abuja",
+        "Kano",
+        "delivery zone",
+        "delivery time",
+        "delivery_time_min",
+        "delivery-time target",
+        "last quarter",
+        "operations manager",
+        "Head of Operations",
+        "operations team",
+        "courier",
+        "driver",
+        "driver_id",
+        "zone",
+        "shift",
+        "orders table",
+        "driver roster",
+        "SQL query",
+        "read_excel()",
+        "pandas.io.sql",
+        "order_id",
+        "order_date",
+        "Lagos delivery times rose to 30 minutes",
+        "Lagos slowdown",
+        "inverted pyramid",
+        "finding vs recommendation",
+        "add one Lagos courier",
+        "zone-delay question",
+        "missing delivery times",
+        "scope",
+        "scoping",
+        "analytical plan",
+        "decision record",
+        "summary pack",
+        "narrated stakeholder summary",
+        "beginning middle end",
+        "Head of Operations"
+      ]
+    }
+  ],
+  "assets": [
+    {
+      "asset_id": "ds_ab_test_results",
+      "asset_kind": "dataset",
+      "scenario_id": "scen_quickship_ab",
+      "title": "QuickShip Checkout A/B Test Results",
+      "description": "Summary table of A/B test runs for the QuickShip checkout-button redesign. Includes a small pilot (n=50 per group) and a large run (n=5000 per group), both showing the same 10% lift, plus two textbook proportion tests illustrating null-value-in-CI reasoning (null value 0.333).",
+      "columns": [
+        {
+          "name": "test_id",
+          "type": "string",
+          "semantic_role": "identifier",
+          "description": "Unique identifier for the test run"
+        },
+        {
+          "name": "variant",
+          "type": "string",
+          "semantic_role": "categorical",
+          "description": "Which group: control or variation"
+        },
+        {
+          "name": "n_per_group",
+          "type": "integer",
+          "semantic_role": "numerical",
+          "unit": "users",
+          "description": "Number of users assigned to each group"
+        },
+        {
+          "name": "conversions",
+          "type": "integer",
+          "semantic_role": "numerical",
+          "unit": "orders",
+          "description": "Number of completed orders in this group"
+        },
+        {
+          "name": "conversion_rate",
+          "type": "number",
+          "semantic_role": "numerical",
+          "unit": "proportion",
+          "description": "Proportion of users who completed an order"
+        },
+        {
+          "name": "lift_pct",
+          "type": "number",
+          "semantic_role": "numerical",
+          "unit": "percent",
+          "description": "Percentage lift of variation over control; null for control rows"
+        },
+        {
+          "name": "p_value",
+          "type": "number",
+          "semantic_role": "numerical",
+          "description": "p-value from the hypothesis test; null for control rows"
+        },
+        {
+          "name": "ci_lower",
+          "type": "number",
+          "semantic_role": "numerical",
+          "description": "Lower bound of 95% confidence interval for the lift; null for control rows"
+        },
+        {
+          "name": "ci_upper",
+          "type": "number",
+          "semantic_role": "numerical",
+          "description": "Upper bound of 95% confidence interval for the lift; null for control rows"
+        },
+        {
+          "name": "null_value_in_ci",
+          "type": "string",
+          "semantic_role": "categorical",
+          "description": "Whether the null value (0% lift) falls inside the confidence interval: yes, no, or n/a"
+        }
+      ],
+      "rows": [
+        [
+          "test_checkout_small",
+          "control",
+          50,
+          41,
+          0.82,
+          null,
+          null,
+          null,
+          null,
+          "n/a"
+        ],
+        [
+          "test_checkout_small",
+          "variation",
+          50,
+          45,
+          0.9,
+          9.8,
+          0.312,
+          -9.4,
+          29.0,
+          "yes"
+        ],
+        [
+          "test_checkout_large",
+          "control",
+          5000,
+          4100,
+          0.82,
+          null,
+          null,
+          null,
+          null,
+          "n/a"
+        ],
+        [
+          "test_checkout_large",
+          "variation",
+          5000,
+          4500,
+          0.9,
+          9.8,
+          0.001,
+          7.2,
+          12.4,
+          "no"
+        ],
+        [
+          "test_prop_A",
+          "sample",
+          50,
+          18,
+          0.36,
+          null,
+          0.21,
+          0.22,
+          0.5,
+          "yes"
+        ],
+        [
+          "test_prop_B",
+          "sample",
+          50,
+          10,
+          0.2,
+          null,
+          0.046,
+          0.09,
+          0.31,
+          "no"
+        ]
+      ],
+      "variants": [
+        {
+          "variant_id": "ds_ab_test_results_messy",
+          "derived_from": "ds_ab_test_results",
+          "purpose": "find_issues practice: one impossible p_value (>1), one duplicate row",
+          "ops": [
+            {
+              "op": "set_cell",
+              "where": {
+                "test_id": "test_checkout_small",
+                "variant": "variation"
+              },
+              "occurrence": 0,
+              "column": "p_value",
+              "value": 1.42
+            },
+            {
+              "op": "duplicate_row",
+              "where": {
+                "test_id": "test_checkout_large",
+                "variant": "control"
+              },
+              "occurrence": 0,
+              "insert": "end"
+            }
+          ],
+          "planted_issues": [
+            {
+              "issue_id": "issue_impossible_pvalue",
+              "kind": "impossible_value",
+              "locations": [
+                {
+                  "where": {
+                    "test_id": "test_checkout_small",
+                    "variant": "variation"
+                  },
+                  "occurrence": 0,
+                  "column": "p_value"
+                }
+              ],
+              "description": "p_value of 1.42 is impossible; p-values must be between 0 and 1 inclusive.",
+              "rule": {
+                "column": "p_value",
+                "op": "gt",
+                "value": 1.0
+              }
+            },
+            {
+              "issue_id": "issue_duplicate_control_row",
+              "kind": "duplicate_row",
+              "locations": [
+                {
+                  "where": {
+                    "test_id": "test_checkout_large",
+                    "variant": "control"
+                  },
+                  "occurrence": 0,
+                  "column": "test_id"
+                },
+                {
+                  "where": {
+                    "test_id": "test_checkout_large",
+                    "variant": "control"
+                  },
+                  "occurrence": 1,
+                  "column": "test_id"
+                }
+              ],
+              "description": "The large-test control row appears twice; one is a duplicate."
+            }
+          ]
+        }
+      ],
+      "provenance": "authored"
+    },
+    {
+      "asset_id": "ds_city_delivery_summary",
+      "asset_kind": "dataset",
+      "scenario_id": "scen_quickship_ops",
+      "title": "QuickShip City Delivery Summary",
+      "description": "City-level delivery performance summary for QuickShip's three operating cities. Lagos average delivery time rose to 30 minutes against a 25-minute target (primary finding). Kano also misses the target. Abuja is on target. Used to teach finding prioritization (Lagos slowdown is the primary finding) and actionable recommendation framing.",
+      "columns": [
+        {
+          "name": "city",
+          "type": "string",
+          "semantic_role": "categorical",
+          "description": "Delivery city: Lagos, Abuja, or Kano"
+        },
+        {
+          "name": "avg_delivery_min",
+          "type": "number",
+          "semantic_role": "numerical",
+          "unit": "minutes",
+          "description": "Average delivery time in minutes last month"
+        },
+        {
+          "name": "target_min",
+          "type": "integer",
+          "semantic_role": "numerical",
+          "unit": "minutes",
+          "description": "Company delivery-time target in minutes"
+        },
+        {
+          "name": "pct_on_time",
+          "type": "number",
+          "semantic_role": "numerical",
+          "unit": "percent",
+          "description": "Percentage of deliveries meeting the target"
+        },
+        {
+          "name": "variability_rank",
+          "type": "string",
+          "semantic_role": "categorical",
+          "description": "Relative variability of delivery times: low or medium"
+        },
+        {
+          "name": "n_couriers",
+          "type": "integer",
+          "semantic_role": "numerical",
+          "description": "Number of active couriers in this city"
+        },
+        {
+          "name": "finding_priority",
+          "type": "string",
+          "semantic_role": "categorical",
+          "description": "Priority of this city's finding for the operations manager: primary or secondary"
+        }
+      ],
+      "rows": [
+        [
+          "Lagos",
+          30.1,
+          25,
+          52.3,
+          "medium",
+          8,
+          "primary"
+        ],
+        [
+          "Kano",
+          26.4,
+          25,
+          61.8,
+          "medium",
+          6,
+          "secondary"
+        ],
+        [
+          "Abuja",
+          23.7,
+          25,
+          84.2,
+          "low",
+          7,
+          "secondary"
+        ]
+      ],
+      "variants": [
+        {
+          "variant_id": "ds_city_delivery_summary_messy",
+          "derived_from": "ds_city_delivery_summary",
+          "purpose": "find_issues practice: one impossible pct_on_time (>100), one inconsistent casing in variability_rank",
+          "ops": [
+            {
+              "op": "set_cell",
+              "where": {
+                "city": "Kano"
+              },
+              "occurrence": 0,
+              "column": "pct_on_time",
+              "value": 112.5
+            },
+            {
+              "op": "set_cell",
+              "where": {
+                "city": "Lagos"
+              },
+              "occurrence": 0,
+              "column": "variability_rank",
+              "value": "Medium"
+            }
+          ],
+          "planted_issues": [
+            {
+              "issue_id": "issue_impossible_pct",
+              "kind": "impossible_value",
+              "locations": [
+                {
+                  "where": {
+                    "city": "Kano"
+                  },
+                  "occurrence": 0,
+                  "column": "pct_on_time"
+                }
+              ],
+              "description": "pct_on_time of 112.5 is impossible; a percentage cannot exceed 100.",
+              "rule": {
+                "column": "pct_on_time",
+                "op": "gt",
+                "value": 100.0
+              }
+            },
+            {
+              "issue_id": "issue_casing_variability",
+              "kind": "inconsistent_category",
+              "locations": [
+                {
+                  "where": {
+                    "city": "Lagos"
+                  },
+                  "occurrence": 0,
+                  "column": "variability_rank"
+                }
+              ],
+              "description": "variability_rank value 'Medium' uses title case while the sibling value 'medium' (Kano) uses lowercase.",
+              "rule": {
+                "column": "variability_rank",
+                "op": "casing_differs_from_siblings"
+              }
+            }
+          ]
+        }
+      ],
+      "provenance": "authored"
+    },
+    {
+      "asset_id": "ds_capstone_orders",
+      "asset_kind": "dataset",
+      "scenario_id": "scen_quickship_ops",
+      "title": "QuickShip Capstone Orders Table",
+      "description": "Last-quarter order records for QuickShip, retrieved via SQL query from the company's orders database. Columns match the glossary's capstone example: zone, driver_id, delivery_time_min, order_date. One row has a null delivery_time_min (missing value — a key data-quality teaching point). Covers four delivery zones: Lagos-North, Lagos-South, Kano-Central, Abuja-West.",
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "string",
+          "semantic_role": "identifier",
+          "description": "Unique order identifier"
+        },
+        {
+          "name": "zone",
+          "type": "string",
+          "semantic_role": "categorical",
+          "description": "Delivery zone within the city"
+        },
+        {
+          "name": "driver_id",
+          "type": "string",
+          "semantic_role": "identifier",
+          "description": "Driver assigned to this order; foreign key to driver roster"
+        },
+        {
+          "name": "delivery_time_min",
+          "type": "number",
+          "semantic_role": "numerical",
+          "unit": "minutes",
+          "description": "Actual delivery time in minutes; null if delivery not yet completed"
+        },
+        {
+          "name": "order_date",
+          "type": "date",
+          "semantic_role": "datetime",
+          "description": "Date the order was placed (last quarter)"
+        },
+        {
+          "name": "on_time",
+          "type": "string",
+          "semantic_role": "categorical",
+          "description": "Whether delivery met the 25-minute target: yes, no, or unknown"
+        }
+      ],
+      "rows": [
+        [
+          "ORD-001",
+          "Lagos-North",
+          "DRV-03",
+          32.5,
+          "2024-10-03",
+          "no"
+        ],
+        [
+          "ORD-002",
+          "Lagos-South",
+          "DRV-07",
+          28.1,
+          "2024-10-04",
+          "no"
+        ],
+        [
+          "ORD-003",
+          "Kano-Central",
+          "DRV-11",
+          24.3,
+          "2024-10-05",
+          "yes"
+        ],
+        [
+          "ORD-004",
+          "Abuja-West",
+          "DRV-02",
+          22.8,
+          "2024-10-06",
+          "yes"
+        ],
+        [
+          "ORD-005",
+          "Lagos-North",
+          "DRV-03",
+          35.0,
+          "2024-10-07",
+          "no"
+        ],
+        [
+          "ORD-006",
+          "Lagos-South",
+          "DRV-07",
+          null,
+          "2024-10-08",
+          "unknown"
+        ],
+        [
+          "ORD-007",
+          "Kano-Central",
+          "DRV-11",
+          27.6,
+          "2024-10-09",
+          "no"
+        ],
+        [
+          "ORD-008",
+          "Abuja-West",
+          "DRV-02",
+          21.4,
+          "2024-10-10",
+          "yes"
+        ],
+        [
+          "ORD-009",
+          "Lagos-North",
+          "DRV-05",
+          31.2,
+          "2024-10-11",
+          "no"
+        ],
+        [
+          "ORD-010",
+          "Lagos-South",
+          "DRV-09",
+          29.8,
+          "2024-10-12",
+          "no"
+        ],
+        [
+          "ORD-011",
+          "Kano-Central",
+          "DRV-11",
+          26.1,
+          "2024-10-13",
+          "no"
+        ],
+        [
+          "ORD-012",
+          "Abuja-West",
+          "DRV-02",
+          23.5,
+          "2024-10-14",
+          "yes"
+        ]
+      ],
+      "provenance": "authored"
+    },
+    {
+      "asset_id": "ds_capstone_drivers",
+      "asset_kind": "dataset",
+      "scenario_id": "scen_quickship_ops",
+      "title": "QuickShip Capstone Driver Roster",
+      "description": "Driver roster for QuickShip, read from an Excel workbook via read_excel(). Columns match the glossary's capstone example: driver_id, name, zone, shift. driver_id is the join key linking this table to the orders table.",
+      "columns": [
+        {
+          "name": "driver_id",
+          "type": "string",
+          "semantic_role": "identifier",
+          "description": "Unique driver identifier; foreign key to orders table"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "semantic_role": "text",
+          "description": "Driver full name"
+        },
+        {
+          "name": "zone",
+          "type": "string",
+          "semantic_role": "categorical",
+          "description": "Primary delivery zone assigned to this driver"
+        },
+        {
+          "name": "shift",
+          "type": "string",
+          "semantic_role": "categorical",
+          "description": "Shift worked: morning or afternoon"
+        }
+      ],
+      "rows": [
+        [
+          "DRV-02",
+          "Amaka Osei",
+          "Abuja-West",
+          "morning"
+        ],
+        [
+          "DRV-03",
+          "Emeka Bello",
+          "Lagos-North",
+          "morning"
+        ],
+        [
+          "DRV-05",
+          "Tunde Adeyemi",
+          "Lagos-North",
+          "afternoon"
+        ],
+        [
+          "DRV-07",
+          "Fatima Musa",
+          "Lagos-South",
+          "morning"
+        ],
+        [
+          "DRV-09",
+          "Chidi Eze",
+          "Lagos-South",
+          "afternoon"
+        ],
+        [
+          "DRV-11",
+          "Yusuf Garba",
+          "Kano-Central",
+          "morning"
+        ]
+      ],
+      "provenance": "authored"
+    },
+    {
+      "asset_id": "ds_capstone_zone_summary",
+      "asset_kind": "dataset",
+      "scenario_id": "scen_quickship_ops",
+      "title": "QuickShip Capstone Zone Delivery Summary",
+      "description": "Zone-level delivery performance summary produced by the capstone analysis. Answers the scoped question: which delivery zones are missing the 25-minute target, and by how much. Lagos-North and Lagos-South both miss the target; Abuja-West is fully on target. Used in the narrated stakeholder summary and deliverable documentation.",
+      "columns": [
+        {
+          "name": "zone",
+          "type": "string",
+          "semantic_role": "categorical",
+          "description": "Delivery zone"
+        },
+        {
+          "name": "n_orders",
+          "type": "integer",
+          "semantic_role": "numerical",
+          "description": "Number of orders in the last quarter"
+        },
+        {
+          "name": "avg_delivery_min",
+          "type": "number",
+          "semantic_role": "numerical",
+          "unit": "minutes",
+          "description": "Average delivery time in minutes, computed over non-null delivery_time_min values only"
+        },
+        {
+          "name": "target_min",
+          "type": "integer",
+          "semantic_role": "numerical",
+          "unit": "minutes",
+          "description": "Company delivery-time target"
+        },
+        {
+          "name": "pct_on_time",
+          "type": "number",
+          "semantic_role": "numerical",
+          "unit": "percent",
+          "description": "Percentage of orders meeting the target"
+        },
+        {
+          "name": "gap_min",
+          "type": "number",
+          "semantic_role": "numerical",
+          "unit": "minutes",
+          "description": "Average gap above target (positive = missing target); 0.0 if on target"
+        }
+      ],
+      "rows": [
+        [
+          "Lagos-North",
+          3,
+          32.9,
+          25,
+          0.0,
+          7.9
+        ],
+        [
+          "Lagos-South",
+          3,
+          29.0,
+          25,
+          0.0,
+          4.0
+        ],
+        [
+          "Kano-Central",
+          3,
+          26.0,
+          25,
+          33.3,
+          1.0
+        ],
+        [
+          "Abuja-West",
+          3,
+          22.6,
+          25,
+          100.0,
+          0.0
+        ]
+      ],
+      "provenance": "authored"
+    }
+  ]
+}
