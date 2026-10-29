@@ -119,9 +119,11 @@ def main():
                 s["interaction"] = copy.deepcopy(ix[s["step_id"]])
                 if s["interaction"]["type"] == "code_exercise":  # provenance comes from a real run, never from the model
                     s["interaction"]["grading"].pop("execution_provenance", None)
+                    s["interaction"]["grading"].pop("hidden_checks", None)
                     run = sandbox.run_exercise(registry, s["interaction"])
                     if run.provenance:
                         s["interaction"]["grading"]["execution_provenance"] = run.provenance
+                        s["interaction"]["grading"]["hidden_checks"] = run.hidden_checks
             for b in iter_blocks(s.get("blocks")):
                 if b["type"] == "media_group":
                     inline_media(b, cid_by_seg, bundles, errs)

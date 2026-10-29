@@ -35,6 +35,11 @@ def code_exercise(C, step, ix, rep):
     if out.unverified:
         rep.w(f"{where}: UNVERIFIED — {out.unverified}")
     if not out.problems:
+        stored = ix["grading"].get("hidden_checks")
+        if stored is None:
+            rep.e(f"{where}: hidden_checks missing (run assemble_tiles.py: they are derived from the solution, never authored)")
+        elif stored != out.hidden_checks:
+            rep.e(f"{where}: hidden_checks do not match a fresh derivation from the solution")
         got = ix["grading"].get("execution_provenance")
         if got is None:
             rep.e(f"{where}: execution_provenance missing (run assemble_tiles.py: outputs come from the run, never typed)")

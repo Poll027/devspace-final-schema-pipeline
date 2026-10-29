@@ -249,7 +249,7 @@ def unit_sql_runner():
     ok = not out.problems and out.provenance and out.provenance["tests_passed"] == 1
     print(("caught " if ok else "MISSED ") + f"sql: a correct exercise passes and gets provenance ({out.problems or ''})")
     fails += not ok
-    stamped = variant(lambda ix: ix["grading"].update(execution_provenance=out.provenance))
+    stamped = variant(lambda ix: ix["grading"].update(execution_provenance=out.provenance, hidden_checks=out.hidden_checks))
     ok = not check(stamped).E
     print(("caught " if ok else "MISSED ") + "sql: the validator accepts matching provenance")
     fails += not ok
@@ -294,6 +294,34 @@ def unit_sql_runner():
     ok = any("exceeded" in e or "does not run" in e or "crashed" in e for e in rep.E) and time.time() - t0 < 40
     print(("caught " if ok else "MISSED ") + f"sql: a runaway query is stopped by the timeout ({time.time() - t0:.0f}s: {rep.E[:1]})")
     fails += not ok
+    # hidden checks: a hard-coded answer must fail, a correct alternative phrasing must pass
+    stamped_ix = variant(lambda ix: ix["grading"].update(execution_provenance=out.provenance, hidden_checks=out.hidden_checks))
+    ok = len(out.hidden_checks) >= 1 and all("expected" in h and h["mutation"]["ops"] for h in out.hidden_checks)
+    print(("caught " if ok else "MISSED ") + f"hidden: {len(out.hidden_checks)} sensitive checks derived from the solution")
+    fails += not ok
+    for name, sql, want in [
+            ("the reference solution passes every visible and hidden check", good["grading"]["solution_files"][0]["content"], True),
+            ("a differently written correct query passes", "SELECT c.customer_id, c.city AS town FROM customers AS c WHERE c.spend > 8 ORDER BY 1", True),
+            ("a hard-coded answer that matches the visible rows is rejected", "SELECT 1 AS customer_id, 'Lagos' AS town UNION ALL SELECT 2, 'Abuja' ORDER BY 1", False),
+            ("a query that ignores the filter is rejected", "SELECT customer_id, city AS town FROM customers ORDER BY customer_id", False)]:
+        passed, reasons = sandbox.grade_learner(reg, stamped_ix, sql)
+        ok = passed == want
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + "hidden: " + name + ("" if ok else f" (passed={passed}: {reasons})"))
+    const = variant(lambda ix: (ix["grading"]["solution_files"][0].update(content="SELECT 1 AS customer_id, 'Lagos' AS town"),
+                                ix["grading"]["tests"][0]["spec"].update(expected={"columns": ["customer_id", "town"], "rows": [[1, "Lagos"]]}),
+                                ix["public"]["constraints"].update(allowed_syntax=allowed)))
+    rep = check(const)
+    ok = any("a hard-coded query would pass" in e for e in rep.E)
+    print(("caught " if ok else "MISSED ") + "hidden: an exercise whose answer ignores the data is flagged as hard-codable")
+    fails += not ok
+    for name, mut, expect in [("hidden_checks typed or edited by hand", lambda g: g["hidden_checks"][0]["expected"]["rows"].append([9, "Kano"]), "do not match a fresh derivation"),
+                              ("hidden_checks missing from a compiled lesson", lambda g: g.pop("hidden_checks"), "hidden_checks missing")]:
+        ix2 = copy.deepcopy(stamped_ix)
+        mut(ix2["grading"])
+        ok = any(expect in e for e in check(ix2).E)
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + "hidden: " + name)
     # data_table.result_of: query-result tables are computed, never typed (the batch-005 DISTINCT-panel finding)
     from checkers import data as datachk
     tbl = {"type": "data_table", "result_of": {"runtime": "sql", "sql": "SELECT DISTINCT city FROM customers ORDER BY city", "asset_mounts": [{"asset_id": "ds_customers", "mount_path": "customers"}]}}
@@ -341,7 +369,7 @@ def unit_sql_runner():
 
 def stamped_for(variant, out, mutate):
     """A mutated copy of the good exercise carrying the good run's provenance, so only the mutation is under test."""
-    return variant(lambda ix: (ix["grading"].update(execution_provenance=out.provenance), mutate(ix)))
+    return variant(lambda ix: (ix["grading"].update(execution_provenance=out.provenance, hidden_checks=out.hidden_checks), mutate(ix)))
 
 
 def main():

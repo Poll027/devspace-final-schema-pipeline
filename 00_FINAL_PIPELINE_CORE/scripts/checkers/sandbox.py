@@ -37,6 +37,7 @@ class Outcome:
     tests_total: int = 0
     provenance: dict | None = None
     unverified: str | None = None
+    hidden_checks: list = field(default_factory=list)
 
 
 def sha(text):
@@ -104,6 +105,50 @@ def _entry(ix, which):
     return entry, (f["content"] if f else None)
 
 
+# ---- hidden checks: deterministic mutations of the mounted data (the player's grader must apply the same ops)
+MAX_HIDDEN = 4
+
+
+def apply_ops(table, ops):
+    """Return a mutated deep copy of {name, columns, rows}. ops: drop_row{index} | duplicate_row{index} | set_cell{index, column, value}."""
+    t = json.loads(json.dumps(table))
+    names = [c["name"] for c in t["columns"]]
+    for o in ops:
+        i = o["index"]
+        if o["op"] == "drop_row" and i < len(t["rows"]):
+            del t["rows"][i]
+        elif o["op"] == "duplicate_row" and i < len(t["rows"]):
+            t["rows"].insert(i + 1, list(t["rows"][i]))
+        elif o["op"] == "set_cell" and i < len(t["rows"]) and o["column"] in names:
+            t["rows"][i][names.index(o["column"])] = o["value"]
+    return t
+
+
+def candidate_mutations(tables):
+    """Deterministic, role-agnostic candidates per table, in a fixed order: drop first row, duplicate last row, change the first string and the first
+    numeric cell of row 0, drop the last row. Only mutations that change the solution's result are kept (and stored as hidden_checks)."""
+    out = []
+    for t in tables:
+        if not t["rows"]:
+            continue
+        n, name = len(t["rows"]), t["name"]
+        cands = [("drop_first", [{"op": "drop_row", "index": 0}]), ("dup_last", [{"op": "duplicate_row", "index": n - 1}])]
+        for kind, test in (("str", lambda c, v: c.get("type", "string") == "string" and isinstance(v, str)),
+                           ("num", lambda c, v: c.get("type") in ("integer", "number") and isinstance(v, (int, float)) and not isinstance(v, bool))):
+            for j, c in enumerate(t["columns"]):
+                v = t["rows"][0][j]
+                if test(c, v):
+                    cands.append((f"set_{kind}_{c['name']}", [{"op": "set_cell", "index": 0, "column": c["name"], "value": (v + "_x") if kind == "str" else v + 1000}]))
+                    break
+        cands.append(("drop_last", [{"op": "drop_row", "index": n - 1}]))
+        out += [{"check_id": f"hc_{name}_{label}", "mutation": {"table": name, "ops": ops}} for label, ops in cands]
+    return out
+
+
+def _mutated(tables, mutation):
+    return [apply_ops(t, mutation["ops"]) if t["name"] == mutation["table"] else t for t in tables]
+
+
 def run_sql(registry, ix):
     o = Outcome()
     pub, gr = ix["public"], ix["grading"]
@@ -135,6 +180,8 @@ def run_sql(registry, ix):
             scripts.append({"id": f"test:{t['test_id']}", "statements": sqlsyntax.split_statements(solution), "tables": tb})
     if o.problems:
         return o
+    cands = candidate_mutations(tables)
+    scripts += [{"id": f"mut:{c['check_id']}", "statements": sqlsyntax.split_statements(solution), "tables": _mutated(tables, c["mutation"])} for c in cands]
     res = node_run({"tables": tables, "scripts": scripts}, pin["runner"])["results"]
     if not res["solution"]["ok"]:
         o.problems.append(f"solution does not run: {res['solution']['error'].splitlines()[0]}")
@@ -170,6 +217,18 @@ def run_sql(registry, ix):
                 o.tests_passed += 1
     if starter_passes:
         o.problems.append("the starter code already passes every result test: the learner has nothing to do")
+    first = next((t for t in tests if t["kind"] == "query_result_equals"), None)
+    ordered = bool(first and first["spec"].get("ordered", False))
+    base = res["solution"]
+    hidden = []
+    for c in cands:
+        m = res[f"mut:{c['check_id']}"]
+        if m["ok"] and not ([x.lower() for x in m["columns"]] == [x.lower() for x in base["columns"]] and rows_equal(m["rows"], base["rows"], ordered)):
+            hidden.append({**c, "expected": {"columns": m["columns"], "rows": m["rows"]}, "ordered": ordered})
+    o.hidden_checks = hidden[:MAX_HIDDEN]
+    if not hidden:
+        o.problems.append("the solution's result does not change when the data changes (drop/duplicate a row, change a cell): a hard-coded query would pass. "
+                          "Ask for a result that depends on the data, e.g. include columns or rows that the data determines")
     cons = pub.get("constraints") or {}
     viol, unmapped = sqlsyntax.judge(solution, cons.get("allowed_syntax", []), cons.get("blocked_syntax", []), coltypes)
     o.problems += [f"solution {v}" for v in viol]
@@ -178,6 +237,43 @@ def run_sql(registry, ix):
     if not o.problems:
         o.provenance = {"runtime": pin["engine"], "runtime_version": pin["version"], "solution_sha256": sha(solution), "tests_passed": o.tests_passed}
     return o
+
+
+def grade_learner(registry, ix, learner_sql):
+    """Reference grader for a SQL exercise: does the learner's query pass every visible test AND every hidden check?
+    Returns (passed, [reasons]). The player's grader-core must behave identically (same data copies, same comparison)."""
+    pub, gr = ix["public"], ix["grading"]
+    pin = RUNTIMES["sql"]
+    problems = []
+    mounts = pub["workspace"].get("asset_mounts", [])
+    tables, _ = _tables(registry, mounts, {}, problems)
+    stmts = sqlsyntax.split_statements(learner_sql)
+    scripts, meta = [{"id": "base", "statements": stmts}], {}
+    for t in gr["tests"]:
+        if t["kind"] == "query_result_equals" and t["spec"].get("mount_variants"):
+            tb, _ = _tables(registry, mounts, t["spec"]["mount_variants"], problems)
+            scripts.append({"id": f"test:{t['test_id']}", "statements": stmts, "tables": tb})
+    byname = {t["name"]: t for t in tables}
+    for h in gr.get("hidden_checks", []):
+        scripts.append({"id": f"hidden:{h['check_id']}", "statements": stmts, "tables": _mutated(tables, h["mutation"])})
+    res = node_run({"tables": tables, "scripts": scripts}, pin["runner"])["results"]
+    reasons = []
+    for t in gr["tests"]:
+        spec = t["spec"]
+        if t["kind"] == "query_result_equals":
+            r = res.get(f"test:{t['test_id']}", res["base"])
+            exp = spec["expected"]
+            if not r["ok"] or [c.lower() for c in r["columns"]] != [c.lower() for c in exp["columns"]] or not rows_equal(r["rows"], exp["rows"], bool(spec.get("ordered")), float(spec.get("tolerance", 1e-9))):
+                reasons.append(f"{t['test_id']}: result differs")
+        elif t["kind"] == "forbidden_syntax":
+            bad = sorted(set(spec.get("descriptors", [])) & {d for x in stmts for d in sqlsyntax.used(x, {})})
+            if bad:
+                reasons.append(f"{t['test_id']}: uses forbidden syntax {bad}")
+    for h in gr.get("hidden_checks", []):
+        r = res[f"hidden:{h['check_id']}"]
+        if not r["ok"] or [c.lower() for c in r["columns"]] != [c.lower() for c in h["expected"]["columns"]] or not rows_equal(r["rows"], h["expected"]["rows"], bool(h.get("ordered"))):
+            reasons.append(f"{h['check_id']}: result differs on changed data (the query does not really compute the answer)")
+    return not reasons, reasons
 
 
 def run_query(registry, result_of):
