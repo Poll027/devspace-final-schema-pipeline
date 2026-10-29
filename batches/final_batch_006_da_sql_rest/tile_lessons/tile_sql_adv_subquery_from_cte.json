@@ -1,0 +1,672 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "data_analyst",
+  "tile_id": "tile_sql_adv_subquery_from_cte",
+  "toc_location": {
+    "region_id": "region_sql_joins_advanced",
+    "terrain_id": "terrain_sql_joins_subqueries_advanced"
+  },
+  "title": "Subqueries in FROM and Common Table Expressions",
+  "summary": "",
+  "concept_ids": [
+    "sql.subquery_in_from",
+    "sql.cte"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_001_data_analyst_pilot",
+    "toc_freeze_hash": "51f00dd4c4de431b068de76836c5090cf158a002d2ca2bfa57a5e0d5f8b1f4da",
+    "glossary_bundle_hashes": {
+      "sql.subquery_in_from": "67ce2ff393764f697d1b6d60c247c288b3558d4bfcf0bc2d9994d8ce664f6fe5",
+      "sql.cte": "340c965b4fee9e566eedc8b3fbec5f8de1e3a46d41df0e0e1172dc51ac710518"
+    },
+    "scenario_registry_hash": "8169f479f065b4cdbc086cc52d4350186682da70cfa154834ab1afe6136600f9"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core"
+    ],
+    "block_types": [
+      "code_walkthrough",
+      "media_group",
+      "prose",
+      "up_next"
+    ],
+    "interaction_types": [],
+    "runtimes": [],
+    "asset_ids": []
+  },
+  "pacing": {
+    "estimated_minutes": 17.7
+  },
+  "steps": [
+    {
+      "step_id": "tile_sql_adv_subquery_from_cte.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "sql.subquery_in_from"
+      ],
+      "eyebrow": "Subquery in FROM",
+      "title": "Treating a query result as a table",
+      "lede": "Sometimes the thing you want to filter isn't a real table — it's the result of an aggregate query. A subquery in FROM lets you query that result.",
+      "blocks": [
+        {
+          "type": "prose",
+          "block_id": "tile_sql_adv_subquery_from_cte.s01.b1",
+          "role": "intro",
+          "text": "Sometimes the thing you want to filter or select from isn't a real table at all, but the result of an aggregate query — like each customer's own average delivery time, treated as if it were a table you could query further.",
+          "lineage": {
+            "concept_ids": [
+              "sql.subquery_in_from"
+            ],
+            "teaching_block_ids": [
+              "sql.subquery_in_from#tb1"
+            ],
+            "fact_ids": [
+              "sql.subquery_in_from#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "block_id": "tile_sql_adv_subquery_from_cte.s01.b2",
+          "role": "definition",
+          "text": "A subquery used in FROM must be enclosed in parentheses and is typically given a table alias: FROM (SELECT customer_id, AVG(delivery_time_minutes) AS avg_time FROM orders GROUP BY customer_id) AS customer_avg. The SQL standard requires this alias; while PostgreSQL allows it to be omitted, writing one is good practice for portability.",
+          "lineage": {
+            "concept_ids": [
+              "sql.subquery_in_from"
+            ],
+            "teaching_block_ids": [
+              "sql.subquery_in_from#tb2"
+            ],
+            "fact_ids": [
+              "sql.subquery_in_from#f1"
+            ]
+          }
+        },
+        {
+          "type": "code_walkthrough",
+          "block_id": "tile_sql_adv_subquery_from_cte.s01.b3",
+          "language": "sql",
+          "code": "SELECT customer_id, avg_time\nFROM (\n    SELECT customer_id,\n           AVG(delivery_time_minutes) AS avg_time\n    FROM orders\n    GROUP BY customer_id\n) AS customer_avg\nWHERE avg_time > 30;",
+          "annotations": [
+            {
+              "start_line": 2,
+              "end_line": 7,
+              "text": "Inner query: computes per-customer average; aliased as customer_avg"
+            },
+            {
+              "start_line": 1,
+              "end_line": 1,
+              "text": "Outer query: reads avg_time from the virtual table customer_avg"
+            },
+            {
+              "start_line": 8,
+              "end_line": 8,
+              "text": "Outer WHERE: filters using avg_time — the alias the inner query defined"
+            }
+          ],
+          "reveal": "all",
+          "lineage": {
+            "concept_ids": [
+              "sql.subquery_in_from"
+            ],
+            "teaching_block_ids": [
+              "sql.subquery_in_from#tb1",
+              "sql.subquery_in_from#tb2"
+            ],
+            "fact_ids": [
+              "sql.subquery_in_from#f1"
+            ],
+            "anchors": [
+              "sql.subquery_in_from#visual"
+            ]
+          }
+        }
+      ],
+      "reward": {
+        "gems": 5
+      },
+      "lineage": {
+        "concept_ids": [
+          "sql.subquery_in_from"
+        ],
+        "teaching_block_ids": [
+          "sql.subquery_in_from#tb1",
+          "sql.subquery_in_from#tb2"
+        ],
+        "fact_ids": [
+          "sql.subquery_in_from#f1"
+        ],
+        "anchors": [
+          "sql.subquery_in_from#visual"
+        ]
+      }
+    },
+    {
+      "step_id": "tile_sql_adv_subquery_from_cte.s02",
+      "type": "explainer",
+      "concept_ids": [
+        "sql.subquery_in_from"
+      ],
+      "eyebrow": "Subquery in FROM",
+      "title": "Inner column names become the virtual table's columns",
+      "lede": "The outer query sees the inner query's output columns by their names or aliases.",
+      "blocks": [
+        {
+          "type": "prose",
+          "block_id": "tile_sql_adv_subquery_from_cte.s02.b1",
+          "role": "mechanism",
+          "text": "When a SELECT is used as a subquery, the name of each of its output columns — its own column name or its AS alias — is seen by the outer query as the column name of the virtual table the subquery produces. That's why the outer query can refer to avg_time directly: it's the alias the inner query already gave that column.",
+          "lineage": {
+            "concept_ids": [
+              "sql.subquery_in_from"
+            ],
+            "teaching_block_ids": [
+              "sql.subquery_in_from#tb3"
+            ],
+            "fact_ids": [
+              "sql.subquery_in_from#f2"
+            ]
+          }
+        }
+      ],
+      "reward": {
+        "gems": 3
+      },
+      "lineage": {
+        "concept_ids": [
+          "sql.subquery_in_from"
+        ],
+        "teaching_block_ids": [
+          "sql.subquery_in_from#tb3"
+        ],
+        "fact_ids": [
+          "sql.subquery_in_from#f2"
+        ]
+      }
+    },
+    {
+      "step_id": "tile_sql_adv_subquery_from_cte.s03",
+      "type": "video",
+      "concept_ids": [
+        "sql.subquery_in_from"
+      ],
+      "title": "Subqueries in FROM",
+      "blocks": [
+        {
+          "type": "media_group",
+          "block_id": "tile_sql_adv_subquery_from_cte.s03.b1",
+          "segment_ids": [
+            "seg_sql.subquery_in_from_tvBp81WVrCA_623_715",
+            "seg_sql.subquery_in_from_nJIEIzF7tDw_540_699"
+          ],
+          "segments": [
+            {
+              "segment_id": "seg_sql.subquery_in_from_tvBp81WVrCA_623_715",
+              "video_id": "tvBp81WVrCA",
+              "youtube_url": "https://www.youtube.com/watch?v=tvBp81WVrCA",
+              "review_url": "https://www.youtube.com/watch?v=tvBp81WVrCA&t=623s",
+              "start_seconds": 623,
+              "end_seconds": 715,
+              "label": "Syntax for a subquery in FROM: parentheses and an alias",
+              "summary": "Explains that a subquery in the FROM clause creates a temporary result set that the main query treats as a table. Instead of a table name you write another SQL query in parentheses, followed by an alias. The speaker notes the alias is optional in many databases but required in SQL Server.",
+              "fact_ids": [
+                "f1"
+              ],
+              "transcript_ref": "tvBp81WVrCA:623-715"
+            },
+            {
+              "segment_id": "seg_sql.subquery_in_from_nJIEIzF7tDw_540_699",
+              "video_id": "nJIEIzF7tDw",
+              "youtube_url": "https://www.youtube.com/watch?v=nJIEIzF7tDw",
+              "review_url": "https://www.youtube.com/watch?v=nJIEIzF7tDw&t=540s",
+              "start_seconds": 540,
+              "end_seconds": 699,
+              "label": "Moving an average-salary subquery into FROM, with an aliased column used from outside",
+              "summary": "Takes an earlier query that finds employees paid above the average salary and rewrites it with the average computed in a FROM subquery that has a table alias and a column alias. The outer query then joins to it and compares each employee's salary against that aliased column, and the speaker says the database treats whatever the subquery returns as a separate table.",
+              "fact_ids": [
+                "f1",
+                "f2"
+              ],
+              "transcript_ref": "nJIEIzF7tDw:540-699"
+            }
+          ],
+          "group_title": "Subqueries in FROM",
+          "bridge": {
+            "before": "Clip 1 is the bare syntax: parentheses and an alias. Clip 2 shows the payoff: the outer query using the column name the inner query gave.",
+            "after": "Clip 2 opens by referring back to an earlier query it does not show. Clip 1 calls the alias a must in SQL Server; the text above adds the SQL standard's rule and the PostgreSQL behaviour."
+          },
+          "default_mode": "video"
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "sql.subquery_in_from"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "sql.subquery_in_from#f1",
+          "sql.subquery_in_from#f2"
+        ],
+        "segment_ids": [
+          "seg_sql.subquery_in_from_tvBp81WVrCA_623_715",
+          "seg_sql.subquery_in_from_nJIEIzF7tDw_540_699"
+        ]
+      }
+    },
+    {
+      "step_id": "tile_sql_adv_subquery_from_cte.s04",
+      "type": "check",
+      "concept_ids": [
+        "sql.subquery_in_from"
+      ],
+      "title": "Use inner output columns in the outer query",
+      "lineage": {
+        "concept_ids": [
+          "sql.subquery_in_from"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "sql.subquery_in_from#f2"
+        ],
+        "anchors": [
+          "sql.subquery_in_from#assessment:use_inner_output_columns_in_the_outer_query"
+        ]
+      }
+    },
+    {
+      "step_id": "tile_sql_adv_subquery_from_cte.s05",
+      "type": "hands_on",
+      "concept_ids": [
+        "sql.subquery_in_from"
+      ],
+      "title": "Write a FROM subquery with an alias",
+      "lineage": {
+        "concept_ids": [
+          "sql.subquery_in_from"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "sql.subquery_in_from#f1",
+          "sql.subquery_in_from#f2"
+        ],
+        "anchors": [
+          "sql.subquery_in_from#practice",
+          "sql.subquery_in_from#assessment:write_a_from_subquery_with_alias",
+          "sql.subquery_in_from#assessment:use_inner_output_columns_in_the_outer_query"
+        ]
+      }
+    },
+    {
+      "step_id": "tile_sql_adv_subquery_from_cte.s06",
+      "type": "explainer",
+      "concept_ids": [
+        "sql.cte"
+      ],
+      "eyebrow": "Common Table Expressions",
+      "title": "Naming a query once with WITH",
+      "lede": "A CTE lets you define a named result set at the top of a query and read it by name — like a temporary table that exists just for that query.",
+      "blocks": [
+        {
+          "type": "prose",
+          "block_id": "tile_sql_adv_subquery_from_cte.s06.b1",
+          "role": "intro",
+          "text": "The customer_avg subquery from before works, but naming it once up front — instead of burying it inside FROM — can make a longer query easier to read.",
+          "lineage": {
+            "concept_ids": [
+              "sql.cte"
+            ],
+            "teaching_block_ids": [
+              "sql.cte#tb1"
+            ],
+            "fact_ids": [
+              "sql.cte#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "block_id": "tile_sql_adv_subquery_from_cte.s06.b2",
+          "role": "definition",
+          "text": "WITH provides a way to write one or more auxiliary statements — Common Table Expressions (CTEs) — that can be thought of as defining temporary tables that exist just for one query. A CTE is written as WITH name AS (query), and the primary statement then reads it by name, as if it were a table: WITH customer_avg AS (SELECT customer_id, AVG(delivery_time_minutes) AS avg_time FROM orders GROUP BY customer_id) SELECT customer_id, avg_time FROM customer_avg WHERE avg_time > 30.",
+          "lineage": {
+            "concept_ids": [
+              "sql.cte"
+            ],
+            "teaching_block_ids": [
+              "sql.cte#tb2"
+            ],
+            "fact_ids": [
+              "sql.cte#f1",
+              "sql.cte#f2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "block_id": "tile_sql_adv_subquery_from_cte.s06.b3",
+          "role": "mechanism",
+          "text": "A second CTE can read from the first: define customer_avg, then define slow_customers AS (SELECT customer_id FROM customer_avg WHERE avg_time > 30), then have the primary query read from slow_customers. Breaking a complex query into named CTEs with WITH is an alternative to nested subqueries, and can make the query easier to follow.",
+          "lineage": {
+            "concept_ids": [
+              "sql.cte"
+            ],
+            "teaching_block_ids": [
+              "sql.cte#tb3"
+            ],
+            "fact_ids": [
+              "sql.cte#f3"
+            ]
+          }
+        },
+        {
+          "type": "code_walkthrough",
+          "block_id": "tile_sql_adv_subquery_from_cte.s06.b4",
+          "language": "sql",
+          "code": "WITH customer_avg AS (\n    SELECT customer_id,\n           AVG(delivery_time_minutes) AS avg_time\n    FROM orders\n    GROUP BY customer_id\n),\nslow_customers AS (\n    SELECT customer_id\n    FROM customer_avg\n    WHERE avg_time > 30\n)\nSELECT c.name, ca.avg_time\nFROM customers AS c\nJOIN slow_customers AS sc ON c.customer_id = sc.customer_id\nJOIN customer_avg AS ca ON c.customer_id = ca.customer_id;",
+          "annotations": [
+            {
+              "start_line": 1,
+              "end_line": 6,
+              "text": "First CTE: customer_avg — per-customer average delivery time"
+            },
+            {
+              "start_line": 7,
+              "end_line": 11,
+              "text": "Second CTE: slow_customers — reads from customer_avg"
+            },
+            {
+              "start_line": 12,
+              "end_line": 15,
+              "text": "Primary query: reads from both CTEs by name"
+            }
+          ],
+          "reveal": "all",
+          "lineage": {
+            "concept_ids": [
+              "sql.cte"
+            ],
+            "teaching_block_ids": [
+              "sql.cte#tb2",
+              "sql.cte#tb3"
+            ],
+            "fact_ids": [
+              "sql.cte#f1",
+              "sql.cte#f2",
+              "sql.cte#f3"
+            ],
+            "anchors": [
+              "sql.cte#visual"
+            ]
+          }
+        }
+      ],
+      "reward": {
+        "gems": 5
+      },
+      "lineage": {
+        "concept_ids": [
+          "sql.cte"
+        ],
+        "teaching_block_ids": [
+          "sql.cte#tb1",
+          "sql.cte#tb2",
+          "sql.cte#tb3"
+        ],
+        "fact_ids": [
+          "sql.cte#f1",
+          "sql.cte#f2",
+          "sql.cte#f3"
+        ],
+        "anchors": [
+          "sql.cte#visual"
+        ]
+      }
+    },
+    {
+      "step_id": "tile_sql_adv_subquery_from_cte.s07",
+      "type": "video",
+      "concept_ids": [
+        "sql.cte"
+      ],
+      "title": "WITH: naming a query once, then reading it like a table",
+      "blocks": [
+        {
+          "type": "media_group",
+          "block_id": "tile_sql_adv_subquery_from_cte.s07.b1",
+          "segment_ids": [
+            "seg_sql.cte_QNfnuK-1YYY_34_385"
+          ],
+          "segments": [
+            {
+              "segment_id": "seg_sql.cte_QNfnuK-1YYY_34_385",
+              "video_id": "QNfnuK-1YYY",
+              "youtube_url": "https://www.youtube.com/watch?v=QNfnuK-1YYY",
+              "review_url": "https://www.youtube.com/watch?v=QNfnuK-1YYY&t=34s",
+              "start_seconds": 34,
+              "end_seconds": 385,
+              "label": "Writing WITH average_salary AS (...) and reading it by name in the main query",
+              "summary": "Introduces WITH, also called a common table expression, using the task of finding employees whose salary is above the average salary, which is not a column anywhere. The average is defined in a WITH clause placed before the main SELECT and then used as if it were any other table. The speaker explains the database runs the WITH query first and holds the result like a temporary table that lasts only until the whole query finishes, then runs it and checks the output.",
+              "fact_ids": [
+                "f1",
+                "f2"
+              ],
+              "transcript_ref": "QNfnuK-1YYY:34-385"
+            }
+          ],
+          "group_title": "WITH: naming a query once, then reading it like a table",
+          "bridge": {
+            "before": "Watch the WITH block written above the main query and then read like a table. Its header also lists a column name in parentheses, a variation the text above does not use.",
+            "after": "Near the end the speaker admits this example did not strictly need a WITH clause. The clip never says a CTE is easier to follow than a nested subquery; that readability point is in the text above."
+          },
+          "default_mode": "video"
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "sql.cte"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "sql.cte#f1",
+          "sql.cte#f2"
+        ],
+        "segment_ids": [
+          "seg_sql.cte_QNfnuK-1YYY_34_385"
+        ]
+      }
+    },
+    {
+      "step_id": "tile_sql_adv_subquery_from_cte.s08",
+      "type": "check",
+      "concept_ids": [
+        "sql.cte"
+      ],
+      "title": "Rewrite a nested subquery as a CTE",
+      "lineage": {
+        "concept_ids": [
+          "sql.cte"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "sql.cte#f3"
+        ],
+        "anchors": [
+          "sql.cte#assessment:rewrite_a_nested_subquery_as_a_cte"
+        ]
+      }
+    },
+    {
+      "step_id": "tile_sql_adv_subquery_from_cte.s09",
+      "type": "hands_on",
+      "concept_ids": [
+        "sql.cte"
+      ],
+      "title": "Write a WITH clause",
+      "lineage": {
+        "concept_ids": [
+          "sql.cte"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "sql.cte#f1",
+          "sql.cte#f2"
+        ],
+        "anchors": [
+          "sql.cte#practice",
+          "sql.cte#assessment:write_a_with_clause"
+        ]
+      }
+    },
+    {
+      "step_id": "tile_sql_adv_subquery_from_cte.s10",
+      "type": "recap",
+      "concept_ids": [
+        "sql.subquery_in_from",
+        "sql.cte"
+      ],
+      "eyebrow": "Recap",
+      "title": "Subqueries in FROM and CTEs",
+      "lede": "Two ways to treat a query result as a named table.",
+      "blocks": [
+        {
+          "type": "prose",
+          "block_id": "tile_sql_adv_subquery_from_cte.s10.b1",
+          "role": "takeaway",
+          "text": "A subquery in FROM must be wrapped in parentheses and should be given an alias (the SQL standard requires it, though PostgreSQL allows omission); the outer query reads its output columns by name. A CTE (WITH name AS (query)) names that same idea at the top of the query, making it reusable and easier to read. A second CTE can read from the first; the primary query reads from any CTE by name.",
+          "lineage": {
+            "concept_ids": [
+              "sql.subquery_in_from",
+              "sql.cte"
+            ],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "sql.subquery_in_from#f1",
+              "sql.subquery_in_from#f2",
+              "sql.cte#f1",
+              "sql.cte#f2",
+              "sql.cte#f3"
+            ]
+          }
+        },
+        {
+          "type": "up_next",
+          "block_id": "tile_sql_adv_subquery_from_cte.s10.b2",
+          "title": "Up next: Spreadsheet Grid References",
+          "text": "You've completed the SQL advanced section. Next you'll move into spreadsheets, starting with how cells, rows, and columns are addressed in a grid."
+        }
+      ],
+      "reward": {
+        "gems": 10
+      },
+      "lineage": {
+        "concept_ids": [
+          "sql.subquery_in_from",
+          "sql.cte"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "sql.subquery_in_from#f1",
+          "sql.subquery_in_from#f2",
+          "sql.cte#f1",
+          "sql.cte#f2",
+          "sql.cte#f3"
+        ]
+      }
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "tile_sql_adv_subquery_from_cte.r01",
+      "type": "remediation",
+      "concept_ids": [
+        "sql.subquery_in_from"
+      ],
+      "eyebrow": "Let's revisit",
+      "title": "Inner column names: a clear contrast",
+      "lede": "See what happens when the outer query uses a column name the inner query didn't define.",
+      "blocks": [
+        {
+          "type": "prose",
+          "block_id": "tile_sql_adv_subquery_from_cte.r01.b1",
+          "role": "example",
+          "text": "Inner query defines: SELECT customer_id, AVG(delivery_time_minutes) AS avg_time FROM orders GROUP BY customer_id. The virtual table has two columns: customer_id and avg_time. Outer query — correct: SELECT customer_id, avg_time FROM (...) AS customer_avg WHERE avg_time > 30. Outer query — wrong: WHERE delivery_time_minutes > 30 — delivery_time_minutes is not a column of the virtual table; the inner query aggregated it away. The outer query can only see the columns the inner query outputs.",
+          "lineage": {
+            "concept_ids": [
+              "sql.subquery_in_from"
+            ],
+            "teaching_block_ids": [
+              "sql.subquery_in_from#tb3"
+            ],
+            "fact_ids": [
+              "sql.subquery_in_from#f2"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "sql.subquery_in_from"
+        ],
+        "teaching_block_ids": [
+          "sql.subquery_in_from#tb3"
+        ],
+        "fact_ids": [
+          "sql.subquery_in_from#f2"
+        ]
+      }
+    },
+    {
+      "step_id": "tile_sql_adv_subquery_from_cte.r02",
+      "type": "remediation",
+      "concept_ids": [
+        "sql.cte"
+      ],
+      "eyebrow": "Let's revisit",
+      "title": "Nested subquery vs CTE: a clear contrast",
+      "lede": "The same logic written as a nested subquery and as a CTE.",
+      "blocks": [
+        {
+          "type": "prose",
+          "block_id": "tile_sql_adv_subquery_from_cte.r02.b1",
+          "role": "example",
+          "text": "Nested subquery: SELECT customer_id, avg_time FROM (SELECT customer_id, AVG(delivery_time_minutes) AS avg_time FROM orders GROUP BY customer_id) AS customer_avg WHERE avg_time > 30. CTE equivalent: WITH customer_avg AS (SELECT customer_id, AVG(delivery_time_minutes) AS avg_time FROM orders GROUP BY customer_id) SELECT customer_id, avg_time FROM customer_avg WHERE avg_time > 30. Both produce the same result. The CTE names the inner query once at the top; the nested form buries it inside FROM. CTEs are an alternative to nested subqueries and can make the query easier to follow.",
+          "lineage": {
+            "concept_ids": [
+              "sql.cte"
+            ],
+            "teaching_block_ids": [
+              "sql.cte#tb2",
+              "sql.cte#tb3"
+            ],
+            "fact_ids": [
+              "sql.cte#f3"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "sql.cte"
+        ],
+        "teaching_block_ids": [
+          "sql.cte#tb2",
+          "sql.cte#tb3"
+        ],
+        "fact_ids": [
+          "sql.cte#f3"
+        ]
+      }
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 23
+    },
+    "next_tile_id": "tile_spreadsheet_grid_references"
+  },
+  "content_hash": "48bab0a08a03832eb7c9ed035cc7ba89fb1da232da0a40f01eafc879322ee05b"
+}
