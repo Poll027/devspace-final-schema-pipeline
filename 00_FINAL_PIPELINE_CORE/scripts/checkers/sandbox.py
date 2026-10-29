@@ -149,6 +149,19 @@ def _mutated(tables, mutation):
     return [apply_ops(t, mutation["ops"]) if t["name"] == mutation["table"] else t for t in tables]
 
 
+def pick(r, idx):
+    """The result set a test grades: statement `idx` of the learner's file (0-based), or the last statement that returned rows when idx is None.
+    None when that statement returned no rows."""
+    if idx is None:
+        return r if r.get("ok") else None
+    outs = r.get("outputs") or []
+    return outs[idx] if r.get("ok") and idx < len(outs) else None
+
+
+def same_result(r, exp, ordered, tol=1e-9):
+    return r is not None and [c.lower() for c in r["columns"]] == [c.lower() for c in exp["columns"]] and rows_equal(r["rows"], exp["rows"], ordered, tol)
+
+
 def run_sql(registry, ix):
     o = Outcome()
     pub, gr = ix["public"], ix["grading"]
@@ -187,6 +200,7 @@ def run_sql(registry, ix):
         o.problems.append(f"solution does not run: {res['solution']['error'].splitlines()[0]}")
         return o
     starter_passes = res["starter"]["ok"]
+    tested = []  # statement indices the result tests grade (None = last); hidden checks are derived for each
     for t in tests:
         spec, tid = t["spec"], t["test_id"]
         o.tests_total += 1
@@ -195,20 +209,28 @@ def run_sql(registry, ix):
             if not exp or "columns" not in exp or "rows" not in exp:
                 o.problems.append(f"{tid}: spec.expected needs {{columns, rows}}")
                 continue
-            ordered, tol = bool(spec.get("ordered", False)), float(spec.get("tolerance", 1e-9))
-            r = res.get(f"test:{tid}", res["solution"])
-            if not r["ok"]:
-                o.problems.append(f"{tid}: solution fails on this test's data: {r['error'].splitlines()[0]}")
+            idx = spec.get("statement")
+            if idx is not None and (not isinstance(idx, int) or isinstance(idx, bool) or idx < 0):
+                o.problems.append(f"{tid}: spec.statement must be a 0-based statement index")
                 continue
-            good = [c.lower() for c in r["columns"]] == [c.lower() for c in exp["columns"]] and rows_equal(r["rows"], exp["rows"], ordered, tol)
-            if good:
+            tested.append((idx, bool(spec.get("ordered", False))))
+            ordered, tol = bool(spec.get("ordered", False)), float(spec.get("tolerance", 1e-9))
+            whole = res.get(f"test:{tid}", res["solution"])
+            if not whole["ok"]:
+                o.problems.append(f"{tid}: solution fails on this test's data: {whole['error'].splitlines()[0]}")
+                continue
+            r = pick(whole, idx)
+            if r is None:
+                o.problems.append(f"{tid}: the solution's statement {'#' + str(idx) if idx is not None else '(last)'} returns no rows; the file has "
+                                  f"{len(whole.get('outputs', []))} statement(s)")
+                continue
+            if same_result(r, exp, ordered, tol):
                 o.tests_passed += 1
             else:
-                o.problems.append(f"{tid}: the solution's result differs from spec.expected — solution gives columns {r['columns']} rows {r['rows'][:3]}"
-                                  f"{'...' if len(r['rows']) > 3 else ''}; expected columns {exp['columns']} rows {exp['rows'][:3]}")
+                o.problems.append(f"{tid}: the solution's result differs from spec.expected — statement {idx if idx is not None else '(last)'} gives columns {r['columns']} "
+                                  f"rows {r['rows'][:3]}{'...' if len(r['rows']) > 3 else ''}; expected columns {exp['columns']} rows {exp['rows'][:3]}")
             if starter_passes:  # does the starter (unsolved) code already satisfy this test?
-                s = res["starter"]
-                starter_passes = [c.lower() for c in s["columns"]] == [c.lower() for c in exp["columns"]] and rows_equal(s["rows"], exp["rows"], ordered, tol)
+                starter_passes = same_result(pick(res["starter"], idx), exp, ordered, tol)
         else:  # forbidden_syntax: the SOLUTION must not use the listed descriptors
             bad = sorted(set(spec.get("descriptors", [])) & {d for s in sqlsyntax.split_statements(solution) for d in sqlsyntax.used(s, coltypes)})
             if bad:
@@ -217,18 +239,19 @@ def run_sql(registry, ix):
                 o.tests_passed += 1
     if starter_passes:
         o.problems.append("the starter code already passes every result test: the learner has nothing to do")
-    first = next((t for t in tests if t["kind"] == "query_result_equals"), None)
-    ordered = bool(first and first["spec"].get("ordered", False))
-    base = res["solution"]
     hidden = []
-    for c in cands:
-        m = res[f"mut:{c['check_id']}"]
-        if m["ok"] and not ([x.lower() for x in m["columns"]] == [x.lower() for x in base["columns"]] and rows_equal(m["rows"], base["rows"], ordered)):
-            hidden.append({**c, "expected": {"columns": m["columns"], "rows": m["rows"]}, "ordered": ordered})
-    o.hidden_checks = hidden[:MAX_HIDDEN]
-    if not hidden:
-        o.problems.append("the solution's result does not change when the data changes (drop/duplicate a row, change a cell): a hard-coded query would pass. "
-                          "Ask for a result that depends on the data, e.g. include columns or rows that the data determines")
+    for idx, ordered in dict.fromkeys(tested):
+        base, mine = pick(res["solution"], idx), []
+        for c in cands:
+            m = pick(res[f"mut:{c['check_id']}"], idx)
+            if base is not None and m is not None and not same_result(m, base, ordered):
+                mine.append({**c, **({"check_id": f"{c['check_id']}_s{idx}", "statement": idx} if idx is not None else {}),
+                             "expected": {"columns": m["columns"], "rows": m["rows"]}, "ordered": ordered})
+        hidden += mine[:MAX_HIDDEN]
+        if not mine and base is not None:
+            o.problems.append(f"the solution's result for statement {idx if idx is not None else '(last)'} does not change when the data changes (drop/duplicate a row, "
+                              "change a cell): a hard-coded query would pass. Ask for a result that depends on the data, never a constant")
+    o.hidden_checks = hidden
     cons = pub.get("constraints") or {}
     viol, unmapped = sqlsyntax.judge(solution, cons.get("allowed_syntax", []), cons.get("blocked_syntax", []), coltypes)
     o.problems += [f"solution {v}" for v in viol]
@@ -261,17 +284,15 @@ def grade_learner(registry, ix, learner_sql):
     for t in gr["tests"]:
         spec = t["spec"]
         if t["kind"] == "query_result_equals":
-            r = res.get(f"test:{t['test_id']}", res["base"])
-            exp = spec["expected"]
-            if not r["ok"] or [c.lower() for c in r["columns"]] != [c.lower() for c in exp["columns"]] or not rows_equal(r["rows"], exp["rows"], bool(spec.get("ordered")), float(spec.get("tolerance", 1e-9))):
+            whole = res.get(f"test:{t['test_id']}", res["base"])
+            if not same_result(pick(whole, spec.get("statement")), spec["expected"], bool(spec.get("ordered")), float(spec.get("tolerance", 1e-9))):
                 reasons.append(f"{t['test_id']}: result differs")
         elif t["kind"] == "forbidden_syntax":
             bad = sorted(set(spec.get("descriptors", [])) & {d for x in stmts for d in sqlsyntax.used(x, {})})
             if bad:
                 reasons.append(f"{t['test_id']}: uses forbidden syntax {bad}")
     for h in gr.get("hidden_checks", []):
-        r = res[f"hidden:{h['check_id']}"]
-        if not r["ok"] or [c.lower() for c in r["columns"]] != [c.lower() for c in h["expected"]["columns"]] or not rows_equal(r["rows"], h["expected"]["rows"], bool(h.get("ordered"))):
+        if not same_result(pick(res[f"hidden:{h['check_id']}"], h.get("statement")), h["expected"], bool(h.get("ordered"))):
             reasons.append(f"{h['check_id']}: result differs on changed data (the query does not really compute the answer)")
     return not reasons, reasons
 

@@ -58,13 +58,16 @@ for (const s of job.scripts) {
     conn.query("SET enable_external_access=false");
     conn.query("SET lock_configuration=true");
     let last = null;
+    const outputs = [];  // one entry per statement: its result set, or null for a statement that returns no rows
     for (const sql of s.statements) {
       const res = conn.query(sql);
       if (res.numCols > 0) {
         last = { columns: res.schema.fields.map((f) => f.name), rows: res.toArray().map((row) => res.schema.fields.map((f) => normalise(row[f.name], f.type))) };
-      }
+        outputs.push(last);
+      } else outputs.push(null);
     }
-    out.results[s.id] = last ? { ok: true, ...last } : { ok: true, columns: [], rows: [] };
+    // columns/rows = the LAST statement that returned rows (default target of a test); outputs[i] = statement i (a test's `statement` index)
+    out.results[s.id] = last ? { ok: true, ...last, outputs } : { ok: true, columns: [], rows: [], outputs };
   } catch (e) {
     out.results[s.id] = { ok: false, error: String(e.message || e).slice(0, 500) };
   } finally {

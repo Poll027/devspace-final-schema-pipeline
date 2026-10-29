@@ -322,6 +322,36 @@ def unit_sql_runner():
         ok = any(expect in e for e in check(ix2).E)
         fails += not ok
         print(("caught " if ok else "MISSED ") + "hidden: " + name)
+    # multi-statement exercises (batch 006: "write two queries"): each test names its statement; hidden checks cover each tested statement
+    def two_queries(ix):
+        ix["grading"]["solution_files"][0]["content"] = ("SELECT customer_id FROM customers WHERE city = 'Lagos' ORDER BY customer_id;\n"
+                                                        "SELECT customer_id FROM customers WHERE spend > 8 ORDER BY customer_id;")
+        ix["public"]["workspace"]["files"][0]["content"] = "-- query 1: Lagos customers\n-- query 2: customers who spent more than 8"
+        ix["grading"]["tests"] = [
+            {"test_id": "q1", "kind": "query_result_equals", "message_on_fail": "q1", "spec": {"statement": 0, "ordered": True, "expected": {"columns": ["customer_id"], "rows": [[1], [3]]}}},
+            {"test_id": "q2", "kind": "query_result_equals", "message_on_fail": "q2", "spec": {"statement": 1, "ordered": True, "expected": {"columns": ["customer_id"], "rows": [[1], [2]]}}}]
+    multi = variant(two_queries)
+    mout = sandbox.run_exercise(reg, multi)
+    stmts_hidden = sorted({h.get("statement") for h in mout.hidden_checks})
+    ok = not mout.problems and stmts_hidden == [0, 1]
+    print(("caught " if ok else "MISSED ") + f"multi: a two-query exercise passes and gets hidden checks for statements {stmts_hidden} ({mout.problems or ''})")
+    fails += not ok
+    multi_stamped = variant(lambda ix: (two_queries(ix), ix["grading"].update(execution_provenance=mout.provenance, hidden_checks=mout.hidden_checks)))
+    for name, sql, want in [
+            ("both queries written properly pass", multi["grading"]["solution_files"][0]["content"], True),
+            ("query 1 hard-coded (query 2 real) is rejected", "SELECT 1 AS customer_id UNION ALL SELECT 3 ORDER BY 1;\nSELECT customer_id FROM customers WHERE spend > 8 ORDER BY customer_id;", False),
+            ("only the last query written is rejected (query 1 missing)", "SELECT customer_id FROM customers WHERE spend > 8 ORDER BY customer_id;", False)]:
+        passed, reasons = sandbox.grade_learner(reg, multi_stamped, sql)
+        ok = passed == want
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + "multi: " + name + ("" if ok else f" (passed={passed}: {reasons})"))
+    for name, mut, expect in [
+            ("a test aimed at a statement the file does not have", lambda ix: ix["grading"]["tests"][1]["spec"].update(statement=5), "returns no rows; the file has 2 statement"),
+            ("a wrong expected result for statement 0", lambda ix: ix["grading"]["tests"][0]["spec"]["expected"]["rows"].append([9]), "statement 0 gives columns")]:
+        bad = variant(lambda ix: (two_queries(ix), mut(ix)))
+        ok = any(expect in e for e in check(bad).E)
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + "multi: " + name)
     # data_table.result_of: query-result tables are computed, never typed (the batch-005 DISTINCT-panel finding)
     from checkers import data as datachk
     tbl = {"type": "data_table", "result_of": {"runtime": "sql", "sql": "SELECT DISTINCT city FROM customers ORDER BY city", "asset_mounts": [{"asset_id": "ds_customers", "mount_path": "customers"}]}}
