@@ -345,6 +345,10 @@ def unit_sql_runner():
         ok = passed == want
         fails += not ok
         print(("caught " if ok else "MISSED ") + "multi: " + name + ("" if ok else f" (passed={passed}: {reasons})"))
+    one_test = variant(lambda ix: (two_queries(ix), ix["grading"].update(tests=[ix["grading"]["tests"][1]])))
+    ok = any("statement #0 of the solution returns rows but no query_result_equals test grades it" in e for e in check(one_test).E)
+    fails += not ok
+    print(("caught " if ok else "MISSED ") + "multi: a two-query exercise with a test for only one query is rejected, naming the missing statement")
     for name, mut, expect in [
             ("a test aimed at a statement the file does not have", lambda ix: ix["grading"]["tests"][1]["spec"].update(statement=5), "returns no rows; the file has 2 statement"),
             ("a wrong expected result for statement 0", lambda ix: ix["grading"]["tests"][0]["spec"]["expected"]["rows"].append([9]), "statement 0 gives columns")]:

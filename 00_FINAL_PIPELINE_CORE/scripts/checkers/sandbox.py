@@ -239,6 +239,13 @@ def run_sql(registry, ix):
                 o.tests_passed += 1
     if starter_passes:
         o.problems.append("the starter code already passes every result test: the learner has nothing to do")
+    outs = res["solution"].get("outputs") or []
+    row_stmts = [i for i, x in enumerate(outs) if x is not None]
+    graded = {(row_stmts[-1] if i is None else i) for i, _ in tested if row_stmts or i is not None}
+    for i in row_stmts:  # every query the learner writes must be graded, or a blank query still passes
+        if i not in graded:
+            o.problems.append(f"statement #{i} of the solution returns rows but no query_result_equals test grades it: a learner could leave that query blank and still pass. "
+                              f"Add a test with spec.statement = {i} (0-based position in the file) and its expected result")
     hidden = []
     for idx, ordered in dict.fromkeys(tested):
         base, mine = pick(res["solution"], idx), []
