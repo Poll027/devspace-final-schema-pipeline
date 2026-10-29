@@ -356,6 +356,27 @@ def unit_sql_runner():
         ok = any(expect in e for e in check(bad).E)
         fails += not ok
         print(("caught " if ok else "MISSED ") + "multi: " + name)
+    # NULL-sensitive exercises (batch 006: "IS NULL" / "IS NOT NULL"): a mutation must be able to change an IS NULL result
+    reg_n = {"assets": [{"asset_id": "ds_orders", "asset_kind": "dataset", "columns": [{"name": "order_id", "type": "integer"}, {"name": "delivery", "type": "integer"}],
+                         "rows": [[1001, 15], [1002, None], [1003, 22], [1004, None], [1005, 31]]}]}
+    nullq = variant(lambda ix: (ix["public"]["workspace"].update(asset_mounts=[{"asset_id": "ds_orders", "mount_path": "orders"}]),
+                                ix["public"]["workspace"]["files"][0].update(content="-- query: orders with no delivery time"),
+                                ix["public"].update(constraints={"allowed_syntax": ["SELECT", "FROM", "WHERE", "IS NULL", "IS NOT NULL"], "blocked_syntax": []}),
+                                ix.pop("anchors", None),
+                                ix["grading"].update(solution_files=[{"path": "q.sql", "content": "SELECT order_id FROM orders WHERE delivery IS NULL;"}],
+                                                     tests=[{"test_id": "t_null", "kind": "query_result_equals", "message_on_fail": "m", "spec": {"ordered": False, "expected": {"columns": ["order_id"], "rows": [[1002], [1004]]}}}])))
+    nout = sandbox.run_exercise(reg_n, nullq)
+    ok = not nout.problems and any("null_delivery" in h["check_id"] for h in nout.hidden_checks)
+    print(("caught " if ok else "MISSED ") + f"null: an IS NULL exercise is accepted because a NULL mutation changes its result ({nout.problems or ''})")
+    fails += not ok
+    nstamped = variant(lambda ix: None)
+    nullq["grading"].update(execution_provenance=nout.provenance, hidden_checks=nout.hidden_checks)
+    for name, sql, want in [("the IS NULL solution passes", "SELECT order_id FROM orders WHERE delivery IS NULL;", True),
+                            ("a hard-coded IS NULL answer is rejected", "SELECT 1002 AS order_id UNION ALL SELECT 1004 ORDER BY 1;", False)]:
+        passed, reasons = sandbox.grade_learner(reg_n, nullq, sql)
+        ok = passed == want
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + "null: " + name + ("" if ok else f" (passed={passed}: {reasons})"))
     # data_table.result_of: query-result tables are computed, never typed (the batch-005 DISTINCT-panel finding)
     from checkers import data as datachk
     tbl = {"type": "data_table", "result_of": {"runtime": "sql", "sql": "SELECT DISTINCT city FROM customers ORDER BY city", "asset_mounts": [{"asset_id": "ds_customers", "mount_path": "customers"}]}}

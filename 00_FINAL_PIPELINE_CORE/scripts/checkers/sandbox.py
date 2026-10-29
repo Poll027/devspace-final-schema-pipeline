@@ -44,7 +44,7 @@ def sha(text):
     return hashlib.sha256(text.encode()).hexdigest()
 
 
-def node_run(job, runner):
+def _node_once(job, runner):
     if not shutil.which("node") or not (SANDBOX / "node_modules").exists():
         raise SandboxError("node or sandbox/node_modules missing: run `npm ci` in 00_FINAL_PIPELINE_CORE/sandbox")
     env = {"PATH": os.environ.get("PATH", ""), "HOME": "/nonexistent", "LANG": "C"}  # no credentials, no proxies
@@ -56,6 +56,24 @@ def node_run(job, runner):
     if r.returncode or not r.stdout.strip():
         raise SandboxError(f"runner crashed ({r.returncode}): {(r.stderr or r.stdout)[-400:]}")
     return json.loads(r.stdout)
+
+
+WORKERS = max(1, min(int(os.environ.get("SANDBOX_WORKERS", 3)), os.cpu_count() or 1))
+
+
+def node_run(job, runner):
+    """Run the job's scripts in the engine. Every script already gets a fresh database, so scripts are independent: with many of them they are
+    spread over up to SANDBOX_WORKERS node processes (default 3, never more than the CPU count) and the results merged."""
+    scripts = job["scripts"]
+    if WORKERS == 1 or len(scripts) < 6:
+        return _node_once(job, runner)
+    from concurrent.futures import ThreadPoolExecutor
+    shares = [scripts[i::WORKERS] for i in range(WORKERS)]
+    with ThreadPoolExecutor(WORKERS) as ex:
+        parts = list(ex.map(lambda sc: _node_once({**job, "scripts": sc}, runner), [x for x in shares if x]))
+    merged = dict(parts[0])
+    merged["results"] = {k: v for p in parts for k, v in p["results"].items()}
+    return merged
 
 
 def _num(x):
@@ -124,23 +142,27 @@ def apply_ops(table, ops):
     return t
 
 
-def candidate_mutations(tables):
-    """Deterministic, role-agnostic candidates per table, in a fixed order: drop first row, duplicate last row, change the first string and the first
-    numeric cell of row 0, drop the last row. Only mutations that change the solution's result are kept (and stored as hidden_checks)."""
+def candidate_mutations(tables, ref_cols=None):
+    """Deterministic, role-agnostic candidates per table, in a fixed order: drop first row, duplicate last row, drop last row, then for each column the
+    solution references (all columns, capped, for SELECT *): set row 0's cell to NULL, and change it (strings + "_x", numbers + 1000). Only mutations
+    that change the solution's result are kept (stored as hidden_checks). NULL matters: it changes any IS NULL / IS NOT NULL / COUNT(col) query."""
     out = []
     for t in tables:
         if not t["rows"]:
             continue
         n, name = len(t["rows"]), t["name"]
-        cands = [("drop_first", [{"op": "drop_row", "index": 0}]), ("dup_last", [{"op": "duplicate_row", "index": n - 1}])]
-        for kind, test in (("str", lambda c, v: c.get("type", "string") == "string" and isinstance(v, str)),
-                           ("num", lambda c, v: c.get("type") in ("integer", "number") and isinstance(v, (int, float)) and not isinstance(v, bool))):
-            for j, c in enumerate(t["columns"]):
-                v = t["rows"][0][j]
-                if test(c, v):
-                    cands.append((f"set_{kind}_{c['name']}", [{"op": "set_cell", "index": 0, "column": c["name"], "value": (v + "_x") if kind == "str" else v + 1000}]))
-                    break
-        cands.append(("drop_last", [{"op": "drop_row", "index": n - 1}]))
+        cands = [("drop_first", [{"op": "drop_row", "index": 0}]), ("dup_last", [{"op": "duplicate_row", "index": n - 1}]), ("drop_last", [{"op": "drop_row", "index": n - 1}])]
+        cols = [c for c in t["columns"] if ref_cols is None or c["name"].lower() in ref_cols][:6]
+        for c in cols:
+            j = [x["name"] for x in t["columns"]].index(c["name"])
+            v = t["rows"][0][j]
+            if v is None:
+                continue
+            cands.append((f"null_{c['name']}", [{"op": "set_cell", "index": 0, "column": c["name"], "value": None}]))
+            if isinstance(v, str) and c.get("type", "string") == "string":
+                cands.append((f"set_{c['name']}", [{"op": "set_cell", "index": 0, "column": c["name"], "value": v + "_x"}]))
+            elif isinstance(v, (int, float)) and not isinstance(v, bool) and c.get("type") in ("integer", "number"):
+                cands.append((f"set_{c['name']}", [{"op": "set_cell", "index": 0, "column": c["name"], "value": v + 1000}]))
         out += [{"check_id": f"hc_{name}_{label}", "mutation": {"table": name, "ops": ops}} for label, ops in cands]
     return out
 
@@ -193,7 +215,8 @@ def run_sql(registry, ix):
             scripts.append({"id": f"test:{t['test_id']}", "statements": sqlsyntax.split_statements(solution), "tables": tb})
     if o.problems:
         return o
-    cands = candidate_mutations(tables)
+    ref, star = sqlsyntax.referenced_columns(solution)
+    cands = candidate_mutations(tables, None if star or not ref else ref)
     scripts += [{"id": f"mut:{c['check_id']}", "statements": sqlsyntax.split_statements(solution), "tables": _mutated(tables, c["mutation"])} for c in cands]
     res = node_run({"tables": tables, "scripts": scripts}, pin["runner"])["results"]
     if not res["solution"]["ok"]:

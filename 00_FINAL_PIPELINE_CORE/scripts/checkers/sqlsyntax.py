@@ -146,6 +146,16 @@ def used(sql, coltypes=None):
     return out
 
 
+def referenced_columns(sql):
+    """(lower-cased column names the SQL mentions, whether it uses *). Used to aim data mutations at the columns the query depends on."""
+    cols, star = set(), False
+    for stmt in split_statements(sql):
+        tree = sqlglot.parse_one(stmt, read="duckdb")
+        star = star or any(isinstance(n, E.Star) for n in tree.walk())
+        cols |= {c.name.lower() for c in tree.find_all(E.Column) if not isinstance(c.this, E.Star)}
+    return cols, star
+
+
 UNIVERSE = {"SELECT", "FROM", "AS output_name", "* and table_name.*", "< > <= >= = <> !=", "AND", "OR", "NOT", "IS NULL", "IS NOT NULL", "parentheses",
             "DISTINCT", "ALL", "ORDER BY", "ASC", "DESC", "LIMIT", "OFFSET", "COUNT", "SUM", "AVG", "MIN", "MAX", "COALESCE", "LENGTH", "LOWER", "UPPER",
             "TRIM", "EXTRACT(field FROM source)", "EXISTS", "window functions (OVER)", "HAVING", "WHERE", "CASE WHEN ... THEN ... ELSE ... END", "CONCAT",
