@@ -86,7 +86,9 @@ def used(sql, coltypes=None):
     if has(E.From): out.add("FROM")
     sel = [n for n in nodes if isinstance(n, E.Select)]
     if any(isinstance(x, E.Alias) for s in sel for x in s.expressions): out.add("AS output_name")
-    if has(E.Star) or any(isinstance(c.this, E.Star) for c in tree.find_all(E.Column)): out.add("* and table_name.*")
+    # a star counts as the select-list feature, not when it is the argument of COUNT(*)
+    if any(isinstance(n, E.Star) and not isinstance(n.parent, E.Count) for n in nodes) or any(isinstance(c.this, E.Star) for c in tree.find_all(E.Column)):
+        out.add("* and table_name.*")
     if any(isinstance(n, (E.GT, E.GTE, E.LT, E.LTE, E.EQ, E.NEQ)) and not _in_join_on(n) for n in nodes): out.add("< > <= >= = <> !=")
     if any(isinstance(n, E.And) and not _in_join_on(n) for n in nodes): out.add("AND")
     if has(E.Or): out.add("OR")

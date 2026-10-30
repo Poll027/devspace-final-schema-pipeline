@@ -379,6 +379,10 @@ def unit_sql_runner():
         print(("caught " if ok else "MISSED ") + "null: " + name + ("" if ok else f" (passed={passed}: {reasons})"))
     # syntax detection: a typed date literal is not a CAST (batch 006: "days since order" needs a reference date)
     from checkers import sqlsyntax as sx
+    for q, want in [("SELECT COUNT(*) AS n FROM orders", False), ("SELECT * FROM orders", True), ("SELECT o.* FROM orders AS o", True)]:
+        ok = ("* and table_name.*" in sx.used(q, {})) == want
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + f"syntax: the star feature is {'detected' if want else 'not reported'} for {q[:32]}")
     for name, q, want_cast, want_colon in [("DATE literal", "SELECT DATE '2024-02-01' - order_date AS d FROM orders", False, False),
                                            ("TIMESTAMP literal", "SELECT TIMESTAMP '2024-02-01 10:00:00' AS t", False, False),
                                            ("CAST(...)", "SELECT CAST('2024-02-01' AS DATE) AS d", True, False),
