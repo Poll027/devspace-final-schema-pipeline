@@ -109,9 +109,10 @@ def used(sql, coltypes=None):
         if has(cls): out.add(name)
     if has(E.Concat) or re.search(r"\bconcat\s*\(", sql, re.I): out.add("CONCAT")
     if has(E.Group): out.add("GROUP BY")
-    if has(E.Cast, E.TryCast):
-        out.add("expression::type" if "::" in sql else "CAST(expression AS type)")
-        if "::" in sql and re.search(r"\bcast\s*\(", sql, re.I): out.add("CAST(expression AS type)")
+    # The parser turns a typed literal (DATE '2024-02-01', TIMESTAMP '...') into a Cast node, but it is a literal, not a cast: a cast feature counts
+    # only when the SQL text really writes CAST(...) / TRY_CAST(...) or ::.
+    if re.search(r"\b(try_)?cast\s*\(", sql, re.I): out.add("CAST(expression AS type)")
+    if "::" in sql: out.add("expression::type")
     joins = [n for n in nodes if isinstance(n, E.Join)]
     for j in joins:
         side, kind = (j.args.get("side") or "").upper(), (j.args.get("kind") or "").upper()

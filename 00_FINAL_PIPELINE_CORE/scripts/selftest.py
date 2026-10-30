@@ -377,6 +377,17 @@ def unit_sql_runner():
         ok = passed == want
         fails += not ok
         print(("caught " if ok else "MISSED ") + "null: " + name + ("" if ok else f" (passed={passed}: {reasons})"))
+    # syntax detection: a typed date literal is not a CAST (batch 006: "days since order" needs a reference date)
+    from checkers import sqlsyntax as sx
+    for name, q, want_cast, want_colon in [("DATE literal", "SELECT DATE '2024-02-01' - order_date AS d FROM orders", False, False),
+                                           ("TIMESTAMP literal", "SELECT TIMESTAMP '2024-02-01 10:00:00' AS t", False, False),
+                                           ("CAST(...)", "SELECT CAST('2024-02-01' AS DATE) AS d", True, False),
+                                           ("TRY_CAST(...)", "SELECT TRY_CAST('x' AS INTEGER) AS d", True, False),
+                                           ("::", "SELECT '2024-02-01'::DATE AS d", False, True)]:
+        f = sx.used(q, {"order_date": "date"})
+        ok = ("CAST(expression AS type)" in f) == want_cast and ("expression::type" in f) == want_colon
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + f"syntax: {name} is classified correctly ({sorted(x for x in f if 'CAST' in x or '::' in x)})")
     # data_table.result_of: query-result tables are computed, never typed (the batch-005 DISTINCT-panel finding)
     from checkers import data as datachk
     tbl = {"type": "data_table", "result_of": {"runtime": "sql", "sql": "SELECT DISTINCT city FROM customers ORDER BY city", "asset_mounts": [{"asset_id": "ds_customers", "mount_path": "customers"}]}}
