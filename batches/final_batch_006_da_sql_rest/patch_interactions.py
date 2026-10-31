@@ -1,83 +1,66 @@
-#!/usr/bin/env python3
-"""Patch interactions.part.c0_canary.json per evaluator findings."""
-import json, copy
+import json, sys
 
-SRC = "batches/final_batch_006_da_sql_rest/interactions.part.c0_canary.json"
+path = "batches/final_batch_006_da_sql_rest/interactions.part.c1.json"
 
-with open(SRC) as f:
+with open(path, "r", encoding="utf-8") as f:
     data = json.load(f)
 
-tile = data["tiles"][0]
-interactions = tile["interactions"]
+changes = []
 
-# Helper: find interaction by step_id
-def find_ix(step_id):
-    for item in interactions:
-        if item["step_id"] == step_id:
-            return item["interaction"]
-    raise KeyError(step_id)
+for tile in data["tiles"]:
+    for item in tile["interactions"]:
+        step_id = item["step_id"]
+        ix = item["interaction"]
 
-# ── ADVISORY s08: add "using explicit parentheses" to prompt ─────────────────
-ix08 = find_ix("tile_sql_fund_filtering_rows.s08")
-old_prompt = ix08["public"]["prompt"]
-# Replace "Which WHERE clause correctly expresses this requirement?"
-# with    "Which WHERE clause correctly expresses this requirement, using explicit parentheses?"
-new_prompt = old_prompt.replace(
-    "Which WHERE clause correctly expresses this requirement?",
-    "Which WHERE clause correctly expresses this requirement, using explicit parentheses?"
-)
-assert new_prompt != old_prompt, "s08 prompt replacement failed"
-ix08["public"]["prompt"] = new_prompt
+        # BLOCKING: tile_sql_fund_aggregating_data/s13
+        # Change prompt from "exceeds 10 000 NGN" to "exceeds 20 000 NGN"
+        if step_id == "tile_sql_fund_aggregating_data.s13":
+            old_prompt = ix["public"]["prompt"]
+            new_prompt = old_prompt.replace(
+                "exceeds 10 000 NGN",
+                "exceeds 20 000 NGN"
+            )
+            if new_prompt != old_prompt:
+                ix["public"]["prompt"] = new_prompt
+                changes.append(f"s13 prompt: replaced '10 000 NGN' with '20 000 NGN'")
+            else:
+                changes.append(f"WARNING: s13 prompt replacement did not match!")
 
-# ── BLOCKING s09: fix solution and expected rows ──────────────────────────────
-ix09 = find_ix("tile_sql_fund_filtering_rows.s09")
+        # ADVISORY: tile_sql_fund_aggregating_data/s05
+        # Add "in that column order" to pin column order
+        if step_id == "tile_sql_fund_aggregating_data.s05":
+            old_prompt = ix["public"]["prompt"]
+            # The prompt currently ends with "across all orders in the `orders` table."
+            # We need to add a note that total_amount should come first
+            new_prompt = old_prompt.replace(
+                "the **total order value** (alias `total_amount`) and the **average order value** (alias `avg_amount`) across all orders in the `orders` table.",
+                "the **total order value** (alias `total_amount`) and the **average order value** (alias `avg_amount`) across all orders in the `orders` table, in that column order (`total_amount` first)."
+            )
+            if new_prompt != old_prompt:
+                ix["public"]["prompt"] = new_prompt
+                changes.append(f"s05 (aggregating_data) prompt: added column order note")
+            else:
+                changes.append(f"WARNING: s05 aggregating_data prompt replacement did not match!")
 
-# Fix solution
-ix09["grading"]["solution_files"][0]["content"] = (
-    "SELECT order_id, customer_id, delivery_time_minutes "
-    "FROM orders WHERE (customer_id = 1 AND delivery_time_minutes > 30) OR region = 'north'\n"
-)
+        # ADVISORY: tile_sql_case_expressions/s05
+        # Rephrase correct feedback about ELSE
+        if step_id == "tile_sql_case_expressions.s05":
+            old_msg = ix["feedback"]["correct"]["message"]
+            new_msg = old_msg.replace(
+                "with ELSE catching every amount of 7000 or above.",
+                "with ELSE catching every row whose amount did not match any WHEN — here, 7000 and above."
+            )
+            if new_msg != old_msg:
+                ix["feedback"]["correct"]["message"] = new_msg
+                changes.append(f"s05 (case_expressions) correct feedback: rephrased ELSE description")
+            else:
+                changes.append(f"WARNING: s05 case_expressions feedback replacement did not match!")
 
-# Fix expected rows (8 rows as specified by evaluator)
-ix09["grading"]["tests"][0]["spec"]["expected"]["rows"] = [
-    [1002, 2, 22],
-    [1003, 1, 41],
-    [1005, 2, 35],
-    [1006, 1, 63],
-    [1008, 2, 55],
-    [1009, 1, 31],
-    [1011, 2, None],
-    [1013, 1, 72]
-]
+print("Changes applied:")
+for c in changes:
+    print(" -", c)
 
-# ── BLOCKING s13: add t_is_null test for statement 1 ─────────────────────────
-ix13 = find_ix("tile_sql_fund_filtering_rows.s13")
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(data, f, indent=2, ensure_ascii=False)
 
-t_is_null = {
-    "test_id": "t_is_null",
-    "kind": "query_result_equals",
-    "spec": {
-        "statement": 1,
-        "expected": {
-            "columns": ["order_id", "delivery_time_minutes"],
-            "rows": [
-                [1011, None],
-                [1012, None]
-            ]
-        },
-        "ordered": False
-    },
-    "visible": True,
-    "message_on_fail": "Your second query should return exactly the 2 orders where delivery_time_minutes IS NULL. Use IS NULL."
-}
-
-ix13["grading"]["tests"].append(t_is_null)
-
-with open(SRC, "w") as f:
-    json.dump(data, f, indent=2)
-
-print("Patch applied successfully.")
-print(f"  s08 prompt updated: {'using explicit parentheses' in ix08['public']['prompt']}")
-print(f"  s09 solution: {ix09['grading']['solution_files'][0]['content'].strip()}")
-print(f"  s09 expected rows count: {len(ix09['grading']['tests'][0]['spec']['expected']['rows'])}")
-print(f"  s13 tests count: {len(ix13['grading']['tests'])}")
+print("Done.")

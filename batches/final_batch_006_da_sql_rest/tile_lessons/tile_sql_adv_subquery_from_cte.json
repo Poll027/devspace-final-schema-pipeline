@@ -33,9 +33,16 @@
       "prose",
       "up_next"
     ],
-    "interaction_types": [],
-    "runtimes": [],
-    "asset_ids": []
+    "interaction_types": [
+      "choice",
+      "code_exercise"
+    ],
+    "runtimes": [
+      "sql"
+    ],
+    "asset_ids": [
+      "ds_orders"
+    ]
   },
   "pacing": {
     "estimated_minutes": 17.7
@@ -274,6 +281,80 @@
         "anchors": [
           "sql.subquery_in_from#assessment:use_inner_output_columns_in_the_outer_query"
         ]
+      },
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_sql_adv_subquery_from_cte.s04",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "sql.subquery_in_from",
+            "capability": "use_inner_output_columns_in_the_outer_query",
+            "fact_ids": [
+              "f2"
+            ]
+          }
+        ],
+        "anchors": [
+          "sql.subquery_in_from#assessment:use_inner_output_columns_in_the_outer_query"
+        ],
+        "public": {
+          "prompt": "A FROM subquery is written as:\n\n```sql\nSELECT region, SUM(amount) AS total\nFROM orders\nGROUP BY region\n```\n\nThe outer query reads this subquery as a virtual table aliased `sub`. Which column names can the outer query use from `sub`?",
+          "options": [
+            {
+              "option_id": "opt_a",
+              "text": "region and total — the inner query's output column names"
+            },
+            {
+              "option_id": "opt_b",
+              "text": "region and SUM(amount) — the original expression, not the alias"
+            },
+            {
+              "option_id": "opt_c",
+              "text": "amount and region — the original table's columns"
+            },
+            {
+              "option_id": "opt_d",
+              "text": "sub.* only — individual columns cannot be named"
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "opt_a"
+          ],
+          "option_feedback": {
+            "opt_a": {
+              "message": "Correct. The outer query sees the inner query's output column names: `region` (the column name) and `total` (the AS alias). The original expression SUM(amount) is not visible."
+            },
+            "opt_b": {
+              "message": "The outer query sees the alias `total`, not the raw expression `SUM(amount)`. Once a column is aliased with AS, the alias is the name the outer query uses."
+            },
+            "opt_c": {
+              "message": "The outer query cannot see the original table's columns directly — it only sees what the inner SELECT outputs. The inner SELECT outputs `region` and `total`."
+            },
+            "opt_d": {
+              "message": "Individual columns from a subquery can be named and used in the outer query. The outer query sees `region` and `total` as named columns of the virtual table."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "The outer query sees the inner query's output column names. An AS alias in the inner SELECT becomes the column name that the outer query uses."
+          },
+          "incorrect": {
+            "message": "The outer query sees only what the inner SELECT outputs. Column names are the inner query's own column names or AS aliases — not the original expressions."
+          },
+          "hints": [
+            "Think of the subquery as a temporary table. Its column names are whatever the inner SELECT names them.",
+            "If the inner SELECT uses AS to rename a column, the outer query uses that alias, not the original expression."
+          ],
+          "remediation_step_id": "tile_sql_adv_subquery_from_cte.r01"
+        }
       }
     },
     {
@@ -297,6 +378,298 @@
           "sql.subquery_in_from#assessment:write_a_from_subquery_with_alias",
           "sql.subquery_in_from#assessment:use_inner_output_columns_in_the_outer_query"
         ]
+      },
+      "interaction": {
+        "type": "code_exercise",
+        "interaction_id": "ix.tile_sql_adv_subquery_from_cte.s05",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "sql.subquery_in_from",
+            "capability": "write_a_from_subquery_with_alias",
+            "fact_ids": [
+              "f1"
+            ]
+          },
+          {
+            "concept_id": "sql.subquery_in_from",
+            "capability": "use_inner_output_columns_in_the_outer_query",
+            "fact_ids": [
+              "f2"
+            ]
+          }
+        ],
+        "anchors": [
+          "sql.subquery_in_from#practice",
+          "sql.subquery_in_from#assessment:write_a_from_subquery_with_alias",
+          "sql.subquery_in_from#assessment:use_inner_output_columns_in_the_outer_query"
+        ],
+        "public": {
+          "prompt": "Write a query that uses a **FROM subquery** to find high-volume customers. The inner query should compute **customer_id** and **order_count** (= `COUNT(*)`) per customer from the `orders` table, grouped by `customer_id`. Give the subquery the alias `order_counts`. The outer query should return **customer_id** and **order_count** for customers with `order_count >= 4`, ordered by `customer_id`.",
+          "runtime": {
+            "kind": "sql",
+            "version": "1.32.0"
+          },
+          "workspace": {
+            "files": [
+              {
+                "path": "query.sql",
+                "role": "editable",
+                "language": "sql",
+                "content": "-- orders columns: order_id, customer_id, delivery_time_minutes, order_date, region, amount, city\n-- Write: SELECT ... FROM (inner query) AS order_counts WHERE order_count >= 4\n-- The inner query: SELECT customer_id, COUNT(*) AS order_count FROM orders GROUP BY customer_id\n"
+              }
+            ],
+            "entry": "query.sql",
+            "asset_mounts": [
+              {
+                "asset_id": "ds_orders",
+                "variant_id": null,
+                "mount_path": "orders"
+              }
+            ]
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "SELECT",
+              "FROM",
+              "AS output_name",
+              "* and table_name.*",
+              "table alias (FROM table AS alias)",
+              "alias.column qualification",
+              "DISTINCT",
+              "ALL",
+              "WHERE",
+              "< > <= >= = <> !=",
+              "AND",
+              "OR",
+              "NOT",
+              "parentheses",
+              "IS NULL",
+              "IS NOT NULL",
+              "ORDER BY",
+              "ASC",
+              "DESC",
+              "LIMIT",
+              "OFFSET",
+              "COUNT",
+              "SUM",
+              "AVG",
+              "MIN",
+              "MAX",
+              "GROUP BY",
+              "HAVING",
+              "CASE WHEN ... THEN ... ELSE ... END",
+              "LOWER",
+              "UPPER",
+              "TRIM",
+              "CONCAT",
+              "LENGTH",
+              "EXTRACT(field FROM source)",
+              "date - date",
+              "CAST(expression AS type)",
+              "expression::type",
+              "COALESCE",
+              "UNION",
+              "UNION ALL",
+              "JOIN / INNER JOIN",
+              "ON",
+              "USING",
+              "ON with AND across several columns",
+              "USING (a, b)",
+              "LEFT JOIN",
+              "RIGHT JOIN",
+              "FULL JOIN",
+              "OUTER keyword",
+              "subquery in WHERE",
+              "IN (SELECT ...)",
+              "subquery in FROM with an alias"
+            ],
+            "blocked_syntax": [
+              "WITH name AS (...)",
+              "window functions (OVER)",
+              "EXISTS",
+              "correlated subqueries",
+              "CROSS JOIN",
+              "self-joins"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "query.sql",
+              "content": "SELECT customer_id, order_count\nFROM (\n    SELECT customer_id, COUNT(*) AS order_count\n    FROM orders\n    GROUP BY customer_id\n) AS order_counts\nWHERE order_count >= 4\nORDER BY customer_id;\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "ix.tile_sql_adv_subquery_from_cte.s05.t1",
+              "kind": "query_result_equals",
+              "spec": {
+                "expected": {
+                  "columns": [
+                    "customer_id",
+                    "order_count"
+                  ],
+                  "rows": [
+                    [
+                      1,
+                      6
+                    ],
+                    [
+                      2,
+                      4
+                    ]
+                  ]
+                },
+                "ordered": true
+              },
+              "visible": true,
+              "message_on_fail": "Your query should return customer_id and order_count for customers with 4 or more orders, ordered by customer_id. Check that the subquery is wrapped in parentheses with an alias and that the outer WHERE uses the alias column name."
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "duckdb-wasm",
+            "runtime_version": "1.32.0",
+            "solution_sha256": "7466f5f442487fbce1721c18f297b36cbaaf77e5452d89bd4185e33955136fa3",
+            "tests_passed": 1
+          },
+          "hidden_checks": [
+            {
+              "check_id": "hc_orders_drop_first",
+              "mutation": {
+                "table": "orders",
+                "ops": [
+                  {
+                    "op": "drop_row",
+                    "index": 0
+                  }
+                ]
+              },
+              "expected": {
+                "columns": [
+                  "customer_id",
+                  "order_count"
+                ],
+                "rows": [
+                  [
+                    1,
+                    5
+                  ],
+                  [
+                    2,
+                    4
+                  ]
+                ]
+              },
+              "ordered": true
+            },
+            {
+              "check_id": "hc_orders_dup_last",
+              "mutation": {
+                "table": "orders",
+                "ops": [
+                  {
+                    "op": "duplicate_row",
+                    "index": 12
+                  }
+                ]
+              },
+              "expected": {
+                "columns": [
+                  "customer_id",
+                  "order_count"
+                ],
+                "rows": [
+                  [
+                    1,
+                    7
+                  ],
+                  [
+                    2,
+                    4
+                  ]
+                ]
+              },
+              "ordered": true
+            },
+            {
+              "check_id": "hc_orders_drop_last",
+              "mutation": {
+                "table": "orders",
+                "ops": [
+                  {
+                    "op": "drop_row",
+                    "index": 12
+                  }
+                ]
+              },
+              "expected": {
+                "columns": [
+                  "customer_id",
+                  "order_count"
+                ],
+                "rows": [
+                  [
+                    1,
+                    5
+                  ],
+                  [
+                    2,
+                    4
+                  ]
+                ]
+              },
+              "ordered": true
+            },
+            {
+              "check_id": "hc_orders_null_customer_id",
+              "mutation": {
+                "table": "orders",
+                "ops": [
+                  {
+                    "op": "set_cell",
+                    "index": 0,
+                    "column": "customer_id",
+                    "value": null
+                  }
+                ]
+              },
+              "expected": {
+                "columns": [
+                  "customer_id",
+                  "order_count"
+                ],
+                "rows": [
+                  [
+                    1,
+                    5
+                  ],
+                  [
+                    2,
+                    4
+                  ]
+                ]
+              },
+              "ordered": true
+            }
+          ]
+        },
+        "feedback": {
+          "correct": {
+            "message": "Your FROM subquery correctly wraps the aggregation in parentheses with an alias. The outer query then filters on the inner query's output column `order_count`."
+          },
+          "incorrect": {
+            "message": "Make sure the inner query is enclosed in parentheses and given an alias (e.g. AS order_counts). The outer WHERE should reference the column name from the inner SELECT."
+          },
+          "hints": [
+            "The structure is: SELECT ... FROM (SELECT ... FROM orders GROUP BY customer_id) AS order_counts WHERE order_count >= 4.",
+            "The outer query can only use column names that the inner SELECT outputs — here `customer_id` and `order_count`."
+          ],
+          "remediation_step_id": "tile_sql_adv_subquery_from_cte.r01"
+        }
       }
     },
     {
@@ -496,6 +869,80 @@
         "anchors": [
           "sql.cte#assessment:rewrite_a_nested_subquery_as_a_cte"
         ]
+      },
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_sql_adv_subquery_from_cte.s08",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "sql.cte",
+            "capability": "rewrite_a_nested_subquery_as_a_cte",
+            "fact_ids": [
+              "f3"
+            ]
+          }
+        ],
+        "anchors": [
+          "sql.cte#assessment:rewrite_a_nested_subquery_as_a_cte"
+        ],
+        "public": {
+          "prompt": "The query below uses a nested FROM subquery:\n\n```sql\nSELECT customer_id, order_count\nFROM (\n    SELECT customer_id, COUNT(*) AS order_count\n    FROM orders\n    GROUP BY customer_id\n) AS counts\nWHERE order_count >= 4;\n```\n\nWhich CTE rewrite is correct?",
+          "options": [
+            {
+              "option_id": "opt_a",
+              "text": "WITH counts AS (\n    SELECT customer_id, COUNT(*) AS order_count\n    FROM orders GROUP BY customer_id\n)\nSELECT customer_id, order_count FROM counts WHERE order_count >= 4;"
+            },
+            {
+              "option_id": "opt_b",
+              "text": "SELECT customer_id, order_count\nFROM orders WITH counts AS (\n    SELECT customer_id, COUNT(*) AS order_count GROUP BY customer_id\n)\nWHERE order_count >= 4;"
+            },
+            {
+              "option_id": "opt_c",
+              "text": "WITH counts AS SELECT customer_id, COUNT(*) AS order_count\nFROM orders GROUP BY customer_id\nSELECT customer_id, order_count FROM counts WHERE order_count >= 4;"
+            },
+            {
+              "option_id": "opt_d",
+              "text": "SELECT customer_id, order_count\nFROM counts\nWHERE order_count >= 4\nWITH counts AS (SELECT customer_id, COUNT(*) AS order_count FROM orders GROUP BY customer_id);"
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "opt_a"
+          ],
+          "option_feedback": {
+            "opt_a": {
+              "message": "Correct. WITH comes before the main SELECT, the CTE body is enclosed in parentheses after AS, and the main query reads the CTE by name as if it were a table."
+            },
+            "opt_b": {
+              "message": "WITH cannot appear inside FROM. The WITH clause must come before the entire SELECT statement, not inside it."
+            },
+            "opt_c": {
+              "message": "The CTE body must be enclosed in parentheses: `WITH counts AS (SELECT ...)`. Missing parentheses makes this invalid syntax."
+            },
+            "opt_d": {
+              "message": "WITH must come before the main SELECT, not after it. The CTE is defined first, then the main query reads it."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "A CTE is written as WITH name AS (query) before the main SELECT. The main query then reads the CTE by name, just like a table."
+          },
+          "incorrect": {
+            "message": "Remember: WITH comes before the main SELECT, the CTE body goes inside parentheses after AS, and the main query reads the CTE by name."
+          },
+          "hints": [
+            "The WITH clause always comes first — before the main SELECT.",
+            "The CTE body must be enclosed in parentheses: WITH name AS (SELECT ...)."
+          ],
+          "remediation_step_id": "tile_sql_adv_subquery_from_cte.r02"
+        }
       }
     },
     {
@@ -518,6 +965,291 @@
           "sql.cte#practice",
           "sql.cte#assessment:write_a_with_clause"
         ]
+      },
+      "interaction": {
+        "type": "code_exercise",
+        "interaction_id": "ix.tile_sql_adv_subquery_from_cte.s09",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "sql.cte",
+            "capability": "write_a_with_clause",
+            "fact_ids": [
+              "f1",
+              "f2"
+            ]
+          }
+        ],
+        "anchors": [
+          "sql.cte#practice",
+          "sql.cte#assessment:write_a_with_clause"
+        ],
+        "public": {
+          "prompt": "Rewrite the FROM-subquery approach as a CTE. Use a `WITH` clause to define `order_counts` — a named result that computes **customer_id** and **order_count** (= `COUNT(*)`) per customer from `orders`. Then write the main query to return **customer_id** and **order_count** for customers with `order_count >= 4`, ordered by `customer_id`.",
+          "runtime": {
+            "kind": "sql",
+            "version": "1.32.0"
+          },
+          "workspace": {
+            "files": [
+              {
+                "path": "query.sql",
+                "role": "editable",
+                "language": "sql",
+                "content": "-- orders columns: order_id, customer_id, delivery_time_minutes, order_date, region, amount, city\n-- Write: WITH order_counts AS (...) SELECT ... FROM order_counts WHERE order_count >= 4\n"
+              }
+            ],
+            "entry": "query.sql",
+            "asset_mounts": [
+              {
+                "asset_id": "ds_orders",
+                "variant_id": null,
+                "mount_path": "orders"
+              }
+            ]
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "SELECT",
+              "FROM",
+              "AS output_name",
+              "* and table_name.*",
+              "table alias (FROM table AS alias)",
+              "alias.column qualification",
+              "DISTINCT",
+              "ALL",
+              "WHERE",
+              "< > <= >= = <> !=",
+              "AND",
+              "OR",
+              "NOT",
+              "parentheses",
+              "IS NULL",
+              "IS NOT NULL",
+              "ORDER BY",
+              "ASC",
+              "DESC",
+              "LIMIT",
+              "OFFSET",
+              "COUNT",
+              "SUM",
+              "AVG",
+              "MIN",
+              "MAX",
+              "GROUP BY",
+              "HAVING",
+              "CASE WHEN ... THEN ... ELSE ... END",
+              "LOWER",
+              "UPPER",
+              "TRIM",
+              "CONCAT",
+              "LENGTH",
+              "EXTRACT(field FROM source)",
+              "date - date",
+              "CAST(expression AS type)",
+              "expression::type",
+              "COALESCE",
+              "UNION",
+              "UNION ALL",
+              "JOIN / INNER JOIN",
+              "ON",
+              "USING",
+              "ON with AND across several columns",
+              "USING (a, b)",
+              "LEFT JOIN",
+              "RIGHT JOIN",
+              "FULL JOIN",
+              "OUTER keyword",
+              "subquery in WHERE",
+              "IN (SELECT ...)",
+              "subquery in FROM with an alias",
+              "WITH name AS (...)"
+            ],
+            "blocked_syntax": [
+              "window functions (OVER)",
+              "EXISTS",
+              "correlated subqueries",
+              "CROSS JOIN",
+              "self-joins"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "query.sql",
+              "content": "WITH order_counts AS (\n    SELECT customer_id, COUNT(*) AS order_count\n    FROM orders\n    GROUP BY customer_id\n)\nSELECT customer_id, order_count\nFROM order_counts\nWHERE order_count >= 4\nORDER BY customer_id;\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "ix.tile_sql_adv_subquery_from_cte.s09.t1",
+              "kind": "query_result_equals",
+              "spec": {
+                "expected": {
+                  "columns": [
+                    "customer_id",
+                    "order_count"
+                  ],
+                  "rows": [
+                    [
+                      1,
+                      6
+                    ],
+                    [
+                      2,
+                      4
+                    ]
+                  ]
+                },
+                "ordered": true
+              },
+              "visible": true,
+              "message_on_fail": "Your CTE query should return customer_id and order_count for customers with 4 or more orders, ordered by customer_id. Check that WITH comes before SELECT and the CTE body is in parentheses."
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "duckdb-wasm",
+            "runtime_version": "1.32.0",
+            "solution_sha256": "1ab67f4fc5b3560e097945e45fc2afd608187514a8c6467c15fb9d8419e4c915",
+            "tests_passed": 1
+          },
+          "hidden_checks": [
+            {
+              "check_id": "hc_orders_drop_first",
+              "mutation": {
+                "table": "orders",
+                "ops": [
+                  {
+                    "op": "drop_row",
+                    "index": 0
+                  }
+                ]
+              },
+              "expected": {
+                "columns": [
+                  "customer_id",
+                  "order_count"
+                ],
+                "rows": [
+                  [
+                    1,
+                    5
+                  ],
+                  [
+                    2,
+                    4
+                  ]
+                ]
+              },
+              "ordered": true
+            },
+            {
+              "check_id": "hc_orders_dup_last",
+              "mutation": {
+                "table": "orders",
+                "ops": [
+                  {
+                    "op": "duplicate_row",
+                    "index": 12
+                  }
+                ]
+              },
+              "expected": {
+                "columns": [
+                  "customer_id",
+                  "order_count"
+                ],
+                "rows": [
+                  [
+                    1,
+                    7
+                  ],
+                  [
+                    2,
+                    4
+                  ]
+                ]
+              },
+              "ordered": true
+            },
+            {
+              "check_id": "hc_orders_drop_last",
+              "mutation": {
+                "table": "orders",
+                "ops": [
+                  {
+                    "op": "drop_row",
+                    "index": 12
+                  }
+                ]
+              },
+              "expected": {
+                "columns": [
+                  "customer_id",
+                  "order_count"
+                ],
+                "rows": [
+                  [
+                    1,
+                    5
+                  ],
+                  [
+                    2,
+                    4
+                  ]
+                ]
+              },
+              "ordered": true
+            },
+            {
+              "check_id": "hc_orders_null_customer_id",
+              "mutation": {
+                "table": "orders",
+                "ops": [
+                  {
+                    "op": "set_cell",
+                    "index": 0,
+                    "column": "customer_id",
+                    "value": null
+                  }
+                ]
+              },
+              "expected": {
+                "columns": [
+                  "customer_id",
+                  "order_count"
+                ],
+                "rows": [
+                  [
+                    1,
+                    5
+                  ],
+                  [
+                    2,
+                    4
+                  ]
+                ]
+              },
+              "ordered": true
+            }
+          ]
+        },
+        "feedback": {
+          "correct": {
+            "message": "Your WITH clause defines order_counts as a named temporary result. The main query then reads it by name, just like a table — producing the same result as the FROM-subquery version."
+          },
+          "incorrect": {
+            "message": "Make sure WITH comes before the main SELECT, the CTE body is enclosed in parentheses after AS, and the main query reads the CTE by name."
+          },
+          "hints": [
+            "The structure is: WITH order_counts AS (SELECT ... FROM orders GROUP BY customer_id) SELECT ... FROM order_counts WHERE ...",
+            "The CTE body goes inside parentheses after AS. The main query then uses the CTE name as if it were a table."
+          ],
+          "remediation_step_id": "tile_sql_adv_subquery_from_cte.r02"
+        }
       }
     },
     {
@@ -668,5 +1400,5 @@
     },
     "next_tile_id": "tile_spreadsheet_grid_references"
   },
-  "content_hash": "48bab0a08a03832eb7c9ed035cc7ba89fb1da232da0a40f01eafc879322ee05b"
+  "content_hash": "109689bd94a7a04898925980a8bd41931ed688b42b801615251c1d1bed40b33c"
 }

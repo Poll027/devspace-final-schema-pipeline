@@ -1,0 +1,1722 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "data_analyst",
+  "tile_id": "tile_sql_adv_execution_order_subquery_where",
+  "toc_location": {
+    "region_id": "region_sql_joins_advanced",
+    "terrain_id": "terrain_sql_joins_subqueries_advanced"
+  },
+  "title": "Query Execution Order and Subqueries in WHERE",
+  "summary": "",
+  "concept_ids": [
+    "sql.clause_execution_order",
+    "sql.subquery_in_where"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_001_data_analyst_pilot",
+    "toc_freeze_hash": "51f00dd4c4de431b068de76836c5090cf158a002d2ca2bfa57a5e0d5f8b1f4da",
+    "glossary_bundle_hashes": {
+      "sql.clause_execution_order": "db2e8d9da9c14d84047416eeb2a6c5a579437ec7a4a4c7ae57100e9e2c9e44db",
+      "sql.subquery_in_where": "e843174a13cef49f25daa525abe883c6b34e9e9dd126afda92769f5893966575"
+    },
+    "scenario_registry_hash": "8169f479f065b4cdbc086cc52d4350186682da70cfa154834ab1afe6136600f9"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core"
+    ],
+    "block_types": [
+      "code_walkthrough",
+      "media_group",
+      "process_flow",
+      "prose",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "code_exercise"
+    ],
+    "runtimes": [
+      "sql"
+    ],
+    "asset_ids": [
+      "ds_customers",
+      "ds_orders"
+    ]
+  },
+  "pacing": {
+    "estimated_minutes": 21.4
+  },
+  "steps": [
+    {
+      "step_id": "tile_sql_adv_execution_order_subquery_where.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "sql.clause_execution_order"
+      ],
+      "eyebrow": "Clause Execution Order",
+      "title": "SQL clauses run in a different order than you write them",
+      "lede": "You write SELECT first, but the database processes FROM first. Knowing the real order explains many surprising errors.",
+      "blocks": [
+        {
+          "type": "prose",
+          "block_id": "tile_sql_adv_execution_order_subquery_where.s01.b1",
+          "role": "intro",
+          "text": "A query like SELECT customer_id, AVG(delivery_time_minutes) AS avg_time FROM orders WHERE delivery_time_minutes > 0 GROUP BY customer_id HAVING AVG(delivery_time_minutes) > 30 ORDER BY avg_time DESC is written top to bottom, SELECT first — but that is not the order it is logically processed in.",
+          "lineage": {
+            "concept_ids": [
+              "sql.clause_execution_order"
+            ],
+            "teaching_block_ids": [
+              "sql.clause_execution_order#tb1"
+            ],
+            "fact_ids": [
+              "sql.clause_execution_order#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "block_id": "tile_sql_adv_execution_order_subquery_where.s01.b2",
+          "role": "mechanism",
+          "text": "In a SELECT's general processing order, the FROM list is computed first, then WHERE eliminates non-matching rows, then GROUP BY groups the rows and HAVING eliminates groups, then the SELECT output expressions are computed, and ORDER BY sorts the rows last. In the query above: orders is read, rows with delivery_time_minutes ≤ 0 are dropped, the remaining rows are grouped by customer_id, groups with an average ≤ 30 are removed, the SELECT computes avg_time, and ORDER BY sorts by it.",
+          "lineage": {
+            "concept_ids": [
+              "sql.clause_execution_order"
+            ],
+            "teaching_block_ids": [
+              "sql.clause_execution_order#tb2"
+            ],
+            "fact_ids": [
+              "sql.clause_execution_order#f1"
+            ]
+          }
+        },
+        {
+          "type": "process_flow",
+          "block_id": "tile_sql_adv_execution_order_subquery_where.s01.b3",
+          "title": "SQL clause processing order",
+          "direction": "LR",
+          "nodes": [
+            {
+              "id": "n_from",
+              "label": "1. FROM",
+              "kind": "step",
+              "detail": "Read the table(s)"
+            },
+            {
+              "id": "n_where",
+              "label": "2. WHERE",
+              "kind": "step",
+              "detail": "Filter rows"
+            },
+            {
+              "id": "n_groupby",
+              "label": "3. GROUP BY",
+              "kind": "step",
+              "detail": "Form groups"
+            },
+            {
+              "id": "n_having",
+              "label": "4. HAVING",
+              "kind": "step",
+              "detail": "Filter groups"
+            },
+            {
+              "id": "n_select",
+              "label": "5. SELECT",
+              "kind": "step",
+              "detail": "Compute output columns"
+            },
+            {
+              "id": "n_orderby",
+              "label": "6. ORDER BY",
+              "kind": "step",
+              "detail": "Sort rows"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_from",
+              "to": "n_where"
+            },
+            {
+              "from": "n_where",
+              "to": "n_groupby"
+            },
+            {
+              "from": "n_groupby",
+              "to": "n_having"
+            },
+            {
+              "from": "n_having",
+              "to": "n_select"
+            },
+            {
+              "from": "n_select",
+              "to": "n_orderby"
+            }
+          ],
+          "reveal": "all",
+          "alt_text": "Six steps left to right: FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY. Each step feeds the next.",
+          "lineage": {
+            "concept_ids": [
+              "sql.clause_execution_order"
+            ],
+            "teaching_block_ids": [
+              "sql.clause_execution_order#tb1",
+              "sql.clause_execution_order#tb2"
+            ],
+            "fact_ids": [
+              "sql.clause_execution_order#f1"
+            ],
+            "anchors": [
+              "sql.clause_execution_order#visual"
+            ]
+          }
+        }
+      ],
+      "reward": {
+        "gems": 5
+      },
+      "lineage": {
+        "concept_ids": [
+          "sql.clause_execution_order"
+        ],
+        "teaching_block_ids": [
+          "sql.clause_execution_order#tb1",
+          "sql.clause_execution_order#tb2"
+        ],
+        "fact_ids": [
+          "sql.clause_execution_order#f1"
+        ],
+        "anchors": [
+          "sql.clause_execution_order#visual"
+        ]
+      }
+    },
+    {
+      "step_id": "tile_sql_adv_execution_order_subquery_where.s02",
+      "type": "video",
+      "concept_ids": [
+        "sql.clause_execution_order"
+      ],
+      "title": "Tracing the processing order",
+      "blocks": [
+        {
+          "type": "media_group",
+          "block_id": "tile_sql_adv_execution_order_subquery_where.s02.b1",
+          "segment_ids": [
+            "seg_sql.clause_execution_order_-Xmrrj7U34g_117_237"
+          ],
+          "segments": [
+            {
+              "segment_id": "seg_sql.clause_execution_order_-Xmrrj7U34g_117_237",
+              "video_id": "-Xmrrj7U34g",
+              "youtube_url": "https://www.youtube.com/watch?v=-Xmrrj7U34g",
+              "review_url": "https://www.youtube.com/watch?v=-Xmrrj7U34g&t=117s",
+              "start_seconds": 117,
+              "end_seconds": 237,
+              "label": "Tracing one query's execution order: FROM, WHERE, GROUP BY, HAVING, SELECT, ORDER BY",
+              "summary": "Walks through the order in which the database processes a query. FROM comes first, then WHERE filters rows before any aggregation, then GROUP BY, then HAVING as the second kind of filter, then SELECT including DISTINCT, then ORDER BY, and finally TOP. It ends by stressing that the order a query is written in differs from the order it is executed, with SELECT running almost at the end.",
+              "fact_ids": [
+                "f1"
+              ],
+              "transcript_ref": "-Xmrrj7U34g:117-237"
+            }
+          ],
+          "group_title": "The order a query is really processed in",
+          "bridge": {
+            "before": "Watch the step-by-step sequence and how late SELECT comes. TOP in the clip does the job LIMIT does in Devspace's lessons.",
+            "after": "The clip never mentions aliases, so the rule about where a SELECT alias can and cannot be used is only in the text above."
+          },
+          "default_mode": "video"
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "sql.clause_execution_order"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "sql.clause_execution_order#f1"
+        ],
+        "segment_ids": [
+          "seg_sql.clause_execution_order_-Xmrrj7U34g_117_237"
+        ]
+      }
+    },
+    {
+      "step_id": "tile_sql_adv_execution_order_subquery_where.s03",
+      "type": "explainer",
+      "concept_ids": [
+        "sql.clause_execution_order"
+      ],
+      "eyebrow": "Clause Execution Order",
+      "title": "Where an alias can — and cannot — be used",
+      "lede": "SELECT runs after WHERE and HAVING, so an alias defined in SELECT isn't visible to those clauses.",
+      "blocks": [
+        {
+          "type": "prose",
+          "block_id": "tile_sql_adv_execution_order_subquery_where.s03.b1",
+          "role": "misconception",
+          "text": "An output column's alias, assigned with AS in the SELECT list, can be referred to in ORDER BY and GROUP BY, but not in WHERE or HAVING — those clauses run before SELECT, so the alias doesn't exist yet. In the example query, WHERE avg_time > 30 would fail; the expression must be written out in HAVING as AVG(delivery_time_minutes) > 30.",
+          "lineage": {
+            "concept_ids": [
+              "sql.clause_execution_order"
+            ],
+            "teaching_block_ids": [
+              "sql.clause_execution_order#tb3"
+            ],
+            "fact_ids": [
+              "sql.clause_execution_order#f2"
+            ]
+          }
+        }
+      ],
+      "reward": {
+        "gems": 3
+      },
+      "lineage": {
+        "concept_ids": [
+          "sql.clause_execution_order"
+        ],
+        "teaching_block_ids": [
+          "sql.clause_execution_order#tb3"
+        ],
+        "fact_ids": [
+          "sql.clause_execution_order#f2"
+        ]
+      }
+    },
+    {
+      "step_id": "tile_sql_adv_execution_order_subquery_where.s04",
+      "type": "check",
+      "concept_ids": [
+        "sql.clause_execution_order"
+      ],
+      "title": "Trace the clause processing order",
+      "lineage": {
+        "concept_ids": [
+          "sql.clause_execution_order"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "sql.clause_execution_order#f1"
+        ],
+        "anchors": [
+          "sql.clause_execution_order#assessment:trace_clause_processing_order"
+        ]
+      },
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_sql_adv_execution_order_subquery_where.s04",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "sql.clause_execution_order",
+            "capability": "trace_clause_processing_order",
+            "fact_ids": [
+              "f1"
+            ]
+          }
+        ],
+        "anchors": [
+          "sql.clause_execution_order#assessment:trace_clause_processing_order"
+        ],
+        "public": {
+          "prompt": "In what order does the database engine process the clauses of a SELECT statement (ignoring WITH)? Choose the correct sequence.",
+          "options": [
+            {
+              "option_id": "opt_a",
+              "text": "SELECT → FROM → WHERE → GROUP BY → HAVING → ORDER BY"
+            },
+            {
+              "option_id": "opt_b",
+              "text": "FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY"
+            },
+            {
+              "option_id": "opt_c",
+              "text": "FROM → SELECT → WHERE → GROUP BY → HAVING → ORDER BY"
+            },
+            {
+              "option_id": "opt_d",
+              "text": "WHERE → FROM → GROUP BY → SELECT → HAVING → ORDER BY"
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "opt_b"
+          ],
+          "option_feedback": {
+            "opt_a": {
+              "message": "SELECT is not processed first. The engine must first identify the source rows (FROM) and filter them (WHERE) before it can compute SELECT expressions."
+            },
+            "opt_b": {
+              "message": "Correct. The processing order is FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY. SELECT is computed near the end, which is why aliases defined there cannot be used in WHERE or HAVING."
+            },
+            "opt_c": {
+              "message": "SELECT comes after WHERE, not before. The engine filters rows first, then computes the output expressions."
+            },
+            "opt_d": {
+              "message": "WHERE cannot run before FROM — the engine needs to know which table to read from before it can filter rows."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "The processing order is FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY. SELECT is evaluated after filtering and grouping, which explains why its aliases are not visible in WHERE or HAVING."
+          },
+          "incorrect": {
+            "message": "Remember: FROM comes first (the engine reads the table), then WHERE filters rows, then GROUP BY and HAVING, then SELECT computes output expressions, and finally ORDER BY sorts."
+          },
+          "hints": [
+            "Think about what the engine needs before it can filter: it must know which rows exist first.",
+            "SELECT is near the end of the processing order — that is why aliases defined in SELECT cannot be used in WHERE."
+          ],
+          "remediation_step_id": "tile_sql_adv_execution_order_subquery_where.r01"
+        }
+      }
+    },
+    {
+      "step_id": "tile_sql_adv_execution_order_subquery_where.s05",
+      "type": "hands_on",
+      "concept_ids": [
+        "sql.clause_execution_order"
+      ],
+      "title": "Fix the alias placement",
+      "lineage": {
+        "concept_ids": [
+          "sql.clause_execution_order"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "sql.clause_execution_order#f2"
+        ],
+        "anchors": [
+          "sql.clause_execution_order#practice",
+          "sql.clause_execution_order#assessment:explain_where_an_alias_can_and_cannot_be_used"
+        ]
+      },
+      "interaction": {
+        "type": "code_exercise",
+        "interaction_id": "ix.tile_sql_adv_execution_order_subquery_where.s05",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "sql.clause_execution_order",
+            "capability": "explain_where_an_alias_can_and_cannot_be_used",
+            "fact_ids": [
+              "f2"
+            ]
+          }
+        ],
+        "anchors": [
+          "sql.clause_execution_order#practice",
+          "sql.clause_execution_order#assessment:explain_where_an_alias_can_and_cannot_be_used"
+        ],
+        "public": {
+          "prompt": "The query below is broken — it tries to use a SELECT alias inside WHERE:\n\n```sql\nSELECT order_id, amount * 0.1 AS tax\nFROM orders\nWHERE tax > 500;\n```\n\nFix the query so it returns **order_id** and **tax** (= `amount * 0.1`) for every order where the tax exceeds 500, ordered by `order_id`. Write the expression directly in WHERE instead of using the alias.",
+          "runtime": {
+            "kind": "sql",
+            "version": "1.32.0"
+          },
+          "workspace": {
+            "files": [
+              {
+                "path": "query.sql",
+                "role": "editable",
+                "language": "sql",
+                "content": "-- Fix the query: WHERE cannot reference a SELECT alias.\n-- Replace the alias 'tax' in WHERE with the full expression amount * 0.1\nSELECT order_id, amount * 0.1 AS tax\nFROM orders\nORDER BY order_id;\n"
+              }
+            ],
+            "entry": "query.sql",
+            "asset_mounts": [
+              {
+                "asset_id": "ds_orders",
+                "variant_id": null,
+                "mount_path": "orders"
+              }
+            ]
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "SELECT",
+              "FROM",
+              "AS output_name",
+              "* and table_name.*",
+              "table alias (FROM table AS alias)",
+              "alias.column qualification",
+              "DISTINCT",
+              "ALL",
+              "WHERE",
+              "< > <= >= = <> !=",
+              "AND",
+              "OR",
+              "NOT",
+              "parentheses",
+              "IS NULL",
+              "IS NOT NULL",
+              "ORDER BY",
+              "ASC",
+              "DESC",
+              "LIMIT",
+              "OFFSET",
+              "COUNT",
+              "SUM",
+              "AVG",
+              "MIN",
+              "MAX",
+              "GROUP BY",
+              "HAVING",
+              "CASE WHEN ... THEN ... ELSE ... END",
+              "LOWER",
+              "UPPER",
+              "TRIM",
+              "CONCAT",
+              "LENGTH",
+              "EXTRACT(field FROM source)",
+              "date - date",
+              "CAST(expression AS type)",
+              "expression::type",
+              "COALESCE",
+              "UNION",
+              "UNION ALL",
+              "JOIN / INNER JOIN",
+              "ON",
+              "USING",
+              "ON with AND across several columns",
+              "USING (a, b)",
+              "LEFT JOIN",
+              "RIGHT JOIN",
+              "FULL JOIN",
+              "OUTER keyword"
+            ],
+            "blocked_syntax": [
+              "subquery in WHERE",
+              "IN (SELECT ...)",
+              "subquery in FROM with an alias",
+              "WITH name AS (...)",
+              "window functions (OVER)",
+              "EXISTS",
+              "correlated subqueries",
+              "CROSS JOIN",
+              "self-joins"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "query.sql",
+              "content": "SELECT order_id, amount * 0.1 AS tax\nFROM orders\nWHERE amount * 0.1 > 500\nORDER BY order_id;\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "ix.tile_sql_adv_execution_order_subquery_where.s05.t1",
+              "kind": "query_result_equals",
+              "spec": {
+                "expected": {
+                  "columns": [
+                    "order_id",
+                    "tax"
+                  ],
+                  "rows": [
+                    [
+                      1002,
+                      875.0
+                    ],
+                    [
+                      1004,
+                      560.0
+                    ],
+                    [
+                      1006,
+                      740.0
+                    ],
+                    [
+                      1008,
+                      920.0
+                    ],
+                    [
+                      1009,
+                      630.0
+                    ],
+                    [
+                      1012,
+                      550.0
+                    ],
+                    [
+                      1013,
+                      680.0
+                    ]
+                  ]
+                },
+                "ordered": true
+              },
+              "visible": true,
+              "message_on_fail": "Your query should return order_id and tax (amount * 0.1) for orders where amount * 0.1 > 500, ordered by order_id. Replace the alias 'tax' in WHERE with the full expression."
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "duckdb-wasm",
+            "runtime_version": "1.32.0",
+            "solution_sha256": "ca0bf1589f6f162940be3402c7600bef6bfde6d6d862bd4723a4628016447f8a",
+            "tests_passed": 1
+          },
+          "hidden_checks": [
+            {
+              "check_id": "hc_orders_dup_last",
+              "mutation": {
+                "table": "orders",
+                "ops": [
+                  {
+                    "op": "duplicate_row",
+                    "index": 12
+                  }
+                ]
+              },
+              "expected": {
+                "columns": [
+                  "order_id",
+                  "tax"
+                ],
+                "rows": [
+                  [
+                    1002,
+                    875
+                  ],
+                  [
+                    1004,
+                    560
+                  ],
+                  [
+                    1006,
+                    740
+                  ],
+                  [
+                    1008,
+                    920
+                  ],
+                  [
+                    1009,
+                    630
+                  ],
+                  [
+                    1012,
+                    550
+                  ],
+                  [
+                    1013,
+                    680
+                  ],
+                  [
+                    1013,
+                    680
+                  ]
+                ]
+              },
+              "ordered": true
+            },
+            {
+              "check_id": "hc_orders_drop_last",
+              "mutation": {
+                "table": "orders",
+                "ops": [
+                  {
+                    "op": "drop_row",
+                    "index": 12
+                  }
+                ]
+              },
+              "expected": {
+                "columns": [
+                  "order_id",
+                  "tax"
+                ],
+                "rows": [
+                  [
+                    1002,
+                    875
+                  ],
+                  [
+                    1004,
+                    560
+                  ],
+                  [
+                    1006,
+                    740
+                  ],
+                  [
+                    1008,
+                    920
+                  ],
+                  [
+                    1009,
+                    630
+                  ],
+                  [
+                    1012,
+                    550
+                  ]
+                ]
+              },
+              "ordered": true
+            },
+            {
+              "check_id": "hc_orders_set_amount",
+              "mutation": {
+                "table": "orders",
+                "ops": [
+                  {
+                    "op": "set_cell",
+                    "index": 0,
+                    "column": "amount",
+                    "value": 5200.0
+                  }
+                ]
+              },
+              "expected": {
+                "columns": [
+                  "order_id",
+                  "tax"
+                ],
+                "rows": [
+                  [
+                    1001,
+                    520
+                  ],
+                  [
+                    1002,
+                    875
+                  ],
+                  [
+                    1004,
+                    560
+                  ],
+                  [
+                    1006,
+                    740
+                  ],
+                  [
+                    1008,
+                    920
+                  ],
+                  [
+                    1009,
+                    630
+                  ],
+                  [
+                    1012,
+                    550
+                  ],
+                  [
+                    1013,
+                    680
+                  ]
+                ]
+              },
+              "ordered": true
+            }
+          ]
+        },
+        "feedback": {
+          "correct": {
+            "message": "WHERE runs before SELECT, so the alias 'tax' does not exist yet when WHERE is evaluated. Writing the expression `amount * 0.1` directly in WHERE fixes the query."
+          },
+          "incorrect": {
+            "message": "The alias 'tax' is defined in SELECT, but WHERE is processed before SELECT. Replace 'tax' in the WHERE clause with the full expression `amount * 0.1`."
+          },
+          "hints": [
+            "WHERE is processed before SELECT in the execution order, so aliases defined in SELECT are not visible in WHERE.",
+            "Write the expression `amount * 0.1` directly in the WHERE condition instead of using the alias."
+          ],
+          "remediation_step_id": "tile_sql_adv_execution_order_subquery_where.r01"
+        }
+      }
+    },
+    {
+      "step_id": "tile_sql_adv_execution_order_subquery_where.s06",
+      "type": "explainer",
+      "concept_ids": [
+        "sql.subquery_in_where"
+      ],
+      "eyebrow": "Subqueries in WHERE",
+      "title": "Using a query result as a filter value",
+      "lede": "When the filter value itself must be computed — like the average delivery time — you embed a query inside WHERE.",
+      "blocks": [
+        {
+          "type": "prose",
+          "block_id": "tile_sql_adv_execution_order_subquery_where.s06.b1",
+          "role": "intro",
+          "text": "Suppose you want the orders that took longer than the average delivery time across all orders. You don't know that average ahead of time — it has to be computed by another query, used right inside the WHERE clause.",
+          "lineage": {
+            "concept_ids": [
+              "sql.subquery_in_where"
+            ],
+            "teaching_block_ids": [
+              "sql.subquery_in_where#tb1"
+            ],
+            "fact_ids": [
+              "sql.subquery_in_where#f2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "block_id": "tile_sql_adv_execution_order_subquery_where.s06.b2",
+          "role": "definition",
+          "text": "A subquery that returns a single (scalar) value can be used as a value expression in a comparison. SELECT order_id, delivery_time_minutes FROM orders WHERE delivery_time_minutes > (SELECT AVG(delivery_time_minutes) FROM orders) keeps only the orders slower than the overall average — the inner SELECT computes that one number, and the outer WHERE compares each row's delivery time against it.",
+          "lineage": {
+            "concept_ids": [
+              "sql.subquery_in_where"
+            ],
+            "teaching_block_ids": [
+              "sql.subquery_in_where#tb2"
+            ],
+            "fact_ids": [
+              "sql.subquery_in_where#f2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "block_id": "tile_sql_adv_execution_order_subquery_where.s06.b3",
+          "role": "mechanism",
+          "text": "A subquery can also appear as the right side of IN: WHERE customer_id IN (SELECT customer_id FROM orders WHERE delivery_time_minutes > 40) keeps rows whose customer_id value is found in the subquery's result. SELECT name FROM customers WHERE customer_id IN (SELECT customer_id FROM orders WHERE delivery_time_minutes > 40) finds the customers who have placed at least one order slower than 40 minutes.",
+          "lineage": {
+            "concept_ids": [
+              "sql.subquery_in_where"
+            ],
+            "teaching_block_ids": [
+              "sql.subquery_in_where#tb3"
+            ],
+            "fact_ids": [
+              "sql.subquery_in_where#f1"
+            ]
+          }
+        },
+        {
+          "type": "code_walkthrough",
+          "block_id": "tile_sql_adv_execution_order_subquery_where.s06.b4",
+          "language": "sql",
+          "code": "-- Scalar subquery: inner query returns one value\nSELECT order_id, delivery_time_minutes\nFROM orders\nWHERE delivery_time_minutes > (\n    SELECT AVG(delivery_time_minutes)\n    FROM orders\n);\n\n-- IN subquery: inner query returns a list of values\nSELECT name\nFROM customers\nWHERE customer_id IN (\n    SELECT customer_id\n    FROM orders\n    WHERE delivery_time_minutes > 40\n);",
+          "annotations": [
+            {
+              "start_line": 4,
+              "end_line": 6,
+              "text": "Inner query: computes one average value"
+            },
+            {
+              "start_line": 12,
+              "end_line": 15,
+              "text": "Inner query: returns a list of customer_ids with slow orders"
+            }
+          ],
+          "reveal": "all",
+          "lineage": {
+            "concept_ids": [
+              "sql.subquery_in_where"
+            ],
+            "teaching_block_ids": [
+              "sql.subquery_in_where#tb2",
+              "sql.subquery_in_where#tb3"
+            ],
+            "fact_ids": [
+              "sql.subquery_in_where#f1",
+              "sql.subquery_in_where#f2"
+            ],
+            "anchors": [
+              "sql.subquery_in_where#visual"
+            ]
+          }
+        }
+      ],
+      "reward": {
+        "gems": 5
+      },
+      "lineage": {
+        "concept_ids": [
+          "sql.subquery_in_where"
+        ],
+        "teaching_block_ids": [
+          "sql.subquery_in_where#tb1",
+          "sql.subquery_in_where#tb2",
+          "sql.subquery_in_where#tb3"
+        ],
+        "fact_ids": [
+          "sql.subquery_in_where#f1",
+          "sql.subquery_in_where#f2"
+        ],
+        "anchors": [
+          "sql.subquery_in_where#visual"
+        ]
+      }
+    },
+    {
+      "step_id": "tile_sql_adv_execution_order_subquery_where.s07",
+      "type": "video",
+      "concept_ids": [
+        "sql.subquery_in_where"
+      ],
+      "title": "Subqueries inside WHERE",
+      "blocks": [
+        {
+          "type": "media_group",
+          "block_id": "tile_sql_adv_execution_order_subquery_where.s07.b1",
+          "segment_ids": [
+            "seg_sql.subquery_in_where_tvBp81WVrCA_2101_2424",
+            "seg_sql.subquery_in_where_sP6MCZ9patk_5_377"
+          ],
+          "segments": [
+            {
+              "segment_id": "seg_sql.subquery_in_where_tvBp81WVrCA_2101_2424",
+              "video_id": "tvBp81WVrCA",
+              "youtube_url": "https://www.youtube.com/watch?v=tvBp81WVrCA",
+              "review_url": "https://www.youtube.com/watch?v=tvBp81WVrCA&t=2101s",
+              "start_seconds": 2101,
+              "end_seconds": 2424,
+              "label": "Scalar subquery in WHERE: comparing against an average computed inside",
+              "summary": "Presents a subquery in WHERE as a way of filtering dynamically with a comparison operator, with the rule that the subquery must be scalar, returning one single value. A worked example keeps products whose price is greater than the average price computed by an inner query on the products table; the inner query yields a single value and two products come back.",
+              "fact_ids": [
+                "f2"
+              ],
+              "transcript_ref": "tvBp81WVrCA:2101-2424"
+            },
+            {
+              "segment_id": "seg_sql.subquery_in_where_sP6MCZ9patk_5_377",
+              "video_id": "sP6MCZ9patk",
+              "youtube_url": "https://www.youtube.com/watch?v=sP6MCZ9patk",
+              "review_url": "https://www.youtube.com/watch?v=sP6MCZ9patk&t=5s",
+              "start_seconds": 5,
+              "end_seconds": 377,
+              "label": "Subquery with IN: replacing hard-coded IDs with a nested query",
+              "summary": "Defines a subquery as a query nested inside another, then tackles finding orders from customers with a score above 500. It first solves this by typing customer IDs into IN by hand, explains why fixed IDs are a poor approach, then replaces the list with a subquery that returns the qualifying customer IDs and gets the same orders.",
+              "fact_ids": [
+                "f1"
+              ],
+              "transcript_ref": "sP6MCZ9patk:5-377"
+            }
+          ],
+          "group_title": "Subqueries inside WHERE",
+          "bridge": {
+            "before": "The first clip shows a subquery giving one value to compare against; the second shows one giving a list for IN. Each clip teaches one of the two forms.",
+            "after": "The first clip mentions in passing a different place a subquery can go; it is not needed here. Neither clip covers correlated subqueries, which Devspace leaves out for now."
+          },
+          "default_mode": "video"
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "sql.subquery_in_where"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "sql.subquery_in_where#f1",
+          "sql.subquery_in_where#f2"
+        ],
+        "segment_ids": [
+          "seg_sql.subquery_in_where_tvBp81WVrCA_2101_2424",
+          "seg_sql.subquery_in_where_sP6MCZ9patk_5_377"
+        ]
+      }
+    },
+    {
+      "step_id": "tile_sql_adv_execution_order_subquery_where.s08",
+      "type": "check",
+      "concept_ids": [
+        "sql.subquery_in_where"
+      ],
+      "title": "Write a scalar subquery comparison",
+      "lineage": {
+        "concept_ids": [
+          "sql.subquery_in_where"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "sql.subquery_in_where#f2"
+        ],
+        "anchors": [
+          "sql.subquery_in_where#assessment:write_a_scalar_subquery_comparison"
+        ]
+      },
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_sql_adv_execution_order_subquery_where.s08",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "sql.subquery_in_where",
+            "capability": "write_a_scalar_subquery_comparison",
+            "fact_ids": [
+              "f2"
+            ]
+          }
+        ],
+        "anchors": [
+          "sql.subquery_in_where#assessment:write_a_scalar_subquery_comparison"
+        ],
+        "public": {
+          "prompt": "You want to find all orders whose `amount` is greater than the average `amount` across all orders. Which WHERE clause correctly uses a scalar subquery for this?",
+          "options": [
+            {
+              "option_id": "opt_a",
+              "text": "WHERE amount > AVG(amount)"
+            },
+            {
+              "option_id": "opt_b",
+              "text": "WHERE amount > (SELECT AVG(amount) FROM orders)"
+            },
+            {
+              "option_id": "opt_c",
+              "text": "WHERE amount IN (SELECT AVG(amount) FROM orders)"
+            },
+            {
+              "option_id": "opt_d",
+              "text": "WHERE amount > (SELECT amount FROM orders)"
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "opt_b"
+          ],
+          "option_feedback": {
+            "opt_a": {
+              "message": "AVG() is an aggregate function and cannot be used directly in a WHERE clause — WHERE runs before aggregation. Wrap it in a subquery instead."
+            },
+            "opt_b": {
+              "message": "Correct. The subquery `(SELECT AVG(amount) FROM orders)` returns a single value, which can then be used as the right-hand side of a comparison in WHERE."
+            },
+            "opt_c": {
+              "message": "IN checks whether a value is equal to any value in the subquery's result. Here you need a greater-than comparison, so use > with a scalar subquery instead."
+            },
+            "opt_d": {
+              "message": "`SELECT amount FROM orders` returns many rows, not a single value. A scalar subquery must return exactly one row and one column."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "A scalar subquery returns exactly one value and can be used on the right side of a comparison operator in WHERE. Wrapping AVG() in a subquery lets you use it in WHERE."
+          },
+          "incorrect": {
+            "message": "A scalar subquery must return exactly one value. Wrap the aggregate in parentheses as a subquery and use a comparison operator like >."
+          },
+          "hints": [
+            "Aggregate functions like AVG() cannot appear directly in WHERE — they must be inside a subquery.",
+            "A scalar subquery returns one row and one column, so it can be used like a single value in a comparison."
+          ],
+          "remediation_step_id": "tile_sql_adv_execution_order_subquery_where.r02"
+        }
+      }
+    },
+    {
+      "step_id": "tile_sql_adv_execution_order_subquery_where.s09",
+      "type": "hands_on",
+      "concept_ids": [
+        "sql.subquery_in_where"
+      ],
+      "title": "Filter with IN and a scalar subquery",
+      "lineage": {
+        "concept_ids": [
+          "sql.subquery_in_where"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "sql.subquery_in_where#f1",
+          "sql.subquery_in_where#f2"
+        ],
+        "anchors": [
+          "sql.subquery_in_where#practice",
+          "sql.subquery_in_where#assessment:write_in_with_a_subquery",
+          "sql.subquery_in_where#assessment:write_a_scalar_subquery_comparison"
+        ]
+      },
+      "interaction": {
+        "type": "code_exercise",
+        "interaction_id": "ix.tile_sql_adv_execution_order_subquery_where.s09",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "sql.subquery_in_where",
+            "capability": "write_in_with_a_subquery",
+            "fact_ids": [
+              "f1"
+            ]
+          },
+          {
+            "concept_id": "sql.subquery_in_where",
+            "capability": "write_a_scalar_subquery_comparison",
+            "fact_ids": [
+              "f2"
+            ]
+          }
+        ],
+        "anchors": [
+          "sql.subquery_in_where#practice",
+          "sql.subquery_in_where#assessment:write_in_with_a_subquery",
+          "sql.subquery_in_where#assessment:write_a_scalar_subquery_comparison"
+        ],
+        "public": {
+          "prompt": "Write **two** queries in the file, in order:\n\n**Query 1** — Return **order_id** and **customer_id** for orders placed by customers whose `city` is `'Lagos'`. Use `IN` with a subquery on the `customers` table. Order by `order_id`.\n\n**Query 2** — Return **order_id** and **delivery_time_minutes** for orders whose `delivery_time_minutes` is above the average delivery time across all orders. Use a scalar subquery with `AVG`. Order by `order_id`.",
+          "runtime": {
+            "kind": "sql",
+            "version": "1.32.0"
+          },
+          "workspace": {
+            "files": [
+              {
+                "path": "query.sql",
+                "role": "editable",
+                "language": "sql",
+                "content": "-- orders columns: order_id, customer_id, delivery_time_minutes, order_date, region, amount, city\n-- customers columns: customer_id, name, city\n\n-- Query 1: orders from Lagos customers (use IN with a subquery)\nSELECT order_id, customer_id FROM orders ORDER BY order_id;\n\n-- Query 2: orders above average delivery time (use a scalar subquery with AVG)\nSELECT order_id, delivery_time_minutes FROM orders ORDER BY order_id;\n"
+              }
+            ],
+            "entry": "query.sql",
+            "asset_mounts": [
+              {
+                "asset_id": "ds_orders",
+                "variant_id": null,
+                "mount_path": "orders"
+              },
+              {
+                "asset_id": "ds_customers",
+                "variant_id": null,
+                "mount_path": "customers"
+              }
+            ]
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "SELECT",
+              "FROM",
+              "AS output_name",
+              "* and table_name.*",
+              "table alias (FROM table AS alias)",
+              "alias.column qualification",
+              "DISTINCT",
+              "ALL",
+              "WHERE",
+              "< > <= >= = <> !=",
+              "AND",
+              "OR",
+              "NOT",
+              "parentheses",
+              "IS NULL",
+              "IS NOT NULL",
+              "ORDER BY",
+              "ASC",
+              "DESC",
+              "LIMIT",
+              "OFFSET",
+              "COUNT",
+              "SUM",
+              "AVG",
+              "MIN",
+              "MAX",
+              "GROUP BY",
+              "HAVING",
+              "CASE WHEN ... THEN ... ELSE ... END",
+              "LOWER",
+              "UPPER",
+              "TRIM",
+              "CONCAT",
+              "LENGTH",
+              "EXTRACT(field FROM source)",
+              "date - date",
+              "CAST(expression AS type)",
+              "expression::type",
+              "COALESCE",
+              "UNION",
+              "UNION ALL",
+              "JOIN / INNER JOIN",
+              "ON",
+              "USING",
+              "ON with AND across several columns",
+              "USING (a, b)",
+              "LEFT JOIN",
+              "RIGHT JOIN",
+              "FULL JOIN",
+              "OUTER keyword",
+              "subquery in WHERE",
+              "IN (SELECT ...)"
+            ],
+            "blocked_syntax": [
+              "subquery in FROM with an alias",
+              "WITH name AS (...)",
+              "window functions (OVER)",
+              "EXISTS",
+              "correlated subqueries",
+              "CROSS JOIN",
+              "self-joins"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "query.sql",
+              "content": "SELECT order_id, customer_id\nFROM orders\nWHERE customer_id IN (SELECT customer_id FROM customers WHERE city = 'Lagos')\nORDER BY order_id;\n\nSELECT order_id, delivery_time_minutes\nFROM orders\nWHERE delivery_time_minutes > (SELECT AVG(delivery_time_minutes) FROM orders)\nORDER BY order_id;\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "ix.tile_sql_adv_execution_order_subquery_where.s09.t1",
+              "kind": "query_result_equals",
+              "spec": {
+                "statement": 0,
+                "expected": {
+                  "columns": [
+                    "order_id",
+                    "customer_id"
+                  ],
+                  "rows": [
+                    [
+                      1001,
+                      1
+                    ],
+                    [
+                      1003,
+                      1
+                    ],
+                    [
+                      1006,
+                      1
+                    ],
+                    [
+                      1009,
+                      1
+                    ],
+                    [
+                      1012,
+                      1
+                    ],
+                    [
+                      1013,
+                      1
+                    ]
+                  ]
+                },
+                "ordered": true
+              },
+              "visible": true,
+              "message_on_fail": "Query 1 should return order_id and customer_id for orders from Lagos customers, using IN with a subquery on customers. Order by order_id."
+            },
+            {
+              "test_id": "ix.tile_sql_adv_execution_order_subquery_where.s09.t2",
+              "kind": "query_result_equals",
+              "spec": {
+                "statement": 1,
+                "expected": {
+                  "columns": [
+                    "order_id",
+                    "delivery_time_minutes"
+                  ],
+                  "rows": [
+                    [
+                      1003,
+                      41
+                    ],
+                    [
+                      1006,
+                      63
+                    ],
+                    [
+                      1008,
+                      55
+                    ],
+                    [
+                      1010,
+                      45
+                    ],
+                    [
+                      1013,
+                      72
+                    ]
+                  ]
+                },
+                "ordered": true
+              },
+              "visible": true,
+              "message_on_fail": "Query 2 should return order_id and delivery_time_minutes for orders above the average delivery time, using a scalar subquery with AVG. Order by order_id."
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "duckdb-wasm",
+            "runtime_version": "1.32.0",
+            "solution_sha256": "19bf803249f3d11bdd1f303e7adbbad9bf2c93b8d35c52eacd5faa9424e7582b",
+            "tests_passed": 2
+          },
+          "hidden_checks": [
+            {
+              "check_id": "hc_orders_drop_first_s0",
+              "mutation": {
+                "table": "orders",
+                "ops": [
+                  {
+                    "op": "drop_row",
+                    "index": 0
+                  }
+                ]
+              },
+              "statement": 0,
+              "expected": {
+                "columns": [
+                  "order_id",
+                  "customer_id"
+                ],
+                "rows": [
+                  [
+                    1003,
+                    1
+                  ],
+                  [
+                    1006,
+                    1
+                  ],
+                  [
+                    1009,
+                    1
+                  ],
+                  [
+                    1012,
+                    1
+                  ],
+                  [
+                    1013,
+                    1
+                  ]
+                ]
+              },
+              "ordered": true
+            },
+            {
+              "check_id": "hc_orders_dup_last_s0",
+              "mutation": {
+                "table": "orders",
+                "ops": [
+                  {
+                    "op": "duplicate_row",
+                    "index": 12
+                  }
+                ]
+              },
+              "statement": 0,
+              "expected": {
+                "columns": [
+                  "order_id",
+                  "customer_id"
+                ],
+                "rows": [
+                  [
+                    1001,
+                    1
+                  ],
+                  [
+                    1003,
+                    1
+                  ],
+                  [
+                    1006,
+                    1
+                  ],
+                  [
+                    1009,
+                    1
+                  ],
+                  [
+                    1012,
+                    1
+                  ],
+                  [
+                    1013,
+                    1
+                  ],
+                  [
+                    1013,
+                    1
+                  ]
+                ]
+              },
+              "ordered": true
+            },
+            {
+              "check_id": "hc_orders_drop_last_s0",
+              "mutation": {
+                "table": "orders",
+                "ops": [
+                  {
+                    "op": "drop_row",
+                    "index": 12
+                  }
+                ]
+              },
+              "statement": 0,
+              "expected": {
+                "columns": [
+                  "order_id",
+                  "customer_id"
+                ],
+                "rows": [
+                  [
+                    1001,
+                    1
+                  ],
+                  [
+                    1003,
+                    1
+                  ],
+                  [
+                    1006,
+                    1
+                  ],
+                  [
+                    1009,
+                    1
+                  ],
+                  [
+                    1012,
+                    1
+                  ]
+                ]
+              },
+              "ordered": true
+            },
+            {
+              "check_id": "hc_orders_null_order_id_s0",
+              "mutation": {
+                "table": "orders",
+                "ops": [
+                  {
+                    "op": "set_cell",
+                    "index": 0,
+                    "column": "order_id",
+                    "value": null
+                  }
+                ]
+              },
+              "statement": 0,
+              "expected": {
+                "columns": [
+                  "order_id",
+                  "customer_id"
+                ],
+                "rows": [
+                  [
+                    1003,
+                    1
+                  ],
+                  [
+                    1006,
+                    1
+                  ],
+                  [
+                    1009,
+                    1
+                  ],
+                  [
+                    1012,
+                    1
+                  ],
+                  [
+                    1013,
+                    1
+                  ],
+                  [
+                    null,
+                    1
+                  ]
+                ]
+              },
+              "ordered": true
+            },
+            {
+              "check_id": "hc_orders_dup_last_s1",
+              "mutation": {
+                "table": "orders",
+                "ops": [
+                  {
+                    "op": "duplicate_row",
+                    "index": 12
+                  }
+                ]
+              },
+              "statement": 1,
+              "expected": {
+                "columns": [
+                  "order_id",
+                  "delivery_time_minutes"
+                ],
+                "rows": [
+                  [
+                    1006,
+                    63
+                  ],
+                  [
+                    1008,
+                    55
+                  ],
+                  [
+                    1010,
+                    45
+                  ],
+                  [
+                    1013,
+                    72
+                  ],
+                  [
+                    1013,
+                    72
+                  ]
+                ]
+              },
+              "ordered": true
+            },
+            {
+              "check_id": "hc_orders_drop_last_s1",
+              "mutation": {
+                "table": "orders",
+                "ops": [
+                  {
+                    "op": "drop_row",
+                    "index": 12
+                  }
+                ]
+              },
+              "statement": 1,
+              "expected": {
+                "columns": [
+                  "order_id",
+                  "delivery_time_minutes"
+                ],
+                "rows": [
+                  [
+                    1003,
+                    41
+                  ],
+                  [
+                    1006,
+                    63
+                  ],
+                  [
+                    1008,
+                    55
+                  ],
+                  [
+                    1010,
+                    45
+                  ]
+                ]
+              },
+              "ordered": true
+            },
+            {
+              "check_id": "hc_orders_set_delivery_time_minutes_s1",
+              "mutation": {
+                "table": "orders",
+                "ops": [
+                  {
+                    "op": "set_cell",
+                    "index": 0,
+                    "column": "delivery_time_minutes",
+                    "value": 1015
+                  }
+                ]
+              },
+              "statement": 1,
+              "expected": {
+                "columns": [
+                  "order_id",
+                  "delivery_time_minutes"
+                ],
+                "rows": [
+                  [
+                    1001,
+                    1015
+                  ]
+                ]
+              },
+              "ordered": true
+            }
+          ]
+        },
+        "feedback": {
+          "correct": {
+            "message": "Both subquery forms work: IN (SELECT ...) tests membership in a list, while a scalar subquery returns one value for a direct comparison. Both run the inner query first, then filter the outer rows."
+          },
+          "incorrect": {
+            "message": "Check each query separately. Query 1 needs IN (SELECT customer_id FROM customers WHERE city = 'Lagos'). Query 2 needs > (SELECT AVG(delivery_time_minutes) FROM orders)."
+          },
+          "hints": [
+            "For Query 1, the subquery goes inside IN: `WHERE customer_id IN (SELECT customer_id FROM customers WHERE city = 'Lagos')`.",
+            "For Query 2, wrap AVG in a subquery: `WHERE delivery_time_minutes > (SELECT AVG(delivery_time_minutes) FROM orders)`."
+          ],
+          "remediation_step_id": "tile_sql_adv_execution_order_subquery_where.r02"
+        }
+      }
+    },
+    {
+      "step_id": "tile_sql_adv_execution_order_subquery_where.s10",
+      "type": "recap",
+      "concept_ids": [
+        "sql.clause_execution_order",
+        "sql.subquery_in_where"
+      ],
+      "eyebrow": "Recap",
+      "title": "Execution order and WHERE subqueries",
+      "lede": "Two ideas that explain how SQL really runs.",
+      "blocks": [
+        {
+          "type": "prose",
+          "block_id": "tile_sql_adv_execution_order_subquery_where.s10.b1",
+          "role": "takeaway",
+          "text": "SQL processes clauses in this order: FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY. An alias defined in SELECT is visible in ORDER BY and GROUP BY, but not in WHERE or HAVING. A subquery in WHERE can return a single value for a comparison or a list of values for IN — the inner query runs first and its result is used by the outer WHERE.",
+          "lineage": {
+            "concept_ids": [
+              "sql.clause_execution_order",
+              "sql.subquery_in_where"
+            ],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "sql.clause_execution_order#f1",
+              "sql.clause_execution_order#f2",
+              "sql.subquery_in_where#f1",
+              "sql.subquery_in_where#f2"
+            ]
+          }
+        },
+        {
+          "type": "up_next",
+          "block_id": "tile_sql_adv_execution_order_subquery_where.s10.b2",
+          "title": "Up next: Subqueries in FROM and CTEs",
+          "text": "A subquery can also appear in FROM, acting as a virtual table. CTEs let you name that virtual table once with WITH and reuse it — making complex queries easier to read."
+        }
+      ],
+      "reward": {
+        "gems": 10
+      },
+      "lineage": {
+        "concept_ids": [
+          "sql.clause_execution_order",
+          "sql.subquery_in_where"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "sql.clause_execution_order#f1",
+          "sql.clause_execution_order#f2",
+          "sql.subquery_in_where#f1",
+          "sql.subquery_in_where#f2"
+        ]
+      }
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "tile_sql_adv_execution_order_subquery_where.r01",
+      "type": "remediation",
+      "concept_ids": [
+        "sql.clause_execution_order"
+      ],
+      "eyebrow": "Let's revisit",
+      "title": "The processing order: a clear contrast",
+      "lede": "Compare the written order of clauses with the order they actually run.",
+      "blocks": [
+        {
+          "type": "prose",
+          "block_id": "tile_sql_adv_execution_order_subquery_where.r01.b1",
+          "role": "example",
+          "text": "Written order: SELECT, FROM, WHERE, GROUP BY, HAVING, ORDER BY. Processing order: FROM (read orders), WHERE (drop rows with delivery_time_minutes ≤ 0), GROUP BY (group by customer_id), HAVING (drop groups with average ≤ 30), SELECT (compute avg_time alias), ORDER BY (sort by avg_time). SELECT runs fifth — not first. That's why an alias defined in SELECT cannot be used in WHERE or HAVING.",
+          "lineage": {
+            "concept_ids": [
+              "sql.clause_execution_order"
+            ],
+            "teaching_block_ids": [
+              "sql.clause_execution_order#tb1",
+              "sql.clause_execution_order#tb2"
+            ],
+            "fact_ids": [
+              "sql.clause_execution_order#f1"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "sql.clause_execution_order"
+        ],
+        "teaching_block_ids": [
+          "sql.clause_execution_order#tb1",
+          "sql.clause_execution_order#tb2"
+        ],
+        "fact_ids": [
+          "sql.clause_execution_order#f1"
+        ]
+      }
+    },
+    {
+      "step_id": "tile_sql_adv_execution_order_subquery_where.r02",
+      "type": "remediation",
+      "concept_ids": [
+        "sql.subquery_in_where"
+      ],
+      "eyebrow": "Let's revisit",
+      "title": "Scalar subquery in WHERE: a clear contrast",
+      "lede": "Compare a hard-coded filter value with one computed by a subquery.",
+      "blocks": [
+        {
+          "type": "prose",
+          "block_id": "tile_sql_adv_execution_order_subquery_where.r02.b1",
+          "role": "example",
+          "text": "Hard-coded: WHERE delivery_time_minutes > 35 — works, but 35 is a guess. Scalar subquery: WHERE delivery_time_minutes > (SELECT AVG(delivery_time_minutes) FROM orders) — the inner query computes the actual average from the data and returns one number; the outer WHERE compares each row against that number. The subquery must return exactly one value to be used in a comparison like > or =.",
+          "lineage": {
+            "concept_ids": [
+              "sql.subquery_in_where"
+            ],
+            "teaching_block_ids": [
+              "sql.subquery_in_where#tb2"
+            ],
+            "fact_ids": [
+              "sql.subquery_in_where#f2"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "sql.subquery_in_where"
+        ],
+        "teaching_block_ids": [
+          "sql.subquery_in_where#tb2"
+        ],
+        "fact_ids": [
+          "sql.subquery_in_where#f2"
+        ]
+      }
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 23
+    },
+    "next_tile_id": "tile_sql_adv_subquery_from_cte"
+  },
+  "content_hash": "e7b38005c614f3dff8dfd75488e1d906294f3ddbe8944c39c5bacd91a4a81ec1"
+}
