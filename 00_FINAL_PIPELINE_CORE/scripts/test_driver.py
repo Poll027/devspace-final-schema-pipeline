@@ -37,7 +37,12 @@ class Stub:
 
     def __init__(self, B, evals=None, corrupt_first=False):
         self.B, self.evals, self.corrupt_first = B, evals or {}, corrupt_first
-        self.calls = []
+        self.calls, self.llm_calls = [], []
+
+    def llm(self, ctx, system, blocks, label):
+        """The tool-free packet evaluator call (Ctx.llm): recorded, then answered like any evaluator."""
+        self.llm_calls.append((label, system, blocks))
+        return self(ctx, "EVAL", blocks[-1]["text"], label)
 
     def __call__(self, ctx, role, task, label):
         sid = label.split(":")[0]
@@ -64,6 +69,7 @@ class Stub:
 
 def run(B, stub, cap=25):
     rp.Ctx.agent = lambda self, role, task, label, tiles=1: stub(self, role, task, label)
+    rp.Ctx.llm = lambda self, system, blocks, label: stub.llm(self, system, blocks, label)
     sys.argv = ["run_pipeline.py", str(B), "--max-usd", str(cap), "--allow-dirty-code"]
     try:
         rp.main()
@@ -188,8 +194,47 @@ def cache_test():
     return "prompt-cache checkpoints + pricing OK"
 
 
+def packet_test():
+    """Stages 03/04 are judged from one tool-free call over the rendered packet; a reply without a verdict falls back to the agent evaluator;
+    --eval-mode agent never uses the packet."""
+    B = make_batch("_drvtest_e")
+    s = Stub(B, evals={"03_screens": ["BLOCKING t/s01: wrong\nVERDICT: FAIL", "VERDICT: PASS"]})
+    assert run(B, s) == 0
+    got = {}
+    for label, system, blocks in s.llm_calls:
+        got.setdefault(label, []).append((system, blocks))
+    assert set(got) == {"03_screens:all:eval", "04_interactions:all:eval"}, set(got)
+    assert len(got["03_screens:all:eval"]) == 2, "blocker round + scoped re-eval, both through the packet"
+    system, blocks = got["04_interactions:all:eval"][0]
+    assert "EVALUATOR PACKET" in blocks[0]["text"] and "SOURCE FACTS" in blocks[0]["text"] and "KEY" in blocks[0]["text"] and "taught-before-tested" in blocks[0]["text"], blocks[0]["text"][:300]
+    assert "EVALUATION BY PACKET" in system and "04 interactions" in system, system[:200]
+    assert "SCOPED re-evaluation" in got["03_screens:all:eval"][1][1][-1]["text"] and "SCOPED" not in blocks[-1]["text"]
+    assert (B / "working" / "packet_04_interactions_all.md").exists()
+    # no verdict from the packet call -> exactly one agent evaluator call as fallback
+    B = make_batch("_drvtest_f")
+
+    class NoVerdict(Stub):
+        def llm(self, ctx, system, blocks, label):
+            self.llm_calls.append((label, system, blocks))
+            return "NEED: the registry"
+    s = NoVerdict(B)
+    assert run(B, s) == 0
+    assert [l for l, _ in s.calls].count("03_screens:all:eval") == 1 and len(s.llm_calls) == 2, (s.calls, len(s.llm_calls))
+    # agent mode: no packet call at all
+    B = make_batch("_drvtest_g")
+    s = Stub(B)
+    rp.sys.argv = ["x"]
+    import os
+    os.environ["EVAL_MODE"] = "agent"
+    try:
+        assert run(B, s) == 0 and not s.llm_calls
+    finally:
+        del os.environ["EVAL_MODE"]
+    return "packet evaluator + fallback + agent mode OK"
+
+
 def main():
-    out = [retry_test(), cache_test(), protect_test(), guard_test()]
+    out = [retry_test(), cache_test(), protect_test(), guard_test(), packet_test()]
     # 1. happy path
     B = make_batch("_drvtest_a")
     s = Stub(B, evals={"03_screens": ["BLOCKING t/s01: wrong\nVERDICT: FAIL", "ADVISORY t/s02: reword\nVERDICT: PASS"],
@@ -228,7 +273,7 @@ def main():
         return inner(ctx, role, task, label)
     assert run(B, costly, cap=25) == 3
     out.append("spend cap stop OK")
-    for n in "abcd":
+    for n in "abcdefg":
         shutil.rmtree(ROOT / "batches" / f"_drvtest_{n}", ignore_errors=True)
     print("\n".join(out))
 

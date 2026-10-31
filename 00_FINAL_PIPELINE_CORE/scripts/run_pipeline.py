@@ -13,8 +13,10 @@ Stops (exit 2, writes working/DRIVER_STOPPED.md, SNS if SNS_TOPIC_ARN is set) on
 unchanged, a failed script, or the spend cap (exit 3). Fix the cause and rerun the same command.
 
 run_config.json: {"path_id","glossary_bundle","glossary_batch_id","toc_workspace","tiles":[...]?,"player_version"?}
+Evaluators of stages with `eval_packet` in the manifest (03, 04) judge from ONE pre-digested packet (evaluator_packet.py) in a single tool-free call; they fall
+back to the file-exploring agent evaluator if the packet is unavailable or gives no verdict. `--eval-mode agent` / EVAL_MODE=agent forces the old way.
 Env: GEN_MODEL_ID / EVAL_MODEL_ID (pin one model) or GEN_LADDER / EVAL_LADDER, MAX_USD, CALL_CAP_USD (per agent call and tile, default 8),
-     CHUNK_WORKERS (default 2), SNS_TOPIC_ARN, AWS_REGION.
+     CHUNK_WORKERS (default 2), EVAL_MODE (packet|agent, default packet), SNS_TOPIC_ARN, AWS_REGION.
 # ponytail: the driver never commits or pushes; chunks need >12 tiles to fan out; a blocking 08/09/11 result stops for a human
 # instead of auto-routing the fix to the stage it names.
 """
@@ -31,8 +33,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import update_ledger as UL  # noqa: E402
-from bedrock_agent import Budget, BudgetExceeded, run_agent  # noqa: E402
-from bedrock_llm import load_env, sns  # noqa: E402
+import evaluator_packet as EP  # noqa: E402
+from bedrock_agent import CACHE, Budget, BudgetExceeded, run_agent, transient  # noqa: E402
+from bedrock_llm import converse_ladder, load_env, log_usage, make_client, sns  # noqa: E402
 from finlib import CORE, ROOT, load, save  # noqa: E402
 
 SCRIPTS = CORE / "scripts"
@@ -56,6 +59,7 @@ class Ctx:
         (B / "working").mkdir(exist_ok=True)
         self.budget = Budget(args.max_usd, B / "working" / "cost_log.jsonl")
         self.call_cap = float(os.environ.get("CALL_CAP_USD", 8))
+        self.eval_mode = getattr(args, "eval_mode", None) or os.environ.get("EVAL_MODE", "packet")
         self.manifest = load(CORE / "pipeline_manifest.json")
         self.stage = {s["id"]: s for s in self.manifest["stages"]}
         self.env = {**os.environ, "PATH": f"{Path(sys.executable).parent}:{os.environ['PATH']}"}
@@ -158,6 +162,31 @@ class Ctx:
                         call_cap_usd=self.call_cap * max(tiles, 1), protected=self.protected())
         self.guard_check(label)
         return out  # the ceiling is per tile: a 3-tile chunk call may cost 3x
+
+
+    def llm(self, system, blocks, label):
+        """One tool-free evaluator call (the packet path): cached system prompt + cached first block (the packet), cost-logged, transient errors retried.
+        ponytail: a model that rejects cachePoint is retried once without it, per call."""
+        client = make_client()
+        for cache in (True, False):
+            sysb = [{"text": system}] + ([dict(CACHE)] if cache else [])
+            user = [blocks[0]] + ([dict(CACHE)] if cache else []) + blocks[1:]
+            kw = dict(system=sysb, messages=[{"role": "user", "content": user}], inferenceConfig={"maxTokens": 16000, "temperature": 0.2})
+            for attempt in range(6):
+                try:
+                    if self.ev_pin:
+                        r = client.converse(modelId=self.ev_pin, **kw)
+                        log_usage(self.ev_pin, r["usage"], label)
+                    else:
+                        r = converse_ladder(client, "EVAL", label=label, **kw)
+                    self.budget.check()
+                    return "".join(b.get("text", "") for b in r["output"]["message"]["content"])
+                except Exception as e:
+                    if "cachePoint" in str(e) and cache:
+                        break
+                    if attempt == 5 or "per day" in str(e) or not transient(e):
+                        raise
+                    time.sleep(5 * 2 ** attempt)
 
 
 # ---------- chunks ----------
@@ -277,6 +306,77 @@ def evaluator_task(c, sid, chunk, ids, prior=None):
     return t
 
 
+PACKET_RULES = """EVALUATION BY PACKET. You have no tools and cannot open files. The user message starts with an evaluator packet per tile: source facts with
+source ids, the data, every step's text with lineage tags (⟦A.f1⟧ = teaches fact f1 of concept A), every question with its answer key and per-option feedback,
+a script-computed taught-before-tested map, the deterministic gate result and the nearest blocked future concepts. A script verified that every judgeable
+string of the lesson is in it. Where the stage instructions above say to read files, open source_refs, run scripts or review only a third of the steps, ignore
+that: judge EVERY step and question from the packet. For each QUESTION decide your own answer from the lesson text first, then compare with its KEY.
+A fact shown as NEVER in a taught-before-tested map was not taught before it is tested. If you truly cannot judge something without data that is not in the
+packet, end with one line `NEED: <what>` instead of a verdict."""
+
+
+def packet_text(c, sid, chunk, ids):
+    """The evaluator packets for this scope joined into one text, or None when the stage has no packet, a tile is missing, or a tile's
+    completeness check fails (the caller then uses the agent evaluator)."""
+    mode = c.stage[sid].get("eval_packet")
+    if not mode or not ids:
+        return None
+    try:
+        if mode == "lessons":  # assembled lessons from the gate's sandbox copy (they carry the gate's validation report)
+            d = c.B / "working" / f"gate_{sid}_{chunk}"
+            lessons = [load(p) for p in sorted((d / "tile_lessons").glob("*.json")) if p.stem in ids]
+            env = EP.Env(c.B, d)
+        else:  # "screens": the part's tiles, before interactions exist
+            plans = {t["tile_id"]: t for t in load(c.B / "tile_plans.json")["tiles"]}
+            lessons = [EP.screens_lesson(t, plans[t["tile_id"]]) for t in load(c.part(sid, chunk))["tiles"] if t["tile_id"] in ids]
+            env = EP.Env(c.B)
+        if sorted(L["tile_id"] for L in lessons) != sorted(ids):
+            return None
+        texts = []
+        for L in lessons:
+            t = EP.render(L, env)
+            if EP.completeness(L, t)[1]:
+                return None
+            texts.append(t)
+        return "\n\n=========\n\n".join(texts)
+    except (OSError, KeyError, ValueError) as e:  # a packet is an optimisation: never let it break the run
+        c.log(f"{sid}:{chunk} packet unavailable ({type(e).__name__}: {e})")
+        return None
+
+
+def packet_eval(c, sid, chunk, ids, prior=None):
+    """Reply of one tool-free evaluator call over the packet, or None if there is no packet for this scope."""
+    pk = packet_text(c, sid, chunk, ids)
+    if pk is None:
+        return None
+    (c.B / "working" / f"packet_{sid}_{chunk}.md").write_text(pk)
+    persona = (ROOT / ".claude" / "agents" / "final-evaluator.md").read_text().split("---", 2)[2].strip()
+    system = f"{persona}\n\n--- STAGE INSTRUCTIONS: {sid} ---\n{(TEMPLATE / sid / 'EVALUATOR.md').read_text().strip()}\n\n{PACKET_RULES}"
+    task = (f"Evaluate stage `{sid}`. {scope_text(chunk, ids)} The packet above is the artifact under evaluation. The deterministic gates already passed. "
+            "Label every defect BLOCKING or ADVISORY. End with `VERDICT: PASS` or `VERDICT: FAIL`, then one line per defect: "
+            "`BLOCKING|ADVISORY <tile or asset>/<step or field>: what is wrong -> exact fix`.")
+    if prior:
+        task += ("\n\nThis is a SCOPED re-evaluation after a repair. Check only what the repair changed against its sources and confirm nothing else changed. "
+                 f"Findings that were sent for repair:\n{prior}")
+    return c.llm(system, [{"text": pk}, {"text": task}], f"{sid}:{chunk}:eval")
+
+
+def run_evaluator(c, sid, chunk, ids, prior):
+    """(verdict, defects) for one chunk: the packet evaluator first, the file-exploring agent evaluator as fallback (and in --eval-mode agent)."""
+    if c.eval_mode == "packet" and c.stage[sid].get("eval_packet"):
+        reply = packet_eval(c, sid, chunk, ids, prior)
+        if reply:
+            verdict, defects = parse_eval(reply)
+            if verdict:
+                return verdict, defects
+        c.log(f"{sid}:{chunk} packet evaluation unavailable or gave no verdict; falling back to the agent evaluator")
+    for _ in range(2):
+        verdict, defects = parse_eval(c.agent("EVAL", evaluator_task(c, sid, chunk, ids, prior), f"{sid}:{chunk}:eval", tiles=len(ids or [])))
+        if verdict:
+            return verdict, defects
+    return None, []
+
+
 def parse_eval(text):
     m = VERDICT.findall(text)
     if not m:
@@ -317,11 +417,7 @@ def chunk_gen_eval(c, sid, chunk, ids):
     prior, prev_keys = None, None
     for rnd in range(1, MAX_ROUNDS + 1):
         c.log(f"{sid}:{chunk} evaluating (round {rnd})")
-        verdict, defects = None, []
-        for _ in range(2):
-            verdict, defects = parse_eval(c.agent("EVAL", evaluator_task(c, sid, chunk, ids, prior), f"{sid}:{chunk}:eval", tiles=len(ids or [])))
-            if verdict:
-                break
+        verdict, defects = run_evaluator(c, sid, chunk, ids, prior)
         (c.B / "working" / f"eval_{sid}_{chunk}_r{rnd}.txt").write_text(f"{verdict}\n" + "\n".join(defects))
         if not verdict:
             raise Stuck(f"{sid}:{chunk} evaluator never produced a VERDICT line")
@@ -497,6 +593,7 @@ def main():
     ap.add_argument("--max-usd", type=float, default=float(os.environ["MAX_USD"]) if "MAX_USD" in os.environ else None, required="MAX_USD" not in os.environ,
                     help="hard spend cap in USD (required: no default, so a run can't start uncapped)")
     ap.add_argument("--plan", action="store_true", help="walk the manifest and print what would run; no model calls, no spend")
+    ap.add_argument("--eval-mode", choices=["packet", "agent"], help="packet (default): stages with eval_packet are judged from one tool-free call over a rendered packet; agent: file-exploring evaluator only")
     ap.add_argument("--selftest-batch", help="a PASSing batch to run selftest.py on first (must report 0 missed)")
     ap.add_argument("--allow-dirty-code", action="store_true", help="development only: run even if schemas/scripts/instructions differ from the committed version")
     a = ap.parse_args()
