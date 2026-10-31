@@ -23,6 +23,7 @@ BLOCK_REG = {b["type"]: b["pack"] for b in load(CORE / "registry" / "block_regis
 IX_REG = {i["type"]: i["pack"] for i in load(CORE / "registry" / "interaction_registry.json")["interactions"]}
 WORD_CAP, MISCONCEPTION_SLACK = 180, 40
 MIN_STEPS, MAX_STEPS = 6, 16
+PROSE_CAPS = ("report_",)
 IGN = set(MAP["verbs_ignored_in_capability_tokens"])
 
 
@@ -101,7 +102,8 @@ def plan_tile(bundles, tile_id, cids, next_tile, prof):
                                "word_budget": 0, "mapping_rule": "concept has approved media"})
         anchors = b["assessment_anchors"]
         practice = b.get("practice_anchor")
-        hands_anchors = [a for a in anchors if practice and realized_by_practice(a["capability"], practice)]
+        # a statement/explanation capability can't be measured by a selection interaction, so it is checked in its own check step
+        hands_anchors = [a for a in anchors if practice and realized_by_practice(a["capability"], practice) and not a["capability"].startswith(PROSE_CAPS)]
         check_anchors = [a for a in anchors if a not in hands_anchors]
         if not check_anchors and anchors:
             check_anchors = [anchors[-1]]
