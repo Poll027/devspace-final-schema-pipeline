@@ -64,7 +64,7 @@ class Stub:
             self.block[sid] -= 1
             name, _ = EVAL_ONLY[sid]
             tile = "tile_data_shape_and_types" if not getattr(self, "no_tile", False) else "the batch"
-            (self.B / name).write_text(f"# review\n| BLOCKING | {tile}/s01 | x |\n- BLOCKING {tile}/s01: a fact in the lesson is wrong -> fix it\n")
+            (self.B / name).write_text(f"# review\n**BLOCKING defects: 0**\n| BLOCKING | {tile}/s01 | x |\n- BLOCKING {tile}/s01: a fact in the lesson is wrong -> fix it\n")
             return f"reviewed\n- BLOCKING {tile}/s01: a fact in the lesson is wrong -> fix it\nVERDICT: FAIL"
         if sid in EVAL_ONLY:
             name, body = EVAL_ONLY[sid]
