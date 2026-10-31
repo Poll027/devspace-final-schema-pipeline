@@ -17,8 +17,8 @@ Evaluators of stages with `eval_packet` in the manifest (03, 04) judge from ONE 
 back to the file-exploring agent evaluator if the packet is unavailable or gives no verdict. `--eval-mode agent` / EVAL_MODE=agent forces the old way.
 Env: GEN_MODEL_ID / EVAL_MODEL_ID (pin one model) or GEN_LADDER / EVAL_LADDER, MAX_USD, CALL_CAP_USD (per agent call and tile, default 8),
      CHUNK_WORKERS (default 2), EVAL_MODE (packet|agent, default packet), SNS_TOPIC_ARN, AWS_REGION.
-# ponytail: the driver never commits or pushes; chunks need >12 tiles to fan out; a blocking 08/09/11 result stops for a human
-# instead of auto-routing the fix to the stage it names.
+# ponytail: the driver never commits or pushes; chunks need >12 tiles to fan out; blocking 08/09/11 findings are routed back to stages 03/04 for
+# the tiles they name (MAX_REOPENS loops), then stop for a human; findings that name no tile (registry-level) stop at once.
 """
 import argparse
 import concurrent.futures as cf
@@ -41,6 +41,7 @@ from finlib import CORE, ROOT, load, save  # noqa: E402
 SCRIPTS = CORE / "scripts"
 TEMPLATE = ROOT / "01_FINAL_PACK_TEMPLATE"
 MAX_ROUNDS = 3
+MAX_REOPENS = 2  # automatic repair loops per evaluator-only stage (08/09/11) before the run stops for a human
 MAX_TILES_PER_CHUNK = 12
 SANDBOX_TYPES = {"code_exercise", "formula_entry", "spreadsheet_grid"}  # need a verified runtime (registry/runtimes.json)
 VERDICT = re.compile(r"VERDICT:\s*(PASS_WITH_NONBLOCKING_CHANGES|PASS|FAIL)")
@@ -51,6 +52,10 @@ class Stuck(Exception):
     pass
 
 
+class Reopen(Exception):
+    """An evaluator-only stage's blocking findings were routed to the generators; walk the stages again from the repaired ones."""
+
+
 class Ctx:
     def __init__(self, B, args):
         self.B, self.args = B, args
@@ -59,6 +64,7 @@ class Ctx:
         (B / "working").mkdir(exist_ok=True)
         self.budget = Budget(args.max_usd, B / "working" / "cost_log.jsonl")
         self.call_cap = float(os.environ.get("CALL_CAP_USD", 8))
+        self.reopens, self.reopening = {}, set()  # reopen count per stage; artifacts a repair agent may write right now
         self.eval_mode = getattr(args, "eval_mode", None) or os.environ.get("EVAL_MODE", "packet")
         self.manifest = load(CORE / "pipeline_manifest.json")
         self.stage = {s["id"]: s for s in self.manifest["stages"]}
@@ -149,7 +155,8 @@ class Ctx:
         out = [self.B / UL.LEDGER, self.B / "inputs", self.B / "run_config.json", self.B / "chunks.json"]
         if (self.B / UL.LEDGER).exists():
             for g in UL.load_ledger(str(self.B))["gates"]:
-                out += list(self.B.glob(g["artifact"]))
+                if g["artifact"] not in self.reopening:
+                    out += list(self.B.glob(g["artifact"]))
         return out
 
     def agent(self, role, task, label, tiles=1):
@@ -505,12 +512,54 @@ def blocking_in(path, reply):
     return hits
 
 
+def reopen_for_findings(c, sid, hits):
+    """Route an evaluator-only stage's BLOCKING findings back to the generators of the stages that own the content, for just the chunks whose tiles
+    the findings name: stage 03 (screens) then stage 04 (interactions) each repair only what lives in their own artifact; their script gates re-run;
+    the stale downstream artifacts (validation report, 08/09/11 reports) are removed so the next walk redoes them. The re-run review is the
+    independent check. Raises Reopen; raises Stuck when no tile can be identified in the findings (e.g. a registry-level defect)."""
+    plan_ids = [t["tile_id"] for t in load(c.B / "tile_plans.json")["tiles"]]
+    findings = "\n".join(hits)
+    tiles = sorted({t for t in re.findall(r"tile_[a-z0-9_]+", findings) if t in plan_ids})
+    if not tiles:
+        raise Stuck(f"{sid} reported blocking findings that name no tile of this batch, so they can't be routed automatically. See {c.artifact(sid)}.\n" + "\n".join(hits[:15]))
+    chunks = tile_chunks(c)
+    affected = {ch: ids for ch, ids in chunks.items() if ids and set(ids) & set(tiles)}
+    c.log(f"{sid}: {len(hits)} blocking finding(s) on {len(tiles)} tile(s); reopening stages 03/04 for chunk(s) {sorted(affected)} (loop {c.reopens[sid]}/{MAX_REOPENS})")
+    note = (f"These findings come from the stage `{sid}` review of the ASSEMBLED lessons. Fix ONLY what lives in THIS stage's artifact. Stage 03 (screens) owns step "
+            "titles and ledes, prose, diagrams, tables, visuals and remediation steps; stage 04 (interactions) owns prompts, options, feedback, answer keys, tests "
+            "and exercises. If a finding concerns the other artifact, leave it for that stage. Correct every fact against scenario_asset_registry.json and the "
+            f"glossary bundle (never invent a value).\n\nFindings:\n{findings}")
+    for stage in ("03_screens", "04_interactions"):
+        art = c.artifact(stage)
+        c.reopening.add(art)  # in a single-chunk batch the part IS the gated artifact
+        try:
+            for ch, ids in affected.items():
+                c.agent("GEN", generator_task(c, stage, ch, ids, repair=note), f"{stage}:{ch}:repair", tiles=len(ids))
+                ensure_gate(c, stage, ch, ids)
+            if list(chunks) != ["all"]:
+                merge(c, stage, chunks)  # stage 04's gate reads the merged screens
+        finally:
+            c.reopening.discard(art)
+    for stale in ("reports/validation.tiles.json", *(c.artifact(x) for x in ("08_pedagogy_review", "09_leakage_check", "11_final_audit"))):
+        (c.B / stale).unlink(missing_ok=True)
+    for d in ("tile_lessons", "tile_lessons_public", "grading"):  # compiled from the repaired parts: stage 06 must recompile, not be skipped as "gated"
+        for f in (c.B / d).glob("*.json"):
+            f.unlink()
+    raise Reopen()
+
+
 def run_evaluator_only(c, sid):
     art = c.B / c.artifact(sid)
     instr = "INDEPENDENT_AUDIT.md" if sid.endswith("final_audit") else "EVALUATOR.md"
     task = (f"Run stage `{sid}`, batch folder `{c.rel(c.B)}/`. Read `01_FINAL_PACK_TEMPLATE/{sid}/{instr}` and follow it. "
             f"Write the stage artifact `{c.rel(art)}` yourself. Label defects BLOCKING or ADVISORY (audit: BLOCKER/HIGH/MEDIUM/LOW). "
             f"End your reply with `VERDICT: PASS`, `VERDICT: PASS_WITH_NONBLOCKING_CHANGES` or `VERDICT: FAIL`.")
+    if art.exists() and c.reopens.get(sid, 0) < MAX_REOPENS:  # a previous run stopped on this stage's findings: act on them instead of paying for the review again
+        prior = blocking_in(art, "")
+        if prior:
+            c.log(f"{sid}: reusing the {len(prior)} blocking finding(s) already on disk")
+            c.reopens[sid] = c.reopens.get(sid, 0) + 1
+            reopen_for_findings(c, sid, prior)
     text = ""
     for _ in range(2):
         text = c.agent("EVAL", task, f"{sid}:eval", tiles=len(load(c.B / "tile_plans.json")["tiles"]))  # whole-batch review: ceiling scales with tiles
@@ -520,7 +569,10 @@ def run_evaluator_only(c, sid):
         raise Stuck(f"{sid} evaluator did not write {c.artifact(sid)} with a VERDICT line")
     hits = blocking_in(art, text)
     if hits or VERDICT.findall(text)[-1] == "FAIL":
-        raise Stuck(f"{sid} reported blocking findings; decide which earlier stage to reopen, then rerun. See {c.artifact(sid)}.\n" + "\n".join(hits[:15]))
+        if c.reopens.get(sid, 0) < MAX_REOPENS:
+            c.reopens[sid] = c.reopens.get(sid, 0) + 1
+            reopen_for_findings(c, sid, hits)  # raises Reopen, or Stuck when the findings can't be routed
+        raise Stuck(f"{sid} still reports blocking findings after {MAX_REOPENS} automatic repair loops; a person must decide. See {c.artifact(sid)}.\n" + "\n".join(hits[:15]))
     gate(c, sid, ev=c.ev)
 
 
@@ -587,6 +639,26 @@ def notify(c, subject, body):
         sns(subject, body)
 
 
+def walk_stages(c, a):
+    for st in c.manifest["stages"]:
+        sid, kind = st["id"], st["kind"]
+        if st["status"].startswith("planned"):
+            if a.plan:
+                c.log(f"{sid}: planned, would skip")
+            else:
+                check_planned(c, sid)
+            continue
+        if is_done(c, sid):
+            c.log(f"{sid}: gated PASS on disk, skipping")
+            continue
+        if a.plan:
+            c.log(f"{sid}: WOULD RUN ({kind})")
+            continue
+        c.t0 = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
+        c.log(f"=== {sid} ({kind}) spent ${c.budget.spent():.2f}")
+        {"script": run_script_stage, "generate_evaluate": run_gen_eval, "evaluator_only": run_evaluator_only}[kind](c, sid)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("batch_dir")
@@ -613,23 +685,12 @@ def main():
             if r.returncode or not re.search(r"\b0 missed\b", r.stdout):
                 raise Stuck("selftest.py did not report 0 missed:\n" + (r.stdout + r.stderr)[-1500:])
             c.log("selftest: 0 missed")
-        for st in c.manifest["stages"]:
-            sid, kind = st["id"], st["kind"]
-            if st["status"].startswith("planned"):
-                if a.plan:
-                    c.log(f"{sid}: planned, would skip")
-                else:
-                    check_planned(c, sid)
+        while True:  # an evaluator-only stage may send its blocking findings back for repair (Reopen): walk the stages again
+            try:
+                walk_stages(c, a)
+                break
+            except Reopen:
                 continue
-            if is_done(c, sid):
-                c.log(f"{sid}: gated PASS on disk, skipping")
-                continue
-            if a.plan:
-                c.log(f"{sid}: WOULD RUN ({kind})")
-                continue
-            c.t0 = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
-            c.log(f"=== {sid} ({kind}) spent ${c.budget.spent():.2f}")
-            {"script": run_script_stage, "generate_evaluate": run_gen_eval, "evaluator_only": run_evaluator_only}[kind](c, sid)
         if not a.plan:
             notify(c, f"DONE {c.id}", f"All implemented stages gated. Spend ${c.budget.spent():.2f}. 05 and 12 are planned stages and were not run.")
     except (Stuck, BudgetExceeded) as e:

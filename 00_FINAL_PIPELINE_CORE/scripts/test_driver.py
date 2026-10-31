@@ -35,8 +35,9 @@ def make_batch(name):
 class Stub:
     """Plays generator and evaluator. script[(sid, role)] is a list of replies consumed in order; default = gold artifact / PASS."""
 
-    def __init__(self, B, evals=None, corrupt_first=False):
+    def __init__(self, B, evals=None, corrupt_first=False, block=None):
         self.B, self.evals, self.corrupt_first = B, evals or {}, corrupt_first
+        self.block = dict(block or {})  # evaluator-only stage id -> how many times to report a blocking finding first
         self.calls, self.llm_calls = [], []
 
     def llm(self, ctx, system, blocks, label):
@@ -59,6 +60,12 @@ class Stub:
                 art = ctx.artifact(sid)
                 save(ctx.part(sid, "all"), json.loads((GOLD / art).read_text().replace(GOLD.name, self.B.name)))
             return "ok"
+        if sid in EVAL_ONLY and self.block.get(sid, 0) > 0:
+            self.block[sid] -= 1
+            name, _ = EVAL_ONLY[sid]
+            tile = "tile_data_shape_and_types" if not getattr(self, "no_tile", False) else "the batch"
+            (self.B / name).write_text(f"# review\n- BLOCKING {tile}/s01: a fact in the lesson is wrong -> fix it\n")
+            return f"reviewed\n- BLOCKING {tile}/s01: a fact in the lesson is wrong -> fix it\nVERDICT: FAIL"
         if sid in EVAL_ONLY:
             name, body = EVAL_ONLY[sid]
             (self.B / name).write_text(body)
@@ -162,6 +169,38 @@ def guard_test():
     return "agent-edit guard OK"
 
 
+def reopen_test():
+    """Blocking findings from stage 08 are routed back to stages 03/04 for the tiles they name, the downstream stages are redone, and the review is
+    rerun; persistent findings stop after MAX_REOPENS loops; findings that name no tile stop at once."""
+    B = make_batch("_drvtest_g")
+    s = Stub(B, block={"08_pedagogy_review": 1})
+    assert run(B, s) == 0, (B / "working" / "DRIVER_STOPPED.md").read_text()
+    labels = [l for l, _ in s.calls]
+    i = labels.index("08_pedagogy_review:eval")
+    after = labels[i + 1:]
+    assert after[:2] == ["03_screens:all:repair", "04_interactions:all:repair"], after
+    assert after.count("08_pedagogy_review:eval") == 1 and labels.count("08_pedagogy_review:eval") == 2, labels
+    assert all(g["verdict"] == "PASS" for g in load(B / "final_stage_gate_ledger.json")["gates"]) and (B / "pedagogy_review.md").exists()
+    assert "06_assemble" in {g["stage_id"] for g in load(B / "final_stage_gate_ledger.json")["gates"]}
+    B = make_batch("_drvtest_h")
+    s = Stub(B, block={"08_pedagogy_review": 9})
+    assert run(B, s) == 2
+    msg = (B / "working" / "DRIVER_STOPPED.md").read_text()
+    assert "after 2 automatic repair loops" in msg and [l for l, _ in s.calls].count("03_screens:all:repair") == 2, msg
+    B = make_batch("_drvtest_i")
+    s = Stub(B, block={"08_pedagogy_review": 1})
+    s.no_tile = True
+    assert run(B, s) == 2 and "name no tile" in (B / "working" / "DRIVER_STOPPED.md").read_text()
+    # a run that stopped on findings leaves the report on disk: the next run repairs from it without re-running the review first
+    B = make_batch("_drvtest_j")
+    assert run(B, Stub(B, block={"08_pedagogy_review": 9})) == 2
+    s = Stub(B)
+    assert run(B, s) == 0, (B / "working" / "DRIVER_STOPPED.md").read_text()
+    labels = [l for l, _ in s.calls]
+    assert labels.index("03_screens:all:repair") < labels.index("08_pedagogy_review:eval") and labels.count("08_pedagogy_review:eval") == 1, labels
+    return "automatic repair loop OK"
+
+
 def cache_test():
     """Each call carries at most 4 cache checkpoints, exactly one on the newest message; reads/writes are priced at 0.1x/1.25x."""
     import bedrock_agent as BA
@@ -234,7 +273,7 @@ def packet_test():
 
 
 def main():
-    out = [retry_test(), cache_test(), protect_test(), guard_test(), packet_test()]
+    out = [retry_test(), cache_test(), protect_test(), guard_test(), packet_test(), reopen_test()]
     # 1. happy path
     B = make_batch("_drvtest_a")
     s = Stub(B, evals={"03_screens": ["BLOCKING t/s01: wrong\nVERDICT: FAIL", "ADVISORY t/s02: reword\nVERDICT: PASS"],
@@ -273,7 +312,7 @@ def main():
         return inner(ctx, role, task, label)
     assert run(B, costly, cap=25) == 3
     out.append("spend cap stop OK")
-    for n in "abcdefg":
+    for n in "abcdefghij":
         shutil.rmtree(ROOT / "batches" / f"_drvtest_{n}", ignore_errors=True)
     print("\n".join(out))
 
