@@ -24,7 +24,7 @@ CMPS = {ast.Lt: "cmp_lt", ast.LtE: "cmp_le", ast.Gt: "cmp_gt", ast.GtE: "cmp_ge"
 ARITH = {"op_add", "op_sub", "op_mul", "op_div", "op_floordiv", "op_mod", "op_pow"}
 COMPARE = {"cmp_lt", "cmp_le", "cmp_gt", "cmp_ge", "cmp_eq", "cmp_ne"}
 LITS = {"lit_int", "lit_float", "lit_str", "lit_bool"}
-KEYWORD_TAGS = {"if", "elif", "else", "for", "while", "break", "continue", "def", "return", "global", "try", "except", "lambda", "class", "with"}
+KEYWORD_TAGS = {"if", "elif", "else", "for", "while", "break", "continue", "return", "global", "try", "except", "lambda", "class", "with"}
 
 
 def tags(code):
@@ -45,7 +45,7 @@ def tags(code):
             t.add("op_invert")
     t |= _paren_groups(code)
     for n in ast.walk(tree):
-        if isinstance(n, (ast.If, ast.For, ast.While, ast.FunctionDef, ast.Try, ast.With, ast.ClassDef)):
+        if isinstance(n, (ast.If, ast.For, ast.While, ast.Try, ast.With, ast.ClassDef)):
             t.add("block")
         if isinstance(n, ast.For):
             t.add("for")

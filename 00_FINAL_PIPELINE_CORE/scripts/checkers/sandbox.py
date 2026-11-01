@@ -49,7 +49,8 @@ def _node_once(job, runner):
         raise SandboxError("node or sandbox/node_modules missing: run `npm ci` in 00_FINAL_PIPELINE_CORE/sandbox")
     env = {"PATH": os.environ.get("PATH", ""), "HOME": "/nonexistent", "LANG": "C"}  # no credentials, no proxies
     try:
-        r = subprocess.run(["node", "--max-old-space-size=512", str(SANDBOX / Path(runner).name)], input=json.dumps(job), capture_output=True,
+        flags = ["--permission", f"--allow-fs-read={SANDBOX}"] if Path(runner).name == "run_py.mjs" else []  # python: no host writes, children or workers
+        r = subprocess.run(["node", "--max-old-space-size=512", *flags, str(SANDBOX / Path(runner).name)], input=json.dumps(job), capture_output=True,
                            text=True, cwd=SANDBOX, env=env, timeout=NODE_TIMEOUT_S)
     except subprocess.TimeoutExpired:
         raise SandboxError(f"runner exceeded {NODE_TIMEOUT_S}s (infinite loop or a query that is far too heavy)")
@@ -347,7 +348,286 @@ def run_query(registry, result_of):
             "execution_provenance": {"runtime": pin["engine"], "runtime_version": pin["version"], "sql_sha256": sha(result_of["sql"])}}, []
 
 
-RUNNERS = {"sql": run_sql}
+# ---------------------------------------------------------------- Python
+PY_INSTALLED = {"numpy", "pandas", "scipy"}  # sandbox/fetch_packages.mjs
+PY_KINDS = {"stdout_equals", "value_equals", "dataframe_equals", "function_call", "forbidden_syntax"}
+
+
+def deep_equal(a, b, tol=1e-9):
+    if _num(a) and _num(b):
+        return abs(a - b) <= tol
+    if isinstance(a, list) and isinstance(b, list):
+        return len(a) == len(b) and all(deep_equal(x, y, tol) for x, y in zip(a, b))
+    if isinstance(a, dict) and isinstance(b, dict):
+        return a.keys() == b.keys() and all(deep_equal(a[k], b[k], tol) for k in a)
+    return a == b
+
+
+def _norm_out(t):
+    return "\n".join(x.rstrip() for x in (t or "").strip().splitlines())
+
+
+def py_apply_var(code, name, value):
+    """Replace the constant in the top-level `name = <constant>` assignment (the first one), keeping the rest of the file byte-for-byte."""
+    import ast
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return code
+    for n in tree.body:
+        if isinstance(n, ast.Assign) and len(n.targets) == 1 and isinstance(n.targets[0], ast.Name) and n.targets[0].id == name and isinstance(n.value, ast.Constant):
+            lines = code.splitlines(keepends=True)
+            if n.value.lineno != n.value.end_lineno:
+                return code
+            ln = lines[n.value.lineno - 1]
+            lines[n.value.lineno - 1] = ln[:n.value.col_offset] + json.dumps(value) + ln[n.value.end_col_offset:]
+            return "".join(lines)
+    return code
+
+
+def py_var_mutations(code):
+    """Candidate set_variable mutations: each top-level `name = <number|string>` assignment gets a different constant."""
+    import ast
+    out = []
+    try:
+        body = ast.parse(code).body
+    except SyntaxError:
+        return out
+    for n in body:
+        if isinstance(n, ast.Assign) and len(n.targets) == 1 and isinstance(n.targets[0], ast.Name) and isinstance(n.value, ast.Constant) and not isinstance(n.value.value, bool):
+            v = n.value.value
+            if isinstance(v, (int, float)):
+                new = v + 7
+            elif isinstance(v, str):
+                new = v + "_x"
+            else:
+                continue
+            out.append({"check_id": f"hc_var_{n.targets[0].id}", "mutation": {"ops": [{"op": "set_variable", "name": n.targets[0].id, "value": new}]}})
+    return out[:4]
+
+
+def _py_script(sid, entry, code, mounts, probes, extra=None):
+    files = [{"path": entry, "content": code}] + (extra or [])
+    return {"id": sid, "entry": entry, "files": files, "mounts": mounts, "probes": probes}
+
+
+def _py_mounts(tables):
+    return [{"path": t["name"], "columns": [c["name"] for c in t["columns"]], "rows": t["rows"]} for t in tables]
+
+
+def _py_result(kind, spec, r, tid):
+    """The comparable value a test grades, from a script result, or (None, why)."""
+    if not r.get("ok"):
+        return None, f"the file does not run: {r.get('error', '?').splitlines()[-1]}"
+    if kind == "stdout_equals":
+        return _norm_out(r["stdout"]), None
+    p = r["probes"].get(tid)
+    if not p or not p["ok"]:
+        return None, f"cannot evaluate: {(p or {}).get('error', 'no result')}"
+    return p["value"], None
+
+
+def _py_match(kind, spec, got):
+    tol = float(spec.get("tolerance", 1e-9))
+    if kind == "stdout_equals":
+        return got == _norm_out(spec["expected"])
+    if kind == "dataframe_equals":
+        exp = spec["expected"]
+        return isinstance(got, dict) and got.get("columns") == exp["columns"] and rows_equal(got["rows"], exp["rows"], bool(spec.get("ordered", False)), tol)
+    return deep_equal(got, spec["expected"], tol)
+
+
+def _py_expected(kind, spec, got):
+    if kind == "dataframe_equals":
+        return {"columns": got["columns"], "rows": got["rows"]}
+    return {"value": got}
+
+
+def run_python(registry, ix):
+    from . import pysyntax
+    o = Outcome()
+    pub, gr = ix["public"], ix["grading"]
+    pin = RUNTIMES["python"]
+    rt = pub["runtime"]
+    if rt.get("version") != pin["version"]:
+        o.problems.append(f"runtime.version {rt.get('version')!r} must equal the pinned {pin['version']!r} (registry/runtimes.json)")
+    pkgs = list(rt.get("packages") or [])
+    bad = sorted(set(pkgs) - PY_INSTALLED)
+    if bad:
+        o.problems.append(f"runtime.packages {bad} are not installed in the sandbox (installed: {sorted(PY_INSTALLED)})")
+    entry, solution = _entry(ix, "solution")
+    _, starter = _entry(ix, "starter")
+    if solution is None or starter is None:
+        o.problems.append(f"entry file {entry!r} missing from workspace.files or grading.solution_files")
+        return o
+    mounts = pub["workspace"].get("asset_mounts", [])
+    tables, _ = _tables(registry, mounts, {}, o.problems)
+    tests = gr["tests"]
+    for t in tests:
+        if t["kind"] not in PY_KINDS:
+            o.problems.append(f"{t['test_id']}: test kind {t['kind']!r} is not supported by the python runtime (use {sorted(PY_KINDS)})")
+    graded = [t for t in tests if t["kind"] != "forbidden_syntax"]
+    if not graded:
+        o.problems.append("no test checks what the program produces")
+    for t in graded:
+        sp = t["spec"]
+        need = {"stdout_equals": ["expected"], "value_equals": ["expr", "expected"], "dataframe_equals": ["expr", "expected"], "function_call": ["function", "expected"]}[t["kind"]]
+        miss = [k for k in need if k not in sp]
+        if miss:
+            o.problems.append(f"{t['test_id']}: spec needs {miss}")
+        if t["kind"] == "dataframe_equals" and not ("columns" in sp.get("expected", {}) and "rows" in sp.get("expected", {})):
+            o.problems.append(f"{t['test_id']}: spec.expected needs {{columns, rows}}")
+    if o.problems:
+        return o
+    probes = [({"id": t["test_id"], "kind": "call", "function": t["spec"]["function"], "args": t["spec"].get("args", []), "kwargs": t["spec"].get("kwargs", {})}
+               if t["kind"] == "function_call" else {"id": t["test_id"], "kind": "expr", "expr": t["spec"]["expr"]}) for t in graded if t["kind"] != "stdout_equals"]
+    mk = lambda sid, code, tb: _py_script(sid, entry, code, _py_mounts(tb), probes)
+    cands = [{**c, "tag": "data"} for c in candidate_mutations(tables, None)] + [{**c, "tag": "var"} for c in py_var_mutations(solution)]
+
+    def mutated_script(c):
+        if c["tag"] == "var":
+            code = solution
+            for op in c["mutation"]["ops"]:
+                code = py_apply_var(code, op["name"], op["value"])
+            return mk(f"mut:{c['check_id']}", code, tables)
+        return mk(f"mut:{c['check_id']}", solution, _mutated(tables, c["mutation"]))
+
+    scripts = [mk("solution", solution, tables), mk("starter", starter, tables)]
+    for t in graded:
+        ov = t["spec"].get("mount_variants")
+        if ov:
+            tb, _ = _tables(registry, mounts, ov, o.problems)
+            scripts.append(mk(f"test:{t['test_id']}", solution, tb))
+    if o.problems:
+        return o
+    scripts += [mutated_script(c) for c in cands]
+    res = node_run({"packages": ["numpy", "pandas"] + [p for p in pkgs if p not in ("numpy", "pandas")], "scripts": scripts}, pin["runner"])["results"]
+    if not res["solution"]["ok"]:
+        o.problems.append(f"solution does not run: {res['solution']['error'].splitlines()[-1]}")
+        return o
+    starter_passes = res["starter"]["ok"]
+    code_tags = None
+    for t in tests:
+        tid, kind, spec = t["test_id"], t["kind"], t["spec"]
+        o.tests_total += 1
+        if kind == "forbidden_syntax":
+            try:
+                have = pysyntax.tags(solution)
+            except SyntaxError as ex:
+                o.problems.append(f"solution does not parse: {ex}")
+                continue
+            hit = sorted(d for d in spec.get("descriptors", []) if (pysyntax.descriptor_tags(d) or None) and pysyntax.descriptor_tags(d) <= have)
+            if hit:
+                o.problems.append(f"{tid}: solution uses forbidden syntax {hit}")
+            else:
+                o.tests_passed += 1
+            continue
+        got, why = _py_result(kind, spec, res.get(f"test:{tid}", res["solution"]), tid)
+        if why:
+            o.problems.append(f"{tid}: solution {why}")
+            continue
+        if _py_match(kind, spec, got):
+            o.tests_passed += 1
+        else:
+            o.problems.append(f"{tid}: the solution's result differs from spec.expected — gives {json.dumps(got)[:200]}; expected {json.dumps(spec['expected'])[:200]}")
+        if starter_passes:
+            sv, sw = _py_result(kind, spec, res["starter"], tid)
+            starter_passes = sw is None and _py_match(kind, spec, sv)
+    if starter_passes:
+        o.problems.append("the starter code already passes every result test: the learner has nothing to do")
+    # hidden checks + anti-hard-coding
+    calls = {}
+    for t in graded:
+        if t["kind"] == "function_call":
+            calls.setdefault(t["spec"]["function"], set()).add(json.dumps([t["spec"].get("args", []), t["spec"].get("kwargs", {})], sort_keys=True))
+    hidden = []
+    for t in graded:
+        tid, kind, spec = t["test_id"], t["kind"], t["spec"]
+        base, _ = _py_result(kind, spec, res["solution"], tid)
+        mine = []
+        for c in cands:
+            m, why = _py_result(kind, spec, res[f"mut:{c['check_id']}"], tid)
+            if why is None and base is not None and not _py_match_vs(kind, spec, m, base):
+                mine.append({"check_id": f"{c['check_id']}_{tid}", "mutation": c["mutation"], "test_id": tid, "expected": _py_expected(kind, spec, m),
+                             "ordered": bool(spec.get("ordered", False))})
+        var = [h for h in mine if h["check_id"].startswith("hc_var_")]  # starter-variable checks always make the cut: they catch a program that ignores its inputs
+        hidden += var[:2] + [h for h in mine if h not in var][:MAX_HIDDEN - len(var[:2])]
+        if not mine and not (kind == "function_call" and len(calls[spec["function"]]) >= 2):
+            o.problems.append(f"{tid}: the solution's result does not change when the data or the starter's values change: a hard-coded answer would pass. "
+                              "Make the result depend on the mounted data or on a starter variable, or (function tests) test the function with at least two different argument sets")
+    o.hidden_checks = hidden
+    cons = pub.get("constraints") or {}
+    try:
+        viol, unmapped, _ = pysyntax.judge(solution, cons.get("allowed_syntax", []), cons.get("blocked_syntax", []))
+    except SyntaxError as ex:
+        viol, unmapped = [f"does not parse: {ex}"], []
+    o.problems += [f"solution {v}" for v in viol]
+    if unmapped:
+        o.unverified = f"syntax descriptors with no detector: {unmapped}"
+    if not o.problems:
+        o.provenance = {"runtime": pin["engine"], "runtime_version": pin["version"], "solution_sha256": sha(solution), "tests_passed": o.tests_passed}
+    return o
+
+
+def _py_match_vs(kind, spec, a, b):
+    """Do two results of the same test agree (used to decide whether a mutation changes the solution's output)?"""
+    tol = float(spec.get("tolerance", 1e-9))
+    if kind == "dataframe_equals":
+        return a.get("columns") == b.get("columns") and rows_equal(a["rows"], b["rows"], bool(spec.get("ordered", False)), tol)
+    return deep_equal(a, b, tol)
+
+
+def grade_learner_py(registry, ix, learner_code):
+    pub, gr = ix["public"], ix["grading"]
+    pin = RUNTIMES["python"]
+    problems = []
+    mounts = pub["workspace"].get("asset_mounts", [])
+    tables, _ = _tables(registry, mounts, {}, problems)
+    entry, _ = _entry(ix, "starter")
+    graded = [t for t in gr["tests"] if t["kind"] != "forbidden_syntax"]
+    probes = [({"id": t["test_id"], "kind": "call", "function": t["spec"]["function"], "args": t["spec"].get("args", []), "kwargs": t["spec"].get("kwargs", {})}
+               if t["kind"] == "function_call" else {"id": t["test_id"], "kind": "expr", "expr": t["spec"]["expr"]}) for t in graded if t["kind"] != "stdout_equals"]
+    mk = lambda sid, code, tb: _py_script(sid, entry, code, _py_mounts(tb), probes)
+    scripts = [mk("base", learner_code, tables)]
+    for t in graded:
+        if t["spec"].get("mount_variants"):
+            tb, _ = _tables(registry, mounts, t["spec"]["mount_variants"], problems)
+            scripts.append(mk(f"test:{t['test_id']}", learner_code, tb))
+    for h in gr.get("hidden_checks", []):
+        m = h["mutation"]
+        if m["ops"][0]["op"] == "set_variable":
+            code = learner_code
+            for op in m["ops"]:
+                code = py_apply_var(code, op["name"], op["value"])
+            scripts.append(mk(f"hidden:{h['check_id']}", code, tables))
+        else:
+            scripts.append(mk(f"hidden:{h['check_id']}", learner_code, _mutated(tables, m)))
+    pkgs = list(dict.fromkeys(["numpy", "pandas"] + list(pub["runtime"].get("packages") or [])))
+    res = node_run({"packages": pkgs, "scripts": scripts}, pin["runner"])["results"]
+    reasons = []
+    for t in gr["tests"]:
+        if t["kind"] == "forbidden_syntax":
+            from . import pysyntax
+            have = pysyntax.tags(learner_code)
+            hit = sorted(d for d in t["spec"].get("descriptors", []) if (pysyntax.descriptor_tags(d) or None) and pysyntax.descriptor_tags(d) <= have)
+            if hit:
+                reasons.append(f"{t['test_id']}: uses forbidden syntax {hit}")
+            continue
+        got, why = _py_result(t["kind"], t["spec"], res.get(f"test:{t['test_id']}", res["base"]), t["test_id"])
+        if why or not _py_match(t["kind"], t["spec"], got):
+            reasons.append(f"{t['test_id']}: result differs")
+    for h in gr.get("hidden_checks", []):
+        t = next(x for x in graded if x["test_id"] == h["test_id"])
+        got, why = _py_result(t["kind"], t["spec"], res[f"hidden:{h['check_id']}"], t["test_id"])
+        exp = h["expected"]
+        want = {"columns": exp["columns"], "rows": exp["rows"]} if "rows" in exp else exp["value"]
+        fake = {**t["spec"], "expected": want}
+        if why or not _py_match(t["kind"], fake, got):
+            reasons.append(f"{h['check_id']}: result differs on changed data (the program does not really compute the answer)")
+    return not reasons, reasons
+
+
+RUNNERS = {"sql": run_sql, "python": run_python}
 
 
 def run_exercise(registry, ix):

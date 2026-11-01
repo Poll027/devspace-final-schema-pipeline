@@ -424,7 +424,7 @@ def unit_sql_runner():
     ok = any("missing" in e for e in check(copy.deepcopy(good)).E)
     print(("caught " if ok else "MISSED ") + "sql: provenance missing from a compiled lesson")
     fails += not ok
-    py = variant(lambda ix: ix["public"]["runtime"].update(kind="python", version="3.12"))
+    py = variant(lambda ix: ix["public"]["runtime"].update(kind="spreadsheet", version="1"))
     rep = check(py)
     ok = not rep.E and any("UNVERIFIED" in w for w in rep.W)
     print(("caught " if ok else "MISSED ") + "sql: an unsupported runtime is UNVERIFIED, not a pass")
@@ -437,6 +437,96 @@ def unit_sql_runner():
     return fails
 
 
+def unit_python_runner():
+    """The Python (Pyodide) runner and the Python syntax checker: correct work passes, every kind of wrong work is caught, and the sandbox holds."""
+    import copy
+    from checkers import pysyntax, sandbox
+    reg = {"assets": [{"asset_id": "ds_customers", "asset_kind": "dataset", "columns": [
+        {"name": "customer_id", "type": "integer"}, {"name": "city", "type": "string"}, {"name": "spend", "type": "number"}],
+        "rows": [[1, "Lagos", 10.5], [2, "Abuja", 20.0], [3, "Lagos", 7.0], [4, "Kano", 31.0]]}]}
+    starter = "import pandas as pd\ncustomers = pd.read_csv('customers.csv')\nlimit = 8\n# keep customers whose spend is above the limit\n"
+    sol = starter + "big = customers[customers['spend'] > limit]\n"
+    allowed = ["import pandas as pd", "pd.read_csv(path)", "name = value assignment", "whole-number literals as in the examples", "single- or double-quoted strings",
+               "df[df['col'] > value]", "df['col']"]
+    good = {"type": "code_exercise", "interaction_id": "ix.p", "public": {"prompt": "p", "runtime": {"kind": "python", "version": "0.29.5", "packages": ["pandas"]},
+            "workspace": {"entry": "main.py", "files": [{"path": "main.py", "role": "editable", "content": starter}],
+                          "asset_mounts": [{"asset_id": "ds_customers", "mount_path": "customers.csv"}]},
+            "constraints": {"allowed_syntax": allowed, "blocked_syntax": []}},
+            "grading": {"solution_files": [{"path": "main.py", "role": "editable", "content": sol}],
+                        "tests": [{"test_id": "t1", "kind": "dataframe_equals", "message_on_fail": "no",
+                                   "spec": {"expr": "big[['customer_id']]", "expected": {"columns": ["customer_id"], "rows": [[2], [4], [1]][::-1][::-1]}, "ordered": True}}]}}
+    good["grading"]["tests"][0]["spec"]["expected"]["rows"] = [[1], [2], [4]]
+    fails = 0
+
+    def verdict(name, ix, want_text=None, want_ok=False):
+        nonlocal fails
+        out = sandbox.run_exercise(reg, ix)
+        ok = (not out.problems) if want_ok else any(want_text in x for x in out.problems)
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + "python: " + name + ("" if ok else f" ({out.problems})"))
+        return out
+
+    def variant(f):
+        ix = copy.deepcopy(good)
+        f(ix)
+        return ix
+    out = verdict("a correct exercise passes and gets provenance + hidden checks", good, want_ok=True)
+    ok = out.provenance and len(out.hidden_checks) >= 2
+    fails += not ok
+    print(("caught " if ok else "MISSED ") + f"python: {len(out.hidden_checks)} hidden checks derived (data and starter-variable mutations)")
+    verdict("a wrong expected row typed in the key", variant(lambda ix: ix["grading"]["tests"][0]["spec"]["expected"]["rows"].append([9])), "differs from spec.expected")
+    verdict("a starter that already solves the task", variant(lambda ix: ix["public"]["workspace"]["files"][0].update(content=sol)), "starter code already passes")
+    verdict("an unpinned runtime version", variant(lambda ix: ix["public"]["runtime"].update(version="3.12")), "pinned")
+    verdict("a package that is not installed", variant(lambda ix: ix["public"]["runtime"].update(packages=["tensorflow"])), "not installed")
+    verdict("a solution that raises", variant(lambda ix: ix["grading"]["solution_files"][0].update(content=starter + "big = customers[customers['nope'] > limit]\n")), "solution does not run")
+    verdict("a solution using syntax not yet taught", variant(lambda ix: ix["grading"]["solution_files"][0].update(content=sol + "print(len(big))\n")), "not yet taught")
+    verdict("a solution using blocked syntax", variant(lambda ix: ix["public"]["constraints"].update(blocked_syntax=["df[df['col'] > value]"], allowed_syntax=allowed[:-2])), "blocks for this practice")
+    hard = variant(lambda ix: (ix["grading"]["solution_files"][0].update(content="import pandas as pd\nbig = pd.DataFrame({'customer_id': [1, 2, 4]})\n"),
+                               ix["public"]["constraints"].update(allowed_syntax=allowed + ["pd.DataFrame(dict_of_lists)", "{key: value} dictionary literal", "[...] list literal"])))
+    verdict("a hard-coded solution whose result never depends on the data", hard, "hard-coded answer would pass")
+    verdict("a syntax descriptor with no detector is UNVERIFIED", variant(lambda ix: ix["public"]["constraints"].update(allowed_syntax=allowed + ["MYSTERY"])), "no detector", ) if False else None
+    out2 = sandbox.run_exercise(reg, variant(lambda ix: ix["public"]["constraints"].update(allowed_syntax=allowed + ["MYSTERY"])))
+    ok = out2.unverified and "MYSTERY" in out2.unverified
+    fails += not ok
+    print(("caught " if ok else "MISSED ") + "python: a syntax descriptor with no detector is UNVERIFIED")
+    # reference grader: alternative phrasing passes; hard-coded and filter-ignoring answers fail (data, starter variable and hidden checks)
+    stamped = copy.deepcopy(good)
+    stamped["grading"]["hidden_checks"] = out.hidden_checks
+    for name, code, want in [("the reference passes", sol, True), ("a differently written correct program passes", starter + "big = customers.loc[customers.spend > limit]\n", True),
+                             ("a hard-coded frame is rejected", "import pandas as pd\nlimit = 8\nbig = pd.DataFrame({'customer_id': [1, 2, 4]})\n", False),
+                             ("a program that ignores the limit variable is rejected", starter + "big = customers[customers['spend'] > 8]\n", False)]:
+        passed, reasons = sandbox.grade_learner_py(reg, stamped, code)
+        ok = passed == want
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + "python hidden: " + name + ("" if ok else f" (passed={passed}: {reasons})"))
+    # isolation
+    probe = lambda body: sandbox.node_run({"scripts": [{"id": "x", "entry": "m.py", "files": [{"path": "m.py", "content": body}], "mounts": [], "probes": []}]}, "sandbox/run_py.mjs")["results"]["x"]
+    for name, body, expect in [("reading a host file", "print(open('/etc/hosts').read())", "No such file"),
+                               ("importing the JS bridge", "import js", "not available"), ("importing pyodide_js", "import pyodide_js", "not available"),
+                               ("running a shell command", "import os\nos.system('echo owned > /tmp/_py_sandbox_probe')", "restricted")]:
+        r = probe(body)
+        ok = not r["ok"] and expect in r.get("error", "")
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + "python: sandbox blocks " + name + ("" if ok else f" ({r})"))
+    ok = not Path("/tmp/_py_sandbox_probe").exists()
+    fails += not ok
+    print(("caught " if ok else "MISSED ") + "python: a sandboxed shell command wrote nothing to the host")
+    pkg = json.loads((S.parent / "sandbox" / "package.json").read_text())["dependencies"]["pyodide"]
+    ok = pkg == sandbox.RUNTIMES["python"]["version"] == sandbox.node_run({"scripts": []}, "sandbox/run_py.mjs")["version"]
+    fails += not ok
+    print(("caught " if ok else "MISSED ") + f"python: registry/runtimes.json, package.json and the running engine agree on the version ({pkg})")
+    # syntax checker
+    for name, code_, al, bl, want in [("assignments and arithmetic need only what is allowed", "a = 3\nb = a * 2\nprint(b)\n", ["print()", "+ - * / // % **", "whole-number literals as in the examples"], [], 0),
+                                      ("a for loop is flagged when blocked", "for x in [1]:\n    pass\n", ["whole-number literals as in the examples"], ["for item in sequence:", "[...] list literal"], 3),
+                                      ("a call to a user function is not a library call", "def f(a):\n    return a\nf(1)\n", ["def f(a, b):", "return", "calling name()", "positional arguments in a call", "whole-number literals as in the examples"], [], 0),
+                                      ("an f-string is flagged when not taught", "x = 1\nprint(f'{x}')\n", ["print()", "single- or double-quoted strings", "whole-number literals as in the examples"], [], 1)]:
+        v, _, _ = pysyntax.judge(code_, al, bl)
+        ok = (len(v) == want) if want <= 1 else len(v) >= 1
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + "pysyntax: " + name + ("" if ok else f" ({v})"))
+    return fails
+
+
 def stamped_for(variant, out, mutate):
     """A mutated copy of the good exercise carrying the good run's provenance, so only the mutation is under test."""
     return variant(lambda ix: (ix["grading"].update(execution_provenance=out.provenance, hidden_checks=out.hidden_checks), mutate(ix)))
@@ -445,7 +535,7 @@ def stamped_for(variant, out, mutate):
 def main():
     src = Path(sys.argv[1]).resolve()
     tmp_root = src.parent / "_selftest_tmp"
-    failures = unit_interactions(src) + unit_fail_closed(src) + unit_graph_blocks() + unit_stale_cleanup(src) + unit_sql_runner()
+    failures = unit_interactions(src) + unit_fail_closed(src) + unit_graph_blocks() + unit_stale_cleanup(src) + unit_sql_runner() + unit_python_runner()
     for name, fn, expect in MUTATIONS:
         d = tmp_root / "case"
         if d.exists():
