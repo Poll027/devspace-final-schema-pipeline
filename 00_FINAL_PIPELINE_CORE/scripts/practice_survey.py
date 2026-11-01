@@ -23,3 +23,12 @@ for x in b["bundles"]:
 print(json.dumps({"practice_types": {f"{a}/{t}": n for (a, t), n in types.items()}, "examples": ex}, indent=1))
 for (k, s), n in sorted(d.items()):
     print(k, n, s)
+
+# descriptors the Python syntax checker cannot map (they would stop a run as UNVERIFIED)
+sys.path.insert(0, __file__.rsplit("/", 1)[0])
+from checkers import pysyntax  # noqa: E402
+
+bad = sorted({s for (k, s) in d if pysyntax.descriptor_tags(s) is None and s not in pysyntax.NOT_CHECKABLE})
+print("\nUNMAPPED by pysyntax:", len(bad))
+for s in bad:
+    print("  ", s)
