@@ -78,19 +78,49 @@ def _run(job_json):
     return json.dumps(res)
 `;
 
-for (const s of job.scripts) {
-  let py;
+// One interpreter per node process (the full load is ~4s locally and far slower on a small server); between scripts the state is reset:
+// working files removed, every module the script imported dropped, pandas options and random seeds restored, a new namespace for the program.
+// ponytail: a program that monkeypatches the pandas/numpy classes themselves would leak into the next script of the same process; the scripts of one
+// exercise are the solution/starter/learner code and mutated copies of the same program, so the leak would repeat identically in each.
+const pkgs = job.packages || ["numpy", "pandas"];
+let py = null;
+async function boot() {
   process.binding = stubBinding;
   try {
     py = await loadPyodide({ indexURL: dist, stdout: () => {}, stderr: () => {}, fullStdLib: false });
-    await py.loadPackage(job.packages || ["numpy", "pandas"]);
-    for (const g of ["fetch", "XMLHttpRequest", "WebSocket", "EventSource"]) delete globalThis[g];  // no network from inside the sandbox
-    process.binding = () => { throw new Error("process.binding is not available"); };
+    await py.loadPackage(pkgs);
     py.runPython(HARNESS);
+    py.runPython(`import ${pkgs.filter((p) => ["numpy", "pandas", "scipy"].includes(p)).join(", ")}
+_BASE_MODULES = set(sys.modules)
+import random as _random
+`);
+    for (const g of ["fetch", "XMLHttpRequest", "WebSocket", "EventSource"]) delete globalThis[g];  // no network from inside the sandbox
+  } catch (e) { py = null; out.error = String(e.message || e).slice(0, 500); }
+  process.binding = () => { throw new Error("process.binding is not available"); };
+}
+if (job.scripts.length) await boot();
+const RESET = `
+import os, shutil, sys, random as _r
+for k in [k for k in sys.modules if k not in _BASE_MODULES]: sys.modules.pop(k, None)
+sys.meta_path[:] = [f for f in sys.meta_path if type(f).__name__ != "_Block"]
+sys.path[:] = [p for p in sys.path if p != "."]
+for e in os.listdir("."):
+    shutil.rmtree(e, ignore_errors=True) if os.path.isdir(e) else os.remove(e)
+try:
+    import pandas as pd, numpy as np
+    pd.reset_option("all"); np.random.seed(0)
+except Exception: pass
+_r.seed(0)
+`;
+for (const s of job.scripts) {
+  try {
+    if (!py) throw new Error(out.error || "interpreter failed to start");
+    py.runPython(RESET);
     py.globals.set("_job", JSON.stringify(s));
     out.results[s.id] = JSON.parse(py.runPython("_run(_job)"));
   } catch (e) {
     out.results[s.id] = { ok: false, stdout: "", probes: {}, error: String(e.message || e).slice(0, 500) };
   }
+  try { py.runPython("1"); } catch { await boot(); }  // a fatal interpreter error (e.g. a blocked shell command) must not poison the next script
 }
 process.stdout.write(JSON.stringify(out));

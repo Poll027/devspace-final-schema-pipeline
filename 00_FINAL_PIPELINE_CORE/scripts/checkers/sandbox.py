@@ -51,7 +51,7 @@ def _node_once(job, runner):
     try:
         flags = ["--permission", f"--allow-fs-read={SANDBOX}"] if Path(runner).name == "run_py.mjs" else []  # python: no host writes, children or workers
         r = subprocess.run(["node", "--max-old-space-size=512", *flags, str(SANDBOX / Path(runner).name)], input=json.dumps(job), capture_output=True,
-                           text=True, cwd=SANDBOX, env=env, timeout=NODE_TIMEOUT_S)
+                           text=True, cwd=SANDBOX, env=env, timeout=NODE_TIMEOUT_S + 4 * len(job.get('scripts', [])))  # a slow server needs time per script, not just per process
     except subprocess.TimeoutExpired:
         raise SandboxError(f"runner exceeded {NODE_TIMEOUT_S}s (infinite loop or a query that is far too heavy)")
     if r.returncode or not r.stdout.strip():
