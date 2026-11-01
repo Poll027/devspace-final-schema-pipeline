@@ -591,7 +591,14 @@ def run_script_stage(c, sid):
         lines = [x.strip().replace("[--strict]", "--strict") for x in block.splitlines() if x.strip() and "update_ledger.py" not in x or " verify" in x]
     for line in lines:
         c.log(f"{sid}: {line[:140]}")
-        c.sh(line.replace("python3 ", f"'{sys.executable}' ", 1))
+        r = c.sh(line.replace("python3 ", f"'{sys.executable}' ", 1), check=sid != "07_validate")
+        if r.returncode:  # strict validation errors on the assembled lessons go back to the generators that own the content
+            errs = [ln.strip() for ln in r.stdout.splitlines() if re.match(r"\s+E\s", ln)]
+            if errs and c.reopens.get(sid, 0) < MAX_REOPENS:
+                c.reopens[sid] = c.reopens.get(sid, 0) + 1
+                c.log(f"{sid}: {len(errs)} validation error(s); routing them to the generators")
+                reopen_for_findings(c, sid, errs)
+            raise Stuck(f"command failed ({r.returncode}): {line}\n{(r.stdout + r.stderr)[-2500:]}")
     if sid == "02_tile_plan":
         check_plan_gaps(c)
     if c.artifact(sid) != UL.LEDGER:  # the ledger can't gate itself
