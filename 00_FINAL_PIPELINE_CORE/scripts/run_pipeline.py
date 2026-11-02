@@ -409,6 +409,21 @@ def ensure_gate(c, sid, chunk, ids):
             raise Stuck(f"{sid}:{chunk} still failing its deterministic gate after {MAX_ROUNDS} generator repairs:\n{msg[-2000:]}")
         c.log(f"{sid}:{chunk} gate failed, generator repair {i + 1}")
         c.log("  gate: " + " | ".join(l.strip() for l in msg.splitlines() if l.strip())[:1200])
+        teach = [l for l in msg.splitlines() if re.search(r"has taught it by text|is never taught by a text block", l)]
+        if sid == "04_interactions" and teach:  # teaching lives in stage 03's prose: the interactions generator can't fix it
+            c.log(f"{sid}:{chunk} {len(teach)} fact(s) not taught by text; sending them to the screens generator")
+            note = ("A strict check of the assembled lessons reports facts that are tested or required but not taught by any earlier prose/callout block. "
+                    "Teach each in a `prose` or `callout` block (with `lineage.fact_ids` naming it) BEFORE the first step that tests it; do not change step ids.\n" + "\n".join(teach))
+            art = c.artifact("03_screens")
+            c.reopening.add(art)
+            try:
+                c.agent("GEN", generator_task(c, "03_screens", chunk, ids, repair=note), f"03_screens:{chunk}:teachfix", tiles=len(ids or []))
+                ensure_gate(c, "03_screens", chunk, ids)
+                chunks = tile_chunks(c)
+                if list(chunks) != ["all"]:
+                    merge(c, "03_screens", chunks)
+            finally:
+                c.reopening.discard(art)
         c.agent("GEN", generator_task(c, sid, chunk, ids, gate_msg=msg), f"{sid}:{chunk}:gatefix", tiles=len(ids or []))
 
 
