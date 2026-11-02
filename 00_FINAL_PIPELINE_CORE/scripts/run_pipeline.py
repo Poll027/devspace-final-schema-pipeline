@@ -408,6 +408,7 @@ def ensure_gate(c, sid, chunk, ids):
         if i == MAX_ROUNDS:
             raise Stuck(f"{sid}:{chunk} still failing its deterministic gate after {MAX_ROUNDS} generator repairs:\n{msg[-2000:]}")
         c.log(f"{sid}:{chunk} gate failed, generator repair {i + 1}")
+        c.log("  gate: " + " | ".join(l.strip() for l in msg.splitlines() if l.strip())[:1200])
         c.agent("GEN", generator_task(c, sid, chunk, ids, gate_msg=msg), f"{sid}:{chunk}:gatefix", tiles=len(ids or []))
 
 
