@@ -408,7 +408,7 @@ def ensure_gate(c, sid, chunk, ids):
         if i == MAX_ROUNDS:
             raise Stuck(f"{sid}:{chunk} still failing its deterministic gate after {MAX_ROUNDS} generator repairs:\n{msg[-2000:]}")
         c.log(f"{sid}:{chunk} gate failed, generator repair {i + 1}")
-        c.log("  gate: " + " | ".join(l.strip() for l in msg.splitlines() if l.strip())[:1200])
+        c.log("  gate: " + " | ".join(l.strip()[:230] for l in msg.splitlines() if re.match(r"\s*(E|schema|tile coverage)\b", l) or "UNVERIFIED" in l)[:1500])
         teach = [l for l in msg.splitlines() if re.search(r"has taught it by text|is never taught by a text block", l)]
         if sid == "04_interactions" and teach:  # teaching lives in stage 03's prose: the interactions generator can't fix it
             c.log(f"{sid}:{chunk} {len(teach)} fact(s) not taught by text; sending them to the screens generator")

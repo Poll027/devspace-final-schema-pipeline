@@ -97,12 +97,12 @@ def tags(code):
             t.add("global")
         elif isinstance(n, ast.Import):
             for a in n.names:
-                t.add(f"import:{a.name.split('.')[0]}")
-                if a.name.split(".")[0] not in LIBS:
+                if a.name.split(".")[0] in LIBS:
+                    t.add(f"import:{a.name.split('.')[0]}")
+                else:
                     t.add("import_mod")
         elif isinstance(n, ast.ImportFrom):
             top = (n.module or "").split(".")[0]
-            t.add(f"import:{top}")
             t.add("from_import" if top not in LIBS else f"import:{top}")
         elif isinstance(n, ast.Subscript):
             sl = n.slice
@@ -215,6 +215,12 @@ def descriptor_tags(d):
         return EXPLICIT[d]
     if d in NOT_CHECKABLE:
         return None
+    m = re.fullmatch(r"import (\w+)(?: as \w+)?", d)  # "import math", "import random as rnd"
+    if m:
+        return {f"import:{m.group(1)}"} if m.group(1) in LIBS else {"import_mod"}
+    m = re.fullmatch(r"from (\w+) import [\w, *]+", d)
+    if m:
+        return {f"import:{m.group(1)}"} if m.group(1) in LIBS else {"from_import"}
     tg = set()
     for m in re.finditer(r"\.([A-Za-z_]\w*)", d):  # attribute / method names (also inside dotted examples like plt.style.use)
         tg.add(f"attr:{m.group(1)}")
