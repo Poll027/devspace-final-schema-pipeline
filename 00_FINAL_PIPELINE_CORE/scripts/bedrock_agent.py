@@ -9,7 +9,7 @@ Spend is counted from the token usage of every call (shared cost log). Budget.ch
 call_cap_usd stops one runaway agent loop long before the run cap does.
 # ponytail: no prompt caching, no streaming; old tool results are elided once the context gets large.
 """
-import json
+import json, random
 import os
 import re
 import subprocess
@@ -140,7 +140,7 @@ def run_agent(model_id, system, task, budget, role="GEN", write_roots=(), max_tu
         if turn == max_turns - 3:  # nudge: an agent that keeps investigating must still give its final reply
             messages[-1]["content"].append({"text": "You are nearly out of turns. Stop investigating and give your final reply now."})
         _elide_old(messages)
-        for attempt in range(6):
+        for attempt in range(10):
             try:
                 sysb, tools, msgs = with_cache(model_id, system, messages)
                 kw = dict(system=sysb, messages=msgs, toolConfig=tools, inferenceConfig={"maxTokens": 32000, "temperature": 0.2})
@@ -154,9 +154,9 @@ def run_agent(model_id, system, task, budget, role="GEN", write_roots=(), max_tu
                 if "cachePoint" in str(e) and model_id not in _NO_CACHE:  # this model does not support caching: retry once without it
                     _NO_CACHE.add(model_id)
                     continue
-                if attempt == 5 or "per day" in str(e) or not transient(e):
+                if attempt == 9 or "per day" in str(e) or not transient(e):
                     raise
-                time.sleep(5 * 2 ** attempt)
+                time.sleep(min(5 * 2 ** attempt, 120) + random.uniform(0, 5))  # capped backoff + jitter: parallel chunks and sibling services share one Bedrock rate limit
         mine += LAST.get("usd", 0.0)
         msg = r["output"]["message"]
         messages.append(msg)
