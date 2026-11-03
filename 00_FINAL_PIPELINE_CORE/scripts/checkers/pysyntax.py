@@ -167,6 +167,7 @@ def _paren_groups(code):
 
 # ---------------------------------------------------------------- descriptors
 EXPLICIT = {
+    "custom theme dictionaries": {"dict_lit"}, "fig, axes": {"unpack"},
     "name = value assignment": {"assign"}, "variable assignment": {"assign"}, "list literals and variable assignment": {"assign", "list_lit"},
     "variable assignment (fig, ax = ...)": {"assign", "unpack"},
     "using assigned names in an expression, as in the width * height example": set(),
