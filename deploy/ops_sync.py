@@ -36,6 +36,7 @@ def describe(unit):
     batch = repo / "batches" / m.group(1) if m else None
     d = {"service": unit, "active": props["ActiveState"], "sub": props["SubState"], "exit_status": props["ExecMainStatus"], "repo": str(repo), "batch": m.group(1) if m else None}
     d["code_commit"] = sh("git", "rev-parse", "--short", "HEAD", cwd=repo, ok=True)
+    d["journal_tail"] = sh("sudo", "journalctl", "-u", unit, "-n", "30", "--no-pager", "-o", "cat", ok=True).splitlines()[-30:]  # startup errors never reach driver.log
     if batch and (batch / "working").exists():
         w = batch / "working"
         log = w / "driver.log"
