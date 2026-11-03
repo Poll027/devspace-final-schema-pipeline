@@ -32,3 +32,11 @@ bad = sorted({s for (k, s) in d if pysyntax.descriptor_tags(s) is None and s not
 print("\nUNMAPPED by pysyntax:", len(bad))
 for s in bad:
     print("  ", s)
+
+# the same for spreadsheet concepts: descriptors sheetsyntax cannot map (UI ideas are fine: the evaluator reads them)
+from checkers import sheetsyntax  # noqa: E402
+
+bad = sorted({s for (k, s) in d if sheetsyntax.descriptor_tags(s) is None and not sheetsyntax.is_idea(s)})
+print("\nUNMAPPED by sheetsyntax (only matters for spreadsheet concepts):", len(bad))
+for s in bad:
+    print("  ", s)

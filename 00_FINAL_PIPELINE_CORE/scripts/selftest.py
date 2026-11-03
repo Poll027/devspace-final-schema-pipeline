@@ -424,7 +424,7 @@ def unit_sql_runner():
     ok = any("missing" in e for e in check(copy.deepcopy(good)).E)
     print(("caught " if ok else "MISSED ") + "sql: provenance missing from a compiled lesson")
     fails += not ok
-    py = variant(lambda ix: ix["public"]["runtime"].update(kind="spreadsheet", version="1"))
+    py = variant(lambda ix: ix["public"]["runtime"].update(kind="bash", version="1"))
     rep = check(py)
     ok = not rep.E and any("UNVERIFIED" in w for w in rep.W)
     print(("caught " if ok else "MISSED ") + "sql: an unsupported runtime is UNVERIFIED, not a pass")
@@ -527,6 +527,122 @@ def unit_python_runner():
     return fails
 
 
+def unit_sheet_runner():
+    """The spreadsheet (HyperFormula) runner and the formula syntax checker: correct work passes, every kind of wrong work is caught, and the sandbox holds."""
+    import copy
+    from checkers import sandbox, sheetsyntax
+    reg = {"assets": [{"asset_id": "ds_sales", "asset_kind": "dataset", "columns": [
+        {"name": "region", "type": "string"}, {"name": "units", "type": "integer"}, {"name": "price", "type": "number"}],
+        "rows": [["N", 3, 2.5], ["S", 4, 10.0], ["N", 5, 1.0], ["E", 2, 4.0]]}]}
+    starter = "// units and price are in sales (A2:C5); the discount rate is an input\nE1: 0.1\n"
+    sol = starter + "D2: =B2*C2\nD3: =B3*C3\nD4: =B4*C4\nD5: =B5*C5\nF1: =SUM(D2:D5)*(1-E1)\nF2: =SUMIF(A2:A5,\"N\",B2:B5)\n"
+    allowed = ["=B2*C2", "SUM(range)", "SUMIF(range, criteria, sum_range)", "relative references", "+ - * /", "parentheses", "numbers", "text in quotes"]
+    good = {"type": "code_exercise", "interaction_id": "ix.s", "public": {"prompt": "p", "runtime": {"kind": "spreadsheet", "version": "3.4.0"},
+            "workspace": {"entry": "book.sheet", "files": [{"path": "book.sheet", "role": "editable", "content": starter}],
+                          "asset_mounts": [{"asset_id": "ds_sales", "mount_path": "sales.csv"}]},
+            "constraints": {"allowed_syntax": allowed, "blocked_syntax": []}},
+            "grading": {"solution_files": [{"path": "book.sheet", "content": sol}],
+                        "tests": [{"test_id": "t1", "kind": "cell_equals", "message_on_fail": "no", "spec": {"cell": "F1", "expected": 60.5 * 0.9}},
+                                  {"test_id": "t2", "kind": "range_equals", "message_on_fail": "no", "spec": {"range": "D2:D5", "expected": [[7.5], [40], [5], [8]]}},
+                                  {"test_id": "t3", "kind": "formula_uses", "message_on_fail": "no", "spec": {"cell": "F2", "functions": ["SUMIF"]}}]}}
+    good["grading"]["tests"].append({"test_id": "t4", "kind": "cell_equals", "message_on_fail": "no", "spec": {"cell": "F2", "expected": 8}})
+    fails = 0
+
+    def verdict(name, ix, want_text=None, want_ok=False):
+        nonlocal fails
+        out = sandbox.run_exercise(reg, ix)
+        ok = (not out.problems) if want_ok else any(want_text in x for x in out.problems)
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + "sheet: " + name + ("" if ok else f" ({out.problems})"))
+        return out
+
+    def variant(f):
+        ix = copy.deepcopy(good)
+        f(ix)
+        return ix
+    sol_of = lambda ix, text: ix["grading"]["solution_files"][0].update(content=text)
+    out = verdict("a correct exercise passes and gets provenance + hidden checks", good, want_ok=True)
+    ok = out.provenance and len(out.hidden_checks) >= 2 and any(h["mutation"]["ops"][0]["op"] == "set_variable" for h in out.hidden_checks)
+    fails += not ok
+    print(("caught " if ok else "MISSED ") + f"sheet: {len(out.hidden_checks)} hidden checks derived (data and input-cell mutations)")
+    verdict("a wrong expected value typed in the key", variant(lambda ix: ix["grading"]["tests"][1]["spec"]["expected"].__setitem__(0, [9])), "differs from spec.expected")
+    verdict("a wrong formula in the solution (SUM over the wrong range)", variant(lambda ix: sol_of(ix, sol.replace("SUM(D2:D5)", "SUM(D2:D4)"))), "differs from spec.expected")
+    verdict("a starter that already solves the task", variant(lambda ix: ix["public"]["workspace"]["files"][0].update(content=sol)), "starter sheet already passes")
+    verdict("an unpinned runtime version", variant(lambda ix: ix["public"]["runtime"].update(version="2.0")), "pinned")
+    verdict("a function nobody taught (and the engine does not know)", variant(lambda ix: sol_of(ix, sol + "G1: =NOSUCHFN(1)\n")), "not yet taught")
+    verdict("a solution cell that does not use the required function", variant(lambda ix: sol_of(ix, sol.replace("=SUMIF(A2:A5,\"N\",B2:B5)", "=B2+B4"))), "does not hold a formula using")
+    verdict("a bad line in the sheet file", variant(lambda ix: sol_of(ix, sol + "this is not a cell\n")), "solution does not load")
+    verdict("a function not yet taught (blocked function)", variant(lambda ix: ix["public"]["constraints"].update(allowed_syntax=[a for a in allowed if "SUMIF" not in a], blocked_syntax=["SUMIF(range, criteria, sum_range)"])), "blocks for this practice")
+    verdict("a forbidden_syntax test on a used function", variant(lambda ix: ix["grading"]["tests"].append({"test_id": "t5", "kind": "forbidden_syntax", "message_on_fail": "no", "spec": {"descriptors": ["SUMIF(range, criteria, sum_range)"]}})), "forbidden syntax")
+    hard = variant(lambda ix: (sol_of(ix, starter + "D2: 7.5\nD3: 40\nD4: 5\nD5: 8\nF1: 54.45\nF2: 8\n"), ix["grading"]["tests"].pop(2)))
+    verdict("a hard-coded solution whose cells never depend on the data", hard, "typed-in answer would pass")
+    out2 = sandbox.run_exercise(reg, variant(lambda ix: ix["public"]["constraints"].update(allowed_syntax=allowed + ["MYSTERY HABIT"])))
+    ok = out2.unverified and "MYSTERY HABIT" in out2.unverified
+    fails += not ok
+    print(("caught " if ok else "MISSED ") + "sheet: a syntax descriptor with no detector is UNVERIFIED")
+    # reference grader
+    stamped = copy.deepcopy(good)
+    stamped["grading"]["hidden_checks"] = out.hidden_checks
+    typed = starter + "D2: 7.5\nD3: 40\nD4: 5\nD5: 8\nF1: 54.45\nF2: =SUMIF(A2:A5,\"N\",B2:B5)\n"
+    for name, text, want in [("the reference passes", sol, True),
+                             ("a differently written correct sheet passes", starter + "D2: =C2*B2\nD3: =C3*B3\nD4: =C4*B4\nD5: =C5*B5\nF1: =(D2+D3+D4+D5)*(1-E1)\nF2: =SUMIF(A2:A5,\"N\",B2:B5)\n", True),
+                             ("typed-in numbers are rejected by the hidden checks", typed, False),
+                             ("a sheet that ignores the discount input cell is rejected", sol.replace("*(1-E1)", "*0.9"), False),
+                             ("a wrong formula is rejected", sol.replace("SUM(D2:D5)", "SUM(D2:D4)"), False)]:
+        passed, reasons = sandbox.grade_learner_sheet(reg, stamped, text)
+        ok = passed == want
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + "sheet hidden: " + name + ("" if ok else f" (passed={passed}: {reasons})"))
+    # isolation: hostile formulas are just errors, hostile sheet names/ids/keys are inert, and the process can neither write nor spawn
+    run = lambda content, probes=(): sandbox.node_run({"scripts": [{"id": "__proto__", "content": content, "sheets": [], "probes": list(probes)}]}, "sandbox/run_sheet.mjs")["results"]["__proto__"]
+    hostile = "A1: =process.exit()\nA2: =require('fs')\nA3: =constructor\nA4: =fetch(\"http://x\")\n"
+    r = run(hostile, [{"id": f"p{i}", "kind": "cell", "ref": f"A{i}"} for i in range(1, 5)])
+    ok = r["ok"] and all(r["probes"][f"p{i}"]["ok"] and str(r["probes"][f"p{i}"]["value"]).startswith("#") for i in range(1, 5))
+    fails += not ok
+    print(("caught " if ok else "MISSED ") + "sheet: hostile formulas (process, require, fetch, constructor) evaluate to errors" + ("" if ok else f" ({r})"))
+    r = run("__proto__!A1: 1\n")
+    ok = not r["ok"] and "unknown sheet" in r["error"]
+    fails += not ok
+    print(("caught " if ok else "MISSED ") + "sheet: a hostile sheet name is rejected" + ("" if ok else f" ({r})"))
+    r = run("A1: 1\nB1: =A1+1\n", [{"id": "constructor", "kind": "cell", "ref": "B1"}])
+    ok = r["ok"] and r["probes"]["constructor"]["value"] == 2
+    fails += not ok
+    print(("caught " if ok else "MISSED ") + "sheet: hostile script and probe ids are inert")
+    r = run("A9999: 1\n")
+    ok = not r["ok"] and "outside the allowed" in r["error"]
+    fails += not ok
+    print(("caught " if ok else "MISSED ") + "sheet: a cell far outside the allowed area is rejected (no memory blow-up)")
+    import subprocess
+    probe = f"import('node:fs').then(f => {{ try {{ f.writeFileSync('/tmp/_sheet_sandbox_probe', 'x'); console.log('WROTE'); }} catch (e) {{ console.log('DENIED ' + e.code); }} }})"
+    p = subprocess.run(["node", "--permission", f"--allow-fs-read={sandbox.SANDBOX}", "-e", probe], capture_output=True, text=True, cwd=sandbox.SANDBOX)
+    ok = "DENIED" in p.stdout and not Path("/tmp/_sheet_sandbox_probe").exists()
+    fails += not ok
+    print(("caught " if ok else "MISSED ") + "sheet: the permission flags the runner uses deny host writes" + ("" if ok else f" ({p.stdout} {p.stderr[-200:]})"))
+    pkg = json.loads((S.parent / "sandbox" / "package.json").read_text())["dependencies"]["hyperformula"]
+    ok = pkg == sandbox.RUNTIMES["spreadsheet"]["version"] == sandbox.node_run({"scripts": []}, "sandbox/run_sheet.mjs")["version"]
+    fails += not ok
+    print(("caught " if ok else "MISSED ") + f"sheet: registry/runtimes.json, package.json and the running engine agree on the version ({pkg})")
+    # syntax checker
+    for name, f, al, bl, want in [("arithmetic and SUM need only what is allowed", "=SUM(B2:B9)*2", ["SUM(range)", "relative references", "+ - * /", "numbers"], [], 0),
+                                  ("an untaught function is flagged", "=VLOOKUP(A2,B2:C9,2,FALSE)", ["SUM(range)", "relative references", "numbers", "TRUE / FALSE"], [], 1),
+                                  ("an absolute reference is flagged when only relative are taught", "=SUM($B$2:$B$9)", ["SUM(range)", "relative references"], [], 1),
+                                  ("a function named in a bare list is allowed", "=IF(A1>1,1,0)", ["IF, AND, OR", "relative references", "numbers", "comparison operators"], [], 0),
+                                  ("a function example with arguments allows that function", "=XLOOKUP(A2,B:B,C:C)", ["=XLOOKUP(key, lookup_col, return_col)", "whole column references", "relative references"], [], 0),
+                                  ("strings are not read as syntax", "=A1&\"SUM(1)\"", ["relative references", "& (concatenation)", "text in quotes"], [], 0)]:
+        v, _, _ = sheetsyntax.judge("A1: " + f, al, bl)
+        ok = len(v) == want
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + "sheetsyntax: " + name + ("" if ok else f" ({v})"))
+    for d, want_none in [("pivot tables", True), ("conditional formatting", True), ("some unheard-of concept", True), ("SUM(range)", False), ("cross-sheet references", False)]:
+        ok = (sheetsyntax.descriptor_tags(d) is None) == want_none
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + f"sheetsyntax: descriptor {d!r} {'is' if want_none else 'is not'} unmapped")
+    ok = sheetsyntax.is_idea("pivot tables") and not sheetsyntax.is_idea("some unheard-of concept")
+    fails += not ok
+    print(("caught " if ok else "MISSED ") + "sheetsyntax: UI ideas are not_checkable, unknown descriptors are unmapped (-> UNVERIFIED)")
+    return fails
+
+
 def stamped_for(variant, out, mutate):
     """A mutated copy of the good exercise carrying the good run's provenance, so only the mutation is under test."""
     return variant(lambda ix: (ix["grading"].update(execution_provenance=out.provenance, hidden_checks=out.hidden_checks), mutate(ix)))
@@ -535,7 +651,7 @@ def stamped_for(variant, out, mutate):
 def main():
     src = Path(sys.argv[1]).resolve()
     tmp_root = src.parent / "_selftest_tmp"
-    failures = unit_interactions(src) + unit_fail_closed(src) + unit_graph_blocks() + unit_stale_cleanup(src) + unit_sql_runner() + unit_python_runner()
+    failures = unit_interactions(src) + unit_fail_closed(src) + unit_graph_blocks() + unit_stale_cleanup(src) + unit_sql_runner() + unit_python_runner() + unit_sheet_runner()
     for name, fn, expect in MUTATIONS:
         d = tmp_root / "case"
         if d.exists():
