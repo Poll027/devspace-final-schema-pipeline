@@ -31,6 +31,7 @@ def tags(code):
     t = set()
     tree = ast.parse(code)
     user_funcs = {n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
+    modules = {(a.asname or a.name).split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names if a.name.split(".")[0] not in LIBS}
     for tok in tokenize.generate_tokens(io.StringIO(code).readline):
         if tok.type == tokenize.COMMENT:
             t.add("comment")
@@ -118,7 +119,8 @@ def tags(code):
             if isinstance(getattr(n, "ctx", None), ast.Store):
                 t.add("idx_assign")
         elif isinstance(n, ast.Attribute):
-            t.add(f"attr:{n.attr}")
+            if not (isinstance(n.value, ast.Name) and n.value.id in modules):  # math.sqrt: the module's own names are not separate syntax
+                t.add(f"attr:{n.attr}")
             if isinstance(n.value, ast.Name) and n.value.id not in ("pd", "np", "plt", "sns", "mpl", "ax", "fig", "df"):
                 t.add("attr_module")
         elif isinstance(n, ast.Call):
@@ -221,6 +223,8 @@ def descriptor_tags(d):
     m = re.fullmatch(r"from (\w+) import [\w, *]+", d)
     if m:
         return {f"import:{m.group(1)}"} if m.group(1) in LIBS else {"from_import"}
+    if re.match(r"(math|random|statistics|csv|json|datetime|os|sys|time|string|re)\.\w+", d):  # "math.sqrt()", "random.choice(...)"
+        return {"attr_module"}
     tg = set()
     for m in re.finditer(r"\.([A-Za-z_]\w*)", d):  # attribute / method names (also inside dotted examples like plt.style.use)
         tg.add(f"attr:{m.group(1)}")
