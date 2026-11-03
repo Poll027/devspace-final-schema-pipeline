@@ -724,10 +724,29 @@ def unit_chart_runner():
     return fails
 
 
+def unit_formula_entry():
+    """formula_entry is verified by running its reference formula in the spreadsheet engine: right answer passes; wrong value, typed-in number, missing reference are caught."""
+    from checkers import sandbox
+    reg = {"assets": [{"asset_id": "ds_sales", "asset_kind": "dataset", "columns": [{"name": "region", "type": "string"}, {"name": "units", "type": "integer"}, {"name": "price", "type": "number"}],
+                       "rows": [["N", 3, 2.5], ["S", 4, 10.0], ["N", 5, 1.0], ["E", 2, 4.0]]}]}
+    mk = lambda **g: {"type": "formula_entry", "interaction_id": "ix.f", "public": {"prompt": "p", "asset_ref": {"asset_id": "ds_sales"}, "sheet_name": "sales", "target_cell": "F1"},
+                      "grading": {"expected_value": 14, "must_use_functions": ["SUM"], "reference_formula": "=SUM(B2:B5)", **g}}
+    cases = [("a correct formula_entry passes", mk(), None), ("a wrong expected_value", mk(expected_value=99), "differs from spec.expected"),
+             ("a typed-in answer (no formula)", mk(reference_formula="=14", must_use_functions=[]), "typed-in"), ("a missing reference_formula", mk(reference_formula=""), "reference_formula is missing"),
+             ("a required function not used", mk(reference_formula="=B2+B3+B4+B5"), "does not hold a formula using")]
+    fails = 0
+    for name, ix, want in cases:
+        probs = sandbox.formula_entry_outcome(reg, ix).problems
+        ok = (not probs) if want is None else any(want in p for p in probs)
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + "formula_entry: " + name + ("" if ok else f" ({probs})"))
+    return fails
+
+
 def main():
     src = Path(sys.argv[1]).resolve()
     tmp_root = src.parent / "_selftest_tmp"
-    failures = unit_interactions(src) + unit_fail_closed(src) + unit_graph_blocks() + unit_stale_cleanup(src) + unit_sql_runner() + unit_python_runner() + unit_sheet_runner() + unit_chart_runner()
+    failures = unit_interactions(src) + unit_fail_closed(src) + unit_graph_blocks() + unit_stale_cleanup(src) + unit_sql_runner() + unit_python_runner() + unit_sheet_runner() + unit_chart_runner() + unit_formula_entry()
     for name, fn, expect in MUTATIONS:
         d = tmp_root / "case"
         if d.exists():

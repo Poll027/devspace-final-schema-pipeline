@@ -134,9 +134,10 @@ def tags(code):
                         t.add("call_kw_user")
                 else:
                     t.add(f"call:{f.id}")
-            for k in n.keywords:
-                if k.arg:
-                    t.add(f"kw:{k.arg}")
+            if not (isinstance(f, ast.Name) and f.id in user_funcs):  # f(city="x") on the learner's own function is "call_kw_user", not a named keyword
+                for k in n.keywords:
+                    if k.arg:
+                        t.add(f"kw:{k.arg}")
         elif isinstance(n, ast.Name) and n.id in ("FacetGrid", "GridSpec"):
             t.add(f"attr:{n.id}")
     return t

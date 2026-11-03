@@ -892,3 +892,29 @@ def run_exercise(registry, ix):
         return RUNNERS[kind](registry, ix)
     except SandboxError as ex:
         return Outcome(problems=[f"sandbox: {ex}"])
+
+def formula_entry_outcome(registry, ix):
+    """Verify a formula_entry by running its reference formula in the spreadsheet engine: the formula must produce expected_value on the mounted
+    dataset, use the required functions, and (via the data mutations of run_sheet) not be a typed-in number. Returns an Outcome."""
+    o = Outcome()
+    pub, gr = ix["public"], ix["grading"]
+    ref = (gr.get("reference_formula") or "").strip()
+    if not ref:
+        o.problems.append("grading.reference_formula is missing: the answer formula must be given so the gate can compute expected_value in the engine")
+        return o
+    ref = ref if ref.startswith("=") else "=" + ref
+    sheet, cell = pub.get("sheet_name") or "Sheet1", pub["target_cell"]
+    mount = {"asset_id": pub["asset_ref"]["asset_id"], "mount_path": sheet + ".csv"}
+    if pub["asset_ref"].get("variant_id"):
+        mount["variant_id"] = pub["asset_ref"]["variant_id"]
+    note = "// the learner types the formula in the target cell\n"
+    tests = [{"test_id": "t_value", "kind": "cell_equals", "message_on_fail": "wrong value", "spec": {"cell": cell, "expected": gr["expected_value"], **({"tolerance": gr["tolerance"]} if "tolerance" in gr else {})}}]
+    if gr.get("must_use_functions"):
+        tests.append({"test_id": "t_fn", "kind": "formula_uses", "message_on_fail": "wrong function", "spec": {"cell": cell, "functions": gr["must_use_functions"]}})
+    fns = pub.get("allowed_functions") or sorted(set(re.findall(r"([A-Z][A-Z0-9.]*)\(", ref)) | set(gr.get("must_use_functions") or []))
+    syn = {"allowed_syntax": [f"{f}(range)" for f in fns] + ["cell references", "absolute references", "mixed references", "whole-column or column range",
+           "cross-sheet or sheet reference", "+ - * /", "comparison operators", "& (concatenation)", "parentheses", "numbers", "text in quotes", "TRUE / FALSE"], "blocked_syntax": []}
+    synth = {"type": "code_exercise", "interaction_id": ix["interaction_id"], "public": {"prompt": pub["prompt"], "runtime": {"kind": "spreadsheet", "version": RUNTIMES["spreadsheet"]["version"]},
+             "workspace": {"entry": "book.sheet", "files": [{"path": "book.sheet", "role": "editable", "content": note}], "asset_mounts": [mount]}, "constraints": syn},
+             "grading": {"solution_files": [{"path": "book.sheet", "content": note + f"{cell}: {ref}\n"}], "tests": tests}}
+    return run_exercise(registry, synth)

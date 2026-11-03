@@ -205,7 +205,13 @@ def classify(C, step, ix, rep):
 
 
 def formula_entry(C, step, ix, rep):
-    rep.w(f"{step['step_id']}/{ix['interaction_id']}: formula_entry is not executed yet (spreadsheet engine runner pending) — UNVERIFIED")
+    from . import sandbox
+    where = f"{step['step_id']}/{ix['interaction_id']}"
+    out = sandbox.formula_entry_outcome(C.registry, ix)
+    for p in out.problems:
+        rep.e(f"{where}: {p}")
+    if out.unverified and not out.problems:
+        rep.w(f"{where}: UNVERIFIED — {out.unverified}")
 
 
 # ---------------------------------------------------------------- dataset asset (registry gate)
