@@ -527,6 +527,82 @@ def unit_python_runner():
     return fails
 
 
+# ---- chart_renderer (matplotlib/seaborn on the Pyodide runner) ----
+def unit_chart_runner():
+    """Figure structure is graded, not pixels: correct charts pass, a wrong chart type / hard-coded figure / ignored data is caught, state does not leak, the sandbox holds."""
+    import copy
+    from checkers import sandbox
+    reg = {"assets": [{"asset_id": "ds_customers", "asset_kind": "dataset", "columns": [
+        {"name": "customer_id", "type": "integer"}, {"name": "city", "type": "string"}, {"name": "spend", "type": "number"}],
+        "rows": [[1, "Lagos", 10.5], [2, "Abuja", 20.0], [3, "Lagos", 7.0], [4, "Kano", 31.0]]}]}
+    starter = "import pandas as pd\nimport matplotlib.pyplot as plt\ncustomers = pd.read_csv('customers.csv')\nlimit = 8\n# bar chart of the spend of customers above the limit\n"
+    sol = starter + "big = customers[customers['spend'] > limit]\nplt.bar(big['city'], big['spend'])\nplt.title('Spend')\n"
+    allowed = ["import pandas as pd", "import matplotlib.pyplot as plt", "pd.read_csv(path)", "name = value assignment", "whole-number literals as in the examples",
+               "single- or double-quoted strings", "df[df['col'] > value]", "df['col']", "plt.bar(x, y)", "plt.title(text)", "plt.scatter(x, y)"]
+    t = lambda tid, kind, spec: {"test_id": tid, "kind": kind, "spec": spec, "message_on_fail": "no"}
+    good = {"type": "code_exercise", "interaction_id": "ix.c", "public": {"prompt": "p", "runtime": {"kind": "chart_renderer", "version": "0.29.5", "packages": ["pandas", "matplotlib"]},
+            "workspace": {"entry": "main.py", "files": [{"path": "main.py", "role": "editable", "content": starter}],
+                          "asset_mounts": [{"asset_id": "ds_customers", "mount_path": "customers.csv"}]},
+            "constraints": {"allowed_syntax": allowed, "blocked_syntax": []}},
+            "grading": {"solution_files": [{"path": "main.py", "content": sol}],
+                        "tests": [t("t1", "plotted_data_equals", {"chart": "bar", "field": "heights", "expected": [10.5, 20.0, 31.0]}),
+                                  t("t2", "axes_property", {"property": "title", "expected": "Spend"}),
+                                  t("t3", "figure_equals", {"expected": {"n_axes": 1, "chart_types": [["bar"]]}}),
+                                  t("t4", "axes_property", {"property": "xticklabels", "expected": ["Lagos", "Abuja", "Kano"]})]}}
+    fails = 0
+
+    def variant(f):
+        ix = copy.deepcopy(good)
+        f(ix)
+        return ix
+    setsol = lambda code: (lambda ix: ix["grading"]["solution_files"][0].update(content=code))
+    out = sandbox.run_exercise(reg, good)
+    ok = not out.problems and out.provenance and len(out.hidden_checks) >= 2 and out.preview_png and out.preview_png.startswith("iVBOR")
+    fails += not ok
+    print(("caught " if ok else "MISSED ") + f"chart: a correct exercise passes with provenance, {len(out.hidden_checks)} hidden checks and a PNG preview" + ("" if ok else f" ({out.problems})"))
+    for name, mut, want in [("a wrong chart type in the solution (line instead of bar)", setsol(starter + "big = customers[customers['spend'] > limit]\nplt.plot(big['city'], big['spend'])\nplt.title('Spend')\n"), "differs from spec.expected"),
+                            ("a wrong typed title", lambda ix: ix["grading"]["tests"][1]["spec"].update(expected="Sales"), "differs from spec.expected"),
+                            ("a starter that already draws the chart", lambda ix: ix["public"]["workspace"]["files"][0].update(content=sol), "starter code already passes"),
+                            ("a hard-coded figure whose data never depends on the dataset or variables", lambda ix: (ix["grading"]["solution_files"][0].update(content="import matplotlib.pyplot as plt\nplt.bar(['Lagos', 'Abuja', 'Kano'], [10.5, 20.0, 31.0])\nplt.title('Spend')\n"),
+                                                                                               ix["public"]["constraints"].update(allowed_syntax=allowed + ["[...] list literal"])), "hard-coded"),
+                            ("a chart test kind on a python runtime", lambda ix: ix["public"]["runtime"].update(kind="python"), "not supported"),
+                            ("a figure_equals key that is not a figure property", lambda ix: ix["grading"]["tests"][2]["spec"].update(expected={"colour": "red"}), "figure_equals"),
+                            ("a solution that draws nothing", setsol(starter + "big = customers[customers['spend'] > limit]\n"), "no figure was drawn")]:
+        o = sandbox.run_exercise(reg, variant(mut))
+        ok = any(want in x for x in o.problems)
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + "chart: " + name + ("" if ok else f" ({o.problems})"))
+    # reference grader: another way to draw the same chart passes; wrong chart, hard-coded and variable-ignoring figures fail
+    stamped = copy.deepcopy(good)
+    stamped["grading"]["hidden_checks"] = out.hidden_checks
+    for name, code, want in [("the reference passes", sol, True),
+                             ("a differently written correct chart passes", starter + "big = customers[customers.spend > limit]\nfig, ax = plt.subplots()\nax.bar(big.city, big.spend)\nax.set_title('Spend')\n", True),
+                             ("a scatter instead of a bar is rejected", starter + "big = customers[customers['spend'] > limit]\nplt.scatter(big['city'], big['spend'])\nplt.title('Spend')\n", False),
+                             ("a hard-coded figure is rejected", "import matplotlib.pyplot as plt\nlimit = 8\nplt.bar(['Lagos', 'Abuja', 'Kano'], [10.5, 20.0, 31.0])\nplt.title('Spend')\n", False),
+                             ("a program that ignores the limit variable is rejected", starter + "big = customers[customers['spend'] > 8]\nplt.bar(big['city'], big['spend'])\nplt.title('Spend')\n", False)]:
+        passed, reasons = sandbox.grade_learner_chart(reg, stamped, code)
+        ok = passed == want
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + "chart hidden: " + name + ("" if ok else f" (passed={passed}: {reasons})"))
+    # isolation: matplotlib state does not leak between the scripts of one process; the sandbox still holds with matplotlib loaded
+    sc = lambda i, body: {"id": i, "entry": "m.py", "files": [{"path": "m.py", "content": body}], "mounts": [], "probes": [], "chart": True}
+    r = sandbox.node_run({"packages": ["numpy", "pandas", "matplotlib", "seaborn"], "scripts": [
+        sc("f", "import seaborn as sns, pandas as pd\nsns.set_theme()\nsns.histplot(pd.Series([1, 2, 2, 3, 9]))\nimport matplotlib.pyplot as plt\nplt.figure()\nsns.heatmap([[1, 2], [3, 4]])\n"),
+        sc("a", "import matplotlib.pyplot as plt\nplt.rcParams['axes.titlesize'] = 99\nplt.style.use('ggplot')\nplt.plot([1])\nplt.title('leak')\nopen('stray.txt', 'w').write('x')\n"),
+        sc("b", "import matplotlib.pyplot as plt, os\nprint(plt.rcParams['axes.titlesize'], plt.rcParams['axes.facecolor'], len(plt.get_fignums()), os.path.exists('stray.txt'))\n"),
+        sc("c", "import matplotlib\nmatplotlib.use('module://matplotlib_pyodide.html5_canvas_backend')\nimport matplotlib.pyplot as plt\nplt.plot([1])\n"),
+        sc("d", "import js\n"), sc("e", "import os\nprint(open('/etc/hosts').read())\n")]}, "sandbox/run_py.mjs")["results"]
+    for name, ok in [("seaborn is installed and its histplot/heatmap read back as hist/heatmap (colorbar axes dropped)",
+                      r["f"]["ok"] and [[a["chart_types"] for a in f["axes"]] for f in r["f"]["fig"]["figures"]] == [[["hist"]], [["heatmap"]]]),
+                     ("matplotlib rcParams, style, figures and files do not leak into the next script", r["b"]["ok"] and r["b"]["stdout"].strip() == "large white 0 False"),
+                     ("switching to the browser backend cannot reach the JS bridge", not r["c"]["ok"] or "js" not in r["c"].get("error", "js")),
+                     ("importing the JS bridge with matplotlib loaded", not r["d"]["ok"] and "not available" in r["d"]["error"]),
+                     ("reading a host file with matplotlib loaded", not r["e"]["ok"] and "No such file" in r["e"]["error"])]:
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + "chart: sandbox: " + name + ("" if ok else f" ({r})"))
+    return fails
+
+
 def stamped_for(variant, out, mutate):
     """A mutated copy of the good exercise carrying the good run's provenance, so only the mutation is under test."""
     return variant(lambda ix: (ix["grading"].update(execution_provenance=out.provenance, hidden_checks=out.hidden_checks), mutate(ix)))
@@ -535,7 +611,7 @@ def stamped_for(variant, out, mutate):
 def main():
     src = Path(sys.argv[1]).resolve()
     tmp_root = src.parent / "_selftest_tmp"
-    failures = unit_interactions(src) + unit_fail_closed(src) + unit_graph_blocks() + unit_stale_cleanup(src) + unit_sql_runner() + unit_python_runner()
+    failures = unit_interactions(src) + unit_fail_closed(src) + unit_graph_blocks() + unit_stale_cleanup(src) + unit_sql_runner() + unit_python_runner() + unit_chart_runner()
     for name, fn, expect in MUTATIONS:
         d = tmp_root / "case"
         if d.exists():
