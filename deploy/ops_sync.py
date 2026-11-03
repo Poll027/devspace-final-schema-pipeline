@@ -70,6 +70,7 @@ def apply_fix(d, repo, state):
     except RuntimeError as ex:
         return f"pull failed, not restarting: {ex}"
     state[d["service"]] = new
+    sh("bash", str(repo / "deploy" / "prepare.sh"), cwd=repo, ok=True)  # new dependencies must be installed before the driver's selftest runs
     sh("sudo", "systemctl", "restart", d["service"], ok=True)
     return f"pulled {new} and restarted"
 
