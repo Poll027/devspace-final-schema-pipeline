@@ -206,7 +206,13 @@ EXPLICIT = {
     "for loops over rows": {"for"}, "if statements around the membership test": {"if", "cmp_in"},
     "matplotlib.rcParams direct manipulation": {"attr:rcParams"}, "FacetGrid": {"attr:FacetGrid"}, "GridSpec": {"attr:GridSpec"},
     "subplots / multi-panel figures": {"attr:subplots"},
+    "fig, ax = plt.subplots()": {"attr:subplots", "unpack"}, "fig, axes = plt.subplots(...)": {"attr:subplots", "unpack"},
 }
+# --- chart_renderer additions (assumption: the glossary writes charting calls bare, e.g. "bar(x, y)" / "plot(kind='bar')", for what a program writes as a method of
+# plt/ax/sns/df). A bare call to one of these names is matched as the attribute the learner's code actually uses. Extend this set from `practice_survey.py <bundle> viz`.
+CHART_METHODS = {"plot", "hist", "scatter", "bar", "barh", "boxplot", "heatmap", "pie", "legend", "title", "xlabel", "ylabel", "figure", "subplots", "savefig", "show",
+                 "imshow", "histplot", "lineplot", "scatterplot", "barplot", "countplot", "violinplot", "pairplot", "set_title", "set_xlabel", "set_ylabel",
+                 "tight_layout", "grid", "xticks", "yticks", "xlim", "ylim", "annotate", "axhline", "axvline", "fill_between", "errorbar", "suptitle", "set_theme", "corr"}
 # ideas, not syntax: nothing a program can decide; the evaluator checks these by reading
 NOT_CHECKABLE = {"SQL syntax", "regex patterns", "hypothesis testing functions", "p-value computations", "compression options", "custom theme dictionaries",
                  "confidence interval calculations", "df.sort_values then drop", "list of labels (ideas)"}
@@ -230,7 +236,7 @@ def descriptor_tags(d):
         tg.add(f"attr:{m.group(1)}")
     for m in re.finditer(r"(?<![\w.])([A-Za-z_]\w*)\(", d):  # plain calls
         if m.group(1) not in {"df", "pd", "plt", "sns", "ax", "fig", "mpl", "orders", "customers"}:
-            tg.add(f"call:{m.group(1)}")
+            tg.add(f"attr:{m.group(1)}" if m.group(1) in CHART_METHODS else f"call:{m.group(1)}")
     for m in re.finditer(r"(?<![\w.])([A-Za-z_]\w*)=", d):  # keyword arguments
         tg.add(f"kw:{m.group(1)}")
     if re.search(r"\w\[", d):

@@ -38,6 +38,7 @@ class Outcome:
     provenance: dict | None = None
     unverified: str | None = None
     hidden_checks: list = field(default_factory=list)
+    preview_png: str | None = None  # chart_renderer: base64 PNG of the reference solution's last figure (player preview; not stored in the lesson)
 
 
 def sha(text):
@@ -349,8 +350,31 @@ def run_query(registry, result_of):
 
 
 # ---------------------------------------------------------------- Python
-PY_INSTALLED = {"numpy", "pandas", "scipy"}  # sandbox/fetch_packages.mjs
+PY_INSTALLED = {"numpy", "pandas", "scipy", "matplotlib", "seaborn"}  # sandbox/fetch_packages.mjs
 PY_KINDS = {"stdout_equals", "value_equals", "dataframe_equals", "function_call", "forbidden_syntax"}
+# chart_renderer = the same Pyodide runner plus matplotlib/seaborn; the figures are serialised to JSON (sandbox/run_py.mjs _figs_json) and graded on structure, never pixels
+CHART_KINDS = {"figure_equals", "axes_property", "plotted_data_equals"}
+CHART_STATIC = {"title", "xlabel", "ylabel", "legend", "chart_types", "xscale", "yscale"}  # properties the data cannot change: exempt from "must vary" (>=1 test must still vary)
+FIGURE_KEYS = {"n_axes", "suptitle", "chart_types"}
+
+
+def _chart_value(kind, spec, r):
+    """The comparable value a chart test grades, read from the serialised figures of a script result, or (None, why)."""
+    figs = (r.get("fig") or {}).get("figures") or []
+    if not figs:
+        return None, "no figure was drawn (" + (r.get("fig_error") or "nothing was plotted") + ")"
+    try:
+        f = figs[spec.get("figure", -1)]
+        if kind == "figure_equals":
+            return {k: ([a["chart_types"] for a in f["axes"]] if k == "chart_types" else f[k]) for k in spec["expected"]}, None
+        ax = f["axes"][spec.get("axes", 0)]
+        if kind == "axes_property":
+            return ax[spec["property"]], None
+        arts = [a for a in ax["artists"] if a["type"] == spec["chart"]]
+        v = arts[spec.get("series", 0)][spec["field"]]
+        return (sorted(v) if spec.get("sorted") and isinstance(v, list) else v), None
+    except (IndexError, KeyError):
+        return None, f"the figure has no such part ({kind} {json.dumps({k: v for k, v in spec.items() if k != 'expected'})})"
 
 
 def deep_equal(a, b, tol=1e-9):
@@ -406,9 +430,9 @@ def py_var_mutations(code):
     return out[:4]
 
 
-def _py_script(sid, entry, code, mounts, probes, extra=None):
+def _py_script(sid, entry, code, mounts, probes, extra=None, chart=False):
     files = [{"path": entry, "content": code}] + (extra or [])
-    return {"id": sid, "entry": entry, "files": files, "mounts": mounts, "probes": probes}
+    return {"id": sid, "entry": entry, "files": files, "mounts": mounts, "probes": probes, **({"chart": True, "png": sid == "solution"} if chart else {})}
 
 
 def _py_mounts(tables):
@@ -421,6 +445,8 @@ def _py_result(kind, spec, r, tid):
         return None, f"the file does not run: {r.get('error', '?').splitlines()[-1]}"
     if kind == "stdout_equals":
         return _norm_out(r["stdout"]), None
+    if kind in CHART_KINDS:
+        return _chart_value(kind, spec, r)
     p = r["probes"].get(tid)
     if not p or not p["ok"]:
         return None, f"cannot evaluate: {(p or {}).get('error', 'no result')}"
@@ -447,8 +473,10 @@ def run_python(registry, ix):
     from . import pysyntax
     o = Outcome()
     pub, gr = ix["public"], ix["grading"]
-    pin = RUNTIMES["python"]
     rt = pub["runtime"]
+    chart = rt["kind"] == "chart_renderer"
+    pin = RUNTIMES[rt["kind"]] if chart else RUNTIMES["python"]
+    kinds = PY_KINDS | (CHART_KINDS if chart else set())
     if rt.get("version") != pin["version"]:
         o.problems.append(f"runtime.version {rt.get('version')!r} must equal the pinned {pin['version']!r} (registry/runtimes.json)")
     pkgs = list(rt.get("packages") or [])
@@ -464,24 +492,27 @@ def run_python(registry, ix):
     tables, _ = _tables(registry, mounts, {}, o.problems)
     tests = gr["tests"]
     for t in tests:
-        if t["kind"] not in PY_KINDS:
-            o.problems.append(f"{t['test_id']}: test kind {t['kind']!r} is not supported by the python runtime (use {sorted(PY_KINDS)})")
+        if t["kind"] not in kinds:
+            o.problems.append(f"{t['test_id']}: test kind {t['kind']!r} is not supported by the {rt['kind']} runtime (use {sorted(kinds)})")
     graded = [t for t in tests if t["kind"] != "forbidden_syntax"]
     if not graded:
         o.problems.append("no test checks what the program produces")
     for t in graded:
         sp = t["spec"]
-        need = {"stdout_equals": ["expected"], "value_equals": ["expr", "expected"], "dataframe_equals": ["expr", "expected"], "function_call": ["function", "expected"]}[t["kind"]]
+        need = {"stdout_equals": ["expected"], "value_equals": ["expr", "expected"], "dataframe_equals": ["expr", "expected"], "function_call": ["function", "expected"],
+                "figure_equals": ["expected"], "axes_property": ["property", "expected"], "plotted_data_equals": ["chart", "field", "expected"]}[t["kind"]]
         miss = [k for k in need if k not in sp]
         if miss:
             o.problems.append(f"{t['test_id']}: spec needs {miss}")
         if t["kind"] == "dataframe_equals" and not ("columns" in sp.get("expected", {}) and "rows" in sp.get("expected", {})):
             o.problems.append(f"{t['test_id']}: spec.expected needs {{columns, rows}}")
+        if t["kind"] == "figure_equals" and (not isinstance(sp.get("expected"), dict) or set(sp["expected"]) - FIGURE_KEYS):
+            o.problems.append(f"{t['test_id']}: figure_equals spec.expected is an object with keys from {sorted(FIGURE_KEYS)}")
     if o.problems:
         return o
     probes = [({"id": t["test_id"], "kind": "call", "function": t["spec"]["function"], "args": t["spec"].get("args", []), "kwargs": t["spec"].get("kwargs", {})}
-               if t["kind"] == "function_call" else {"id": t["test_id"], "kind": "expr", "expr": t["spec"]["expr"]}) for t in graded if t["kind"] != "stdout_equals"]
-    mk = lambda sid, code, tb: _py_script(sid, entry, code, _py_mounts(tb), probes)
+               if t["kind"] == "function_call" else {"id": t["test_id"], "kind": "expr", "expr": t["spec"]["expr"]}) for t in graded if t["kind"] not in {"stdout_equals"} | CHART_KINDS]
+    mk = lambda sid, code, tb: _py_script(sid, entry, code, _py_mounts(tb), probes, chart=chart)
     cands = [{**c, "tag": "data"} for c in candidate_mutations(tables, None)] + [{**c, "tag": "var"} for c in py_var_mutations(solution)]
 
     def mutated_script(c):
@@ -501,10 +532,11 @@ def run_python(registry, ix):
     if o.problems:
         return o
     scripts += [mutated_script(c) for c in cands]
-    res = node_run({"packages": ["numpy", "pandas"] + [p for p in pkgs if p not in ("numpy", "pandas")], "scripts": scripts}, pin["runner"])["results"]
+    res = node_run({"packages": list(dict.fromkeys(["numpy", "pandas"] + (["matplotlib"] if chart else []) + pkgs)), "scripts": scripts}, pin["runner"])["results"]
     if not res["solution"]["ok"]:
         o.problems.append(f"solution does not run: {res['solution']['error'].splitlines()[-1]}")
         return o
+    o.preview_png = res["solution"].get("png")
     starter_passes = res["starter"]["ok"]
     code_tags = None
     for t in tests:
@@ -552,10 +584,13 @@ def run_python(registry, ix):
                              "ordered": bool(spec.get("ordered", False))})
         var = [h for h in mine if h["check_id"].startswith("hc_var_")]  # starter-variable checks always make the cut: they catch a program that ignores its inputs
         hidden += var[:2] + [h for h in mine if h not in var][:MAX_HIDDEN - len(var[:2])]
-        if not mine and not (kind == "function_call" and len(calls[spec["function"]]) >= 2):
+        static = kind == "figure_equals" or (kind == "axes_property" and spec.get("property") in CHART_STATIC)
+        if not mine and not static and not (kind == "function_call" and len(calls[spec["function"]]) >= 2):
             o.problems.append(f"{tid}: the solution's result does not change when the data or the starter's values change: a hard-coded answer would pass. "
                               "Make the result depend on the mounted data or on a starter variable, or (function tests) test the function with at least two different argument sets")
     o.hidden_checks = hidden
+    if chart and not hidden:
+        o.problems.append("no chart test depends on the data or the starter's values: a hard-coded figure would pass. Add a plotted_data_equals test (or xticklabels/ylim) on data the program reads or computes")
     cons = pub.get("constraints") or {}
     try:
         viol, unmapped, _ = pysyntax.judge(solution, cons.get("allowed_syntax", []), cons.get("blocked_syntax", []))
@@ -579,15 +614,16 @@ def _py_match_vs(kind, spec, a, b):
 
 def grade_learner_py(registry, ix, learner_code):
     pub, gr = ix["public"], ix["grading"]
-    pin = RUNTIMES["python"]
+    chart = pub["runtime"]["kind"] == "chart_renderer"
+    pin = RUNTIMES[pub["runtime"]["kind"]] if chart else RUNTIMES["python"]
     problems = []
     mounts = pub["workspace"].get("asset_mounts", [])
     tables, _ = _tables(registry, mounts, {}, problems)
     entry, _ = _entry(ix, "starter")
     graded = [t for t in gr["tests"] if t["kind"] != "forbidden_syntax"]
     probes = [({"id": t["test_id"], "kind": "call", "function": t["spec"]["function"], "args": t["spec"].get("args", []), "kwargs": t["spec"].get("kwargs", {})}
-               if t["kind"] == "function_call" else {"id": t["test_id"], "kind": "expr", "expr": t["spec"]["expr"]}) for t in graded if t["kind"] != "stdout_equals"]
-    mk = lambda sid, code, tb: _py_script(sid, entry, code, _py_mounts(tb), probes)
+               if t["kind"] == "function_call" else {"id": t["test_id"], "kind": "expr", "expr": t["spec"]["expr"]}) for t in graded if t["kind"] not in {"stdout_equals"} | CHART_KINDS]
+    mk = lambda sid, code, tb: _py_script(sid, entry, code, _py_mounts(tb), probes, chart=chart)
     scripts = [mk("base", learner_code, tables)]
     for t in graded:
         if t["spec"].get("mount_variants"):
@@ -602,7 +638,7 @@ def grade_learner_py(registry, ix, learner_code):
             scripts.append(mk(f"hidden:{h['check_id']}", code, tables))
         else:
             scripts.append(mk(f"hidden:{h['check_id']}", learner_code, _mutated(tables, m)))
-    pkgs = list(dict.fromkeys(["numpy", "pandas"] + list(pub["runtime"].get("packages") or [])))
+    pkgs = list(dict.fromkeys(["numpy", "pandas"] + (["matplotlib"] if chart else []) + list(pub["runtime"].get("packages") or [])))
     res = node_run({"packages": pkgs, "scripts": scripts}, pin["runner"])["results"]
     reasons = []
     for t in gr["tests"]:
@@ -844,7 +880,8 @@ def grade_learner_sheet(registry, ix, learner_sheet):
     return not reasons, reasons
 
 
-RUNNERS = {"sql": run_sql, "python": run_python, "spreadsheet": run_sheet}
+run_chart, grade_learner_chart = run_python, grade_learner_py  # the same code path; the exercise's runtime.kind picks chart mode
+RUNNERS = {"sql": run_sql, "python": run_python, "spreadsheet": run_sheet, "chart_renderer": run_python}
 
 
 def run_exercise(registry, ix):
