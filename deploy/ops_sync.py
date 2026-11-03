@@ -66,6 +66,7 @@ def apply_fix(d, repo, state):
         return None
     try:
         sh("git", "pull", "--ff-only", "-q", cwd=repo)
+        sh("git", "checkout", "--", "00_FINAL_PIPELINE_CORE", "01_FINAL_PACK_TEMPLATE", "deploy", cwd=repo, ok=True)  # twice a pull left stale files that tripped the integrity guard
     except RuntimeError as ex:
         return f"pull failed, not restarting: {ex}"
     state[d["service"]] = new

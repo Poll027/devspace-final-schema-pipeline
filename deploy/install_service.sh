@@ -29,6 +29,7 @@ Wants=network-online.target
 User=${ME}
 WorkingDirectory=${REPO}
 EnvironmentFile=/etc/${SERVICE}.env
+ExecStartPre=/usr/bin/git -C ${REPO} checkout -- 00_FINAL_PIPELINE_CORE 01_FINAL_PACK_TEMPLATE deploy
 ExecStart=${HOME}/env/bin/python ${REPO}/deploy/supervisor.py ${BATCH}
 Restart=on-failure
 RestartSec=60
