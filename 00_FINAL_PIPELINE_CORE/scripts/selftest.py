@@ -3,6 +3,7 @@ A validator that cannot fail is worthless — run this after ANY change to valid
 
   python3 selftest.py batches/<passing_batch_id>
 """
+import os
 import copy
 import json
 import shutil
@@ -13,6 +14,8 @@ from pathlib import Path
 S = Path(__file__).resolve().parent
 PY = sys.executable
 
+
+TMP_NAME = f"_selftest_tmp_{os.getpid()}"  # one scratch folder per process: batches that start together would otherwise overwrite each other's cases
 
 def run(script, *args):
     p = subprocess.run([PY, str(S / script), *map(str, args)], capture_output=True, text=True)
@@ -186,7 +189,7 @@ def unit_graph_blocks():
 
 def unit_stale_cleanup(src):
     """assemble_tiles.py must delete compiled files of tiles that are not in the batch."""
-    d = src.parent / "_selftest_tmp" / "stale"
+    d = src.parent / TMP_NAME / "stale"
     shutil.rmtree(d, ignore_errors=True)
     shutil.copytree(src, d, ignore=shutil.ignore_patterns("reports", "final_stage_gate_ledger.json"))
     for sub in ("tile_lessons", "tile_lessons_public", "grading"):
@@ -750,7 +753,7 @@ def unit_formula_entry():
 
 def main():
     src = Path(sys.argv[1]).resolve()
-    tmp_root = src.parent / "_selftest_tmp"
+    tmp_root = src.parent / TMP_NAME
     failures = unit_interactions(src) + unit_fail_closed(src) + unit_graph_blocks() + unit_stale_cleanup(src) + unit_sql_runner() + unit_python_runner() + unit_sheet_runner() + unit_chart_runner() + unit_formula_entry()
     for name, fn, expect in MUTATIONS:
         d = tmp_root / "case"
