@@ -13,3 +13,5 @@ Write `batches/<batch_id>/screens.json` (`kind: screens_part`, schema `screens_p
 
 Mistakes to avoid: unqualified fact ids; text blocks with no lineage; any mention of the video; examples that disagree with registry values (ids, cities, numbers); step text over budget; paraphrase that changes meaning; showing a column the dataset lacks; forgetting `#visual` on the visual block.
 Reply with: artifact path, step counts, anything you were unsure about.
+
+**No image assets exist.** `annotated_image` needs a registered `image` asset and the registry has none, so never use it (a plan that says `annotated_image` accepts the alternate `diagram`: draw the screen, grid or UI state as an SVG diagram with labelled callouts, or a `spreadsheet_grid` when the point is cell addresses/formulas). `spreadsheet_grid` formulas are run in the engine: give `cells[].formula`, never type `computed_values` (assemble derives them).

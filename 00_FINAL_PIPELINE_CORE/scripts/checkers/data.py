@@ -93,7 +93,12 @@ def data_table(C, step, b, rep):
 def spreadsheet_grid(C, step, b, rep):
     here = f"{step['step_id']}/spreadsheet_grid"
     if resolve_ref(C, b["asset_ref"], rep, here):
-        rep.w(f"{here}: formulas/computed_values are not executed yet (spreadsheet engine runner pending) — UNVERIFIED")
+        from . import sandbox
+        values, problems = sandbox.sheet_cell_values(C.registry, b)
+        for p in problems:
+            rep.e(f"{here}: {p}")
+        if values and not problems and b.get("computed_values") != values:
+            rep.e(f"{here}: computed_values do not match what the engine computes (run assemble_tiles.py: they are derived, never typed)")
 
 
 def chart(C, step, b, rep):

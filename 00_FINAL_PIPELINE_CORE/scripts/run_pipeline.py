@@ -416,11 +416,13 @@ def ensure_gate(c, sid, chunk, ids):
             raise Stuck(f"{sid}:{chunk} still failing its deterministic gate after {MAX_ROUNDS} generator repairs:\n{msg[-2000:]}")
         c.log(f"{sid}:{chunk} gate failed, generator repair {i + 1}")
         c.log("  gate: " + " | ".join(l.strip()[:230] for l in msg.splitlines() if re.match(r"\s*(E|schema|tile coverage)\b", l) or "UNVERIFIED" in l)[:1500])
-        teach = [l for l in msg.splitlines() if re.search(r"has taught it by text|is never taught by a text block", l)]
+        teach = [l for l in msg.splitlines() if re.search(r"has taught it by text|is never taught by a text block|is not a registered image", l)]
         if sid == "04_interactions" and teach:  # teaching lives in stage 03's prose: the interactions generator can't fix it
             c.log(f"{sid}:{chunk} {len(teach)} fact(s) not taught by text; sending them to the screens generator")
-            note = ("A strict check of the assembled lessons reports facts that are tested or required but not taught by any earlier prose/callout block. "
-                    "Teach each in a `prose` or `callout` block (with `lineage.fact_ids` naming it) BEFORE the first step that tests it; do not change step ids.\n" + "\n".join(teach))
+            note = ("A strict check of the assembled lessons reports problems that live in the screens. For facts tested or required but not taught: teach each in a "
+                    "`prose` or `callout` block (with `lineage.fact_ids` naming it) BEFORE the first step that tests it; do not change step ids. For `annotated_image ... is not a "
+                    "registered image`: the registry has no image assets and none can be made, so replace that block with a `diagram` (the allowed alternate; draw the grid/screen "
+                    "as an SVG diagram) or a `spreadsheet_grid`, keeping the same teaching purpose.\n" + "\n".join(teach))
             art = c.artifact("03_screens")
             c.reopening.add(art)
             try:

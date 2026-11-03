@@ -735,6 +735,11 @@ def unit_formula_entry():
              ("a typed-in answer (no formula)", mk(reference_formula="=14", must_use_functions=[]), "typed-in"), ("a missing reference_formula", mk(reference_formula=""), "reference_formula is missing"),
              ("a required function not used", mk(reference_formula="=B2+B3+B4+B5"), "does not hold a formula using")]
     fails = 0
+    grid = {"type": "spreadsheet_grid", "asset_ref": {"asset_id": "ds_sales"}, "sheet_name": "sales", "range": "A1:C5", "cells": [{"ref": "E1", "formula": "=SUM(B2:B5)"}, {"ref": "E2", "formula": "=NOSUCH(1)"}]}
+    vals, probs = sandbox.sheet_cell_values(reg, grid)
+    ok = vals.get("E1") == 14 and str(vals.get("E2", "")).startswith("#") and not probs
+    fails += not ok
+    print(("caught " if ok else "MISSED ") + f"spreadsheet_grid: formula cells are computed by the engine ({vals} {probs})")
     for name, ix, want in cases:
         probs = sandbox.formula_entry_outcome(reg, ix).problems
         ok = (not probs) if want is None else any(want in p for p in probs)

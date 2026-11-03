@@ -918,3 +918,34 @@ def formula_entry_outcome(registry, ix):
              "workspace": {"entry": "book.sheet", "files": [{"path": "book.sheet", "role": "editable", "content": note}], "asset_mounts": [mount]}, "constraints": syn},
              "grading": {"solution_files": [{"path": "book.sheet", "content": note + f"{cell}: {ref}\n"}], "tests": tests}}
     return run_exercise(registry, synth)
+
+
+def sheet_cell_values(registry, block):
+    """Values the engine computes for a spreadsheet_grid block's formula cells on its dataset (shown values are computed, never typed). Returns (values, problems)."""
+    cells = [c for c in block.get("cells", []) if c.get("formula")]
+    if not cells:
+        return {}, []
+    problems = []
+    ref = block["asset_ref"]
+    mount = {"asset_id": ref["asset_id"], "mount_path": (block.get("sheet_name") or "Sheet1") + ".csv"}
+    if ref.get("variant_id"):
+        mount["variant_id"] = ref["variant_id"]
+    tables, _ = _tables(registry, [mount], {}, problems)
+    if problems:
+        return {}, problems
+    text = "".join(f"{c['ref']}: {c['formula'] if c['formula'].startswith('=') else '=' + c['formula']}\n" for c in cells)
+    probes = [{"id": c["ref"], "kind": "cell", "ref": c["ref"]} for c in cells]
+    try:
+        r = node_run({"scripts": [_sheet_script("grid", text, tables, probes)]}, RUNTIMES["spreadsheet"]["runner"])["results"]["grid"]
+    except SandboxError as ex:
+        return {}, [f"sandbox: {ex}"]
+    if not r.get("ok"):
+        return {}, [f"the formulas do not load: {r.get('error', '?').splitlines()[-1]}"]
+    values = {}
+    for c in cells:
+        pr = r["probes"].get(c["ref"])
+        if pr and pr["ok"]:
+            values[c["ref"]] = pr["value"]
+        else:
+            problems.append(f"cell {c['ref']}: cannot evaluate {c['formula']!r}: {(pr or {}).get('error', 'no result')}")
+    return values, problems

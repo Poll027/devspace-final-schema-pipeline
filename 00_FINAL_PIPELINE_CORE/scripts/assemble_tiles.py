@@ -37,6 +37,12 @@ def iter_blocks(blocks):
 def compute_results(blocks, registry, errs):
     """data_table.result_of -> data_table.result, from a real sandbox run (displayed rows are computed, never typed)."""
     for b in iter_blocks(blocks):
+        if b["type"] == "spreadsheet_grid":
+            b.pop("computed_values", None)
+            vals, problems = sandbox.sheet_cell_values(registry, b)
+            errs += [f"spreadsheet_grid: {p}" for p in problems]
+            if vals:
+                b["computed_values"] = vals
         if b["type"] == "data_table" and "result_of" in b:
             b.pop("result", None)
             res, problems = sandbox.run_query(registry, b["result_of"])
