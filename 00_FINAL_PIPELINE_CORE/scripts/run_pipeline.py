@@ -255,6 +255,13 @@ def gate_cmd(c, cmd, B):
     return c.py(*[str(B) if t == "{B}" else t for t in cmd.split()])
 
 
+def tail_errors(text, cap=6000):
+    """Script output for the generator: every error line first (they sit at the top, above pages of warnings a plain tail would keep instead)."""
+    lines = text.splitlines()
+    errs = [l for l in lines if re.match(r"\s+E\s|.*(Traceback|Error:)", l)]
+    return ("\n".join(dict.fromkeys(errs))[:cap] + "\n--- rest ---\n" + text[-1000:]) if errs else text[-2500:]
+
+
 def part_gate(c, sid, chunk, ids):
     """Everything a script can check about one part, before any evaluator. Returns (ok, message for the generator)."""
     g, part = c.stage[sid].get("gate", {}), c.part(sid, chunk)
@@ -273,13 +280,13 @@ def part_gate(c, sid, chunk, ids):
     for cmd in g.get("cmds", []):
         r = c.sh(gate_cmd(c, cmd, c.B), check=False)
         if r.returncode:
-            out.append(f"{cmd}:\n" + (r.stdout + r.stderr)[-2500:])
+            out.append(f"{cmd}:\n" + tail_errors(r.stdout + r.stderr))
     if g.get("sandbox") and not out:
         d = sandbox_dir(c, sid, chunk, ids)
         for cmd in g["sandbox"]:
             r = c.sh(gate_cmd(c, cmd, d), check=False)
             if r.returncode:
-                out.append(f"{cmd}:\n" + (r.stdout + r.stderr)[-2500:])
+                out.append(f"{cmd}:\n" + tail_errors(r.stdout + r.stderr))
                 break
     return not out, "\n\n".join(out)
 
