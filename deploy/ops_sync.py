@@ -88,6 +88,8 @@ def main():
     sh("git", "fetch", "-q", "origin", cwd=CLONE, ok=True)
     if sh("git", "ls-remote", "--heads", "origin", "ops-status", cwd=CLONE, ok=True):
         sh("git", "checkout", "-q", "-B", "ops-status", "origin/ops-status", cwd=CLONE)
+    elif sh("git", "branch", "--list", "ops-status", cwd=CLONE, ok=True):  # an earlier run committed but could not push
+        sh("git", "checkout", "-q", "ops-status", cwd=CLONE)
     else:
         sh("git", "checkout", "-q", "--orphan", "ops-status", cwd=CLONE)
         sh("git", "rm", "-rfq", ".", cwd=CLONE, ok=True)
