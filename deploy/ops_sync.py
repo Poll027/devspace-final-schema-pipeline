@@ -95,7 +95,7 @@ def main():
     sh("git", "add", "status.json", cwd=CLONE)
     if sh("git", "status", "--porcelain", cwd=CLONE):
         sh("git", "-c", "user.name=ops-sync", "-c", "user.email=ops-sync@localhost", "commit", "-qm", f"status {snap['taken_at']}", cwd=CLONE)
-        sh("git", "push", "-q", "--force", "origin", "ops-status", cwd=CLONE, ok=True)  # one-file branch: history is not needed
+        sh("git", "push", "-q", "--force", "origin", "ops-status", cwd=CLONE)  # one-file branch: history is not needed
 
 
 if __name__ == "__main__":
