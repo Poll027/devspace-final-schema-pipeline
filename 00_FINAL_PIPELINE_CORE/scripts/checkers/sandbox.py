@@ -49,7 +49,7 @@ def _node_once(job, runner):
         raise SandboxError("node or sandbox/node_modules missing: run `npm ci` in 00_FINAL_PIPELINE_CORE/sandbox")
     env = {"PATH": os.environ.get("PATH", ""), "HOME": "/nonexistent", "LANG": "C"}  # no credentials, no proxies
     try:
-        flags = ["--permission", f"--allow-fs-read={SANDBOX}"] if Path(runner).name == "run_py.mjs" else []  # python: no host writes, children or workers
+        flags = ["--permission", f"--allow-fs-read={SANDBOX}"] if Path(runner).name in ("run_py.mjs", "run_sheet.mjs") else []  # python/sheet: no host writes, children or workers
         r = subprocess.run(["node", "--max-old-space-size=512", *flags, str(SANDBOX / Path(runner).name)], input=json.dumps(job), capture_output=True,
                            text=True, cwd=SANDBOX, env=env, timeout=NODE_TIMEOUT_S + 4 * len(job.get('scripts', [])))  # a slow server needs time per script, not just per process
     except subprocess.TimeoutExpired:
@@ -627,7 +627,224 @@ def grade_learner_py(registry, ix, learner_code):
     return not reasons, reasons
 
 
-RUNNERS = {"sql": run_sql, "python": run_python}
+# ---------------------------------------------------------------- Spreadsheet
+# The exercise's editable file is a sheet file (`[Sheet!]A1: value-or-=formula`, see sandbox/run_sheet.mjs, checkers/sheetsyntax.py); each mounted CSV is a sheet.
+# Tests: cell_equals {cell, expected}, range_equals {range, expected: [[...]]}, formula_uses {cell, functions: [NAMES]} (static), forbidden_syntax {descriptors}.
+SHEET_KINDS = {"cell_equals", "range_equals", "formula_uses", "forbidden_syntax"}
+SHEET_VALUE = {"cell_equals", "range_equals"}
+
+
+def _sheet_payload(tables):
+    return [{"name": os.path.splitext(os.path.basename(t["name"]))[0], "columns": [c["name"] for c in t["columns"]], "rows": t["rows"]} for t in tables]
+
+
+def _sheet_script(sid, content, tables, probes):
+    return {"id": sid, "content": content, "sheets": _sheet_payload(tables), "probes": probes}
+
+
+def _sheet_probes(tests):
+    return [{"id": t["test_id"], "kind": "cell" if t["kind"] == "cell_equals" else "range", "ref": t["spec"]["cell" if t["kind"] == "cell_equals" else "range"]}
+            for t in tests if t["kind"] in SHEET_VALUE]
+
+
+def sheet_apply_var(text, ref, value):
+    """Replace the typed constant in the sheet file's cell `ref` ('A1' or 'Sheet!A1'), keeping every other line. A formula cell is left alone."""
+    from . import sheetsyntax
+    want = ref.rsplit("!", 1)[-1].replace("$", "").upper()
+    out, done = [], False
+    for ln in text.splitlines(keepends=True):
+        body = ln.rstrip("\r\n")
+        m = sheetsyntax.LINE.match(body)
+        if not done and m and (m.group(2).upper() + m.group(3)) == want and not m.group(4).strip().startswith("="):
+            out.append(body[:m.start(4)] + (json.dumps(value) if isinstance(value, str) else str(value)) + ln[len(body):])
+            done = True
+        else:
+            out.append(ln)
+    return "".join(out)
+
+
+def sheet_var_mutations(text):
+    """Candidate set_variable mutations: each typed numeric constant cell of the file (the starter's inputs) gets a different number."""
+    from . import sheetsyntax
+    out = []
+    for sh, ref, c in sheetsyntax.parse_cells(text):
+        try:
+            v = float(c)
+        except ValueError:
+            continue
+        v = int(v) if v == int(v) else v
+        name = f"{sh}!{ref}" if sh else ref
+        out.append({"check_id": f"hc_cell_{ref}", "mutation": {"ops": [{"op": "set_variable", "name": name, "value": v + 7}]}})
+    return out[:4]
+
+
+def _formula_uses_ok(spec, content):
+    from . import sheetsyntax
+    tg = sheetsyntax.cell_tags(content, spec["cell"])
+    return tg is not None and all(f"fn:{f.upper()}" in tg for f in spec["functions"])
+
+
+def _sheet_result(r, tid):
+    if not r.get("ok"):
+        return None, f"the sheet does not load: {r.get('error', '?').splitlines()[-1]}"
+    p = r["probes"].get(tid)
+    return (p["value"], None) if p and p["ok"] else (None, f"cannot evaluate: {(p or {}).get('error', 'no result')}")
+
+
+def _sheet_forbidden(spec, content):
+    from . import sheetsyntax
+    have = sheetsyntax.used_tags(content)
+    return sorted(d for d in spec.get("descriptors", []) if (sheetsyntax.descriptor_tags(d) or None) and sheetsyntax.descriptor_tags(d) <= have)
+
+
+def run_sheet(registry, ix):
+    from . import sheetsyntax
+    o = Outcome()
+    pub, gr = ix["public"], ix["grading"]
+    pin = RUNTIMES["spreadsheet"]
+    if pub["runtime"].get("version") != pin["version"]:
+        o.problems.append(f"runtime.version {pub['runtime'].get('version')!r} must equal the pinned {pin['version']!r} (registry/runtimes.json)")
+    entry, solution = _entry(ix, "solution")
+    _, starter = _entry(ix, "starter")
+    if solution is None or starter is None:
+        o.problems.append(f"entry file {entry!r} missing from workspace.files or grading.solution_files")
+        return o
+    tables, _ = _tables(registry, pub["workspace"].get("asset_mounts", []), {}, o.problems)
+    tests = gr["tests"]
+    for t in tests:
+        if t["kind"] not in SHEET_KINDS:
+            o.problems.append(f"{t['test_id']}: test kind {t['kind']!r} is not supported by the spreadsheet runtime (use {sorted(SHEET_KINDS)})")
+            continue
+        sp = t["spec"]
+        need = {"cell_equals": ["cell", "expected"], "range_equals": ["range", "expected"], "formula_uses": ["cell", "functions"], "forbidden_syntax": []}[t["kind"]]
+        miss = [k for k in need if k not in sp]
+        if miss:
+            o.problems.append(f"{t['test_id']}: spec needs {miss}")
+        elif t["kind"] == "range_equals" and not (isinstance(sp["expected"], list) and all(isinstance(r, list) for r in sp["expected"])):
+            o.problems.append(f"{t['test_id']}: spec.expected must be a list of rows (a 2-D list)")
+        elif t["kind"] == "formula_uses" and not (isinstance(sp["functions"], list) and sp["functions"]):
+            o.problems.append(f"{t['test_id']}: spec.functions must list the function names the cell's formula must use")
+    graded = [t for t in tests if t["kind"] in SHEET_VALUE]
+    if not graded:
+        o.problems.append("no cell_equals / range_equals test checks what the sheet computes")
+    if o.problems:
+        return o
+    probes = _sheet_probes(tests)
+    cands = [{**c, "tag": "data"} for c in candidate_mutations(tables, None)] + [{**c, "tag": "var"} for c in sheet_var_mutations(solution)]
+
+    def mutated_script(c):
+        if c["tag"] == "var":
+            code = solution
+            for op in c["mutation"]["ops"]:
+                code = sheet_apply_var(code, op["name"], op["value"])
+            return _sheet_script(f"mut:{c['check_id']}", code, tables, probes)
+        return _sheet_script(f"mut:{c['check_id']}", solution, _mutated(tables, c["mutation"]), probes)
+
+    scripts = [_sheet_script("solution", solution, tables, probes), _sheet_script("starter", starter, tables, probes)] + [mutated_script(c) for c in cands]
+    res = node_run({"scripts": scripts}, pin["runner"])["results"]
+    if not res["solution"]["ok"]:
+        o.problems.append(f"solution does not load: {res['solution']['error'].splitlines()[-1]}")
+        return o
+    starter_passes = res["starter"]["ok"]
+    for t in tests:
+        tid, kind, spec = t["test_id"], t["kind"], t["spec"]
+        o.tests_total += 1
+        if kind == "forbidden_syntax":
+            hit = _sheet_forbidden(spec, solution)
+            if hit:
+                o.problems.append(f"{tid}: solution uses forbidden syntax {hit}")
+            else:
+                o.tests_passed += 1
+            continue
+        if kind == "formula_uses":
+            if _formula_uses_ok(spec, solution):
+                o.tests_passed += 1
+            else:
+                o.problems.append(f"{tid}: cell {spec['cell']} of the solution does not hold a formula using {spec['functions']}")
+            starter_passes = starter_passes and _formula_uses_ok(spec, starter)
+            continue
+        got, why = _sheet_result(res["solution"], tid)
+        if why:
+            o.problems.append(f"{tid}: solution {why}")
+            continue
+        tol = float(spec.get("tolerance", 1e-9))
+        if deep_equal(got, spec["expected"], tol):
+            o.tests_passed += 1
+        else:
+            o.problems.append(f"{tid}: the solution's result differs from spec.expected — gives {json.dumps(got)[:200]}; expected {json.dumps(spec['expected'])[:200]}")
+        if starter_passes:
+            sv, sw = _sheet_result(res["starter"], tid)
+            starter_passes = sw is None and deep_equal(sv, spec["expected"], tol)
+    if starter_passes:
+        o.problems.append("the starter sheet already passes every test: the learner has nothing to do")
+    hidden = []
+    for t in graded:
+        tid, spec = t["test_id"], t["spec"]
+        tol = float(spec.get("tolerance", 1e-9))
+        base, _ = _sheet_result(res["solution"], tid)
+        mine = []
+        for c in cands:
+            m, why = _sheet_result(res[f"mut:{c['check_id']}"], tid)
+            if why is None and base is not None and not deep_equal(m, base, tol):
+                mine.append({"check_id": f"{c['check_id']}_{tid}", "mutation": c["mutation"], "test_id": tid, "expected": {"value": m}})
+        var = [h for h in mine if h["check_id"].startswith("hc_cell_")]
+        hidden += var[:2] + [h for h in mine if h not in var][:MAX_HIDDEN - len(var[:2])]
+        if not mine:
+            o.problems.append(f"{tid}: the solution's result does not change when the mounted data or an input cell changes: a typed-in answer would pass. "
+                              "Make the result a formula over the mounted data or over input cells the starter file holds")
+    o.hidden_checks = hidden
+    cons = pub.get("constraints") or {}
+    viol, unmapped, _ = sheetsyntax.judge(solution, cons.get("allowed_syntax", []), cons.get("blocked_syntax", []))
+    o.problems += [f"solution {v}" for v in viol]
+    if unmapped:
+        o.unverified = f"syntax descriptors with no detector: {unmapped}"
+    if not o.problems:
+        o.provenance = {"runtime": pin["engine"], "runtime_version": pin["version"], "solution_sha256": sha(solution), "tests_passed": o.tests_passed}
+    return o
+
+
+def grade_learner_sheet(registry, ix, learner_sheet):
+    """Reference grader for a spreadsheet exercise: does the learner's sheet file pass every visible test AND every hidden check?
+    Returns (passed, [reasons]). The player's grader-core must behave identically (same engine, same data copies, same comparison)."""
+    pub, gr = ix["public"], ix["grading"]
+    pin = RUNTIMES["spreadsheet"]
+    problems = []
+    tables, _ = _tables(registry, pub["workspace"].get("asset_mounts", []), {}, problems)
+    probes = _sheet_probes(gr["tests"])
+    scripts = [_sheet_script("base", learner_sheet, tables, probes)]
+    for h in gr.get("hidden_checks", []):
+        m = h["mutation"]
+        if m["ops"][0]["op"] == "set_variable":
+            code = learner_sheet
+            for op in m["ops"]:
+                code = sheet_apply_var(code, op["name"], op["value"])
+            scripts.append(_sheet_script(f"hidden:{h['check_id']}", code, tables, probes))
+        else:
+            scripts.append(_sheet_script(f"hidden:{h['check_id']}", learner_sheet, _mutated(tables, m), probes))
+    res = node_run({"scripts": scripts}, pin["runner"])["results"]
+    reasons = []
+    for t in gr["tests"]:
+        spec = t["spec"]
+        if t["kind"] == "forbidden_syntax":
+            hit = _sheet_forbidden(spec, learner_sheet)
+            if hit:
+                reasons.append(f"{t['test_id']}: uses forbidden syntax {hit}")
+        elif t["kind"] == "formula_uses":
+            if not _formula_uses_ok(spec, learner_sheet):
+                reasons.append(f"{t['test_id']}: cell {spec['cell']} must hold a formula using {spec['functions']}")
+        else:
+            got, why = _sheet_result(res["base"], t["test_id"])
+            if why or not deep_equal(got, spec["expected"], float(spec.get("tolerance", 1e-9))):
+                reasons.append(f"{t['test_id']}: result differs")
+    for h in gr.get("hidden_checks", []):
+        t = next(x for x in gr["tests"] if x["test_id"] == h["test_id"])
+        got, why = _sheet_result(res[f"hidden:{h['check_id']}"], t["test_id"])
+        if why or not deep_equal(got, h["expected"]["value"], float(t["spec"].get("tolerance", 1e-9))):
+            reasons.append(f"{h['check_id']}: result differs on changed data (the sheet does not really compute the answer)")
+    return not reasons, reasons
+
+
+RUNNERS = {"sql": run_sql, "python": run_python, "spreadsheet": run_sheet}
 
 
 def run_exercise(registry, ix):
