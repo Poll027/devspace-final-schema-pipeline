@@ -56,10 +56,12 @@ def describe(unit):
     return d, repo
 
 
-def apply_fix(d, repo, state):
+def apply_fix(d, repo, state, busy_repos=()):
     """Restart a stopped service on newer origin/main, once per commit."""
     if d["active"] != "failed":
         return None
+    if str(repo) in busy_repos:  # a pull rewrites code under a sibling service running in this folder; its integrity guard reads that as an agent edit and stops it
+        return "waiting: another service is running in this repo; will pull when it is idle"
     sh("git", "fetch", "-q", "origin", cwd=repo, ok=True)
     new = sh("git", "rev-parse", "--short", "origin/main", cwd=repo, ok=True)
     if not new or state.get(d["service"]) == new:
@@ -78,10 +80,17 @@ def apply_fix(d, repo, state):
 def main():
     state = json.loads(STATE.read_text()) if STATE.exists() else {}
     snap = {"taken_at": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()), "services": []}
+    described = []
     for unit in services():
         try:
-            d, repo = describe(unit)
-            d["ops_action"] = apply_fix(d, repo, state)
+            described.append(describe(unit))
+        except Exception as ex:
+            snap["services"].append({"service": unit, "error": str(ex)[:300]})
+    busy = {str(r) for d, r in described if d["active"] in ("active", "activating", "reloading")}
+    for d, repo in described:
+        unit = d["service"]
+        try:
+            d["ops_action"] = apply_fix(d, repo, state, busy)
             snap["services"].append(d)
         except Exception as ex:
             snap["services"].append({"service": unit, "error": str(ex)[:300]})
