@@ -545,6 +545,17 @@ def reopen_for_findings(c, sid, hits):
     plan_ids = [t["tile_id"] for t in load(c.B / "tile_plans.json")["tiles"]]
     findings = "\n".join(hits)
     tiles = sorted({t for t in re.findall(r"tile_[a-z0-9_]+", findings) if t in plan_ids})
+    if not tiles:  # findings written under a per-tile heading ("## tile_x" then "BLOCKING Step 3: ...") name no tile themselves: use the nearest tile id above each
+        art = c.B / c.artifact(sid)
+        if art.exists() and art.suffix != ".json":
+            want, cur, found = {h.strip() for h in hits}, None, set()
+            for ln in art.read_text().splitlines():
+                m = re.findall(r"tile_[a-z0-9_]+", ln)
+                if m and m[0] in plan_ids:
+                    cur = m[0]
+                if cur and ln.strip() in want:
+                    found.add(cur)
+            tiles = sorted(found)
     if not tiles:
         raise Stuck(f"{sid} reported blocking findings that name no tile of this batch, so they can't be routed automatically. See {c.artifact(sid)}.\n" + "\n".join(hits[:15]))
     chunks = tile_chunks(c)
