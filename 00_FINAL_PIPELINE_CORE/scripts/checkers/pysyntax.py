@@ -250,8 +250,28 @@ def descriptor_tags(d):
     return tg or None
 
 
-def judge(code, allowed, blocked):
+def learner_part(code, starter):
+    """The solution with its top-level statements that appear unchanged in the starter blanked out (line numbers kept).
+    The starter's imports and `name = value` inputs are scaffolding the generator supplies (and the hard-coded-answer gate requires): the learner did not write them,
+    so their literals/imports are not judged against the concept's allowed syntax. Everything the learner adds or edits is still judged."""
+    if not starter:
+        return code
+    try:
+        mine, theirs = ast.parse(code), ast.parse(starter)
+    except SyntaxError:
+        return code
+    given = {ast.dump(n) for n in theirs.body}
+    lines = code.split("\n")
+    for n in mine.body:
+        if ast.dump(n) in given and not isinstance(n, (ast.FunctionDef, ast.ClassDef)):
+            for i in range(n.lineno - 1, n.end_lineno):
+                lines[i] = ""
+    return "\n".join(lines)
+
+
+def judge(code, allowed, blocked, starter=None):
     """(violations, unmapped, not_checkable)"""
+    code = learner_part(code, starter)
     amap, bmap, unmapped, nochk = {}, {}, [], []
     for d, m in [(d, amap) for d in allowed] + [(d, bmap) for d in blocked]:
         tg = descriptor_tags(d)

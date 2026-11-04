@@ -593,7 +593,7 @@ def run_python(registry, ix):
         o.problems.append("no chart test depends on the data or the starter's values: a hard-coded figure would pass. Add a plotted_data_equals test (or xticklabels/ylim) on data the program reads or computes")
     cons = pub.get("constraints") or {}
     try:
-        viol, unmapped, _ = pysyntax.judge(solution, cons.get("allowed_syntax", []), cons.get("blocked_syntax", []))
+        viol, unmapped, _ = pysyntax.judge(solution, cons.get("allowed_syntax", []), cons.get("blocked_syntax", []), starter)
     except SyntaxError as ex:
         viol, unmapped = [f"does not parse: {ex}"], []
     o.problems += [f"solution {v}" for v in viol]

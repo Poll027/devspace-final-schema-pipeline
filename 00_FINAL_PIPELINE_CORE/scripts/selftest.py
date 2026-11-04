@@ -483,6 +483,13 @@ def unit_python_runner():
     verdict("a package that is not installed", variant(lambda ix: ix["public"]["runtime"].update(packages=["tensorflow"])), "not installed")
     verdict("a solution that raises", variant(lambda ix: ix["grading"]["solution_files"][0].update(content=starter + "big = customers[customers['nope'] > limit]\n")), "solution does not run")
     verdict("a solution using syntax not yet taught", variant(lambda ix: ix["grading"]["solution_files"][0].update(content=sol + "print(len(big))\n")), "not yet taught")
+    st2 = starter + "rate = 2.5\n"
+    for name, code, want in [("the starter's own literals are scaffolding, not judged", st2 + "big = customers[customers['spend'] > limit]\n", False),
+                             ("a literal the learner adds is still judged", st2 + "big = customers[customers['spend'] > limit]\nextra = 2.5\n", True)]:
+        viol = pysyntax.judge(code, allowed, [], st2)[0]
+        ok = bool(viol) == want
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + f"python: {name}")
     verdict("a solution using blocked syntax", variant(lambda ix: ix["public"]["constraints"].update(blocked_syntax=["df[df['col'] > value]"], allowed_syntax=allowed[:-2])), "blocks for this practice")
     hard = variant(lambda ix: (ix["grading"]["solution_files"][0].update(content="import pandas as pd\nbig = pd.DataFrame({'customer_id': [1, 2, 4]})\n"),
                                ix["public"]["constraints"].update(allowed_syntax=allowed + ["pd.DataFrame(dict_of_lists)", "{key: value} dictionary literal", "[...] list literal"])))
