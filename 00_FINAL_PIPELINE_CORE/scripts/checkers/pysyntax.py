@@ -247,6 +247,13 @@ def descriptor_tags(d):
         tg.add("idx_assign")
     for m in re.finditer(r"\b(shape|dtypes|columns|index|values|available|rcParams)\b", d):
         tg.add(f"attr:{m.group(1)}")
+    if tg:  # an example call shows the literal arguments it takes: 'title' -> a string, (2, 2) / <int> -> whole numbers
+        if re.search(r"""['"]""", d):
+            tg.add("lit_str")
+        if re.search(r"(?<![\w.])\d+(?![\w.])|<int>", d):
+            tg.add("lit_int")
+        if re.search(r"<float>|\d\.\d", d):
+            tg.add("lit_float")
     return tg or None
 
 
