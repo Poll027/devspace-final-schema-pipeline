@@ -433,7 +433,9 @@ def ensure_gate(c, sid, chunk, ids):
                     merge(c, "03_screens", chunks)
             finally:
                 c.reopening.discard(art)
-        c.agent("GEN", generator_task(c, sid, chunk, ids, gate_msg=msg), f"{sid}:{chunk}:gatefix", tiles=len(ids or []))
+        out = c.agent("GEN", generator_task(c, sid, chunk, ids, gate_msg=msg), f"{sid}:{chunk}:gatefix", tiles=len(ids or []))
+        if not c.part(sid, chunk).exists():
+            c.log(f"  {sid}:{chunk} generator wrote no part; its reply: " + " ".join(str(out).split())[:700])
 
 
 def chunk_gen_eval(c, sid, chunk, ids):
@@ -444,7 +446,9 @@ def chunk_gen_eval(c, sid, chunk, ids):
     if not c.part(sid, chunk).exists() or not part_gate(c, sid, chunk, ids)[0]:
         if not c.part(sid, chunk).exists():
             c.log(f"{sid}:{chunk} generating")
-            c.agent("GEN", generator_task(c, sid, chunk, ids), f"{sid}:{chunk}:gen", tiles=len(ids or []))
+            out = c.agent("GEN", generator_task(c, sid, chunk, ids), f"{sid}:{chunk}:gen", tiles=len(ids or []))
+            if not c.part(sid, chunk).exists():
+                c.log(f"  {sid}:{chunk} generator wrote no part; its reply: " + " ".join(str(out).split())[:700])
         ensure_gate(c, sid, chunk, ids)
     prior, prev_keys = None, None
     for rnd in range(1, MAX_ROUNDS + 1):

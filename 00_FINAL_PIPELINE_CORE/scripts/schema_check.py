@@ -29,8 +29,12 @@ def errors(obj, schema_name, limit=25):
         where = "/".join(str(p) for p in e.absolute_path) or "<root>"
         msg = e.message
         if e.context:  # oneOf/anyOf: surface the branch whose `type` const matched, else the best-matching one
-            sub = [c for c in e.context if c.validator != "const" or c.path]
-            msg = "; ".join(sorted({f"{'/'.join(str(p) for p in c.absolute_path)}: {c.message}" for c in sub}, key=len)[:3]) or msg
+            branches = {}
+            for c in e.context:
+                branches.setdefault(c.relative_schema_path[0] if c.relative_schema_path else None, []).append(c)
+            chosen = [cs for cs in branches.values() if not any(c.validator == "const" and list(c.path) == ["type"] for c in cs)]  # the branch whose `type` matched
+            sub = [c for cs in chosen for c in cs] if chosen else [c for c in e.context if c.validator != "const" or c.path]
+            msg = "; ".join(sorted({f"{'/'.join(str(p) for p in c.absolute_path)}: {c.message}" for c in sub}, key=len)[:4]) or msg
         out.append(f"{where}: {msg[:300]}")
         if len(out) >= limit:
             break
