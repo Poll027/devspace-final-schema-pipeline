@@ -130,7 +130,7 @@ def validate_tile(C, tile_id, strict=False):
             if measured and not (measured & rem_facts[rid]):
                 rep.w(f"{s['step_id']}: remediation {rid} re-teaches {sorted(rem_facts[rid])} but the check measures {sorted(measured)} — a learner who fails it is sent to an unrelated fact")
     for r in referenced - rem_ids:
-        rep.e(f"feedback.remediation_step_id {r} is not a remediation step")
+        rep.e(f"feedback.remediation_step_id {r} is not a remediation step (this tile's remediation steps are {sorted(rem_ids)}; a main step id such as s06 is never valid)")
     for r in rem_ids - referenced:
         rep.w(f"remediation step {r} is never referenced")
     for c in cids:
