@@ -1,5 +1,5 @@
 {
- "taken_at": "2026-11-04 08:32:13 UTC",
+ "taken_at": "2026-11-04 08:38:13 UTC",
  "services": [
   {
    "service": "final-pipeline-pandas.service",
@@ -103,7 +103,7 @@
     "2026-11-04 05:49:41   gate: E tile_pandas_dataframe_reading.s05/ix.tile_pandas_dataframe_reading.s05: solution uses 'dict_lit', which is not in this practice's allowed syntax (not yet taught) | E tile_pandas_dataframe_reading.s05/ix.tile_pandas_dataframe_reading.s05: solution uses 'list_lit', which is not in this practice's allowed syntax (not yet taught) | E tile_pandas_dataframe_reading.s05/ix.tile_pandas_dataframe_reading.s05: solution uses 'lit_int', which is not in this practice's allowed syntax (not yet taught) | E tile_pandas_dataframe_reading.s05/ix.tile_pandas_dataframe_reading.s05: solution uses 'lit_str', which is not in this practice's allowed syntax (not yet taught) | E tile_pandas_dataframe_reading.s10/ix.tile_pandas_dataframe_reading.s10: solution uses 'lit_str', which is not in this practice's allowed syntax (not yet taught) | E tile_pandas_dataframe_reading.s05/ix.tile_pandas_dataframe_reading.s05: solution uses 'dict_lit', which is not in this practice's allowed syntax (not yet taught) | E tile_pandas_dataframe_reading.s05/ix.tile_pandas_dataframe_reading.s05: solution uses 'list_lit', which is not in this practice's allowed syntax (not yet taught) | E tile_pandas_dataframe_reading.s05/ix.tile_pandas_dataframe_reading.s05: solution uses 'lit_int', which is not in this practice's allowed syntax (not yet taught) | E tile_pandas_dataframe_reading.s05/ix.tile_pandas_dataframe_reading.s05: solution uses 'lit_str', which is not in this practice's allowed syntax (not yet taught) | E tile_pand",
     "2026-11-04 06:11:57 NOTIFY STOPPED final_batch_009_da_pandas"
    ],
-   "log_age_min": 140.3,
+   "log_age_min": 146.3,
    "stopped": "# STOPPED final_batch_009_da_pandas\n\n04_interactions:c0_canary still failing its deterministic gate after 3 generator repairs:\nschema_check:\nINVALID: /home/ubuntu/devspace-final-schema-pipeline/batches/final_batch_009_da_pandas/interactions.part.c0_canary.json against interactions_part.schema.json\n  tiles/0/interactions/1/interaction: tiles/0/interactions/1/interaction/type: 'choice' was expected; tiles/0/interactions/1/interaction/type: 'classify' was expected; tiles/0/interactions/1/interaction/type: 'ordering' was expected\n  tiles/0/interactions/4/interaction: tiles/0/interactions/4/interaction/type: 'choice' was expected; tiles/0/interactions/4/interaction/type: 'classify' was expected; tiles/0/interactions/4/interaction/type: 'ordering' was expected\n\n\nSpend so far $36.10. Fix the cause, then rerun the same command (finished stages are skipped).\n",
    "done": null,
    "proposed_fix": "# Proposed Fix for code_exercise Schema Validation Failure\n\n## Problem\nThe generator is creating `code_exercise` interactions with `constraints` and `feedback` as top-level properties of the interaction object. According to the schema (`ix.code_exercise.schema.json`):\n- `constraints` should be under `public` (not at the top level)\n- `feedback` should be under `grading` (not at the top level)\n\n## Root Cause\nBug in the code_exercise generator that places these properties at the wrong level in the JSON structure.\n\n## Fix Required\nIn the generator code that creates code_exercise interactions (likely in `00_FINAL_PIPELINE_CORE/generators/` or similar), modify the structure so that:\n\n1. Move `constraints` from top-level to `interaction['public']['constraints']`\n2. Move `feedback` from top-level to `interaction['grading']['feedback']`\n\nThe correct structure should be:\n```json\n{\n  \"type\": \"code_exercise\",\n  \"interaction_id\": \"...\",\n  \"public\": {\n    \"prompt\": \"...\",\n    \"runtime\": {...},\n    \"workspace\": {...},\n    \"constraints\": {  // \u2190 Should be here, not at top level\n      \"allowed_syntax\": [...],\n      \"blocked_syntax\": [...]\n    }\n  },\n  \"grading\": {\n    \"solution_files\": [...],\n    \"tests\": [...],\n    \"feedback\": {  // \u2190 Should be here, not at top level\n      \"correct\": {...},\n      \"incorrect\": {...},\n      \"hints\": [...],\n      \"remediation_step_id\": \"...\"\n    }\n  }\n}\n```\n\nCurrently the generator is producing these fields at the wrong nesting level, causing schema validation to fail.\n",
@@ -151,18 +151,6 @@
     "Started final-pipeline-sheet.service - Final pipeline supervisor (final-pipeline-sheet)."
    ],
    "log_tail": [
-    "2026-11-04 06:48:50 === 07_validate (script) spent $72.67",
-    "2026-11-04 06:48:50 07_validate: python3 00_FINAL_PIPELINE_CORE/scripts/validate_tile.py batches/final_batch_011_da_spreadsheet --strict",
-    "2026-11-04 06:49:00 GATE 07_validate PASS",
-    "2026-11-04 06:49:00 === 08_pedagogy_review (evaluator_only) spent $72.67",
-    "2026-11-04 07:00:47 GATE 08_pedagogy_review PASS",
-    "2026-11-04 07:00:47 === 09_leakage_check (evaluator_only) spent $74.82",
-    "2026-11-04 07:10:22 09_leakage_check: 2 blocking finding(s) on 1 tile(s); reopening stages 03/04 for chunk(s) ['c3'] (loop 1/2)",
-    "2026-11-04 07:19:06 00_preflight: gated PASS on disk, skipping",
-    "2026-11-04 07:19:06 01_scenario_assets: gated PASS on disk, skipping",
-    "2026-11-04 07:19:06 === 02_tile_plan (script) spent $77.79",
-    "2026-11-04 07:19:06 02_tile_plan: python3 00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py batches/final_batch_011_da_spreadsheet",
-    "2026-11-04 07:19:06 GATE 02_tile_plan PASS",
     "2026-11-04 07:19:06 === 03_screens (generate_evaluate) spent $77.79",
     "2026-11-04 07:19:07 GATE 03_screens PASS",
     "2026-11-04 07:19:07 === 04_interactions (generate_evaluate) spent $77.79",
@@ -210,13 +198,25 @@
     "2026-11-04 08:11:59 GATE 07_validate PASS",
     "2026-11-04 08:11:59 === 08_pedagogy_review (evaluator_only) spent $86.33",
     "2026-11-04 08:23:03 NOTIFY STOPPED final_batch_011_da_spreadsheet",
-    "2026-11-04 08:27:12 start final_batch_011_da_spreadsheet; cap $125.0; spent so far $89.06"
+    "2026-11-04 08:27:12 start final_batch_011_da_spreadsheet; cap $125.0; spent so far $89.06",
+    "2026-11-04 08:35:32 selftest: 0 missed",
+    "2026-11-04 08:35:32 00_preflight: gated PASS on disk, skipping",
+    "2026-11-04 08:35:32 01_scenario_assets: gated PASS on disk, skipping",
+    "2026-11-04 08:35:32 02_tile_plan: gated PASS on disk, skipping",
+    "2026-11-04 08:35:32 03_screens: gated PASS on disk, skipping",
+    "2026-11-04 08:35:32 04_interactions: gated PASS on disk, skipping",
+    "2026-11-04 08:35:32 05_code_exercises: planned stage, not run (code exercises are authored in stage 04 and executed by its gate)",
+    "2026-11-04 08:35:32 06_assemble: gated PASS on disk, skipping",
+    "2026-11-04 08:35:32 07_validate: gated PASS on disk, skipping",
+    "2026-11-04 08:35:32 === 08_pedagogy_review (evaluator_only) spent $89.06",
+    "2026-11-04 08:35:32 08_pedagogy_review: reusing the 3 blocking finding(s) already on disk",
+    "2026-11-04 08:35:32 08_pedagogy_review: 3 blocking finding(s) on 2 tile(s); reopening stages 03/04 for chunk(s) ['c1', 'c2'] (loop 1/2)"
    ],
-   "log_age_min": 5.0,
+   "log_age_min": 2.7,
    "stopped": null,
    "done": null,
    "proposed_fix": null,
-   "spend_usd": 89.06,
+   "spend_usd": 89.48,
    "ops_action": null
   },
   {
@@ -260,14 +260,6 @@
     "Started final-pipeline-viz.service - Final pipeline supervisor (final-pipeline-viz)."
    ],
    "log_tail": [
-    "2026-11-03 21:45:50 04_interactions:c0_canary gate failed, generator repair 2",
-    "2026-11-03 21:45:50   gate: E tile_viz_figures_layout_plotting.s05/ix.tile_viz_figures_layout_plotting.s05: constraints.allowed_syntax differs from viz.matplotlib_figure_axes's glossary practice anchor (it must be copied verbatim, never widened or trimmed) | E tile_viz_figures_layout_plotting.s05/ix.tile_viz_figures_layout_plotting.s05: ix.tile_viz_figures_layout_plotting.s05.t02: the solution's result differs from spec.expected \u2014 gives [1, 2, 3, 4, 5]; expected [1, 2, 3] | E tile_viz_figures_layout_plotting.s05/ix.tile_viz_figures_layout_plotting.s05: ix.tile_viz_figures_layout_plotting.s05.t03: the solution's result differs from spec.expected \u2014 gives [21, 23, 19, 25, 20]; expected [21, 23, 19] | E tile_viz_figures_layout_plotting.s08/ix.tile_viz_figures_layout_plotting.s08: constraints.allowed_syntax differs from viz.figure_size_layout's glossary practice anchor (it must be copied verbatim, never widened or trimmed) | E tile_viz_figures_layout_plotting.s12/ix.tile_viz_figures_layout_plotting.s12: constraints.allowed_syntax differs from viz.pyplot_basic_plotting's glossary practice anchor (it must be copied verbatim, never widened or trimmed) | E tile_viz_figures_layout_plotting.s12/ix.tile_viz_figures_layout_plotting.s12: ix.tile_viz_figures_layout_plotting.s12.t02: the solution's result differs from spec.expected \u2014 gives [0, 1, 2, 3, 4]; expected [0, 1, 2] | E tile_viz_figures_layout_plotting.s12/ix.tile_viz_figures_layout_plotting.s12: ix.tile_viz_figures_layout_plotting.s12.t03: the solution's resu",
-    "2026-11-03 22:03:27 04_interactions:c0_canary gate failed, generator repair 3",
-    "2026-11-03 22:03:27   gate: E tile_viz_figures_layout_plotting.s05/ix.tile_viz_figures_layout_plotting.s05: solution uses 'attr:read_csv', which is not in this practice's allowed syntax (not yet taught) | E tile_viz_figures_layout_plotting.s05/ix.tile_viz_figures_layout_plotting.s05: solution uses 'attr:tolist', which is not in this practice's allowed syntax (not yet taught) | E tile_viz_figures_layout_plotting.s05/ix.tile_viz_figures_layout_plotting.s05: solution uses 'idx', which is not in this practice's allowed syntax (not yet taught) | E tile_viz_figures_layout_plotting.s05/ix.tile_viz_figures_layout_plotting.s05: solution uses 'import:pandas', which is not in this practice's allowed syntax (not yet taught) | E tile_viz_figures_layout_plotting.s05/ix.tile_viz_figures_layout_plotting.s05: solution uses 'lit_str', which is not in this practice's allowed syntax (not yet taught) | E tile_viz_figures_layout_plotting.s05/ix.tile_viz_figures_layout_plotting.s05: solution uses 'tuple_lit', which is not in this practice's allowed syntax (not yet taught) | E tile_viz_figures_layout_plotting.s08/ix.tile_viz_figures_layout_plotting.s08: solution uses 'import:matplotlib', which is not in this practice's allowed syntax (not yet taught) | E tile_viz_figures_layout_plotting.s08/ix.tile_viz_figures_layout_plotting.s08: solution uses 'lit_int', which is not in this practice's allowed syntax (not yet taught) | E tile_viz_figures_layout_plotting.s12/ix.tile_viz_figures_layout_plotting.s12: solution uses 'attr:read_csv",
-    "2026-11-03 22:20:29 NOTIFY STOPPED final_batch_012_da_viz",
-    "2026-11-03 22:23:03 start final_batch_012_da_viz; cap $125.0; spent so far $24.69",
-    "2026-11-03 22:32:33 selftest: 0 missed",
-    "2026-11-03 22:32:33 00_preflight: gated PASS on disk, skipping",
     "2026-11-03 22:32:33 01_scenario_assets: gated PASS on disk, skipping",
     "2026-11-03 22:32:33 02_tile_plan: gated PASS on disk, skipping",
     "2026-11-03 22:32:33 === 03_screens (generate_evaluate) spent $24.69",
@@ -319,13 +311,21 @@
     "2026-11-04 06:17:40 04_interactions:c0_canary gate failed, generator repair 3",
     "2026-11-04 06:17:40   gate: E tile_viz_figures_layout_plotting.s05/ix.tile_viz_figures_layout_plotting.s05: solution uses 'list_lit', which is not in this practice's allowed syntax (not yet taught) | E tile_viz_figures_layout_plotting.s05/ix.tile_viz_figures_layout_plotting.s05: solution uses 'lit_int', which is not in this practice's allowed syntax (not yet taught) | E tile_viz_figures_layout_plotting.s05/ix.tile_viz_figures_layout_plotting.s05: solution uses 'tuple_lit', which is not in this practice's allowed syntax (not yet taught) | E tile_viz_figures_layout_plotting.s08/ix.tile_viz_figures_layout_plotting.s08: solution uses 'import:matplotlib', which is not in this practice's allowed syntax (not yet taught) | E tile_viz_figures_layout_plotting.s08/ix.tile_viz_figures_layout_plotting.s08: solution uses 'lit_int', which is not in this practice's allowed syntax (not yet taught) | E tile_viz_figures_layout_plotting.s12/ix.tile_viz_figures_layout_plotting.s12: solution uses 'list_lit', which is not in this practice's allowed syntax (not yet taught) | E tile_viz_figures_layout_plotting.s12/ix.tile_viz_figures_layout_plotting.s12: solution uses 'lit_int', which is not in this practice's allowed syntax (not yet taught) | E tile_viz_figures_layout_plotting.s05/ix.tile_viz_figures_layout_plotting.s05: solution uses 'tuple_lit', which is not in this practice's allowed syntax (not yet taught) | E tile_viz_figures_layout_plotting.s08/ix.tile_viz_figures_layout_plotting.s08: solution uses 'import:matplotlib', w",
     "2026-11-04 06:33:15 NOTIFY STOPPED final_batch_012_da_viz",
-    "2026-11-04 08:27:12 start final_batch_012_da_viz; cap $125.0; spent so far $42.35"
+    "2026-11-04 08:27:12 start final_batch_012_da_viz; cap $125.0; spent so far $42.35",
+    "2026-11-04 08:35:32 selftest: 0 missed",
+    "2026-11-04 08:35:32 00_preflight: gated PASS on disk, skipping",
+    "2026-11-04 08:35:32 01_scenario_assets: gated PASS on disk, skipping",
+    "2026-11-04 08:35:32 02_tile_plan: gated PASS on disk, skipping",
+    "2026-11-04 08:35:32 03_screens: gated PASS on disk, skipping",
+    "2026-11-04 08:35:32 === 04_interactions (generate_evaluate) spent $42.35",
+    "2026-11-04 08:37:08 04_interactions:c0_canary gate failed, generator repair 1",
+    "2026-11-04 08:37:08   gate: E tile_viz_figures_layout_plotting.s05/ix.tile_viz_figures_layout_plotting.s05: constraints.allowed_syntax differs from viz.matplotlib_figure_axes's glossary practice anchor (it must be copied verbatim, never widened or trimmed) | E tile_viz_figures_layout_plotting.s08/ix.tile_viz_figures_layout_plotting.s08: constraints.allowed_syntax differs from viz.figure_size_layout's glossary practice anchor (it must be copied verbatim, never widened or trimmed) | E tile_viz_figures_layout_plotting.s12/ix.tile_viz_figures_layout_plotting.s12: constraints.allowed_syntax differs from viz.pyplot_basic_plotting's glossary practice anchor (it must be copied verbatim, never widened or trimmed) | E tile_viz_figures_layout_plotting.s05/ix.tile_viz_figures_layout_plotting.s05: constraints.allowed_syntax differs from viz.matplotlib_figure_axes's glossary practice anchor (it must be copied verbatim, never widened or trimmed) | E tile_viz_figures_layout_plotting.s08/ix.tile_viz_figures_layout_plotting.s08: constraints.allowed_syntax differs from viz.figure_size_layout's glossary practice anchor (it must be copied verbatim, never widened or trimmed) | E tile_viz_figures_layout_plotting.s12/ix.tile_viz_figures_layout_plotting.s12: constraints.allowed_syntax differs from viz.pyplot_basic_plotting's glossary practice anchor (it must be copied verbatim, never widened or trimmed)"
    ],
-   "log_age_min": 5.0,
+   "log_age_min": 1.1,
    "stopped": null,
    "done": null,
    "proposed_fix": null,
-   "spend_usd": 42.35,
+   "spend_usd": 42.57,
    "ops_action": null
   },
   {
@@ -430,7 +430,7 @@
     "2026-11-03 22:27:25 12_publish: planned stage, not run",
     "2026-11-03 22:27:25 NOTIFY DONE final_batch_008_da_python_core"
    ],
-   "log_age_min": 604.8,
+   "log_age_min": 610.8,
    "stopped": null,
    "done": "# DONE final_batch_008_da_python_core\n\nAll implemented stages gated. Spend $102.48. 05 and 12 are planned stages and were not run.\n",
    "proposed_fix": null,
