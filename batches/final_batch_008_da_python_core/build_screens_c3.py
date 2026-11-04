@@ -1,0 +1,1993 @@
+"""
+Build screens.part.c3.json for tile_python_functions_scope, tile_python_errors_imports,
+tile_python_file_io, tile_python_pep8_style.
+"""
+import json
+
+data = {
+  "schema_version": "0.1.0",
+  "kind": "screens_part",
+  "path_id": "data_analyst",
+  "batch_id": "final_batch_008_da_python_core",
+  "tiles": [
+
+    # =========================================================
+    # TILE 1: tile_python_functions_scope
+    # =========================================================
+    {
+      "tile_id": "tile_python_functions_scope",
+      "title": "Defining Functions, Parameters, and Return Values",
+      "steps": [
+
+        # --- s01: explainer — defining_calling_functions (process_flow visual) ---
+        {
+          "step_id": "tile_python_functions_scope.s01",
+          "type": "explainer",
+          "concept_ids": ["python.defining_calling_functions"],
+          "eyebrow": "Functions",
+          "title": "Define once, run whenever you need it",
+          "lede": "A function packages a block of code under a name so you can run it as many times as you like without copying it.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_functions_scope.s01.b1",
+              "role": "definition",
+              "text": "The keyword `def` introduces a function definition: `def summarize_delivery():` gives the function its name and an empty parameter list. The statements that form the body start on the next line and must be indented. Writing the `def` block only stores the function under that name — nothing in the body runs yet.",
+              "lineage": {
+                "concept_ids": ["python.defining_calling_functions"],
+                "teaching_block_ids": ["python.defining_calling_functions#tb1"],
+                "fact_ids": ["python.defining_calling_functions#f1"]
+              }
+            },
+            {
+              "type": "prose",
+              "block_id": "tile_python_functions_scope.s01.b2",
+              "role": "mechanism",
+              "text": "Calling the function by its name followed by parentheses — `summarize_delivery()` — is what actually runs the body. You can call the same function multiple times; each call runs the body from the top.",
+              "lineage": {
+                "concept_ids": ["python.defining_calling_functions"],
+                "teaching_block_ids": ["python.defining_calling_functions#tb2"],
+                "fact_ids": ["python.defining_calling_functions#f2"]
+              }
+            },
+            {
+              "type": "process_flow",
+              "block_id": "tile_python_functions_scope.s01.b3",
+              "title": "def stores; calling runs",
+              "direction": "LR",
+              "nodes": [
+                {"id": "n_def", "label": "def summarize_delivery():\n    print('--- summary ---')", "kind": "step", "detail": "Definition — body does NOT run here"},
+                {"id": "n_call1", "label": "summarize_delivery()", "kind": "step", "detail": "First call — body runs"},
+                {"id": "n_call2", "label": "summarize_delivery()", "kind": "step", "detail": "Second call — body runs again"}
+              ],
+              "edges": [
+                {"from": "n_def", "to": "n_call1", "label": "call 1", "kind": "next"},
+                {"from": "n_def", "to": "n_call2", "label": "call 2", "kind": "branch"}
+              ],
+              "reveal": "all",
+              "alt_text": "A box labelled with the def statement sits on the left. Two arrows labelled 'call 1' and 'call 2' point from it to two separate call boxes on the right, showing the body runs once per call.",
+              "lineage": {
+                "concept_ids": ["python.defining_calling_functions"],
+                "teaching_block_ids": ["python.defining_calling_functions#tb3"],
+                "fact_ids": ["python.defining_calling_functions#f1", "python.defining_calling_functions#f2"],
+                "anchors": ["python.defining_calling_functions#visual"]
+              }
+            }
+          ],
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": ["python.defining_calling_functions"],
+            "teaching_block_ids": [
+              "python.defining_calling_functions#tb1",
+              "python.defining_calling_functions#tb2",
+              "python.defining_calling_functions#tb3"
+            ],
+            "fact_ids": [
+              "python.defining_calling_functions#f1",
+              "python.defining_calling_functions#f2"
+            ],
+            "anchors": ["python.defining_calling_functions#visual"]
+          }
+        },
+
+        # --- s02: check — recognize_function_definition ---
+        {
+          "step_id": "tile_python_functions_scope.s02",
+          "type": "check",
+          "concept_ids": ["python.defining_calling_functions"],
+          "eyebrow": "Quick check",
+          "title": "Spot the function definition",
+          "lede": "Which line introduces a function definition?",
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": ["python.defining_calling_functions"],
+            "teaching_block_ids": [],
+            "fact_ids": ["python.defining_calling_functions#f1"],
+            "anchors": ["python.defining_calling_functions#assessment:recognize_function_definition"]
+          }
+        },
+
+        # --- s03: hands_on — call_function_to_run_its_body ---
+        {
+          "step_id": "tile_python_functions_scope.s03",
+          "type": "hands_on",
+          "concept_ids": ["python.defining_calling_functions"],
+          "eyebrow": "Practice",
+          "title": "Call a function to run its body",
+          "lede": "Write a call that runs the helper function defined for you.",
+          "reward": {"gems": 10},
+          "lineage": {
+            "concept_ids": ["python.defining_calling_functions"],
+            "teaching_block_ids": [],
+            "fact_ids": ["python.defining_calling_functions#f2"],
+            "anchors": [
+              "python.defining_calling_functions#practice",
+              "python.defining_calling_functions#assessment:call_function_to_run_its_body"
+            ]
+          }
+        },
+
+        # --- s04: explainer — parameters_arguments (diagram visual) ---
+        {
+          "step_id": "tile_python_functions_scope.s04",
+          "type": "explainer",
+          "concept_ids": ["python.parameters_arguments"],
+          "eyebrow": "Parameters",
+          "title": "Give your function the inputs it needs",
+          "lede": "Parameters let a function work with different values on each call instead of always doing the same thing.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_functions_scope.s04.b1",
+              "role": "intro",
+              "text": "The formal parameters of a function are named in its `def` statement's parenthesised list. `def classify_delivery(minutes):` declares one parameter, `minutes`. Inside the body, `minutes` refers to whatever value was passed when the function was called.",
+              "lineage": {
+                "concept_ids": ["python.parameters_arguments"],
+                "teaching_block_ids": ["python.parameters_arguments#tb1", "python.parameters_arguments#tb2"],
+                "fact_ids": ["python.parameters_arguments#f1", "python.parameters_arguments#f2"]
+              }
+            },
+            {
+              "type": "prose",
+              "block_id": "tile_python_functions_scope.s04.b2",
+              "role": "mechanism",
+              "text": "When you call a function with positional arguments, the first argument fills the first parameter slot, the second fills the second, and so on. For `def delivery_summary(city, minutes):`, calling `delivery_summary('Lagos', 32)` sets `city` to `'Lagos'` and `minutes` to `32`.",
+              "lineage": {
+                "concept_ids": ["python.parameters_arguments"],
+                "teaching_block_ids": ["python.parameters_arguments#tb3"],
+                "fact_ids": ["python.parameters_arguments#f3"]
+              }
+            },
+            {
+              "type": "diagram",
+              "block_id": "tile_python_functions_scope.s04.b3",
+              "diagram_kind": "mapping",
+              "title": "Arguments fill parameter slots in order",
+              "nodes": [
+                {"id": "arg_city", "label": "'Lagos'", "kind": "argument", "group": "call"},
+                {"id": "arg_min",  "label": "32",       "kind": "argument", "group": "call"},
+                {"id": "par_city", "label": "city",     "kind": "parameter", "group": "def"},
+                {"id": "par_min",  "label": "minutes",  "kind": "parameter", "group": "def"}
+              ],
+              "edges": [
+                {"from": "arg_city", "to": "par_city", "label": "1st → 1st", "order": 1, "directed": True},
+                {"from": "arg_min",  "to": "par_min",  "label": "2nd → 2nd", "order": 2, "directed": True}
+              ],
+              "alt_text": "Two argument values ('Lagos' and 32) on the left with arrows pointing to the matching parameter names (city and minutes) on the right, labelled 1st→1st and 2nd→2nd.",
+              "lineage": {
+                "concept_ids": ["python.parameters_arguments"],
+                "teaching_block_ids": ["python.parameters_arguments#tb3"],
+                "fact_ids": ["python.parameters_arguments#f3"],
+                "anchors": ["python.parameters_arguments#visual"]
+              }
+            }
+          ],
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": ["python.parameters_arguments"],
+            "teaching_block_ids": [
+              "python.parameters_arguments#tb1",
+              "python.parameters_arguments#tb2",
+              "python.parameters_arguments#tb3"
+            ],
+            "fact_ids": [
+              "python.parameters_arguments#f1",
+              "python.parameters_arguments#f2",
+              "python.parameters_arguments#f3"
+            ],
+            "anchors": ["python.parameters_arguments#visual"]
+          }
+        },
+
+        # --- s05: check — match_positional_arguments_to_parameters ---
+        {
+          "step_id": "tile_python_functions_scope.s05",
+          "type": "check",
+          "concept_ids": ["python.parameters_arguments"],
+          "eyebrow": "Quick check",
+          "title": "Match arguments to parameters",
+          "lede": "Given a function call, which value does each parameter receive?",
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": ["python.parameters_arguments"],
+            "teaching_block_ids": [],
+            "fact_ids": ["python.parameters_arguments#f3"],
+            "anchors": ["python.parameters_arguments#assessment:match_positional_arguments_to_parameters"]
+          }
+        },
+
+        # --- s06: hands_on — parameters practice ---
+        {
+          "step_id": "tile_python_functions_scope.s06",
+          "type": "hands_on",
+          "concept_ids": ["python.parameters_arguments"],
+          "eyebrow": "Practice",
+          "title": "Add parameters and call with arguments",
+          "lede": "Extend a function to accept a city and a delivery time, then call it with QuickDeliver order values.",
+          "reward": {"gems": 10},
+          "lineage": {
+            "concept_ids": ["python.parameters_arguments"],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "python.parameters_arguments#f1",
+              "python.parameters_arguments#f2",
+              "python.parameters_arguments#f3"
+            ],
+            "anchors": [
+              "python.parameters_arguments#practice",
+              "python.parameters_arguments#assessment:identify_parameters_and_their_values",
+              "python.parameters_arguments#assessment:match_positional_arguments_to_parameters"
+            ]
+          }
+        },
+
+        # --- s07: explainer — return_values (before_after visual) ---
+        {
+          "step_id": "tile_python_functions_scope.s07",
+          "type": "explainer",
+          "concept_ids": ["python.return_values"],
+          "eyebrow": "Return values",
+          "title": "Hand a result back to the caller",
+          "lede": "A function that only prints its result can't be reused — the caller needs a `return` statement to get the value back.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_functions_scope.s07.b1",
+              "role": "intro",
+              "text": "A `return` statement sends a value back to the code that called the function. `return category` gives the caller access to the string `category` computed inside the function. Without `return`, the caller receives `None` — the built-in empty value Python uses when nothing is explicitly returned.",
+              "lineage": {
+                "concept_ids": ["python.return_values"],
+                "teaching_block_ids": ["python.return_values#tb1", "python.return_values#tb2"],
+                "fact_ids": ["python.return_values#f1", "python.return_values#f2"]
+              }
+            },
+            {
+              "type": "prose",
+              "block_id": "tile_python_functions_scope.s07.b2",
+              "role": "mechanism",
+              "text": "The returned value can be stored in a variable for later use. After `result = classify_delivery(32)`, the variable `result` holds whatever `classify_delivery` returned, so later code can reuse `result` without calling the function again.",
+              "lineage": {
+                "concept_ids": ["python.return_values"],
+                "teaching_block_ids": ["python.return_values#tb3"],
+                "fact_ids": ["python.return_values#f3"]
+              }
+            },
+            {
+              "type": "before_after",
+              "block_id": "tile_python_functions_scope.s07.b3",
+              "before": {
+                "type": "code_walkthrough",
+                "block_id": "tile_python_functions_scope.s07.b3.before",
+                "language": "python",
+                "code": "def classify_delivery(minutes):\n    if minutes > 45:\n        print('slow')\n    else:\n        print('fast')\n\nclassify_delivery(32)   # prints 'fast'\nresult = classify_delivery(32)  # result is None",
+                "annotations": [
+                  {"start_line": 8, "end_line": 8, "text": "result is None — print() returns nothing"}
+                ]
+              },
+              "after": {
+                "type": "code_walkthrough",
+                "block_id": "tile_python_functions_scope.s07.b3.after",
+                "language": "python",
+                "code": "def classify_delivery(minutes):\n    if minutes > 45:\n        return 'slow'\n    else:\n        return 'fast'\n\nresult = classify_delivery(32)  # result is 'fast'\nprint(result)                   # 'fast'",
+                "annotations": [
+                  {"start_line": 7, "end_line": 7, "text": "result holds 'fast' — the caller can reuse it"}
+                ]
+              },
+              "change_summary": "Replace print() with return so the caller receives the value instead of None.",
+              "lineage": {
+                "concept_ids": ["python.return_values"],
+                "teaching_block_ids": ["python.return_values#tb4"],
+                "fact_ids": ["python.return_values#f1", "python.return_values#f2", "python.return_values#f3"],
+                "anchors": ["python.return_values#visual"]
+              }
+            }
+          ],
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": ["python.return_values"],
+            "teaching_block_ids": [
+              "python.return_values#tb1",
+              "python.return_values#tb2",
+              "python.return_values#tb3",
+              "python.return_values#tb4"
+            ],
+            "fact_ids": [
+              "python.return_values#f1",
+              "python.return_values#f2",
+              "python.return_values#f3"
+            ],
+            "anchors": ["python.return_values#visual"]
+          }
+        },
+
+        # --- s08: video — return_values ---
+        {
+          "step_id": "tile_python_functions_scope.s08",
+          "type": "video",
+          "concept_ids": ["python.return_values"],
+          "eyebrow": "Watch",
+          "title": "Return values in action",
+          "lede": "See how return hands a result back to the caller.",
+          "blocks": [
+            {
+              "type": "media_group",
+              "block_id": "tile_python_functions_scope.s08.b1",
+              "segment_ids": [
+                "seg_python.return_values_AetGXMcNU3M_0_300",
+                "seg_python.return_values_DZ2yBGzvlXk_0_397"
+              ]
+            }
+          ],
+          "reward": {"gems": 3},
+          "lineage": {
+            "concept_ids": ["python.return_values"],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "python.return_values#f1",
+              "python.return_values#f2",
+              "python.return_values#f3"
+            ],
+            "segment_ids": [
+              "seg_python.return_values_AetGXMcNU3M_0_300",
+              "seg_python.return_values_DZ2yBGzvlXk_0_397"
+            ]
+          }
+        },
+
+        # --- s09: check — return_and_store_a_value ---
+        {
+          "step_id": "tile_python_functions_scope.s09",
+          "type": "check",
+          "concept_ids": ["python.return_values"],
+          "eyebrow": "Quick check",
+          "title": "Return and store a value",
+          "lede": "Which snippet correctly returns a value and stores it in a variable?",
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": ["python.return_values"],
+            "teaching_block_ids": [],
+            "fact_ids": ["python.return_values#f1", "python.return_values#f3"],
+            "anchors": ["python.return_values#assessment:return_and_store_a_value"]
+          }
+        },
+
+        # --- s10: hands_on — return_values practice ---
+        {
+          "step_id": "tile_python_functions_scope.s10",
+          "type": "hands_on",
+          "concept_ids": ["python.return_values"],
+          "eyebrow": "Practice",
+          "title": "Write a function that returns a result",
+          "lede": "Convert a print-only function into one that returns its result so the caller can store and reuse it.",
+          "reward": {"gems": 10},
+          "lineage": {
+            "concept_ids": ["python.return_values"],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "python.return_values#f1",
+              "python.return_values#f2",
+              "python.return_values#f3"
+            ],
+            "anchors": [
+              "python.return_values#practice",
+              "python.return_values#assessment:distinguish_return_from_print",
+              "python.return_values#assessment:return_and_store_a_value"
+            ]
+          }
+        },
+
+        # --- s11: explainer — function_default_keyword_args (diagram visual, alternate for annotated_image) ---
+        {
+          "step_id": "tile_python_functions_scope.s11",
+          "type": "explainer",
+          "concept_ids": ["python.function_default_keyword_args"],
+          "eyebrow": "Default and keyword arguments",
+          "title": "Optional parameters and named arguments",
+          "lede": "Default values let callers omit arguments; keyword arguments let callers name them explicitly.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_functions_scope.s11.b1",
+              "role": "definition",
+              "text": "Specifying a default value for a parameter — `def ask_ok(prompt, retries=4):` — creates a function that can be called with fewer arguments than it is defined to accept. Calling `ask_ok('Delete this order?')` works and uses `4` for `retries`.",
+              "lineage": {
+                "concept_ids": ["python.function_default_keyword_args"],
+                "teaching_block_ids": ["python.function_default_keyword_args#tb1"],
+                "fact_ids": ["python.function_default_keyword_args#f1"]
+              }
+            },
+            {
+              "type": "prose",
+              "block_id": "tile_python_functions_scope.s11.b2",
+              "role": "syntax",
+              "text": "A function can also be called using keyword arguments of the form `kwarg=value` — `ask_ok(prompt='Delete this order?', retries=2)`. In a call, keyword arguments must follow any positional arguments. All keyword arguments must match one of the function's parameters, and no parameter may receive a value more than once.",
+              "lineage": {
+                "concept_ids": ["python.function_default_keyword_args"],
+                "teaching_block_ids": ["python.function_default_keyword_args#tb2", "python.function_default_keyword_args#tb3"],
+                "fact_ids": ["python.function_default_keyword_args#f2", "python.function_default_keyword_args#f3"]
+              }
+            },
+            {
+              "type": "prose",
+              "block_id": "tile_python_functions_scope.s11.b3",
+              "role": "misconception",
+              "text": "A default value is evaluated only once, at the point the function is defined — not on each call. If that default is a mutable object such as a list, the same object is shared across calls and can accumulate changes unless the function creates a fresh value each time.",
+              "lineage": {
+                "concept_ids": ["python.function_default_keyword_args"],
+                "teaching_block_ids": ["python.function_default_keyword_args#tb4"],
+                "fact_ids": ["python.function_default_keyword_args#m1"]
+              }
+            },
+            {
+              "type": "diagram",
+              "block_id": "tile_python_functions_scope.s11.b4",
+              "diagram_kind": "mapping",
+              "title": "Three ways to call ask_ok(prompt, retries=4)",
+              "nodes": [
+                {"id": "sig",       "label": "def ask_ok(prompt, retries=4):", "kind": "definition", "group": "signature"},
+                {"id": "call_pos",  "label": "ask_ok('Delete?', 2)",           "kind": "call",       "group": "calls"},
+                {"id": "call_kw",   "label": "ask_ok(prompt='Delete?', retries=2)", "kind": "call",  "group": "calls"},
+                {"id": "call_def",  "label": "ask_ok('Delete?')",              "kind": "call",       "group": "calls"},
+                {"id": "res_pos",   "label": "prompt='Delete?', retries=2",    "kind": "result",     "group": "values"},
+                {"id": "res_kw",    "label": "prompt='Delete?', retries=2",    "kind": "result",     "group": "values"},
+                {"id": "res_def",   "label": "prompt='Delete?', retries=4 (default)", "kind": "result", "group": "values"}
+              ],
+              "edges": [
+                {"from": "call_pos",  "to": "res_pos",  "directed": True},
+                {"from": "call_kw",   "to": "res_kw",   "directed": True},
+                {"from": "call_def",  "to": "res_def",  "directed": True}
+              ],
+              "alt_text": "Function signature at top with default retries=4. Three call styles below — positional, keyword, and default-omitted — each mapped to the parameter values they produce.",
+              "lineage": {
+                "concept_ids": ["python.function_default_keyword_args"],
+                "teaching_block_ids": [
+                  "python.function_default_keyword_args#tb1",
+                  "python.function_default_keyword_args#tb2"
+                ],
+                "fact_ids": [
+                  "python.function_default_keyword_args#f1",
+                  "python.function_default_keyword_args#f2"
+                ],
+                "anchors": ["python.function_default_keyword_args#visual"]
+              }
+            }
+          ],
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": ["python.function_default_keyword_args"],
+            "teaching_block_ids": [
+              "python.function_default_keyword_args#tb1",
+              "python.function_default_keyword_args#tb2",
+              "python.function_default_keyword_args#tb3",
+              "python.function_default_keyword_args#tb4"
+            ],
+            "fact_ids": [
+              "python.function_default_keyword_args#f1",
+              "python.function_default_keyword_args#f2",
+              "python.function_default_keyword_args#f3",
+              "python.function_default_keyword_args#m1"
+            ],
+            "anchors": ["python.function_default_keyword_args#visual"]
+          }
+        },
+
+        # --- s12: video — function_default_keyword_args ---
+        {
+          "step_id": "tile_python_functions_scope.s12",
+          "type": "video",
+          "concept_ids": ["python.function_default_keyword_args"],
+          "eyebrow": "Watch",
+          "title": "Default values and keyword arguments",
+          "lede": "See default parameters and keyword calls in action.",
+          "blocks": [
+            {
+              "type": "media_group",
+              "block_id": "tile_python_functions_scope.s12.b1",
+              "segment_ids": [
+                "seg_python.function_default_keyword_args_m2uURZxex3c_0_195",
+                "seg_python.function_default_keyword_args_7QCHpAtlSMo_0_201"
+              ]
+            }
+          ],
+          "reward": {"gems": 3},
+          "lineage": {
+            "concept_ids": ["python.function_default_keyword_args"],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "python.function_default_keyword_args#f1",
+              "python.function_default_keyword_args#f2"
+            ],
+            "segment_ids": [
+              "seg_python.function_default_keyword_args_m2uURZxex3c_0_195",
+              "seg_python.function_default_keyword_args_7QCHpAtlSMo_0_201"
+            ]
+          }
+        },
+
+        # --- s13: check — recognize_mutable_default_trap ---
+        {
+          "step_id": "tile_python_functions_scope.s13",
+          "type": "check",
+          "concept_ids": ["python.function_default_keyword_args"],
+          "eyebrow": "Quick check",
+          "title": "Spot the mutable default trap",
+          "lede": "What happens when a function uses a mutable object as a default value?",
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": ["python.function_default_keyword_args"],
+            "teaching_block_ids": [],
+            "fact_ids": ["python.function_default_keyword_args#m1"],
+            "anchors": ["python.function_default_keyword_args#assessment:recognize_mutable_default_trap"]
+          }
+        },
+
+        # --- s14: hands_on — default/keyword args practice ---
+        {
+          "step_id": "tile_python_functions_scope.s14",
+          "type": "hands_on",
+          "concept_ids": ["python.function_default_keyword_args"],
+          "eyebrow": "Practice",
+          "title": "Call with defaults and keyword arguments",
+          "lede": "Call a delivery-classification function three ways: omitting a default, using positional arguments, and using keyword arguments.",
+          "reward": {"gems": 10},
+          "lineage": {
+            "concept_ids": ["python.function_default_keyword_args"],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "python.function_default_keyword_args#f1",
+              "python.function_default_keyword_args#f2",
+              "python.function_default_keyword_args#f3"
+            ],
+            "anchors": [
+              "python.function_default_keyword_args#practice",
+              "python.function_default_keyword_args#assessment:call_with_default_omitted",
+              "python.function_default_keyword_args#assessment:call_with_keyword_arguments"
+            ]
+          }
+        },
+
+        # --- s15: explainer — variable_scope (diagram visual) ---
+        {
+          "step_id": "tile_python_functions_scope.s15",
+          "type": "explainer",
+          "concept_ids": ["python.variable_scope"],
+          "eyebrow": "Variable scope",
+          "title": "Where Python looks for a name",
+          "lede": "A name created inside a function lives in that function's local table — it doesn't automatically reach the outside world.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_functions_scope.s15.b1",
+              "role": "intro",
+              "text": "All variable assignments in a function store the value in that function's local symbol table. A name like `total` assigned inside a function is a different variable from any `total` that exists outside it.",
+              "lineage": {
+                "concept_ids": ["python.variable_scope"],
+                "teaching_block_ids": ["python.variable_scope#tb1"],
+                "fact_ids": ["python.variable_scope#f1"]
+              }
+            },
+            {
+              "type": "prose",
+              "block_id": "tile_python_functions_scope.s15.b2",
+              "role": "mechanism",
+              "text": "For a function that is not nested inside another, variable references inside it first look in the local symbol table, then the global symbol table, and finally the table of built-in names. So a name assigned only outside the function is still readable inside it — Python finds it in the global table once the local lookup fails.",
+              "lineage": {
+                "concept_ids": ["python.variable_scope"],
+                "teaching_block_ids": ["python.variable_scope#tb2"],
+                "fact_ids": ["python.variable_scope#f2"]
+              }
+            },
+            {
+              "type": "prose",
+              "block_id": "tile_python_functions_scope.s15.b3",
+              "role": "misconception",
+              "text": "A global variable cannot be directly assigned a value from inside a function unless it is named in a `global` statement. Without `global total`, writing `total = 0` inside a function creates a new local `total` and leaves the global `total` unchanged. The global may still be read without the statement.",
+              "lineage": {
+                "concept_ids": ["python.variable_scope"],
+                "teaching_block_ids": ["python.variable_scope#tb3"],
+                "fact_ids": ["python.variable_scope#f3"]
+              }
+            },
+            {
+              "type": "diagram",
+              "block_id": "tile_python_functions_scope.s15.b4",
+              "diagram_kind": "container",
+              "title": "Local and global symbol tables",
+              "nodes": [
+                {"id": "global_table", "label": "Global symbol table", "kind": "scope", "group": "global"},
+                {"id": "g_total",      "label": "total = 100",         "kind": "name",  "group": "global"},
+                {"id": "local_table",  "label": "Local symbol table (inside function)", "kind": "scope", "group": "local"},
+                {"id": "l_total",      "label": "total = 0  (new local)", "kind": "name", "group": "local"}
+              ],
+              "edges": [
+                {"from": "local_table", "to": "global_table", "label": "lookup order: local → global → built-ins", "directed": True}
+              ],
+              "alt_text": "Two nested boxes: an outer 'Global symbol table' containing total=100, and an inner 'Local symbol table' containing a separate total=0. An arrow from the inner box to the outer box is labelled 'lookup order: local → global → built-ins'.",
+              "lineage": {
+                "concept_ids": ["python.variable_scope"],
+                "teaching_block_ids": ["python.variable_scope#tb1", "python.variable_scope#tb2", "python.variable_scope#tb3"],
+                "fact_ids": ["python.variable_scope#f1", "python.variable_scope#f2", "python.variable_scope#f3"],
+                "anchors": ["python.variable_scope#visual"]
+              }
+            }
+          ],
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": ["python.variable_scope"],
+            "teaching_block_ids": [
+              "python.variable_scope#tb1",
+              "python.variable_scope#tb2",
+              "python.variable_scope#tb3"
+            ],
+            "fact_ids": [
+              "python.variable_scope#f1",
+              "python.variable_scope#f2",
+              "python.variable_scope#f3"
+            ],
+            "anchors": ["python.variable_scope#visual"]
+          }
+        },
+
+        # --- s16: video — variable_scope ---
+        {
+          "step_id": "tile_python_functions_scope.s16",
+          "type": "video",
+          "concept_ids": ["python.variable_scope"],
+          "eyebrow": "Watch",
+          "title": "Local, global, and the global statement",
+          "lede": "See the lookup order in action and when you need the global statement.",
+          "blocks": [
+            {
+              "type": "media_group",
+              "block_id": "tile_python_functions_scope.s16.b1",
+              "segment_ids": [
+                "seg_python.variable_scope_QVdf0LgmICw_34_375"
+              ]
+            }
+          ],
+          "reward": {"gems": 3},
+          "lineage": {
+            "concept_ids": ["python.variable_scope"],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "python.variable_scope#f1",
+              "python.variable_scope#f2",
+              "python.variable_scope#f3"
+            ],
+            "segment_ids": [
+              "seg_python.variable_scope_QVdf0LgmICw_34_375"
+            ]
+          }
+        },
+
+        # --- s17: explainer — variable_scope tb4 (no visual) ---
+        {
+          "step_id": "tile_python_functions_scope.s17",
+          "type": "explainer",
+          "concept_ids": ["python.variable_scope"],
+          "eyebrow": "Scope",
+          "title": "Local shadows global without changing it",
+          "lede": "A same-named local inside a function hides the global — but the global keeps its value outside.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_functions_scope.s17.b1",
+              "role": "example",
+              "text": "A same-named local can shadow a global inside a function without disturbing the global's value outside it. Reading the name inside the function sees the local one; code outside the function still sees the unchanged global.",
+              "lineage": {
+                "concept_ids": ["python.variable_scope"],
+                "teaching_block_ids": ["python.variable_scope#tb4"],
+                "fact_ids": ["python.variable_scope#f1", "python.variable_scope#f3"]
+              }
+            }
+          ],
+          "reward": {"gems": 3},
+          "lineage": {
+            "concept_ids": ["python.variable_scope"],
+            "teaching_block_ids": ["python.variable_scope#tb4"],
+            "fact_ids": ["python.variable_scope#f1", "python.variable_scope#f3"]
+          }
+        },
+
+        # --- s18: check — predict_name_resolution ---
+        {
+          "step_id": "tile_python_functions_scope.s18",
+          "type": "check",
+          "concept_ids": ["python.variable_scope"],
+          "eyebrow": "Quick check",
+          "title": "Predict name resolution",
+          "lede": "What value does the name refer to inside the function?",
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": ["python.variable_scope"],
+            "teaching_block_ids": [],
+            "fact_ids": ["python.variable_scope#f1", "python.variable_scope#f2"],
+            "anchors": ["python.variable_scope#assessment:predict_name_resolution"]
+          }
+        },
+
+        # --- s19: check — recognize_when_global_statement_needed ---
+        {
+          "step_id": "tile_python_functions_scope.s19",
+          "type": "check",
+          "concept_ids": ["python.variable_scope"],
+          "eyebrow": "Quick check",
+          "title": "When do you need global?",
+          "lede": "Which situation requires a global statement?",
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": ["python.variable_scope"],
+            "teaching_block_ids": [],
+            "fact_ids": ["python.variable_scope#f3"],
+            "anchors": ["python.variable_scope#assessment:recognize_when_global_statement_needed"]
+          }
+        },
+
+        # --- s20: hands_on — variable_scope practice ---
+        {
+          "step_id": "tile_python_functions_scope.s20",
+          "type": "hands_on",
+          "concept_ids": ["python.variable_scope"],
+          "eyebrow": "Practice",
+          "title": "Local vs global names",
+          "lede": "Write a function that reads a global variable and assigns a same-named local without changing the global.",
+          "reward": {"gems": 10},
+          "lineage": {
+            "concept_ids": ["python.variable_scope"],
+            "teaching_block_ids": [],
+            "fact_ids": [],
+            "anchors": ["python.variable_scope#practice"]
+          }
+        },
+
+        # --- s21: recap ---
+        {
+          "step_id": "tile_python_functions_scope.s21",
+          "type": "recap",
+          "concept_ids": [
+            "python.defining_calling_functions",
+            "python.parameters_arguments",
+            "python.return_values",
+            "python.function_default_keyword_args",
+            "python.variable_scope"
+          ],
+          "eyebrow": "Recap",
+          "title": "Functions: what you've learned",
+          "lede": "Five ideas that make functions reusable and predictable.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_functions_scope.s21.b1",
+              "role": "takeaway",
+              "text": "`def` creates a reusable block of code under a name; calling that name followed by parentheses is what actually runs it. Parameters name the inputs a function expects; arguments in a specific call supply the actual values. `return` turns a function from something that does an action into something that hands back a result the caller can store and reuse. Assigning to a name inside a function makes it local by default; only reading reaches out to a global unless a `global` statement says otherwise.",
+              "lineage": {
+                "concept_ids": [
+                  "python.defining_calling_functions",
+                  "python.parameters_arguments",
+                  "python.return_values",
+                  "python.variable_scope"
+                ],
+                "teaching_block_ids": [
+                  "python.defining_calling_functions#tb4",
+                  "python.parameters_arguments#tb4",
+                  "python.return_values#tb5",
+                  "python.variable_scope#tb5"
+                ],
+                "fact_ids": [
+                  "python.defining_calling_functions#f2",
+                  "python.parameters_arguments#f1",
+                  "python.parameters_arguments#f2",
+                  "python.return_values#f1",
+                  "python.return_values#f2",
+                  "python.variable_scope#f1",
+                  "python.variable_scope#f2",
+                  "python.variable_scope#f3"
+                ]
+              }
+            },
+            {
+              "type": "up_next",
+              "block_id": "tile_python_functions_scope.s21.b2",
+              "title": "Up next: Handling errors and importing modules",
+              "text": "Next you will learn how try/except lets your code respond to failures instead of crashing, and how import gives you access to code written in other files."
+            }
+          ],
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": [
+              "python.defining_calling_functions",
+              "python.parameters_arguments",
+              "python.return_values",
+              "python.function_default_keyword_args",
+              "python.variable_scope"
+            ],
+            "teaching_block_ids": [
+              "python.defining_calling_functions#tb4",
+              "python.parameters_arguments#tb4",
+              "python.return_values#tb5",
+              "python.variable_scope#tb5"
+            ],
+            "fact_ids": [
+              "python.defining_calling_functions#f2",
+              "python.parameters_arguments#f1",
+              "python.parameters_arguments#f2",
+              "python.return_values#f1",
+              "python.return_values#f2",
+              "python.variable_scope#f1",
+              "python.variable_scope#f2",
+              "python.variable_scope#f3"
+            ]
+          }
+        }
+      ],
+
+      # --- remediation steps ---
+      "remediation_steps": [
+        # Remediation for s02 (check: recognize_function_definition, measures f1)
+        {
+          "step_id": "tile_python_functions_scope.r01",
+          "type": "remediation",
+          "concept_ids": ["python.defining_calling_functions"],
+          "eyebrow": "Let's revisit",
+          "title": "What makes a function definition?",
+          "lede": "A function definition always starts with the keyword def.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_functions_scope.r01.b1",
+              "role": "definition",
+              "text": "The keyword `def` introduces a function definition, followed by the function's name and a parenthesised list of parameters. `def summarize_delivery():` is a definition — it stores the function but does not run it. A bare call like `summarize_delivery()` without a preceding `def` would raise a `NameError`.",
+              "lineage": {
+                "concept_ids": ["python.defining_calling_functions"],
+                "teaching_block_ids": ["python.defining_calling_functions#tb1"],
+                "fact_ids": ["python.defining_calling_functions#f1"]
+              }
+            }
+          ],
+          "reward": {"gems": 2},
+          "lineage": {
+            "concept_ids": ["python.defining_calling_functions"],
+            "teaching_block_ids": ["python.defining_calling_functions#tb1"],
+            "fact_ids": ["python.defining_calling_functions#f1"]
+          }
+        },
+        # Remediation for s05 (check: match_positional_arguments_to_parameters, measures f3)
+        {
+          "step_id": "tile_python_functions_scope.r02",
+          "type": "remediation",
+          "concept_ids": ["python.parameters_arguments"],
+          "eyebrow": "Let's revisit",
+          "title": "Positional arguments fill slots in order",
+          "lede": "The first argument always goes to the first parameter, the second to the second.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_functions_scope.r02.b1",
+              "role": "mechanism",
+              "text": "When you call `delivery_summary('Lagos', 32)`, Python places `'Lagos'` in the first parameter slot (`city`) and `32` in the second (`minutes`) — strictly by position. Swapping the arguments to `delivery_summary(32, 'Lagos')` would swap their meanings, giving `city` the value `32`.",
+              "lineage": {
+                "concept_ids": ["python.parameters_arguments"],
+                "teaching_block_ids": ["python.parameters_arguments#tb3"],
+                "fact_ids": ["python.parameters_arguments#f3"]
+              }
+            }
+          ],
+          "reward": {"gems": 2},
+          "lineage": {
+            "concept_ids": ["python.parameters_arguments"],
+            "teaching_block_ids": ["python.parameters_arguments#tb3"],
+            "fact_ids": ["python.parameters_arguments#f3"]
+          }
+        },
+        # Remediation for s09 (check: return_and_store_a_value, measures f1, f3)
+        {
+          "step_id": "tile_python_functions_scope.r03",
+          "type": "remediation",
+          "concept_ids": ["python.return_values"],
+          "eyebrow": "Let's revisit",
+          "title": "return sends a value back; print does not",
+          "lede": "Only return gives the caller a value to store.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_functions_scope.r03.b1",
+              "role": "misconception",
+              "text": "A `return` statement sends a value back to the code that called the function — `result = classify_delivery(32)` stores whatever `classify_delivery` returns. A function that only calls `print()` hands back `None` to its caller, not the printed text. To store and reuse a result, the function must use `return`.",
+              "lineage": {
+                "concept_ids": ["python.return_values"],
+                "teaching_block_ids": ["python.return_values#tb1", "python.return_values#tb2", "python.return_values#tb3"],
+                "fact_ids": ["python.return_values#f1", "python.return_values#f3"]
+              }
+            }
+          ],
+          "reward": {"gems": 2},
+          "lineage": {
+            "concept_ids": ["python.return_values"],
+            "teaching_block_ids": ["python.return_values#tb1", "python.return_values#tb2", "python.return_values#tb3"],
+            "fact_ids": ["python.return_values#f1", "python.return_values#f3"]
+          }
+        },
+        # Remediation for s13 (check: recognize_mutable_default_trap, measures m1)
+        {
+          "step_id": "tile_python_functions_scope.r04",
+          "type": "remediation",
+          "concept_ids": ["python.function_default_keyword_args"],
+          "eyebrow": "Let's revisit",
+          "title": "Mutable defaults are shared across calls",
+          "lede": "A default value is created once — not freshly on each call.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_functions_scope.r04.b1",
+              "role": "misconception",
+              "text": "A default value is evaluated only once, at the point the function is defined — not on each call. If that default is a mutable object such as a list, the same object is shared across all calls and can accumulate changes. To avoid this, create a fresh value inside the function body rather than in the parameter default.",
+              "lineage": {
+                "concept_ids": ["python.function_default_keyword_args"],
+                "teaching_block_ids": ["python.function_default_keyword_args#tb4"],
+                "fact_ids": ["python.function_default_keyword_args#m1"]
+              }
+            }
+          ],
+          "reward": {"gems": 2},
+          "lineage": {
+            "concept_ids": ["python.function_default_keyword_args"],
+            "teaching_block_ids": ["python.function_default_keyword_args#tb4"],
+            "fact_ids": ["python.function_default_keyword_args#m1"]
+          }
+        },
+        # Remediation for s18 (check: predict_name_resolution, measures f1, f2)
+        {
+          "step_id": "tile_python_functions_scope.r05",
+          "type": "remediation",
+          "concept_ids": ["python.variable_scope"],
+          "eyebrow": "Let's revisit",
+          "title": "Local first, then global",
+          "lede": "Python checks the local table before the global one.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_functions_scope.r05.b1",
+              "role": "mechanism",
+              "text": "All variable assignments in a function store the value in that function's local symbol table. When Python looks up a name inside a function, it checks the local table first, then the global table, then built-ins. A name assigned only outside the function is still readable inside — Python finds it in the global table once the local lookup fails.",
+              "lineage": {
+                "concept_ids": ["python.variable_scope"],
+                "teaching_block_ids": ["python.variable_scope#tb1", "python.variable_scope#tb2"],
+                "fact_ids": ["python.variable_scope#f1", "python.variable_scope#f2"]
+              }
+            }
+          ],
+          "reward": {"gems": 2},
+          "lineage": {
+            "concept_ids": ["python.variable_scope"],
+            "teaching_block_ids": ["python.variable_scope#tb1", "python.variable_scope#tb2"],
+            "fact_ids": ["python.variable_scope#f1", "python.variable_scope#f2"]
+          }
+        },
+        # Remediation for s19 (check: recognize_when_global_statement_needed, measures f3)
+        {
+          "step_id": "tile_python_functions_scope.r06",
+          "type": "remediation",
+          "concept_ids": ["python.variable_scope"],
+          "eyebrow": "Let's revisit",
+          "title": "Assigning to a global requires the global statement",
+          "lede": "Reading a global is free; writing to it requires declaring it.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_functions_scope.r06.b1",
+              "role": "misconception",
+              "text": "A global variable cannot be directly assigned a value from inside a function unless it is named in a `global` statement. Without `global total`, writing `total = 0` inside a function creates a new local `total` and leaves the global `total` unchanged. The global may still be read without the statement.",
+              "lineage": {
+                "concept_ids": ["python.variable_scope"],
+                "teaching_block_ids": ["python.variable_scope#tb3"],
+                "fact_ids": ["python.variable_scope#f3"]
+              }
+            }
+          ],
+          "reward": {"gems": 2},
+          "lineage": {
+            "concept_ids": ["python.variable_scope"],
+            "teaching_block_ids": ["python.variable_scope#tb3"],
+            "fact_ids": ["python.variable_scope#f3"]
+          }
+        }
+      ]
+    },
+
+    # =========================================================
+    # TILE 2: tile_python_errors_imports
+    # =========================================================
+    {
+      "tile_id": "tile_python_errors_imports",
+      "title": "Handling Errors and Importing Modules",
+      "steps": [
+
+        # --- s01: explainer — error_handling (process_flow visual) ---
+        {
+          "step_id": "tile_python_errors_imports.s01",
+          "type": "explainer",
+          "concept_ids": ["python.error_handling"],
+          "eyebrow": "Error handling",
+          "title": "Catch failures before they crash your script",
+          "lede": "A try/except block lets your code attempt something that might fail and respond to the specific failure instead of stopping entirely.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_errors_imports.s01.b1",
+              "role": "intro",
+              "text": "The `try` statement first executes the statements in its `try` clause. If no exception occurs, the `except` clause is skipped and execution continues normally after the block.",
+              "lineage": {
+                "concept_ids": ["python.error_handling"],
+                "teaching_block_ids": ["python.error_handling#tb1"],
+                "fact_ids": ["python.error_handling#f1"]
+              }
+            },
+            {
+              "type": "prose",
+              "block_id": "tile_python_errors_imports.s01.b2",
+              "role": "mechanism",
+              "text": "If an exception occurs during the `try` clause and its type matches the exception named after `except`, the `except` clause is executed and execution continues after the `try`/`except` block. An unmatched exception propagates upward.",
+              "lineage": {
+                "concept_ids": ["python.error_handling"],
+                "teaching_block_ids": ["python.error_handling#tb2"],
+                "fact_ids": ["python.error_handling#f2"]
+              }
+            },
+            {
+              "type": "prose",
+              "block_id": "tile_python_errors_imports.s01.b3",
+              "role": "example",
+              "text": "Wrapping `int(input(...))` in a `try` clause with `except ValueError` lets the program print `'Oops! That was no valid number. Try again...'` instead of crashing when the conversion fails. If the input is `'twelve'`, `int()` raises a `ValueError`, the `except` clause runs, and the program continues.",
+              "lineage": {
+                "concept_ids": ["python.error_handling"],
+                "teaching_block_ids": ["python.error_handling#tb3"],
+                "fact_ids": ["python.error_handling#f3"]
+              }
+            },
+            {
+              "type": "process_flow",
+              "block_id": "tile_python_errors_imports.s01.b4",
+              "title": "try/except execution flow",
+              "direction": "TB",
+              "nodes": [
+                {"id": "n_try",    "label": "Execute try clause",       "kind": "step"},
+                {"id": "n_ok",     "label": "No exception",             "kind": "decision"},
+                {"id": "n_skip",   "label": "Skip except clause",       "kind": "step"},
+                {"id": "n_exc",    "label": "Exception raised",         "kind": "decision"},
+                {"id": "n_match",  "label": "Type matches except?",     "kind": "decision"},
+                {"id": "n_run",    "label": "Run except clause",        "kind": "step"},
+                {"id": "n_cont",   "label": "Continue after block",     "kind": "end"}
+              ],
+              "edges": [
+                {"from": "n_try",   "to": "n_ok",    "kind": "next"},
+                {"from": "n_ok",    "to": "n_skip",  "label": "yes", "kind": "yes"},
+                {"from": "n_ok",    "to": "n_exc",   "label": "no",  "kind": "no"},
+                {"from": "n_skip",  "to": "n_cont",  "kind": "next"},
+                {"from": "n_exc",   "to": "n_match", "kind": "next"},
+                {"from": "n_match", "to": "n_run",   "label": "yes", "kind": "yes"},
+                {"from": "n_run",   "to": "n_cont",  "kind": "next"}
+              ],
+              "reveal": "all",
+              "alt_text": "Flowchart: 'Execute try clause' leads to a decision 'No exception?'. Yes path goes to 'Skip except clause' then 'Continue'. No path goes to 'Exception raised', then 'Type matches except?'. Yes path goes to 'Run except clause' then 'Continue'.",
+              "lineage": {
+                "concept_ids": ["python.error_handling"],
+                "teaching_block_ids": ["python.error_handling#tb1", "python.error_handling#tb2"],
+                "fact_ids": ["python.error_handling#f1", "python.error_handling#f2"],
+                "anchors": ["python.error_handling#visual"]
+              }
+            }
+          ],
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": ["python.error_handling"],
+            "teaching_block_ids": [
+              "python.error_handling#tb1",
+              "python.error_handling#tb2",
+              "python.error_handling#tb3"
+            ],
+            "fact_ids": [
+              "python.error_handling#f1",
+              "python.error_handling#f2",
+              "python.error_handling#f3"
+            ],
+            "anchors": ["python.error_handling#visual"]
+          }
+        },
+
+        # --- s02: check — handle_invalid_number_conversion ---
+        {
+          "step_id": "tile_python_errors_imports.s02",
+          "type": "check",
+          "concept_ids": ["python.error_handling"],
+          "eyebrow": "Quick check",
+          "title": "Handle an invalid number conversion",
+          "lede": "Which code correctly catches a ValueError when converting user input to an integer?",
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": ["python.error_handling"],
+            "teaching_block_ids": [],
+            "fact_ids": ["python.error_handling#f3"],
+            "anchors": ["python.error_handling#assessment:handle_invalid_number_conversion"]
+          }
+        },
+
+        # --- s03: hands_on — error_handling practice ---
+        {
+          "step_id": "tile_python_errors_imports.s03",
+          "type": "hands_on",
+          "concept_ids": ["python.error_handling"],
+          "eyebrow": "Practice",
+          "title": "Wrap risky code in try/except",
+          "lede": "Add a try/except block so the script prints a message instead of crashing on bad input.",
+          "reward": {"gems": 10},
+          "lineage": {
+            "concept_ids": ["python.error_handling"],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "python.error_handling#f1",
+              "python.error_handling#f2",
+              "python.error_handling#f3"
+            ],
+            "anchors": [
+              "python.error_handling#practice",
+              "python.error_handling#assessment:wrap_code_in_try_except",
+              "python.error_handling#assessment:handle_invalid_number_conversion"
+            ]
+          }
+        },
+
+        # --- s04: explainer — import_statements (side_by_side visual) ---
+        {
+          "step_id": "tile_python_errors_imports.s04",
+          "type": "explainer",
+          "concept_ids": ["python.import_statements"],
+          "eyebrow": "Modules",
+          "title": "Bring in code from other files",
+          "lede": "A module is a file of Python definitions; import gives your script access to them.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_errors_imports.s04.b1",
+              "role": "intro",
+              "text": "A module is a file containing Python definitions and statements. Definitions from a module can be imported into another module or into the main script with the `import` statement — `import fibo` makes the module available under the name `fibo`.",
+              "lineage": {
+                "concept_ids": ["python.import_statements"],
+                "teaching_block_ids": ["python.import_statements#tb1"],
+                "fact_ids": ["python.import_statements#f1"]
+              }
+            },
+            {
+              "type": "prose",
+              "block_id": "tile_python_errors_imports.s04.b2",
+              "role": "mechanism",
+              "text": "Importing a module this way does not add the names defined in it directly to the current namespace — it adds the module name. Its functions are accessed through that name: `fibo.fib(1000)`. The `from module import name` variant imports names directly into the current namespace, so `from fibo import fib` lets you call `fib(500)` without the module prefix.",
+              "lineage": {
+                "concept_ids": ["python.import_statements"],
+                "teaching_block_ids": ["python.import_statements#tb2", "python.import_statements#tb3"],
+                "fact_ids": ["python.import_statements#f2", "python.import_statements#f3"]
+              }
+            },
+            {
+              "type": "prose",
+              "block_id": "tile_python_errors_imports.s04.b3",
+              "role": "example",
+              "text": "Python comes with a library of standard modules imported the same way. `import sys` makes the `sys` module's names — such as `sys.path` — available through `sys`. `import math` gives access to `math.sqrt`, `math.pi`, and so on.",
+              "lineage": {
+                "concept_ids": ["python.import_statements"],
+                "teaching_block_ids": ["python.import_statements#tb4"],
+                "fact_ids": ["python.import_statements#f4"]
+              }
+            },
+            {
+              "type": "side_by_side",
+              "block_id": "tile_python_errors_imports.s04.b4",
+              "left_label": "import module",
+              "right_label": "from module import name",
+              "left": {
+                "type": "code_walkthrough",
+                "block_id": "tile_python_errors_imports.s04.b4.left",
+                "language": "python",
+                "code": "import fibo\n\nfibo.fib(1000)   # module prefix required\nfibo.fib2(100)",
+                "annotations": [
+                  {"start_line": 3, "end_line": 4, "text": "Names accessed through the module name"}
+                ]
+              },
+              "right": {
+                "type": "code_walkthrough",
+                "block_id": "tile_python_errors_imports.s04.b4.right",
+                "language": "python",
+                "code": "from fibo import fib\n\nfib(500)         # no prefix needed",
+                "annotations": [
+                  {"start_line": 3, "end_line": 3, "text": "Name imported directly into namespace"}
+                ]
+              },
+              "takeaway": "import module keeps names behind the module prefix; from module import name brings them directly into scope.",
+              "lineage": {
+                "concept_ids": ["python.import_statements"],
+                "teaching_block_ids": ["python.import_statements#tb2", "python.import_statements#tb3"],
+                "fact_ids": ["python.import_statements#f2", "python.import_statements#f3"],
+                "anchors": ["python.import_statements#visual"]
+              }
+            }
+          ],
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": ["python.import_statements"],
+            "teaching_block_ids": [
+              "python.import_statements#tb1",
+              "python.import_statements#tb2",
+              "python.import_statements#tb3",
+              "python.import_statements#tb4"
+            ],
+            "fact_ids": [
+              "python.import_statements#f1",
+              "python.import_statements#f2",
+              "python.import_statements#f3",
+              "python.import_statements#f4"
+            ],
+            "anchors": ["python.import_statements#visual"]
+          }
+        },
+
+        # --- s05: check — write_correct_import_statement ---
+        {
+          "step_id": "tile_python_errors_imports.s05",
+          "type": "check",
+          "concept_ids": ["python.import_statements"],
+          "eyebrow": "Quick check",
+          "title": "Write the correct import",
+          "lede": "Which statement correctly imports fib so it can be called as fib(500)?",
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": ["python.import_statements"],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "python.import_statements#f1",
+              "python.import_statements#f2",
+              "python.import_statements#f3"
+            ],
+            "anchors": ["python.import_statements#assessment:write_correct_import_statement"]
+          }
+        },
+
+        # --- s06: hands_on — import_standard_module practice ---
+        {
+          "step_id": "tile_python_errors_imports.s06",
+          "type": "hands_on",
+          "concept_ids": ["python.import_statements"],
+          "eyebrow": "Practice",
+          "title": "Import and use a standard module",
+          "lede": "Import the sys module and print sys.path to see where Python looks for modules.",
+          "reward": {"gems": 10},
+          "lineage": {
+            "concept_ids": ["python.import_statements"],
+            "teaching_block_ids": [],
+            "fact_ids": ["python.import_statements#f4"],
+            "anchors": [
+              "python.import_statements#practice",
+              "python.import_statements#assessment:import_standard_module"
+            ]
+          }
+        },
+
+        # --- s07: recap ---
+        {
+          "step_id": "tile_python_errors_imports.s07",
+          "type": "recap",
+          "concept_ids": ["python.error_handling", "python.import_statements"],
+          "eyebrow": "Recap",
+          "title": "Errors and imports: what you've learned",
+          "lede": "Two tools that make scripts more robust and reusable.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_errors_imports.s07.b1",
+              "role": "takeaway",
+              "text": "`try`/`except` lets the program attempt something that might fail and respond to the specific failure rather than stopping entirely. If no exception occurs, the `except` clause is skipped; if the exception type matches, the `except` clause runs and execution continues. `import` gives you access to code written in another file — either through the module's name (`import fibo`, `fibo.fib(...)`) or directly by name (`from fibo import fib`, `fib(...)`).",
+              "lineage": {
+                "concept_ids": ["python.error_handling", "python.import_statements"],
+                "teaching_block_ids": [
+                  "python.error_handling#tb4",
+                  "python.import_statements#tb5"
+                ],
+                "fact_ids": [
+                  "python.error_handling#f1",
+                  "python.error_handling#f2",
+                  "python.import_statements#f2",
+                  "python.import_statements#f3"
+                ]
+              }
+            },
+            {
+              "type": "up_next",
+              "block_id": "tile_python_errors_imports.s07.b2",
+              "title": "Up next: Reading and writing files",
+              "text": "Next you will learn how open() and the with statement manage file connections, and how the csv module reads and writes rows as dictionaries."
+            }
+          ],
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": ["python.error_handling", "python.import_statements"],
+            "teaching_block_ids": [
+              "python.error_handling#tb4",
+              "python.import_statements#tb5"
+            ],
+            "fact_ids": [
+              "python.error_handling#f1",
+              "python.error_handling#f2",
+              "python.import_statements#f2",
+              "python.import_statements#f3"
+            ]
+          }
+        }
+      ],
+
+      "remediation_steps": [
+        # Remediation for s02 (check: handle_invalid_number_conversion, measures f3)
+        {
+          "step_id": "tile_python_errors_imports.r01",
+          "type": "remediation",
+          "concept_ids": ["python.error_handling"],
+          "eyebrow": "Let's revisit",
+          "title": "Catching a ValueError from int()",
+          "lede": "The except clause only runs when the exception type matches.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_errors_imports.r01.b1",
+              "role": "example",
+              "text": "Wrapping `int(input(...))` in a `try` clause with `except ValueError` catches the error when the input cannot be converted. If the typed text is `'twelve'`, `int()` raises a `ValueError`, the `except` clause runs and prints a message, and the program continues. If the input is `'12'`, `int()` succeeds, the `except` clause is skipped, and `minutes_late` holds `12`.",
+              "lineage": {
+                "concept_ids": ["python.error_handling"],
+                "teaching_block_ids": ["python.error_handling#tb3"],
+                "fact_ids": ["python.error_handling#f3"]
+              }
+            }
+          ],
+          "reward": {"gems": 2},
+          "lineage": {
+            "concept_ids": ["python.error_handling"],
+            "teaching_block_ids": ["python.error_handling#tb3"],
+            "fact_ids": ["python.error_handling#f3"]
+          }
+        },
+        # Remediation for s05 (check: write_correct_import_statement, measures f1, f2, f3)
+        {
+          "step_id": "tile_python_errors_imports.r02",
+          "type": "remediation",
+          "concept_ids": ["python.import_statements"],
+          "eyebrow": "Let's revisit",
+          "title": "import vs from … import",
+          "lede": "The two forms differ in what lands in your namespace.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_errors_imports.r02.b1",
+              "role": "mechanism",
+              "text": "`import fibo` adds the module name `fibo` to your namespace; you then call `fibo.fib(1000)`. `from fibo import fib` adds the name `fib` directly, so you call `fib(500)` without a prefix. Both forms import from the same module file — they differ only in what name lands in your namespace.",
+              "lineage": {
+                "concept_ids": ["python.import_statements"],
+                "teaching_block_ids": ["python.import_statements#tb1", "python.import_statements#tb2", "python.import_statements#tb3"],
+                "fact_ids": ["python.import_statements#f1", "python.import_statements#f2", "python.import_statements#f3"]
+              }
+            }
+          ],
+          "reward": {"gems": 2},
+          "lineage": {
+            "concept_ids": ["python.import_statements"],
+            "teaching_block_ids": ["python.import_statements#tb1", "python.import_statements#tb2", "python.import_statements#tb3"],
+            "fact_ids": ["python.import_statements#f1", "python.import_statements#f2", "python.import_statements#f3"]
+          }
+        }
+      ]
+    },
+
+    # =========================================================
+    # TILE 3: tile_python_file_io
+    # =========================================================
+    {
+      "tile_id": "tile_python_file_io",
+      "title": "Reading and Writing Files",
+      "steps": [
+
+        # --- s01: explainer — file_io tb1-tb4 (before_after visual) ---
+        {
+          "step_id": "tile_python_file_io.s01",
+          "type": "explainer",
+          "concept_ids": ["python.file_io"],
+          "eyebrow": "File I/O",
+          "title": "Open a file and read its contents",
+          "lede": "Delivery records often live in files on disk. open() and with give you a safe, automatic way to read them.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_file_io.s01.b1",
+              "role": "intro",
+              "text": "`open(filename, mode)` returns a file object. The mode can be `'r'` to read, `'w'` to write (erasing an existing file of the same name), or `'a'` to append; `'r'` is assumed if mode is omitted. `open('orders.txt')` opens `orders.txt` for reading.",
+              "lineage": {
+                "concept_ids": ["python.file_io"],
+                "teaching_block_ids": ["python.file_io#tb1"],
+                "fact_ids": ["python.file_io#f1"]
+              }
+            },
+            {
+              "type": "prose",
+              "block_id": "tile_python_file_io.s01.b2",
+              "role": "practical_context",
+              "text": "It is good practice to use the `with` keyword when working with a file object, because it closes the file automatically after its block finishes — even if an exception is raised. `with open('orders.txt') as f:` opens the file and assigns the file object to `f`; the file is closed when the `with` block exits.",
+              "lineage": {
+                "concept_ids": ["python.file_io"],
+                "teaching_block_ids": ["python.file_io#tb2"],
+                "fact_ids": ["python.file_io#f2"]
+              }
+            },
+            {
+              "type": "prose",
+              "block_id": "tile_python_file_io.s01.b3",
+              "role": "mechanism",
+              "text": "`f.read()` reads the file's entire contents and returns them as a string in text mode. Once the end of the file is reached, further calls to `f.read()` return an empty string. `csv.DictReader(f)` creates a reader that maps each row of a CSV file to a dict, using the first row's values as keys by default.",
+              "lineage": {
+                "concept_ids": ["python.file_io"],
+                "teaching_block_ids": ["python.file_io#tb3", "python.file_io#tb4"],
+                "fact_ids": ["python.file_io#f3", "python.file_io#f4"]
+              }
+            },
+            {
+              "type": "before_after",
+              "block_id": "tile_python_file_io.s01.b4",
+              "before": {
+                "type": "code_walkthrough",
+                "block_id": "tile_python_file_io.s01.b4.before",
+                "language": "python",
+                "code": "# Raw text read — one big string\nwith open('orders.txt') as f:\n    contents = f.read()\nprint(contents)",
+                "annotations": [
+                  {"start_line": 3, "end_line": 3, "text": "contents is one long string"}
+                ]
+              },
+              "after": {
+                "type": "code_walkthrough",
+                "block_id": "tile_python_file_io.s01.b4.after",
+                "language": "python",
+                "code": "import csv\n\n# CSV read — each row is a dict\nwith open('orders.csv', newline='') as f:\n    reader = csv.DictReader(f)\n    for row in reader:\n        print(row['order_id'], row['city'])",
+                "annotations": [
+                  {"start_line": 6, "end_line": 7, "text": "Each row is a dict keyed by the header names"}
+                ]
+              },
+              "change_summary": "Switch from f.read() (one string) to csv.DictReader (one dict per row, keyed by column name).",
+              "lineage": {
+                "concept_ids": ["python.file_io"],
+                "teaching_block_ids": ["python.file_io#tb3", "python.file_io#tb4"],
+                "fact_ids": ["python.file_io#f3", "python.file_io#f4"],
+                "anchors": ["python.file_io#visual"]
+              }
+            }
+          ],
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": ["python.file_io"],
+            "teaching_block_ids": [
+              "python.file_io#tb1",
+              "python.file_io#tb2",
+              "python.file_io#tb3",
+              "python.file_io#tb4"
+            ],
+            "fact_ids": [
+              "python.file_io#f1",
+              "python.file_io#f2",
+              "python.file_io#f3",
+              "python.file_io#f4"
+            ],
+            "anchors": ["python.file_io#visual"]
+          }
+        },
+
+        # --- s02: explainer — file_io tb5-tb8 (no visual) ---
+        {
+          "step_id": "tile_python_file_io.s02",
+          "type": "explainer",
+          "concept_ids": ["python.file_io"],
+          "eyebrow": "File I/O",
+          "title": "Write text and CSV rows to a file",
+          "lede": "f.write() sends a string to a file; csv.DictWriter maps dicts to rows.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_file_io.s02.b1",
+              "role": "mechanism",
+              "text": "`f.write(string)` writes the contents of `string` to the file, returning the number of characters written. Opening with mode `'w'` erases any existing file of the same name before writing; mode `'a'` appends to the end.",
+              "lineage": {
+                "concept_ids": ["python.file_io"],
+                "teaching_block_ids": ["python.file_io#tb5"],
+                "fact_ids": ["python.file_io#f5", "python.file_io#f1"]
+              }
+            },
+            {
+              "type": "prose",
+              "block_id": "tile_python_file_io.s02.b2",
+              "role": "mechanism",
+              "text": "`csv.DictWriter(f, fieldnames=['order_id', 'city'])` creates a writer that maps a dict to a row. `writer.writeheader()` writes the header row and `writer.writerow(dict)` writes one data row, in the order given by `fieldnames`.",
+              "lineage": {
+                "concept_ids": ["python.file_io"],
+                "teaching_block_ids": ["python.file_io#tb6"],
+                "fact_ids": ["python.file_io#f6"]
+              }
+            },
+            {
+              "type": "prose",
+              "block_id": "tile_python_file_io.s02.b3",
+              "role": "practical_context",
+              "text": "A CSV file used with the `csv` module should be opened with `newline=''` — for example, `open('orders.csv', 'w', newline='')`. This prevents the csv module from seeing extra blank lines on some platforms.",
+              "lineage": {
+                "concept_ids": ["python.file_io"],
+                "teaching_block_ids": ["python.file_io#tb7"],
+                "fact_ids": ["python.file_io#f7"]
+              }
+            },
+            {
+              "type": "prose",
+              "block_id": "tile_python_file_io.s02.b4",
+              "role": "walkthrough",
+              "text": "A complete read-then-write workflow: open `orders.csv` with `newline=''` and `csv.DictReader` to iterate rows, then open `lagos_orders.csv` for writing with `csv.DictWriter`, call `writeheader()`, and call `writerow(row)` for each Lagos order. Both `open()` calls use `with` so files close automatically.",
+              "lineage": {
+                "concept_ids": ["python.file_io"],
+                "teaching_block_ids": ["python.file_io#tb8"],
+                "fact_ids": ["python.file_io#f1", "python.file_io#f2", "python.file_io#f4", "python.file_io#f5", "python.file_io#f6", "python.file_io#f7"]
+              }
+            }
+          ],
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": ["python.file_io"],
+            "teaching_block_ids": [
+              "python.file_io#tb5",
+              "python.file_io#tb6",
+              "python.file_io#tb7",
+              "python.file_io#tb8"
+            ],
+            "fact_ids": [
+              "python.file_io#f1",
+              "python.file_io#f2",
+              "python.file_io#f4",
+              "python.file_io#f5",
+              "python.file_io#f6",
+              "python.file_io#f7"
+            ]
+          }
+        },
+
+        # --- s03: video --- 
+        {
+          "step_id": "tile_python_file_io.s03",
+          "type": "video",
+          "concept_ids": ["python.file_io"],
+          "eyebrow": "Watch",
+          "title": "File I/O in Python",
+          "lede": "See open(), with, and the csv module in action.",
+          "blocks": [
+            {
+              "type": "media_group",
+              "block_id": "tile_python_file_io.s03.b1",
+              "segment_ids": [
+                "seg_python.file_io_Uh2ebFW8OYM_18_386",
+                "seg_python.file_io_Jsnw6HLASZA_38_546"
+              ]
+            }
+          ],
+          "reward": {"gems": 3},
+          "lineage": {
+            "concept_ids": ["python.file_io"],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "python.file_io#f1",
+              "python.file_io#f2",
+              "python.file_io#f3",
+              "python.file_io#f5"
+            ],
+            "segment_ids": [
+              "seg_python.file_io_Uh2ebFW8OYM_18_386",
+              "seg_python.file_io_Jsnw6HLASZA_38_546"
+            ]
+          }
+        },
+
+        # --- s04: check — open_read_and_write_text_file ---
+        {
+          "step_id": "tile_python_file_io.s04",
+          "type": "check",
+          "concept_ids": ["python.file_io"],
+          "eyebrow": "Quick check",
+          "title": "Open, read, and write a text file",
+          "lede": "Which mode string opens a file for writing, erasing any existing content?",
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": ["python.file_io"],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "python.file_io#f1",
+              "python.file_io#f3",
+              "python.file_io#f5"
+            ],
+            "anchors": ["python.file_io#assessment:open_read_and_write_text_file"]
+          }
+        },
+
+        # --- s05: check — manage_file_with_with_statement ---
+        {
+          "step_id": "tile_python_file_io.s05",
+          "type": "check",
+          "concept_ids": ["python.file_io"],
+          "eyebrow": "Quick check",
+          "title": "Manage a file with the with statement",
+          "lede": "What does the with statement guarantee when working with a file object?",
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": ["python.file_io"],
+            "teaching_block_ids": [],
+            "fact_ids": ["python.file_io#f2"],
+            "anchors": ["python.file_io#assessment:manage_file_with_with_statement"]
+          }
+        },
+
+        # --- s06: hands_on — read_and_write_csv_rows_as_dicts ---
+        {
+          "step_id": "tile_python_file_io.s06",
+          "type": "hands_on",
+          "concept_ids": ["python.file_io"],
+          "eyebrow": "Practice",
+          "title": "Read and write CSV rows as dicts",
+          "lede": "Use csv.DictReader to read orders.csv and csv.DictWriter to write a filtered output file.",
+          "reward": {"gems": 10},
+          "lineage": {
+            "concept_ids": ["python.file_io"],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "python.file_io#f4",
+              "python.file_io#f6",
+              "python.file_io#f7"
+            ],
+            "anchors": [
+              "python.file_io#practice",
+              "python.file_io#assessment:read_and_write_csv_rows_as_dicts"
+            ]
+          }
+        },
+
+        # --- s07: recap ---
+        {
+          "step_id": "tile_python_file_io.s07",
+          "type": "recap",
+          "concept_ids": ["python.file_io"],
+          "eyebrow": "Recap",
+          "title": "File I/O: what you've learned",
+          "lede": "Four ideas that connect your script to data on disk.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_file_io.s07.b1",
+              "role": "takeaway",
+              "text": "Reading and writing files is how a program's delivery data gets in from, and results get out to, storage that outlives the program run. `open()` and `with` manage the connection and guarantee the file closes. The `csv` module adds structured row-by-row access: `csv.DictReader` maps each row to a dict keyed by the header names, and `csv.DictWriter` maps dicts back to rows.",
+              "lineage": {
+                "concept_ids": ["python.file_io"],
+                "teaching_block_ids": ["python.file_io#tb9"],
+                "fact_ids": [
+                  "python.file_io#f1",
+                  "python.file_io#f2",
+                  "python.file_io#f4",
+                  "python.file_io#f6"
+                ]
+              }
+            },
+            {
+              "type": "up_next",
+              "block_id": "tile_python_file_io.s07.b2",
+              "title": "Up next: PEP 8 style",
+              "text": "Next you will learn the PEP 8 style recommendations — indentation, line length, whitespace, and naming — that make Python code easier to read."
+            }
+          ],
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": ["python.file_io"],
+            "teaching_block_ids": ["python.file_io#tb9"],
+            "fact_ids": [
+              "python.file_io#f1",
+              "python.file_io#f2",
+              "python.file_io#f4",
+              "python.file_io#f6"
+            ]
+          }
+        }
+      ],
+
+      "remediation_steps": [
+        # Remediation for s04 (check: open_read_and_write_text_file, measures f1, f3, f5)
+        {
+          "step_id": "tile_python_file_io.r01",
+          "type": "remediation",
+          "concept_ids": ["python.file_io"],
+          "eyebrow": "Let's revisit",
+          "title": "open() modes and f.read() / f.write()",
+          "lede": "The mode string controls whether you read, write, or append.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_file_io.r01.b1",
+              "role": "mechanism",
+              "text": "`open(filename, mode)` returns a file object. Mode `'r'` reads (default), `'w'` writes and erases any existing file of the same name, `'a'` appends. `f.read()` returns the file's contents as a string; once the end is reached, further calls return an empty string. `f.write(string)` writes the string and returns the number of characters written.",
+              "lineage": {
+                "concept_ids": ["python.file_io"],
+                "teaching_block_ids": ["python.file_io#tb1", "python.file_io#tb3", "python.file_io#tb5"],
+                "fact_ids": ["python.file_io#f1", "python.file_io#f3", "python.file_io#f5"]
+              }
+            }
+          ],
+          "reward": {"gems": 2},
+          "lineage": {
+            "concept_ids": ["python.file_io"],
+            "teaching_block_ids": ["python.file_io#tb1", "python.file_io#tb3", "python.file_io#tb5"],
+            "fact_ids": ["python.file_io#f1", "python.file_io#f3", "python.file_io#f5"]
+          }
+        },
+        # Remediation for s05 (check: manage_file_with_with_statement, measures f2)
+        {
+          "step_id": "tile_python_file_io.r02",
+          "type": "remediation",
+          "concept_ids": ["python.file_io"],
+          "eyebrow": "Let's revisit",
+          "title": "The with statement closes the file automatically",
+          "lede": "with guarantees cleanup even when an exception occurs.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_file_io.r02.b1",
+              "role": "practical_context",
+              "text": "It is good practice to use the `with` keyword when working with a file object, because it closes the file automatically after its block finishes — even if an exception is raised. `with open('orders.txt') as f:` opens the file and assigns the file object to `f`; the file is closed when the `with` block exits, without needing an explicit `f.close()` call.",
+              "lineage": {
+                "concept_ids": ["python.file_io"],
+                "teaching_block_ids": ["python.file_io#tb2"],
+                "fact_ids": ["python.file_io#f2"]
+              }
+            }
+          ],
+          "reward": {"gems": 2},
+          "lineage": {
+            "concept_ids": ["python.file_io"],
+            "teaching_block_ids": ["python.file_io#tb2"],
+            "fact_ids": ["python.file_io#f2"]
+          }
+        }
+      ]
+    },
+
+    # =========================================================
+    # TILE 4: tile_python_pep8_style
+    # =========================================================
+    {
+      "tile_id": "tile_python_pep8_style",
+      "title": "PEP 8 Style Conventions",
+      "steps": [
+
+        # --- s01: explainer — pep8_style (before_after visual) ---
+        {
+          "step_id": "tile_python_pep8_style.s01",
+          "type": "explainer",
+          "concept_ids": ["python.pep8_style"],
+          "eyebrow": "PEP 8",
+          "title": "Write code others can read",
+          "lede": "PEP 8 is Python's style guide. Its recommendations make code easier to read for the next person — including a later you.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_pep8_style.s01.b1",
+              "role": "definition",
+              "text": "PEP 8 recommends using 4 spaces per indentation level, with spaces rather than tabs as the preferred indentation method, and limiting all lines to a maximum of 79 characters. PEP 8 also recommends avoiding extraneous whitespace — such as immediately inside parentheses, brackets or braces, or immediately before a comma, semicolon, or colon.",
+              "lineage": {
+                "concept_ids": ["python.pep8_style"],
+                "teaching_block_ids": ["python.pep8_style#tb1", "python.pep8_style#tb2"],
+                "fact_ids": ["python.pep8_style#f1", "python.pep8_style#f2", "python.pep8_style#f3"]
+              }
+            },
+            {
+              "type": "prose",
+              "block_id": "tile_python_pep8_style.s01.b2",
+              "role": "mechanism",
+              "text": "PEP 8 recommends that function and variable names be lowercase, with words separated by underscores as necessary for readability — `delivery_minutes` rather than `deliveryMinutes` or `DeliveryMinutes`.",
+              "lineage": {
+                "concept_ids": ["python.pep8_style"],
+                "teaching_block_ids": ["python.pep8_style#tb3"],
+                "fact_ids": ["python.pep8_style#f4"]
+              }
+            },
+            {
+              "type": "before_after",
+              "block_id": "tile_python_pep8_style.s01.b3",
+              "before": {
+                "type": "code_walkthrough",
+                "block_id": "tile_python_pep8_style.s01.b3.before",
+                "language": "python",
+                "code": "def ClassifyDelivery( minutes,threshold ):\n  if minutes>threshold:\n    return 'slow'\n  else:\n    return 'fast'\nresult=ClassifyDelivery( 32,45 )",
+                "annotations": [
+                  {"start_line": 1, "end_line": 1, "text": "CamelCase name; spaces inside parens; 2-space indent"},
+                  {"start_line": 6, "end_line": 6, "text": "No spaces around =; spaces inside parens"}
+                ]
+              },
+              "after": {
+                "type": "code_walkthrough",
+                "block_id": "tile_python_pep8_style.s01.b3.after",
+                "language": "python",
+                "code": "def classify_delivery(minutes, threshold):\n    if minutes > threshold:\n        return 'slow'\n    else:\n        return 'fast'\n\nresult = classify_delivery(32, 45)",
+                "annotations": [
+                  {"start_line": 1, "end_line": 1, "text": "lowercase_with_underscores; no extra spaces"},
+                  {"start_line": 2, "end_line": 2, "text": "4-space indent; spaces around operator"},
+                  {"start_line": 7, "end_line": 7, "text": "Spaces around = in assignment"}
+                ]
+              },
+              "change_summary": "Apply PEP 8: lowercase_with_underscores name, 4-space indent, no extraneous whitespace inside parentheses.",
+              "lineage": {
+                "concept_ids": ["python.pep8_style"],
+                "teaching_block_ids": ["python.pep8_style#tb1", "python.pep8_style#tb2", "python.pep8_style#tb3"],
+                "fact_ids": ["python.pep8_style#f1", "python.pep8_style#f2", "python.pep8_style#f3", "python.pep8_style#f4"],
+                "anchors": ["python.pep8_style#visual"]
+              }
+            }
+          ],
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": ["python.pep8_style"],
+            "teaching_block_ids": [
+              "python.pep8_style#tb1",
+              "python.pep8_style#tb2",
+              "python.pep8_style#tb3"
+            ],
+            "fact_ids": [
+              "python.pep8_style#f1",
+              "python.pep8_style#f2",
+              "python.pep8_style#f3",
+              "python.pep8_style#f4"
+            ],
+            "anchors": ["python.pep8_style#visual"]
+          }
+        },
+
+        # --- s02: check — remove_extraneous_whitespace ---
+        {
+          "step_id": "tile_python_pep8_style.s02",
+          "type": "check",
+          "concept_ids": ["python.pep8_style"],
+          "eyebrow": "Quick check",
+          "title": "Remove extraneous whitespace",
+          "lede": "Which line follows PEP 8's whitespace recommendation?",
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": ["python.pep8_style"],
+            "teaching_block_ids": [],
+            "fact_ids": ["python.pep8_style#f3"],
+            "anchors": ["python.pep8_style#assessment:remove_extraneous_whitespace"]
+          }
+        },
+
+        # --- s03: hands_on — apply_indentation_and_line_length + apply_naming_convention ---
+        {
+          "step_id": "tile_python_pep8_style.s03",
+          "type": "hands_on",
+          "concept_ids": ["python.pep8_style"],
+          "eyebrow": "Practice",
+          "title": "Restyle a function to follow PEP 8",
+          "lede": "Rewrite a working but poorly styled function to use 4-space indentation, 79-character lines, and lowercase_with_underscores names.",
+          "reward": {"gems": 10},
+          "lineage": {
+            "concept_ids": ["python.pep8_style"],
+            "teaching_block_ids": [],
+            "fact_ids": [
+              "python.pep8_style#f1",
+              "python.pep8_style#f2",
+              "python.pep8_style#f4"
+            ],
+            "anchors": [
+              "python.pep8_style#practice",
+              "python.pep8_style#assessment:apply_indentation_and_line_length",
+              "python.pep8_style#assessment:apply_naming_convention"
+            ]
+          }
+        },
+
+        # --- s04: recap ---
+        {
+          "step_id": "tile_python_pep8_style.s04",
+          "type": "recap",
+          "concept_ids": ["python.pep8_style"],
+          "eyebrow": "Recap",
+          "title": "PEP 8: what you've learned",
+          "lede": "Four recommendations that make Python code readable.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_pep8_style.s04.b1",
+              "role": "takeaway",
+              "text": "PEP 8 recommends 4 spaces per indentation level (not tabs), lines of at most 79 characters, no extraneous whitespace inside parentheses or before commas, and `lowercase_with_underscores` names for functions and variables. These are recommendations for readability — following them makes code easier to read for the next person, including a later you.",
+              "lineage": {
+                "concept_ids": ["python.pep8_style"],
+                "teaching_block_ids": ["python.pep8_style#tb4"],
+                "fact_ids": ["python.pep8_style#f1", "python.pep8_style#f4"]
+              }
+            },
+            {
+              "type": "up_next",
+              "block_id": "tile_python_pep8_style.s04.b2",
+              "title": "Up next: Descriptive statistics",
+              "text": "Next you will move into statistics, starting with measures of center and spread that summarise a distribution of delivery times."
+            }
+          ],
+          "reward": {"gems": 5},
+          "lineage": {
+            "concept_ids": ["python.pep8_style"],
+            "teaching_block_ids": ["python.pep8_style#tb4"],
+            "fact_ids": ["python.pep8_style#f1", "python.pep8_style#f4"]
+          }
+        }
+      ],
+
+      "remediation_steps": [
+        # Remediation for s02 (check: remove_extraneous_whitespace, measures f3)
+        {
+          "step_id": "tile_python_pep8_style.r01",
+          "type": "remediation",
+          "concept_ids": ["python.pep8_style"],
+          "eyebrow": "Let's revisit",
+          "title": "Extraneous whitespace: what to avoid",
+          "lede": "PEP 8 names specific places where extra spaces hurt readability.",
+          "blocks": [
+            {
+              "type": "prose",
+              "block_id": "tile_python_pep8_style.r01.b1",
+              "role": "mechanism",
+              "text": "PEP 8 recommends avoiding extraneous whitespace immediately inside parentheses, brackets or braces — `spam(ham[1], {eggs: 2})` rather than `spam( ham[ 1], { eggs: 2} )`. It also recommends no space immediately before a comma, semicolon, or colon — `x, y = 1, 2` rather than `x , y = 1 , 2`.",
+              "lineage": {
+                "concept_ids": ["python.pep8_style"],
+                "teaching_block_ids": ["python.pep8_style#tb2"],
+                "fact_ids": ["python.pep8_style#f3"]
+              }
+            }
+          ],
+          "reward": {"gems": 2},
+          "lineage": {
+            "concept_ids": ["python.pep8_style"],
+            "teaching_block_ids": ["python.pep8_style#tb2"],
+            "fact_ids": ["python.pep8_style#f3"]
+          }
+        }
+      ]
+    }
+
+  ]
+}
+
+with open('batches/final_batch_008_da_python_core/screens.part.c3.json', 'w') as f:
+    json.dump(data, f, indent=2)
+
+print("Written successfully.")
+
+# Count steps
+for tile in data['tiles']:
+    steps = tile['steps']
+    rem = tile.get('remediation_steps', [])
+    print(f"  {tile['tile_id']}: {len(steps)} steps, {len(rem)} remediation steps")
