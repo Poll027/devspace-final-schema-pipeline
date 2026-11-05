@@ -1,5 +1,5 @@
 {
- "taken_at": "2026-11-05 11:01:24 UTC",
+ "taken_at": "2026-11-05 11:06:53 UTC",
  "services": [
   {
    "service": "final-pipeline-pandas.service",
@@ -103,7 +103,7 @@
     "2026-11-05 10:47:32 === 09_leakage_check (evaluator_only) spent $141.96",
     "2026-11-05 10:57:50 NOTIFY STOPPED final_batch_009_da_pandas"
    ],
-   "log_age_min": 3.6,
+   "log_age_min": 9.0,
    "stopped": "# STOPPED final_batch_009_da_pandas\n\n09_leakage_check reported blocking findings that name no tile of this batch, so they can't be routed automatically. See leakage_report.json.\n- **BLOCKING:** 0\n\nSpend so far $143.06. Fix the cause, then rerun the same command (finished stages are skipped).\n",
    "done": null,
    "proposed_fix": "# Proposed fix for `00_FINAL_PIPELINE_CORE/scripts/run_pipeline.py`\n\n## Problem\n\n`blocking_in()` scans the LLM reply text with this regex:\n\n```python\nre.match(r\"\\s*[-*|]?\\s*\\**(BLOCKING|BLOCKER)\\b(?!\\s+(defects?|findings?|count)\\b)(?![\\s|:]*\\d+[\\s|*]*$)\", ln)\n```\n\nThe negative lookahead `(?![\\s|:]*\\d+[\\s|*]*$)` is meant to skip summary-count\nlines such as `BLOCKING: 0`.  However it does **not** skip the markdown-bold\nvariant `- **BLOCKING:** 0` because the `**` after the colon breaks the\n`[\\s|:]*\\d+` match.  The LLM wrote exactly that pattern in its stage-09 reply,\nproducing a spurious \"hit\" with no tile name, which caused `reopen_for_findings`\nto raise `Stuck`.\n\n## Fix (minimal, surgical)\n\nExtend the exclusion lookahead to also skip `**N**` and `**N` suffixes:\n\n```diff\n-    hits = [ln.strip() for ln in reply.splitlines() if re.match(r\"\\s*[-*|]?\\s*\\**(BLOCKING|BLOCKER)\\b(?!\\s+(defects?|findings?|count)\\b)(?![\\s|:]*\\d+[\\s|*]*$)\", ln)]\n+    hits = [ln.strip() for ln in reply.splitlines() if re.match(r\"\\s*[-*|]?\\s*\\**(BLOCKING|BLOCKER)\\b(?!\\s+(defects?|findings?|count)\\b)(?![\\s|:]*\\**\\d+[\\s|*]*$)\", ln)]\n```\n\nThe only change is `\\**` inserted before `\\d+` in the second lookahead, so\n`**BLOCKING:** 0`, `**BLOCKING:** **0**`, etc. are all treated as count lines\nand ignored.\n\nThe same one-character fix should be applied to the identical pattern on the\nsecond `hits +=` line inside `blocking_in()` (the one that re-scans the\nartifact text for non-JSON files).\n\n## Workaround (no code change needed for this run)\n\nDelete the stale leakage report so the driver re-runs stage 09 fresh.  The\nevaluator will almost certainly produce a clean `leakage_report.json` again\n(it already did \u2014 `blocking_count: 0`, `defects: []`), and this time the reply\ntext may not contain the bold-count line, or the JSON path will be the only\nthing checked.\n\n```bash\nrm batches/final_batch_009_da_pandas/leakage_report.json\n# then rerun the pipeline command as normal\n```\n",
@@ -212,7 +212,7 @@
     "2026-11-04 13:09:56 12_publish: planned stage, not run",
     "2026-11-04 13:09:56 NOTIFY DONE final_batch_011_da_spreadsheet"
    ],
-   "log_age_min": 1311.5,
+   "log_age_min": 1316.9,
    "stopped": null,
    "done": "# DONE final_batch_011_da_spreadsheet\n\nAll implemented stages gated. Spend $114.04. 05 and 12 are planned stages and were not run.\n",
    "proposed_fix": null,
@@ -221,26 +221,13 @@
   },
   {
    "service": "final-pipeline-viz.service",
-   "active": "active",
-   "sub": "running",
-   "exit_status": "0",
+   "active": "failed",
+   "sub": "failed",
+   "exit_status": "2",
    "repo": "/home/ubuntu/plan-check",
    "batch": "final_batch_012_da_viz",
    "code_commit": "bb96b5e",
    "journal_tail": [
-    "--- rest ---",
-    "tile_viz_line_scatter_box: FAIL  (1 error, 1 warning)  {\"steps\": 16, \"by_type\": {\"check\": 4, \"explainer\": 5, \"hands_on\": 3, \"recap\": 1, \"video\": 3}, \"interactions\": [\"choice\", \"code_exercise\"], \"est_minutes\": 19.1, \"unverified\": 0}",
-    "  E tile_viz_line_scatter_box.s15/ix.tile_viz_line_scatter_box.s15: constraints.allowed_syntax differs from viz.box_plots's glossary pra",
-    "final-pipeline-viz.service: Main process exited, code=exited, status=2/INVALIDARGUMENT",
-    "final-pipeline-viz.service: Failed with result 'exit-code'.",
-    "final-pipeline-viz.service: Consumed 5h 23min 55.030s CPU time, 4.0G memory peak, 0B memory swap peak.",
-    "Started final-pipeline-viz.service - Final pipeline supervisor (final-pipeline-viz).",
-    "[supervisor] triage: {'class': 'code', 'reason': \"The glossary anchor `viz.box_plots` teaches `plt.boxplot(..., tick_labels=[...])` (introduced in matplotlib 3.9), but the execution sandbox runs an older matplotlib where that parameter did not exist, causing `TypeError: boxplot() got an unexpected keyword argument 'tick_labels'`; the generator cannot satisfy both the runtime constraint and the `allowed_syntax` gate simultaneously, so it loops forever.\", 'action': 'Upgrade matplotlib in the execution sandbox to \u22653.9 (Option A in working/proposed_fix.md), OR update the `viz.box_plots` glossary anchor and all related prose to use the old `labels=` parameter name (Option B) \u2014 then rerun the pipeline (completed stages are skipped).'}",
-    "[supervisor] Final pipeline needs you (code)",
-    "Class: code",
-    "Reason: The glossary anchor `viz.box_plots` teaches `plt.boxplot(..., tick_labels=[...])` (introduced in matplotlib 3.9), but the execution sandbox runs an older matplotlib where that parameter did not exist, causing `TypeError: boxplot() got an unexpected keyword argument 'tick_labels'`; the generator cannot satisfy both the runtime constraint and the `allowed_syntax` gate simultaneously, so it loops forever.",
-    "Action: Upgrade matplotlib in the execution sandbox to \u22653.9 (Option A in working/proposed_fix.md), OR update the `viz.box_plots` glossary anchor and all related prose to use the old `labels=` parameter name (Option B) \u2014 then rerun the pipeline (completed stages are skipped).",
-    "Stop reason:",
     "# STOPPED final_batch_012_da_viz",
     "04_interactions:c1 still failing its deterministic gate after 3 generator repairs:",
     "validate_tile.py {B} --strict:",
@@ -257,7 +244,20 @@
     "final-pipeline-viz.service: Deactivated successfully.",
     "Stopped final-pipeline-viz.service - Final pipeline supervisor (final-pipeline-viz).",
     "final-pipeline-viz.service: Consumed 35min 5.118s CPU time, 1.3G memory peak, 0B memory swap peak.",
-    "Started final-pipeline-viz.service - Final pipeline supervisor (final-pipeline-viz)."
+    "Started final-pipeline-viz.service - Final pipeline supervisor (final-pipeline-viz).",
+    "[supervisor] triage: {'class': 'human', 'reason': \"batch_run_context.json (the 00_preflight artifact) was modified on 2026-11-05 10:35:48, more than two days after it was gated on 2026-11-03 15:29:12 \u2014 hash mismatch causes update_ledger.py to report '00_preflight: STALE \u2014 batch_run_context.json changed after it was gated'. The file change coincides with the budget cap being raised from $125 to $175, suggesting a manual edit or preflight re-run occurred.\", 'action': 'A human must decide: if the current batch_run_context.json content is correct, re-run the 00_preflight stage (or manually re-record its gate) so the ledger hash is refreshed, then rerun the pipeline command; if the file was accidentally modified, restore it to its original content and rerun.'}",
+    "[supervisor] Final pipeline needs you (human)",
+    "Class: human",
+    "Reason: batch_run_context.json (the 00_preflight artifact) was modified on 2026-11-05 10:35:48, more than two days after it was gated on 2026-11-03 15:29:12 \u2014 hash mismatch causes update_ledger.py to report '00_preflight: STALE \u2014 batch_run_context.json changed after it was gated'. The file change coincides with the budget cap being raised from $125 to $175, suggesting a manual edit or preflight re-run occurred.",
+    "Action: A human must decide: if the current batch_run_context.json content is correct, re-run the 00_preflight stage (or manually re-record its gate) so the ledger hash is refreshed, then rerun the pipeline command; if the file was accidentally modified, restore it to its original content and rerun.",
+    "Stop reason:",
+    "# STOPPED final_batch_012_da_viz",
+    "command failed (1): '/home/ubuntu/env/bin/python' 00_FINAL_PIPELINE_CORE/scripts/update_ledger.py batches/final_batch_012_da_viz verify 00_preflight 01_scenario_assets 02_tile_plan 03_screens 04_interactions 06_assemble 07_validate 08_pedagogy_review 09_leakage_check",
+    "00_preflight: STALE \u2014 batch_run_context.json changed after it was gated",
+    "Spend so far $123.19. Fix the cause, then rerun the same command (finished stages are skipped).",
+    "final-pipeline-viz.service: Main process exited, code=exited, status=2/INVALIDARGUMENT",
+    "final-pipeline-viz.service: Failed with result 'exit-code'.",
+    "final-pipeline-viz.service: Consumed 1h 43min 39.255s CPU time, 1.5G memory peak, 0B memory swap peak."
    ],
    "log_tail": [
     "2026-11-05 06:01:56 04_interactions:c2 gate failed, generator repair 1",
@@ -321,11 +321,11 @@
     "2026-11-05 11:00:58 10_stage_gate_ledger: python3 00_FINAL_PIPELINE_CORE/scripts/update_ledger.py batches/final_batch_012_da_viz verify 00_preflight 01_scenario_assets 02_tile_plan 0",
     "2026-11-05 11:00:58 NOTIFY STOPPED final_batch_012_da_viz"
    ],
-   "log_age_min": 0.4,
+   "log_age_min": 5.9,
    "stopped": "# STOPPED final_batch_012_da_viz\n\ncommand failed (1): '/home/ubuntu/env/bin/python' 00_FINAL_PIPELINE_CORE/scripts/update_ledger.py batches/final_batch_012_da_viz verify 00_preflight 01_scenario_assets 02_tile_plan 03_screens 04_interactions 06_assemble 07_validate 08_pedagogy_review 09_leakage_check\n00_preflight: STALE \u2014 batch_run_context.json changed after it was gated\n\n\nSpend so far $123.19. Fix the cause, then rerun the same command (finished stages are skipped).\n",
    "done": null,
    "proposed_fix": null,
-   "spend_usd": 123.19,
+   "spend_usd": 123.32,
    "ops_action": null
   },
   {
@@ -430,7 +430,7 @@
     "2026-11-03 22:27:25 12_publish: planned stage, not run",
     "2026-11-03 22:27:25 NOTIFY DONE final_batch_008_da_python_core"
    ],
-   "log_age_min": 2194.0,
+   "log_age_min": 2199.5,
    "stopped": null,
    "done": "# DONE final_batch_008_da_python_core\n\nAll implemented stages gated. Spend $102.48. 05 and 12 are planned stages and were not run.\n",
    "proposed_fix": null,
