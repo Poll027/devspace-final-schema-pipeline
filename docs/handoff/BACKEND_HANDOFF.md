@@ -24,7 +24,7 @@ How to read this: sections 1-3 are context, 4-9 are the contracts and what the p
 | Total reward configured | 4,314 gems across tiles (rewards are config, computed at runtime) |
 | Datasets / code workspaces in the asset registries | 59 / 16 asset records (65 distinct ids; see section 8, ids collide) |
 | Video segments referenced by the glossary | 115 segments on 85 concepts |
-| Grader tests (answer-key replay) | 501 non-code + 27 SQL + 74 Python + 17 chart + 9 sheet + 21 formula = all pass |
+| Grader tests (answer-key replay) | 1,164 non-code + 27 SQL + 54 Python + 17 chart + 9 sheet + 21 formula = 1,292 tests, all pass |
 | Generation cost (Bedrock, batches 002-013) | **$965.74**, about 31,300 model calls |
 
 Cost is above the plan's target. The playbook aimed at roughly $0.65 per concept; this run cost about $5.75 per concept ($965.74 / 168). The first path also paid for building and verifying four code runtimes, the checkers and the unattended driver, and for many repair loops (section 13.4). Expect later paths to be cheaper, but do not budget from the target figure.
@@ -363,7 +363,7 @@ const result = await gradeInteraction(interaction, submission, { registry, sql, 
 
 - Non-code types are pure functions. Code types take **injected engines** with the job shapes of section 6.5; a missing engine returns `needs: "runtime"` instead of guessing; `external_proof` returns `needs: "review"`.
 - The comparison rules are line-for-line ports of the pipeline's reference graders (`scripts/checkers/sandbox.py`: `grade_learner`, `grade_learner_py`, `grade_learner_sheet`, `formula_entry_outcome`). The player is required to behave identically.
-- Verified by replaying every authored answer key through it (`grader-core/test/`, run with `node --test`): the authored solution passes, and the starter code, an empty program and a typed-in constant all fail. Results: 501 (non-code, including each wrong choice option yielding its own authored feedback), 27 (SQL, all 26 exercises), 54 (Python, all 53 exercises plus a helper test), 17 (charts, all 16), 9 (sheets, all 8), 21 (formula entries, all 20). Node adapters in `test/node-engines.ts` show how an engine is plugged in.
+- Verified by replaying every authored answer key through it (`grader-core/test/`, run with `node --test`): the authored solution passes, and the starter code, an empty program and a typed-in constant all fail. Results: 1,164 (non-code, including each wrong choice option yielding its own authored feedback), 27 (SQL, all 26 exercises), 54 (Python, all 53 exercises plus a helper test), 17 (charts, all 16), 9 (sheets, all 8), 21 (formula entries, all 20). Node adapters in `test/node-engines.ts` show how an engine is plugged in.
 
 **Known gaps:**
 1. `forbidden_syntax` tests for Python and spreadsheets come back in `unchecked` (they need a Python/formula parser). SQL forbidden syntax is detected for the four descriptors the lessons use (DISTINCT, WHERE, CASE, table alias). No finished tile uses a Python or sheet `forbidden_syntax` test as a graded rule, but the pipeline's gate does check the *authored* solution against `allowed_syntax`/`blocked_syntax`. Whether to enforce the allowed-syntax list on **learner** code is a product decision (the player could parse with Python's `ast` in Pyodide).
