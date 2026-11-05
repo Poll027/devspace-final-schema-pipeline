@@ -1,0 +1,383 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "scenario_asset_registry",
+  "path_id": "data_analyst",
+  "batch_id": "final_batch_013_da_stakeholder_chart",
+  "scenarios": [
+    {
+      "scenario_id": "scen_ng_logistics",
+      "name": "SwiftMove Nigeria — City Delivery Operations",
+      "summary": "SwiftMove Nigeria is a fictional last-mile delivery company operating in Lagos, Abuja, and Kano. An operations manager wants to understand delivery performance across cities and over time. A data analyst prepares charts to communicate findings clearly to this non-technical audience.",
+      "locale": "en-NG",
+      "currency": "NGN",
+      "domain": "logistics",
+      "glossary_example_vocab": [
+        "Lagos",
+        "Abuja",
+        "Kano",
+        "operations manager",
+        "delivery time",
+        "average delivery time",
+        "delivery volume",
+        "order count",
+        "bar chart",
+        "line graph",
+        "boxplot",
+        "pie chart",
+        "scatterplot",
+        "gridlines",
+        "border",
+        "data labels",
+        "trailing zeros",
+        "rotated tick labels",
+        "axis labels",
+        "part-to-whole",
+        "comparison",
+        "trend",
+        "distribution",
+        "22.00 minutes",
+        "22 min",
+        "avg_delivery_minutes",
+        "week_number",
+        "order_count",
+        "distance_km"
+      ]
+    }
+  ],
+  "assets": [
+    {
+      "asset_id": "ds_city_delivery_summary",
+      "asset_kind": "dataset",
+      "scenario_id": "scen_ng_logistics",
+      "title": "City Delivery Summary",
+      "description": "One row per city. Captures average delivery time, total order count, and each city's share of total orders. Supports bar-chart (comparison) and pie-chart (part-to-whole) exercises.",
+      "columns": [
+        {
+          "name": "city",
+          "type": "string",
+          "semantic_role": "categorical",
+          "description": "Delivery city name (Lagos, Abuja, Kano)"
+        },
+        {
+          "name": "avg_delivery_minutes",
+          "type": "number",
+          "semantic_role": "numerical",
+          "unit": "minutes",
+          "description": "Average delivery time in minutes for the city"
+        },
+        {
+          "name": "order_count",
+          "type": "integer",
+          "semantic_role": "numerical",
+          "unit": "orders",
+          "description": "Total number of orders fulfilled in the city"
+        },
+        {
+          "name": "share_pct",
+          "type": "number",
+          "semantic_role": "numerical",
+          "unit": "percent",
+          "description": "City's share of total orders (values sum to 100)"
+        }
+      ],
+      "rows": [
+        [
+          "Lagos",
+          38.4,
+          3120,
+          57.1
+        ],
+        [
+          "Abuja",
+          27.2,
+          1560,
+          28.6
+        ],
+        [
+          "Kano",
+          22.0,
+          780,
+          14.3
+        ]
+      ],
+      "variants": [
+        {
+          "variant_id": "ds_city_delivery_summary.messy",
+          "derived_from": "ds_city_delivery_summary",
+          "purpose": "find_issues practice — contains impossible value, inconsistent casing, and missing value",
+          "ops": [
+            {
+              "op": "set_cell",
+              "where": {
+                "city": "Kano"
+              },
+              "occurrence": 0,
+              "column": "avg_delivery_minutes",
+              "value": -5.0
+            },
+            {
+              "op": "duplicate_row",
+              "where": {
+                "city": "Lagos"
+              },
+              "occurrence": 0,
+              "insert": "end"
+            },
+            {
+              "op": "set_cell",
+              "where": {
+                "city": "Lagos"
+              },
+              "occurrence": 1,
+              "column": "city",
+              "value": "lagos"
+            },
+            {
+              "op": "set_cell",
+              "where": {
+                "city": "Abuja"
+              },
+              "occurrence": 0,
+              "column": "share_pct",
+              "value": null
+            }
+          ],
+          "planted_issues": [
+            {
+              "issue_id": "issue_impossible_delivery_time",
+              "kind": "impossible_value",
+              "locations": [
+                {
+                  "where": {
+                    "city": "Kano"
+                  },
+                  "occurrence": 0,
+                  "column": "avg_delivery_minutes"
+                }
+              ],
+              "description": "avg_delivery_minutes is -5.0 for Kano — delivery time cannot be negative.",
+              "rule": {
+                "column": "avg_delivery_minutes",
+                "op": "lt",
+                "value": 0
+              }
+            },
+            {
+              "issue_id": "issue_city_casing",
+              "kind": "inconsistent_category",
+              "locations": [
+                {
+                  "where": {
+                    "city": "lagos"
+                  },
+                  "occurrence": 0,
+                  "column": "city"
+                }
+              ],
+              "description": "City name 'lagos' uses lowercase; the sibling row 'Lagos' uses title case — inconsistent category encoding.",
+              "rule": {
+                "column": "city",
+                "op": "casing_differs_from_siblings"
+              }
+            },
+            {
+              "issue_id": "issue_missing_share_pct",
+              "kind": "missing_value",
+              "locations": [
+                {
+                  "where": {
+                    "city": "Abuja"
+                  },
+                  "occurrence": 0,
+                  "column": "share_pct"
+                }
+              ],
+              "description": "share_pct is null for Abuja — the part-to-whole percentage is missing."
+            }
+          ]
+        }
+      ],
+      "provenance": "authored"
+    },
+    {
+      "asset_id": "ds_weekly_delivery_trend",
+      "asset_kind": "dataset",
+      "scenario_id": "scen_ng_logistics",
+      "title": "Weekly Delivery Trend by City",
+      "description": "One row per city per week. Captures average delivery time and average distance per delivery. Supports line-graph (trend) and scatterplot (distance vs. delivery-time relationship) exercises.",
+      "columns": [
+        {
+          "name": "week_number",
+          "type": "integer",
+          "semantic_role": "identifier",
+          "numeric_looking_label": true,
+          "description": "Week identifier (1–4). A digit used as a label, not a quantity to aggregate — the misconception trap for numeric-looking labels."
+        },
+        {
+          "name": "city",
+          "type": "string",
+          "semantic_role": "categorical",
+          "description": "Delivery city name (Lagos, Abuja, Kano)"
+        },
+        {
+          "name": "avg_delivery_minutes",
+          "type": "number",
+          "semantic_role": "numerical",
+          "unit": "minutes",
+          "description": "Average delivery time in minutes for that city-week"
+        },
+        {
+          "name": "distance_km",
+          "type": "number",
+          "semantic_role": "numerical",
+          "unit": "km",
+          "description": "Average delivery distance in kilometres for that city-week"
+        }
+      ],
+      "rows": [
+        [
+          1,
+          "Lagos",
+          34.0,
+          8.2
+        ],
+        [
+          1,
+          "Abuja",
+          27.0,
+          6.1
+        ],
+        [
+          1,
+          "Kano",
+          22.0,
+          4.8
+        ],
+        [
+          2,
+          "Lagos",
+          36.5,
+          8.5
+        ],
+        [
+          2,
+          "Abuja",
+          27.3,
+          6.0
+        ],
+        [
+          2,
+          "Kano",
+          21.8,
+          4.9
+        ],
+        [
+          3,
+          "Lagos",
+          38.1,
+          8.9
+        ],
+        [
+          3,
+          "Abuja",
+          27.1,
+          6.2
+        ],
+        [
+          3,
+          "Kano",
+          22.3,
+          4.7
+        ],
+        [
+          4,
+          "Lagos",
+          40.2,
+          9.3
+        ],
+        [
+          4,
+          "Abuja",
+          27.5,
+          6.1
+        ],
+        [
+          4,
+          "Kano",
+          22.0,
+          4.8
+        ]
+      ],
+      "variants": [
+        {
+          "variant_id": "ds_weekly_delivery_trend.messy",
+          "derived_from": "ds_weekly_delivery_trend",
+          "purpose": "find_issues practice — contains a duplicate row and a suspicious outlier",
+          "ops": [
+            {
+              "op": "duplicate_row",
+              "where": {
+                "week_number": 2,
+                "city": "Lagos"
+              },
+              "occurrence": 0,
+              "insert": "end"
+            },
+            {
+              "op": "set_cell",
+              "where": {
+                "week_number": 3,
+                "city": "Kano"
+              },
+              "occurrence": 0,
+              "column": "avg_delivery_minutes",
+              "value": 180.0
+            }
+          ],
+          "planted_issues": [
+            {
+              "issue_id": "issue_duplicate_lagos_week2",
+              "kind": "duplicate_row",
+              "locations": [
+                {
+                  "where": {
+                    "week_number": 2,
+                    "city": "Lagos"
+                  },
+                  "occurrence": 1,
+                  "column": "city"
+                }
+              ],
+              "description": "The week 2 Lagos row appears twice — a duplicate that would inflate any aggregate computed over this city-week."
+            },
+            {
+              "issue_id": "issue_outlier_kano_week3",
+              "kind": "outlier_suspicious",
+              "locations": [
+                {
+                  "where": {
+                    "week_number": 3,
+                    "city": "Kano"
+                  },
+                  "occurrence": 0,
+                  "column": "avg_delivery_minutes"
+                }
+              ],
+              "description": "avg_delivery_minutes is 180.0 for Kano week 3 — three hours, far above the 20–40 min range of all other rows.",
+              "rule": {
+                "column": "avg_delivery_minutes",
+                "op": "gt",
+                "value": 100
+              }
+            }
+          ]
+        }
+      ],
+      "provenance": "authored"
+    }
+  ],
+  "provenance": {
+    "model": "claude-opus-4-5",
+    "generated_at": "2026-11-05T15:12:08Z"
+  }
+}
