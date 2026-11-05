@@ -431,6 +431,7 @@ def ensure_gate(c, sid, chunk, ids):
                 chunks = tile_chunks(c)
                 if list(chunks) != ["all"]:
                     merge(c, "03_screens", chunks)
+                gate(c, "03_screens", gen="teachfix")  # screens.json changed after stage 03 was gated: re-record it or the final ledger check says STALE
             finally:
                 c.reopening.discard(art)
         out = c.agent("GEN", generator_task(c, sid, chunk, ids, gate_msg=msg), f"{sid}:{chunk}:gatefix", tiles=len(ids or []))
