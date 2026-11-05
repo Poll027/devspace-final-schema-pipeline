@@ -50,6 +50,11 @@ def _chart_patch():
     if getattr(_ax.Axes, "_dsp_patched", False): return
     _ax.Axes._dsp_patched = True
     _bar, _hist, _bxp = _ax.Axes.bar, _ax.Axes.hist, _ax.Axes.bxp
+    _box = _ax.Axes.boxplot
+    def boxplot(self, *a, **k):  # matplotlib 3.9 renamed labels= to tick_labels=; Pyodide ships 3.8.4. The player must apply the same alias.
+        if "tick_labels" in k: k["labels"] = k.pop("tick_labels")
+        return _box(self, *a, **k)
+    _ax.Axes.boxplot = boxplot
     def bar(self, *a, **k):
         c = _bar(self, *a, **k)
         f, hist = sys._getframe(1), False
