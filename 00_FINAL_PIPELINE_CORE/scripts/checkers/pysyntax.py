@@ -16,7 +16,7 @@ import re
 import tokenize
 
 LIBS = {"pandas", "numpy", "matplotlib", "seaborn", "scipy", "statsmodels"}
-BASE = {"assign", "comment", "expr_stmt", "kw:data", "kw:x", "kw:y", "kw:hue", "kw:ax"}  # always fine: assigning names, comments; the data/axis keywords every plotting call takes
+BASE = {"assign", "comment", "expr_stmt", "kw:data", "kw:x", "kw:y", "kw:hue", "kw:ax", "kw:label", "kw:labels"}  # always fine: assigning names, comments; the data/axis keywords every plotting call takes
 
 OPS = {ast.Add: "op_add", ast.Sub: "op_sub", ast.Mult: "op_mul", ast.Div: "op_div", ast.FloorDiv: "op_floordiv", ast.Mod: "op_mod", ast.Pow: "op_pow",
        ast.BitAnd: "op_bitand", ast.BitOr: "op_bitor"}
