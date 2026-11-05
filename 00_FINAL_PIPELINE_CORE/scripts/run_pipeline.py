@@ -524,7 +524,7 @@ def run_gen_eval(c, sid):
 
 def blocking_in(path, reply):
     """BLOCKING/BLOCKER findings in an evaluator-only artifact (json or text) or its reply."""
-    hits = [ln.strip() for ln in reply.splitlines() if re.match(r"\s*[-*|]?\s*\**(BLOCKING|BLOCKER)\b(?!\s+(defects?|findings?|count)\b)(?![\s|:]*\d+[\s|*]*$)", ln)]
+    hits = [ln.strip() for ln in reply.splitlines() if re.match(r"\s*[-*|]?\s*\**(BLOCKING|BLOCKER)\b(?!\s+(defects?|findings?|count)\b)(?![\s|:*]*\d+[\s|*]*$)", ln)]
     if path.suffix == ".json":
         def walk(o):
             if isinstance(o, dict):
@@ -537,7 +537,7 @@ def blocking_in(path, reply):
                     walk(v)
         walk(load(path))
     else:
-        hits += [ln.strip() for ln in path.read_text().splitlines() if re.match(r"\s*[-*|]?\s*\**(BLOCKING|BLOCKER)\b(?!\s+(defects?|findings?|count)\b)(?![\s|:]*\d+[\s|*]*$)", ln)]
+        hits += [ln.strip() for ln in path.read_text().splitlines() if re.match(r"\s*[-*|]?\s*\**(BLOCKING|BLOCKER)\b(?!\s+(defects?|findings?|count)\b)(?![\s|:*]*\d+[\s|*]*$)", ln)]
     return hits
 
 
