@@ -1,0 +1,459 @@
+"""Build scenario_asset_registry.json for final_batch_013_da_stakeholder_chart.
+
+Glossary vocabulary (from teaching blocks and anchors):
+  - Domain: delivery operations / logistics (Nigeria)
+  - Cities: Lagos, Abuja, Kano
+  - Metric: avg_delivery_minutes (delivery time in minutes)
+  - Metric: order_count (total orders / delivery volume)
+  - Time: week (Lagos delivery time rising week over week)
+  - Distance: distance_km (distance/delivery-time relationship for scatterplot)
+  - Axis label example: "22.00 minutes" -> "22 min"
+  - Roles: operations manager
+  - Chart types: bar chart, line graph, boxplot, pie chart, scatterplot
+
+Two concepts in scope:
+  1. stakeholder.chart_type_to_point_matching
+  2. stakeholder.simplifying_charts_for_audience
+
+Datasets needed:
+  A) city_deliveries — avg delivery time by city (bar chart comparison, pie chart part-to-whole)
+     Columns: city (categorical), avg_delivery_minutes (numerical), order_count (numerical)
+     Cities: Lagos, Abuja, Kano
+     Supports: bar chart (comparison), pie chart (part-to-whole share of total orders)
+
+  B) lagos_weekly_deliveries — Lagos delivery time over weeks (line chart trend)
+     Columns: week_number (identifier/numeric-looking label), week_label (categorical),
+              avg_delivery_minutes (numerical), order_count (numerical)
+     Supports: line graph (trend over time)
+
+  C) delivery_distance — order-level distance vs delivery time (scatterplot exploration)
+     Columns: order_id (identifier/numeric-looking label), city (categorical),
+              distance_km (numerical), delivery_minutes (numerical)
+     Supports: scatterplot (distance/delivery-time relationship)
+
+Variants (messy/edge):
+  - city_deliveries_messy: impossible_value (negative delivery time for Kano)
+  - delivery_distance_messy: casing inconsistency on city + duplicate row
+    (delivery_distance has multiple Lagos rows so casing_differs_from_siblings works)
+  - lagos_weekly_messy: missing value for one week
+"""
+
+import json
+import sys
+from pathlib import Path
+
+BATCH = Path(__file__).parent
+OUT = BATCH / "scenario_asset_registry.json"
+
+# ── Scenario ──────────────────────────────────────────────────────────────────
+scenarios = [
+    {
+        "scenario_id": "scenario_nga_delivery_ops",
+        "name": "Nigeria Delivery Operations",
+        "summary": (
+            "A data analyst at a Nigerian last-mile logistics company is preparing a "
+            "stakeholder presentation for the operations manager. The analyst has already "
+            "explored delivery-time data across Lagos, Abuja, and Kano, and must now choose "
+            "the right chart type for each point being communicated, then simplify those "
+            "charts to reduce visual clutter for a non-technical audience."
+        ),
+        "locale": "en-NG",
+        "currency": "NGN",
+        "domain": "logistics / delivery operations",
+        "glossary_example_vocab": [
+            "Lagos",
+            "Abuja",
+            "Kano",
+            "delivery time",
+            "average delivery time",
+            "delivery volume",
+            "total orders",
+            "operations manager",
+            "bar chart",
+            "line graph",
+            "boxplot",
+            "pie chart",
+            "scatterplot",
+            "week over week",
+            "part-to-whole",
+            "comparison",
+            "trend",
+            "distribution",
+            "gridlines",
+            "border",
+            "data labels",
+            "trailing zeros",
+            "rotated axis labels",
+            "22.00 minutes",
+            "22 min",
+            "distance",
+        ],
+    }
+]
+
+# ── Dataset A: city_deliveries ─────────────────────────────────────────────────
+# Supports: bar chart (avg delivery time by city), pie chart (share of total orders)
+# Lagos avg is notably higher — the "Lagos point" the manager needs to see.
+# order_count: Lagos 720, Abuja 300, Kano 180 → total 1200 (pie sums to 100%)
+# avg_delivery_minutes: Lagos 34.0, Abuja 22.0, Kano 19.0
+city_deliveries_columns = [
+    {
+        "name": "city",
+        "type": "string",
+        "semantic_role": "categorical",
+        "description": "City name (Lagos, Abuja, or Kano)",
+    },
+    {
+        "name": "avg_delivery_minutes",
+        "type": "number",
+        "semantic_role": "numerical",
+        "unit": "minutes",
+        "description": "Average delivery time in minutes for orders in this city",
+    },
+    {
+        "name": "order_count",
+        "type": "integer",
+        "semantic_role": "numerical",
+        "unit": "orders",
+        "description": "Total number of orders fulfilled in this city during the reporting period",
+    },
+]
+
+# Rows: [city, avg_delivery_minutes, order_count]
+city_deliveries_rows = [
+    ["Lagos", 34.0, 720],
+    ["Abuja", 22.0, 300],
+    ["Kano",  19.0, 180],
+]
+
+# Variant: messy version — impossible value only (negative delivery time for Kano)
+# Note: casing issue moved to delivery_distance_messy where multiple Lagos rows exist
+city_deliveries_variants = [
+    {
+        "variant_id": "city_deliveries_messy",
+        "derived_from": "asset_city_deliveries",
+        "purpose": "Messy version with an impossible negative delivery time for Kano",
+        "ops": [
+            # Set Kano avg_delivery_minutes to -5.0 (impossible: negative time)
+            {
+                "op": "set_cell",
+                "where": {"city": "Kano"},
+                "occurrence": 0,
+                "column": "avg_delivery_minutes",
+                "value": -5.0,
+            },
+        ],
+        "planted_issues": [
+            {
+                "issue_id": "issue_impossible_delivery_time",
+                "kind": "impossible_value",
+                "locations": [
+                    {
+                        "where": {"city": "Kano"},
+                        "occurrence": 0,
+                        "column": "avg_delivery_minutes",
+                    }
+                ],
+                "description": (
+                    "avg_delivery_minutes is -5.0 for Kano — a negative delivery time "
+                    "is impossible and indicates a data entry error."
+                ),
+                "rule": {
+                    "column": "avg_delivery_minutes",
+                    "op": "lt",
+                    "value": 0,
+                },
+            },
+        ],
+    }
+]
+
+asset_city_deliveries = {
+    "asset_id": "asset_city_deliveries",
+    "asset_kind": "dataset",
+    "scenario_id": "scenario_nga_delivery_ops",
+    "title": "City Delivery Summary",
+    "description": (
+        "Average delivery time and total order count per city (Lagos, Abuja, Kano) "
+        "for the current reporting period. Used for bar chart (comparison) and pie chart "
+        "(part-to-whole share of total orders) examples."
+    ),
+    "columns": city_deliveries_columns,
+    "rows": city_deliveries_rows,
+    "variants": city_deliveries_variants,
+    "provenance": "authored",
+}
+
+# ── Dataset B: lagos_weekly_deliveries ─────────────────────────────────────────
+# Supports: line graph (Lagos delivery time rising week over week)
+# week_number is a numeric-looking label (1–8, sequential identifier, not a quantity)
+# 8 weeks of data — enough for hidden tests to distinguish a correct trend query
+lagos_weekly_columns = [
+    {
+        "name": "week_number",
+        "type": "integer",
+        "semantic_role": "identifier",
+        "description": "Sequential week number (1 = earliest week in the reporting period)",
+        "numeric_looking_label": True,
+    },
+    {
+        "name": "week_label",
+        "type": "string",
+        "semantic_role": "categorical",
+        "description": "Human-readable week label (e.g. 'Wk 1', 'Wk 2')",
+    },
+    {
+        "name": "avg_delivery_minutes",
+        "type": "number",
+        "semantic_role": "numerical",
+        "unit": "minutes",
+        "description": "Average delivery time in minutes for Lagos orders in this week",
+    },
+    {
+        "name": "order_count",
+        "type": "integer",
+        "semantic_role": "numerical",
+        "unit": "orders",
+        "description": "Number of Lagos orders fulfilled in this week",
+    },
+]
+
+# Rows: [week_number, week_label, avg_delivery_minutes, order_count]
+# Rising trend: ~28 → ~38 minutes over 8 weeks (the "Lagos point")
+lagos_weekly_rows = [
+    [1, "Wk 1", 28.0, 85],
+    [2, "Wk 2", 29.5, 88],
+    [3, "Wk 3", 30.0, 91],
+    [4, "Wk 4", 31.5, 90],
+    [5, "Wk 5", 33.0, 94],
+    [6, "Wk 6", 34.0, 96],
+    [7, "Wk 7", 36.5, 99],
+    [8, "Wk 8", 38.0, 102],
+]
+
+# Variant: messy version — missing avg_delivery_minutes for week 6
+lagos_weekly_variants = [
+    {
+        "variant_id": "lagos_weekly_messy",
+        "derived_from": "asset_lagos_weekly_deliveries",
+        "purpose": "Messy version with a missing avg_delivery_minutes value for week 6",
+        "ops": [
+            # Set avg_delivery_minutes to null for week 6 (missing value)
+            {
+                "op": "set_cell",
+                "where": {"week_number": 6},
+                "occurrence": 0,
+                "column": "avg_delivery_minutes",
+                "value": None,
+            },
+        ],
+        "planted_issues": [
+            {
+                "issue_id": "issue_missing_delivery_time_wk6",
+                "kind": "impossible_value",
+                "locations": [
+                    {
+                        "where": {"week_number": 6},
+                        "occurrence": 0,
+                        "column": "avg_delivery_minutes",
+                    }
+                ],
+                "description": (
+                    "avg_delivery_minutes is null for week 6 — a missing value that "
+                    "would break a trend line if not handled."
+                ),
+                "rule": {
+                    "column": "avg_delivery_minutes",
+                    "op": "is_null",
+                },
+            },
+        ],
+    }
+]
+
+asset_lagos_weekly = {
+    "asset_id": "asset_lagos_weekly_deliveries",
+    "asset_kind": "dataset",
+    "scenario_id": "scenario_nga_delivery_ops",
+    "title": "Lagos Weekly Delivery Trend",
+    "description": (
+        "Average delivery time and order count for Lagos, broken down by week over an "
+        "8-week reporting period. Shows a rising trend — the 'Lagos point' communicated "
+        "via a line graph. week_number is a numeric-looking label (sequential identifier, "
+        "not a quantity to aggregate)."
+    ),
+    "columns": lagos_weekly_columns,
+    "rows": lagos_weekly_rows,
+    "variants": lagos_weekly_variants,
+    "provenance": "authored",
+}
+
+# ── Dataset C: delivery_distance ───────────────────────────────────────────────
+# Supports: scatterplot (distance/delivery-time relationship — exploratory)
+# order_id is a numeric-looking label (1001–1015)
+# 15 rows — enough for hidden tests; multiple Lagos rows enable casing variant
+delivery_distance_columns = [
+    {
+        "name": "order_id",
+        "type": "integer",
+        "semantic_role": "identifier",
+        "description": "Unique order identifier (numeric label, not a quantity to aggregate)",
+        "numeric_looking_label": True,
+    },
+    {
+        "name": "city",
+        "type": "string",
+        "semantic_role": "categorical",
+        "description": "City where the order was fulfilled (Lagos, Abuja, or Kano)",
+    },
+    {
+        "name": "distance_km",
+        "type": "number",
+        "semantic_role": "numerical",
+        "unit": "km",
+        "description": "Distance from depot to delivery address in kilometres",
+    },
+    {
+        "name": "delivery_minutes",
+        "type": "number",
+        "semantic_role": "numerical",
+        "unit": "minutes",
+        "description": "Actual delivery time in minutes for this order",
+    },
+]
+
+# Rows: [order_id, city, distance_km, delivery_minutes]
+# Positive correlation between distance and delivery time, with scatter
+# Lagos orders: longer distance, longer delivery time
+delivery_distance_rows = [
+    [1001, "Lagos",  4.2, 28.0],
+    [1002, "Lagos",  7.8, 35.0],
+    [1003, "Lagos", 12.1, 42.0],
+    [1004, "Lagos",  9.5, 38.0],
+    [1005, "Lagos", 15.3, 51.0],
+    [1006, "Lagos",  6.0, 31.0],
+    [1007, "Abuja",  3.1, 19.0],
+    [1008, "Abuja",  5.4, 24.0],
+    [1009, "Abuja",  8.2, 29.0],
+    [1010, "Abuja",  2.7, 17.0],
+    [1011, "Kano",   2.3, 16.0],
+    [1012, "Kano",   4.8, 22.0],
+    [1013, "Kano",   6.1, 25.0],
+    [1014, "Kano",   3.5, 20.0],
+    [1015, "Lagos", 11.0, 44.0],
+]
+
+# Variant: messy version with casing inconsistency + duplicate row
+# casing_differs_from_siblings works here because there are 6 Lagos rows —
+# after setting order 1003's city to 'lagos', the other 5 'Lagos' rows are siblings.
+delivery_distance_variants = [
+    {
+        "variant_id": "delivery_distance_messy",
+        "derived_from": "asset_delivery_distance",
+        "purpose": (
+            "Messy version with an inconsistent city-name casing ('lagos' vs 'Lagos') "
+            "and a duplicate order row"
+        ),
+        "ops": [
+            # Op 1: set order 1003 city to 'lagos' (lowercase — inconsistent casing)
+            {
+                "op": "set_cell",
+                "where": {"order_id": 1003},
+                "occurrence": 0,
+                "column": "city",
+                "value": "lagos",
+            },
+            # Op 2: duplicate order 1007 (Abuja) — duplicate row
+            {
+                "op": "duplicate_row",
+                "where": {"order_id": 1007},
+                "occurrence": 0,
+            },
+        ],
+        "planted_issues": [
+            {
+                "issue_id": "issue_city_casing_inconsistency",
+                "kind": "inconsistent_category",
+                "locations": [
+                    {
+                        "where": {"order_id": 1003},
+                        "occurrence": 0,
+                        "column": "city",
+                    }
+                ],
+                "description": (
+                    "City name 'lagos' (order 1003) uses lowercase, inconsistent with "
+                    "all other Lagos rows which use title-case 'Lagos'."
+                ),
+                "rule": {
+                    "column": "city",
+                    "op": "casing_differs_from_siblings",
+                },
+            },
+            {
+                "issue_id": "issue_duplicate_order_1007",
+                "kind": "duplicate_row",
+                "locations": [
+                    {
+                        "where": {"order_id": 1007},
+                        "occurrence": 0,
+                        "column": "order_id",
+                    },
+                    {
+                        "where": {"order_id": 1007},
+                        "occurrence": 1,
+                        "column": "order_id",
+                    },
+                ],
+                "description": (
+                    "Order 1007 (Abuja) appears twice — the row was duplicated, "
+                    "which would inflate Abuja order counts."
+                ),
+            },
+        ],
+    }
+]
+
+asset_delivery_distance = {
+    "asset_id": "asset_delivery_distance",
+    "asset_kind": "dataset",
+    "scenario_id": "scenario_nga_delivery_ops",
+    "title": "Order-Level Delivery Distance and Time",
+    "description": (
+        "Individual order records with distance from depot and actual delivery time, "
+        "across Lagos, Abuja, and Kano. Used for scatterplot (distance/delivery-time "
+        "relationship) — an exploratory chart that can be designed to communicate "
+        "findings to an audience. order_id is a numeric-looking label."
+    ),
+    "columns": delivery_distance_columns,
+    "rows": delivery_distance_rows,
+    "variants": delivery_distance_variants,
+    "provenance": "authored",
+}
+
+# ── Assemble registry ──────────────────────────────────────────────────────────
+registry = {
+    "schema_version": "1.0.0",
+    "kind": "scenario_asset_registry",
+    "path_id": "data_analyst",
+    "batch_id": "final_batch_013_da_stakeholder_chart",
+    "scenarios": scenarios,
+    "assets": [
+        asset_city_deliveries,
+        asset_lagos_weekly,
+        asset_delivery_distance,
+    ],
+}
+
+# Validate row widths before writing
+for asset in registry["assets"]:
+    if asset["asset_kind"] == "dataset" and "rows" in asset:
+        ncols = len(asset["columns"])
+        for i, row in enumerate(asset["rows"]):
+            assert len(row) == ncols, (
+                f"{asset['asset_id']} row {i}: width {len(row)} != {ncols} columns"
+            )
+        print(f"  {asset['asset_id']}: {len(asset['rows'])} rows x {ncols} cols OK")
+
+OUT.write_text(json.dumps(registry, indent=2))
+print(f"Written: {OUT}")

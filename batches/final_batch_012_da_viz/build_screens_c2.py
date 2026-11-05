@@ -1,0 +1,1876 @@
+#!/usr/bin/env python3
+"""
+Generate screens.part.c2.json for chunk c2:
+  tile_viz_labeling_chart_selection
+  tile_viz_custom_multi_panel
+  tile_viz_seaborn_stats_themes
+"""
+import json
+import sys
+
+def load_data():
+    with open('inputs/path_glossary_bundle.json', 'r') as f:
+        glossary = json.load(f)
+    with open('scenario_asset_registry.json', 'r') as f:
+        registry = json.load(f)
+    with open('tile_plans.json', 'r') as f:
+        plans_data = json.load(f)
+    concepts = {}
+    for bundle in glossary['bundles']:
+        cid = bundle['context']['concept_id']
+        concepts[cid] = bundle
+    return glossary, registry, plans_data, concepts
+
+def main():
+    glossary, registry, plans_data, concepts = load_data()
+
+    target_tiles = [
+        "tile_viz_labeling_chart_selection",
+        "tile_viz_custom_multi_panel",
+        "tile_viz_seaborn_stats_themes"
+    ]
+
+    tile_plans = {t['tile_id']: t for t in plans_data['tiles'] if t['tile_id'] in target_tiles}
+
+    output = {
+        "schema_version": "1.0",
+        "kind": "screens_part",
+        "path_id": plans_data['path_id'],
+        "batch_id": plans_data['batch_id'],
+        "tiles": [
+            build_tile_labeling_chart_selection(tile_plans, concepts),
+            build_tile_custom_multi_panel(tile_plans, concepts),
+            build_tile_seaborn_stats_themes(tile_plans, concepts),
+        ]
+    }
+
+    with open('screens.part.c2.json', 'w') as f:
+        json.dump(output, f, indent=2)
+
+    print("Written screens.part.c2.json", file=sys.stderr)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TILE 1: tile_viz_labeling_chart_selection
+# ─────────────────────────────────────────────────────────────────────────────
+
+def build_tile_labeling_chart_selection(tile_plans, concepts):
+    tid = "tile_viz_labeling_chart_selection"
+    steps = []
+
+    # s01 – explainer: labeling_annotation (tb1, tb2, tb3 → f1, f2)
+    steps.append({
+        "step_id": f"{tid}.s01",
+        "type": "explainer",
+        "concept_ids": ["viz.labeling_annotation"],
+        "eyebrow": "Labeling axes, titles, and legends",
+        "title": "Making charts readable with labels",
+        "lede": "A chart without labels is just shapes. Three Axes methods and one legend call fix that.",
+        "blocks": [
+            {
+                "type": "prose",
+                "block_id": f"{tid}.s01.b01",
+                "role": "intro",
+                "text": (
+                    "Titles, axis labels, and legends are the text that tells a reader what a plot shows. "
+                    "Matplotlib gives two parallel ways to add them: the Axes object interface and the pyplot "
+                    "interface. On an Axes object, ax.set_xlabel('Day'), ax.set_ylabel('Average delivery time "
+                    "(minutes)'), and ax.set_title('Average delivery time by day') label the Lagos trend line."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.labeling_annotation"],
+                    "teaching_block_ids": ["viz.labeling_annotation#tb1", "viz.labeling_annotation#tb2"],
+                    "fact_ids": ["viz.labeling_annotation#f1"]
+                }
+            },
+            {
+                "type": "prose",
+                "block_id": f"{tid}.s01.b02",
+                "role": "explanation",
+                "text": (
+                    "When you plot multiple series on the same Axes, a legend shows which line is which. "
+                    "Pass label='Lagos' to ax.plot(), then call ax.legend(). Once a second city's line is "
+                    "added to the same Axes, the legend identifies each series by its label."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.labeling_annotation"],
+                    "teaching_block_ids": ["viz.labeling_annotation#tb3"],
+                    "fact_ids": ["viz.labeling_annotation#f2"]
+                }
+            },
+            {
+                "type": "before_after",
+                "block_id": f"{tid}.s01.b03",
+                "before": {
+                    "type": "code_walkthrough",
+                    "block_id": f"{tid}.s01.b03.before",
+                    "language": "python",
+                    "code": (
+                        "fig, ax = plt.subplots()\n"
+                        "days = [1, 2, 3, 4, 5]\n"
+                        "lagos_avg = [21, 23, 19, 25, 20]\n"
+                        "ax.plot(days, lagos_avg)\n"
+                        "plt.show()\n"
+                        "# No title, no axis labels, no legend"
+                    ),
+                    "annotations": [
+                        {
+                            "start_line": 4,
+                            "end_line": 4,
+                            "text": "Plot draws, but the reader has no context"
+                        }
+                    ],
+                    "reveal": "line_by_line",
+                    "lineage": {
+                        "concept_ids": ["viz.labeling_annotation"],
+                        "teaching_block_ids": ["viz.labeling_annotation#tb1"],
+                        "fact_ids": []
+                    }
+                },
+                "after": {
+                    "type": "code_walkthrough",
+                    "block_id": f"{tid}.s01.b03.after",
+                    "language": "python",
+                    "code": (
+                        "fig, ax = plt.subplots()\n"
+                        "days = [1, 2, 3, 4, 5]\n"
+                        "lagos_avg = [21, 23, 19, 25, 20]\n"
+                        "ax.plot(days, lagos_avg, label='Lagos')\n"
+                        "ax.set_xlabel('Day')\n"
+                        "ax.set_ylabel('Average delivery time (minutes)')\n"
+                        "ax.set_title('Average delivery time by day')\n"
+                        "ax.legend()\n"
+                        "plt.show()"
+                    ),
+                    "annotations": [
+                        {
+                            "start_line": 4,
+                            "end_line": 4,
+                            "text": "label= kwarg names this series for the legend"
+                        },
+                        {
+                            "start_line": 5,
+                            "end_line": 7,
+                            "text": "set_xlabel, set_ylabel, set_title add axis labels and title"
+                        },
+                        {
+                            "start_line": 8,
+                            "end_line": 8,
+                            "text": "legend() renders the legend box"
+                        }
+                    ],
+                    "reveal": "line_by_line",
+                    "lineage": {
+                        "concept_ids": ["viz.labeling_annotation"],
+                        "teaching_block_ids": ["viz.labeling_annotation#tb2", "viz.labeling_annotation#tb3"],
+                        "fact_ids": ["viz.labeling_annotation#f1", "viz.labeling_annotation#f2"]
+                    }
+                },
+                "change_summary": "Adding set_xlabel, set_ylabel, set_title, and legend turns an unlabeled plot into a self-explanatory chart.",
+                "lineage": {
+                    "concept_ids": ["viz.labeling_annotation"],
+                    "teaching_block_ids": [
+                        "viz.labeling_annotation#tb1",
+                        "viz.labeling_annotation#tb2",
+                        "viz.labeling_annotation#tb3"
+                    ],
+                    "fact_ids": ["viz.labeling_annotation#f1", "viz.labeling_annotation#f2"],
+                    "anchors": ["viz.labeling_annotation#visual"]
+                }
+            }
+        ],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.labeling_annotation"],
+            "teaching_block_ids": [
+                "viz.labeling_annotation#tb1",
+                "viz.labeling_annotation#tb2",
+                "viz.labeling_annotation#tb3"
+            ],
+            "fact_ids": ["viz.labeling_annotation#f1", "viz.labeling_annotation#f2"]
+        }
+    })
+
+    # s02 – explainer: labeling_annotation (tb4 → f3)
+    steps.append({
+        "step_id": f"{tid}.s02",
+        "type": "explainer",
+        "concept_ids": ["viz.labeling_annotation"],
+        "eyebrow": "Labeling axes, titles, and legends",
+        "title": "pyplot shortcut functions",
+        "lede": "",
+        "blocks": [
+            {
+                "type": "prose",
+                "block_id": f"{tid}.s02.b01",
+                "role": "explanation",
+                "text": (
+                    "In the pyplot interface, plt.xlabel(), plt.ylabel(), and plt.title() set the same "
+                    "label and title elements on the current Axes—the pyplot equivalents of ax.set_xlabel(), "
+                    "ax.set_ylabel(), and ax.set_title()."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.labeling_annotation"],
+                    "teaching_block_ids": ["viz.labeling_annotation#tb4"],
+                    "fact_ids": ["viz.labeling_annotation#f3"]
+                }
+            }
+        ],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.labeling_annotation"],
+            "teaching_block_ids": ["viz.labeling_annotation#tb4"],
+            "fact_ids": ["viz.labeling_annotation#f3"]
+        }
+    })
+
+    # s03 – check: labeling_annotation (f1)
+    steps.append({
+        "step_id": f"{tid}.s03",
+        "type": "check",
+        "concept_ids": ["viz.labeling_annotation"],
+        "eyebrow": "Labeling axes, titles, and legends",
+        "title": "Check your understanding",
+        "lede": "",
+        "blocks": [],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.labeling_annotation"],
+            "teaching_block_ids": [],
+            "fact_ids": ["viz.labeling_annotation#f1"]
+        }
+    })
+
+    # s04 – check: labeling_annotation (f3)
+    steps.append({
+        "step_id": f"{tid}.s04",
+        "type": "check",
+        "concept_ids": ["viz.labeling_annotation"],
+        "eyebrow": "Labeling axes, titles, and legends",
+        "title": "Check your understanding",
+        "lede": "",
+        "blocks": [],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.labeling_annotation"],
+            "teaching_block_ids": [],
+            "fact_ids": ["viz.labeling_annotation#f3"]
+        }
+    })
+
+    # s05 – hands_on: labeling_annotation (f1, f2, f3)
+    steps.append({
+        "step_id": f"{tid}.s05",
+        "type": "hands_on",
+        "concept_ids": ["viz.labeling_annotation"],
+        "eyebrow": "Labeling axes, titles, and legends",
+        "title": "Practice",
+        "lede": "Add a title, axis labels, and a legend to an unlabeled plot.",
+        "blocks": [],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.labeling_annotation"],
+            "teaching_block_ids": [],
+            "fact_ids": [
+                "viz.labeling_annotation#f1",
+                "viz.labeling_annotation#f2",
+                "viz.labeling_annotation#f3"
+            ]
+        }
+    })
+
+    # s06 – explainer: chart_type_selection (tb1, tb2 → f1–f5)
+    steps.append({
+        "step_id": f"{tid}.s06",
+        "type": "explainer",
+        "concept_ids": ["viz.chart_type_selection"],
+        "eyebrow": "Matching chart type to the analytical question",
+        "title": "Choosing the right chart for your question",
+        "lede": "Five chart types, five different questions. The chart you pick changes what the reader sees.",
+        "blocks": [
+            {
+                "type": "prose",
+                "block_id": f"{tid}.s06.b01",
+                "role": "intro",
+                "text": (
+                    "With five chart types available, the question during exploration is which one actually "
+                    "answers the question you're asking of the data. Picking a chart type comes down to naming "
+                    "what you're asking: a category comparison, a single variable's spread, a trend over time, "
+                    "a relationship between two variables, or a spread comparison across several groups."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.chart_type_selection"],
+                    "teaching_block_ids": ["viz.chart_type_selection#tb1", "viz.chart_type_selection#tb3"],
+                    "fact_ids": ["viz.chart_type_selection#f1"]
+                }
+            },
+            {
+                "type": "prose",
+                "block_id": f"{tid}.s06.b02",
+                "role": "explanation",
+                "text": (
+                    "A bar chart compares values across categories—average delivery time per city. "
+                    "plt.hist() bins a numeric variable and draws its distribution—how delivery times "
+                    "are spread out. Line graphs show how a value changes over time—average delivery time "
+                    "across days of the week. A scatterplot shows the relationship between two numeric "
+                    "variables—whether distance and delivery time move together. Boxplots compare the "
+                    "distributions of multiple datasets side by side—the full spread of delivery times "
+                    "across several cities at once."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.chart_type_selection"],
+                    "teaching_block_ids": ["viz.chart_type_selection#tb2"],
+                    "fact_ids": [
+                        "viz.chart_type_selection#f1",
+                        "viz.chart_type_selection#f2",
+                        "viz.chart_type_selection#f3",
+                        "viz.chart_type_selection#f4",
+                        "viz.chart_type_selection#f5"
+                    ]
+                }
+            },
+            {
+                "type": "side_by_side",
+                "block_id": f"{tid}.s06.b03",
+                "left_label": "Bar chart — Which city is slowest?",
+                "right_label": "Line chart — How does time change by day?",
+                "left": {
+                    "type": "chart",
+                    "chart_kind": "bar",
+                    "asset_ref": {"asset_id": "ds.orders"},
+                    "title": "Average Delivery Time by City",
+                    "alt_text": (
+                        "Bar chart of average delivery time per city (Lagos, Abuja, Kano). "
+                        "Each bar represents one city's mean delivery time in minutes."
+                    ),
+                    "encoding": {
+                        "x": {"field": "city", "type": "nominal", "title": "City"},
+                        "y": {"field": "delivery_time_minutes", "type": "quantitative", "title": "Avg time (min)", "aggregate": "mean"}
+                    }
+                },
+                "right": {
+                    "type": "chart",
+                    "chart_kind": "line",
+                    "asset_ref": {"asset_id": "ds.daily_averages"},
+                    "title": "Lagos Delivery Time — Days 1–5",
+                    "alt_text": (
+                        "Line chart of Lagos average delivery times across 5 days: "
+                        "21, 23, 19, 25, 20 minutes. The connected line shows day-to-day variation."
+                    ),
+                    "encoding": {
+                        "x": {"field": "day", "type": "ordinal", "title": "Day"},
+                        "y": {"field": "lagos_avg", "type": "quantitative", "title": "Avg time (min)"}
+                    }
+                },
+                "takeaway": "The same delivery data can be visualized multiple ways. Pick the chart type that answers your specific question.",
+                "lineage": {
+                    "concept_ids": ["viz.chart_type_selection"],
+                    "teaching_block_ids": [
+                        "viz.chart_type_selection#tb1",
+                        "viz.chart_type_selection#tb2"
+                    ],
+                    "fact_ids": [
+                        "viz.chart_type_selection#f1",
+                        "viz.chart_type_selection#f2",
+                        "viz.chart_type_selection#f3",
+                        "viz.chart_type_selection#f4",
+                        "viz.chart_type_selection#f5"
+                    ],
+                    "anchors": ["viz.chart_type_selection#visual"]
+                }
+            }
+        ],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.chart_type_selection"],
+            "teaching_block_ids": [
+                "viz.chart_type_selection#tb1",
+                "viz.chart_type_selection#tb2"
+            ],
+            "fact_ids": [
+                "viz.chart_type_selection#f1",
+                "viz.chart_type_selection#f2",
+                "viz.chart_type_selection#f3",
+                "viz.chart_type_selection#f4",
+                "viz.chart_type_selection#f5"
+            ]
+        }
+    })
+
+    # s07 – video: chart_type_selection
+    steps.append({
+        "step_id": f"{tid}.s07",
+        "type": "video",
+        "concept_ids": ["viz.chart_type_selection"],
+        "eyebrow": "Matching chart type to the analytical question",
+        "title": "Video walkthrough",
+        "lede": "",
+        "blocks": [
+            {
+                "type": "media_group",
+                "block_id": f"{tid}.s07.media",
+                "segment_ids": [
+                    "seg_viz.chart_type_selection_Z77c53eYtHc_149_201",
+                    "seg_viz.chart_type_selection_ZyTO4SwhSeE_503_649"
+                ],
+                "lineage": {
+                    "concept_ids": ["viz.chart_type_selection"],
+                    "segment_ids": [
+                        "seg_viz.chart_type_selection_Z77c53eYtHc_149_201",
+                        "seg_viz.chart_type_selection_ZyTO4SwhSeE_503_649"
+                    ]
+                }
+            }
+        ],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.chart_type_selection"],
+            "teaching_block_ids": [],
+            "fact_ids": ["viz.chart_type_selection#f2", "viz.chart_type_selection#f5"],
+            "segment_ids": [
+                "seg_viz.chart_type_selection_Z77c53eYtHc_149_201",
+                "seg_viz.chart_type_selection_ZyTO4SwhSeE_503_649"
+            ]
+        }
+    })
+
+    # s08 – check: chart_type_selection (f1–f5)
+    steps.append({
+        "step_id": f"{tid}.s08",
+        "type": "check",
+        "concept_ids": ["viz.chart_type_selection"],
+        "eyebrow": "Matching chart type to the analytical question",
+        "title": "Check your understanding",
+        "lede": "",
+        "blocks": [],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.chart_type_selection"],
+            "teaching_block_ids": [],
+            "fact_ids": [
+                "viz.chart_type_selection#f1",
+                "viz.chart_type_selection#f2",
+                "viz.chart_type_selection#f3",
+                "viz.chart_type_selection#f4",
+                "viz.chart_type_selection#f5"
+            ]
+        }
+    })
+
+    # s09 – check: chart_type_selection (f3, f5)
+    steps.append({
+        "step_id": f"{tid}.s09",
+        "type": "check",
+        "concept_ids": ["viz.chart_type_selection"],
+        "eyebrow": "Matching chart type to the analytical question",
+        "title": "Check your understanding",
+        "lede": "",
+        "blocks": [],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.chart_type_selection"],
+            "teaching_block_ids": [],
+            "fact_ids": ["viz.chart_type_selection#f3", "viz.chart_type_selection#f5"]
+        }
+    })
+
+    # s10 – hands_on: chart_type_selection (f1, f2, f3)
+    steps.append({
+        "step_id": f"{tid}.s10",
+        "type": "hands_on",
+        "concept_ids": ["viz.chart_type_selection"],
+        "eyebrow": "Matching chart type to the analytical question",
+        "title": "Practice",
+        "lede": "Choose the right chart type for each analytical question.",
+        "blocks": [],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.chart_type_selection"],
+            "teaching_block_ids": [],
+            "fact_ids": [
+                "viz.chart_type_selection#f1",
+                "viz.chart_type_selection#f2",
+                "viz.chart_type_selection#f3"
+            ]
+        }
+    })
+
+    # s11 – recap
+    steps.append({
+        "step_id": f"{tid}.s11",
+        "type": "recap",
+        "concept_ids": ["viz.labeling_annotation", "viz.chart_type_selection"],
+        "eyebrow": "Recap",
+        "title": "What you learned",
+        "lede": "",
+        "blocks": [
+            {
+                "type": "prose",
+                "block_id": f"{tid}.s11.b01",
+                "role": "takeaway",
+                "text": (
+                    "ax.set_xlabel(), ax.set_ylabel(), and ax.set_title() add axis labels and a title to "
+                    "an Axes object. Passing label= to a plot call and then calling ax.legend() adds a "
+                    "legend. In the pyplot interface, plt.xlabel(), plt.ylabel(), and plt.title() do the same."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.labeling_annotation"],
+                    "teaching_block_ids": [],
+                    "fact_ids": [
+                        "viz.labeling_annotation#f1",
+                        "viz.labeling_annotation#f2",
+                        "viz.labeling_annotation#f3"
+                    ]
+                }
+            },
+            {
+                "type": "prose",
+                "block_id": f"{tid}.s11.b02",
+                "role": "takeaway",
+                "text": (
+                    "Chart type follows the question: bar for category comparison, histogram for "
+                    "distribution, line for trends over time, scatter for relationships between two "
+                    "numeric variables, and boxplot for spread comparison across groups."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.chart_type_selection"],
+                    "teaching_block_ids": [],
+                    "fact_ids": [
+                        "viz.chart_type_selection#f1",
+                        "viz.chart_type_selection#f2",
+                        "viz.chart_type_selection#f3",
+                        "viz.chart_type_selection#f4",
+                        "viz.chart_type_selection#f5"
+                    ]
+                }
+            },
+            {
+                "type": "up_next",
+                "block_id": f"{tid}.s11.up_next",
+                "next_tile_id": "tile_viz_seaborn_stats_themes",
+                "preview_text": "Next: seaborn's DataFrame interface and statistical plotting functions",
+                "lineage": {
+                    "concept_ids": [],
+                    "teaching_block_ids": [],
+                    "fact_ids": []
+                }
+            }
+        ],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.labeling_annotation", "viz.chart_type_selection"],
+            "teaching_block_ids": [],
+            "fact_ids": []
+        }
+    })
+
+    # Remediation steps
+    # r01 – for first check of labeling_annotation (s03 measures f1)
+    steps.append({
+        "step_id": f"{tid}.r01",
+        "type": "remediation",
+        "concept_ids": ["viz.labeling_annotation"],
+        "eyebrow": "Labeling axes, titles, and legends",
+        "title": "Let's review",
+        "lede": "Here's another way to think about Axes labeling methods.",
+        "blocks": [
+            {
+                "type": "prose",
+                "block_id": f"{tid}.r01.b01",
+                "role": "remediation",
+                "text": (
+                    "Think of the three set_* methods as captions for each part of the chart. "
+                    "ax.set_xlabel('Day') labels the x-axis. ax.set_ylabel('Average delivery time (minutes)') "
+                    "labels the y-axis. ax.set_title('Average delivery time by day') gives the whole chart "
+                    "a headline. Without these, the reader has to guess what the numbers mean."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.labeling_annotation"],
+                    "teaching_block_ids": [],
+                    "fact_ids": ["viz.labeling_annotation#f1"]
+                }
+            }
+        ],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.labeling_annotation"],
+            "teaching_block_ids": [],
+            "fact_ids": ["viz.labeling_annotation#f1"]
+        }
+    })
+
+    # r02 – for first check of chart_type_selection (s08 measures f1–f5)
+    steps.append({
+        "step_id": f"{tid}.r02",
+        "type": "remediation",
+        "concept_ids": ["viz.chart_type_selection"],
+        "eyebrow": "Matching chart type to the analytical question",
+        "title": "Let's review",
+        "lede": "Here's another way to think about chart selection.",
+        "blocks": [
+            {
+                "type": "prose",
+                "block_id": f"{tid}.r02.b01",
+                "role": "remediation",
+                "text": (
+                    "Ask yourself: What question am I answering? Comparing cities (which is fastest?) → "
+                    "bar chart. Showing how delivery times are spread out → histogram. Tracking change "
+                    "over days → line chart. Checking whether distance and time move together → scatter. "
+                    "Comparing the full spread across cities → boxplot."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.chart_type_selection"],
+                    "teaching_block_ids": [],
+                    "fact_ids": [
+                        "viz.chart_type_selection#f1",
+                        "viz.chart_type_selection#f2",
+                        "viz.chart_type_selection#f3",
+                        "viz.chart_type_selection#f4",
+                        "viz.chart_type_selection#f5"
+                    ]
+                }
+            }
+        ],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.chart_type_selection"],
+            "teaching_block_ids": [],
+            "fact_ids": [
+                "viz.chart_type_selection#f1",
+                "viz.chart_type_selection#f2",
+                "viz.chart_type_selection#f3",
+                "viz.chart_type_selection#f4",
+                "viz.chart_type_selection#f5"
+            ]
+        }
+    })
+
+    return {
+        "tile_id": tid,
+        "title": "Labeling and Chart Selection",
+        "steps": steps
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TILE 2: tile_viz_custom_multi_panel
+# ─────────────────────────────────────────────────────────────────────────────
+
+def build_tile_custom_multi_panel(tile_plans, concepts):
+    tid = "tile_viz_custom_multi_panel"
+    steps = []
+
+    # s01 – explainer: custom_styling_theming (tb1, tb2, tb3 → f1, f2, f3)
+    steps.append({
+        "step_id": f"{tid}.s01",
+        "type": "explainer",
+        "concept_ids": ["viz.custom_styling_theming"],
+        "eyebrow": "Customizing plot appearance with rcParams and styles",
+        "title": "Style sheets, rcParams, and seaborn palettes",
+        "lede": "matplotlib's default look is functional. Three tools let you change it.",
+        "blocks": [
+            {
+                "type": "prose",
+                "block_id": f"{tid}.s01.b01",
+                "role": "intro",
+                "text": (
+                    "plt.style.use('style-name') applies one of matplotlib's predefined style sheets—"
+                    "for example 'ggplot' or 'dark_background'. The available styles can be listed with "
+                    "plt.style.available. Calling it once changes the look of every plot drawn after that call."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.custom_styling_theming"],
+                    "teaching_block_ids": ["viz.custom_styling_theming#tb1"],
+                    "fact_ids": ["viz.custom_styling_theming#f1"]
+                }
+            },
+            {
+                "type": "prose",
+                "block_id": f"{tid}.s01.b02",
+                "role": "explanation",
+                "text": (
+                    "For finer control, rcParams can be set directly. After import matplotlib as mpl, "
+                    "mpl.rcParams['lines.linewidth'] = 2 sets the default line width for every plot drawn "
+                    "after that call. A custom style file can set properties such as 'axes.titlesize', "
+                    "'lines.linewidth', or tick label sizes."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.custom_styling_theming"],
+                    "teaching_block_ids": ["viz.custom_styling_theming#tb2"],
+                    "fact_ids": ["viz.custom_styling_theming#f2"]
+                }
+            },
+            {
+                "type": "prose",
+                "block_id": f"{tid}.s01.b03",
+                "role": "explanation",
+                "text": (
+                    "sns.set_palette('pastel') sets the matplotlib color cycle from a seaborn palette, "
+                    "applying that color scheme to subsequent plots. This is separate from sns.set_theme() "
+                    "and affects only the color sequence."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.custom_styling_theming"],
+                    "teaching_block_ids": ["viz.custom_styling_theming#tb3"],
+                    "fact_ids": ["viz.custom_styling_theming#f3"]
+                }
+            },
+            {
+                "type": "before_after",
+                "block_id": f"{tid}.s01.b04",
+                "before": {
+                    "type": "code_walkthrough",
+                    "block_id": f"{tid}.s01.b04.before",
+                    "language": "python",
+                    "code": (
+                        "import matplotlib.pyplot as plt\n"
+                        "# Default matplotlib style\n"
+                        "fig, ax = plt.subplots()\n"
+                        "ax.plot([1, 2, 3, 4, 5], [21, 23, 19, 25, 20])\n"
+                        "ax.set_title('Delivery Times')\n"
+                        "plt.show()"
+                    ),
+                    "annotations": [
+                        {
+                            "start_line": 2,
+                            "end_line": 2,
+                            "text": "Default: blue line, white background, no grid"
+                        }
+                    ],
+                    "reveal": "line_by_line",
+                    "lineage": {
+                        "concept_ids": ["viz.custom_styling_theming"],
+                        "teaching_block_ids": [],
+                        "fact_ids": []
+                    }
+                },
+                "after": {
+                    "type": "code_walkthrough",
+                    "block_id": f"{tid}.s01.b04.after",
+                    "language": "python",
+                    "code": (
+                        "import matplotlib as mpl\n"
+                        "import matplotlib.pyplot as plt\n"
+                        "plt.style.use('ggplot')\n"
+                        "mpl.rcParams['lines.linewidth'] = 2\n"
+                        "fig, ax = plt.subplots()\n"
+                        "ax.plot([1, 2, 3, 4, 5], [21, 23, 19, 25, 20])\n"
+                        "ax.set_title('Delivery Times')\n"
+                        "plt.show()"
+                    ),
+                    "annotations": [
+                        {
+                            "start_line": 3,
+                            "end_line": 3,
+                            "text": "plt.style.use applies a predefined style sheet"
+                        },
+                        {
+                            "start_line": 4,
+                            "end_line": 4,
+                            "text": "rcParams sets a specific default globally"
+                        }
+                    ],
+                    "reveal": "line_by_line",
+                    "lineage": {
+                        "concept_ids": ["viz.custom_styling_theming"],
+                        "teaching_block_ids": [
+                            "viz.custom_styling_theming#tb1",
+                            "viz.custom_styling_theming#tb2"
+                        ],
+                        "fact_ids": ["viz.custom_styling_theming#f1", "viz.custom_styling_theming#f2"]
+                    }
+                },
+                "change_summary": "plt.style.use() and rcParams change the overall look; sns.set_palette() changes the color cycle.",
+                "lineage": {
+                    "concept_ids": ["viz.custom_styling_theming"],
+                    "teaching_block_ids": [
+                        "viz.custom_styling_theming#tb1",
+                        "viz.custom_styling_theming#tb2",
+                        "viz.custom_styling_theming#tb3"
+                    ],
+                    "fact_ids": [
+                        "viz.custom_styling_theming#f1",
+                        "viz.custom_styling_theming#f2",
+                        "viz.custom_styling_theming#f3"
+                    ],
+                    "anchors": ["viz.custom_styling_theming#visual"]
+                }
+            }
+        ],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.custom_styling_theming"],
+            "teaching_block_ids": [
+                "viz.custom_styling_theming#tb1",
+                "viz.custom_styling_theming#tb2",
+                "viz.custom_styling_theming#tb3"
+            ],
+            "fact_ids": [
+                "viz.custom_styling_theming#f1",
+                "viz.custom_styling_theming#f2",
+                "viz.custom_styling_theming#f3"
+            ]
+        }
+    })
+
+    # s02 – check: custom_styling_theming (f1)
+    steps.append({
+        "step_id": f"{tid}.s02",
+        "type": "check",
+        "concept_ids": ["viz.custom_styling_theming"],
+        "eyebrow": "Customizing plot appearance with rcParams and styles",
+        "title": "Check your understanding",
+        "lede": "",
+        "blocks": [],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.custom_styling_theming"],
+            "teaching_block_ids": [],
+            "fact_ids": ["viz.custom_styling_theming#f1"]
+        }
+    })
+
+    # s03 – check: custom_styling_theming (f1, f2, f3)
+    steps.append({
+        "step_id": f"{tid}.s03",
+        "type": "check",
+        "concept_ids": ["viz.custom_styling_theming"],
+        "eyebrow": "Customizing plot appearance with rcParams and styles",
+        "title": "Check your understanding",
+        "lede": "",
+        "blocks": [],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.custom_styling_theming"],
+            "teaching_block_ids": [],
+            "fact_ids": [
+                "viz.custom_styling_theming#f1",
+                "viz.custom_styling_theming#f2",
+                "viz.custom_styling_theming#f3"
+            ]
+        }
+    })
+
+    # s04 – hands_on: custom_styling_theming (f2, f3)
+    steps.append({
+        "step_id": f"{tid}.s04",
+        "type": "hands_on",
+        "concept_ids": ["viz.custom_styling_theming"],
+        "eyebrow": "Customizing plot appearance with rcParams and styles",
+        "title": "Practice",
+        "lede": "Set rcParams globally and apply a seaborn palette.",
+        "blocks": [],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.custom_styling_theming"],
+            "teaching_block_ids": [],
+            "fact_ids": ["viz.custom_styling_theming#f2", "viz.custom_styling_theming#f3"]
+        }
+    })
+
+    # s05 – explainer: multi_panel_figures (tb1, tb2, tb3 → f1, f2)
+    # planned_visual_block_type: diagram (2×2 grid of Axes with index labels)
+    steps.append({
+        "step_id": f"{tid}.s05",
+        "type": "explainer",
+        "concept_ids": ["viz.multi_panel_figures"],
+        "eyebrow": "Creating multi-panel figures with subplots",
+        "title": "A grid of Axes in one Figure",
+        "lede": "plt.subplots(nrows, ncols) creates a Figure containing a grid of Axes.",
+        "blocks": [
+            {
+                "type": "prose",
+                "block_id": f"{tid}.s05.b01",
+                "role": "intro",
+                "text": (
+                    "Suppose you want to show the delivery-time histogram and the distance/delivery-time "
+                    "scatter plot together, side by side, instead of as two separate figures. "
+                    "fig, axs = plt.subplots(nrows, ncols) creates a Figure containing a grid of Axes "
+                    "with the given number of rows and columns. plt.subplots(2, 2) creates a 2×2 grid "
+                    "of four Axes inside one Figure."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.multi_panel_figures"],
+                    "teaching_block_ids": [
+                        "viz.multi_panel_figures#tb1",
+                        "viz.multi_panel_figures#tb2"
+                    ],
+                    "fact_ids": ["viz.multi_panel_figures#f1"]
+                }
+            },
+            {
+                "type": "prose",
+                "block_id": f"{tid}.s05.b02",
+                "role": "explanation",
+                "text": (
+                    "Each Axes in the returned grid is indexed separately—for example axs[0, 0] for the "
+                    "top-left panel. Plotting and labeling calls made on one Axes only affect that panel. "
+                    "axs[0, 0].hist(orders['delivery_time_minutes']) draws the histogram into the top-left "
+                    "panel; axs[0, 1].scatter(orders['distance_km'], orders['delivery_time_minutes']) draws "
+                    "the scatter into the top-right panel without disturbing the first."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.multi_panel_figures"],
+                    "teaching_block_ids": ["viz.multi_panel_figures#tb3"],
+                    "fact_ids": ["viz.multi_panel_figures#f2"]
+                }
+            },
+            {
+                "type": "diagram",
+                "block_id": f"{tid}.s05.b03",
+                "diagram_type": "container",
+                "source": (
+                    "graph TD\n"
+                    "  subgraph Figure\n"
+                    "    A[\"axs[0,0]\\nTop-left\"]\n"
+                    "    B[\"axs[0,1]\\nTop-right\"]\n"
+                    "    C[\"axs[1,0]\\nBottom-left\"]\n"
+                    "    D[\"axs[1,1]\\nBottom-right\"]\n"
+                    "  end"
+                ),
+                "alt_text": (
+                    "A 2×2 grid of empty Axes boxes inside a single Figure boundary. "
+                    "Each box is labelled with its index: axs[0,0] top-left, axs[0,1] top-right, "
+                    "axs[1,0] bottom-left, axs[1,1] bottom-right."
+                ),
+                "callouts": [
+                    {"target": "axs[0,0]", "text": "Index with [row, col]"},
+                    {"target": "axs[0,1]", "text": "Each panel is independent"},
+                    {"target": "axs[1,0]", "text": "Plot on each Axes separately"},
+                    {"target": "axs[1,1]", "text": "Labels on one don't affect others"}
+                ],
+                "lineage": {
+                    "concept_ids": ["viz.multi_panel_figures"],
+                    "teaching_block_ids": [
+                        "viz.multi_panel_figures#tb2",
+                        "viz.multi_panel_figures#tb3"
+                    ],
+                    "fact_ids": ["viz.multi_panel_figures#f1", "viz.multi_panel_figures#f2"],
+                    "anchors": ["viz.multi_panel_figures#visual"]
+                }
+            }
+        ],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.multi_panel_figures"],
+            "teaching_block_ids": [
+                "viz.multi_panel_figures#tb1",
+                "viz.multi_panel_figures#tb2",
+                "viz.multi_panel_figures#tb3"
+            ],
+            "fact_ids": ["viz.multi_panel_figures#f1", "viz.multi_panel_figures#f2"]
+        }
+    })
+
+    # s06 – video: multi_panel_figures
+    steps.append({
+        "step_id": f"{tid}.s06",
+        "type": "video",
+        "concept_ids": ["viz.multi_panel_figures"],
+        "eyebrow": "Creating multi-panel figures with subplots",
+        "title": "Video walkthrough",
+        "lede": "",
+        "blocks": [
+            {
+                "type": "media_group",
+                "block_id": f"{tid}.s06.media",
+                "segment_ids": ["seg_viz.multi_panel_figures_XFZRVnP-MTU_503_804"],
+                "lineage": {
+                    "concept_ids": ["viz.multi_panel_figures"],
+                    "segment_ids": ["seg_viz.multi_panel_figures_XFZRVnP-MTU_503_804"]
+                }
+            }
+        ],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.multi_panel_figures"],
+            "teaching_block_ids": [],
+            "fact_ids": ["viz.multi_panel_figures#f1", "viz.multi_panel_figures#f2"],
+            "segment_ids": ["seg_viz.multi_panel_figures_XFZRVnP-MTU_503_804"]
+        }
+    })
+
+    # s07 – check: multi_panel_figures (f2)
+    steps.append({
+        "step_id": f"{tid}.s07",
+        "type": "check",
+        "concept_ids": ["viz.multi_panel_figures"],
+        "eyebrow": "Creating multi-panel figures with subplots",
+        "title": "Check your understanding",
+        "lede": "",
+        "blocks": [],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.multi_panel_figures"],
+            "teaching_block_ids": [],
+            "fact_ids": ["viz.multi_panel_figures#f2"]
+        }
+    })
+
+    # s08 – hands_on: multi_panel_figures (f1)
+    steps.append({
+        "step_id": f"{tid}.s08",
+        "type": "hands_on",
+        "concept_ids": ["viz.multi_panel_figures"],
+        "eyebrow": "Creating multi-panel figures with subplots",
+        "title": "Practice",
+        "lede": "Create a subplot grid and plot on each Axes independently.",
+        "blocks": [],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.multi_panel_figures"],
+            "teaching_block_ids": [],
+            "fact_ids": ["viz.multi_panel_figures#f1"]
+        }
+    })
+
+    # s09 – recap
+    steps.append({
+        "step_id": f"{tid}.s09",
+        "type": "recap",
+        "concept_ids": ["viz.custom_styling_theming", "viz.multi_panel_figures"],
+        "eyebrow": "Recap",
+        "title": "What you learned",
+        "lede": "",
+        "blocks": [
+            {
+                "type": "prose",
+                "block_id": f"{tid}.s09.b01",
+                "role": "takeaway",
+                "text": (
+                    "plt.style.use('style-name') applies a predefined style sheet. "
+                    "mpl.rcParams['lines.linewidth'] = 2 sets a specific default globally. "
+                    "sns.set_palette('pastel') sets the color cycle from a seaborn palette."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.custom_styling_theming"],
+                    "teaching_block_ids": [],
+                    "fact_ids": [
+                        "viz.custom_styling_theming#f1",
+                        "viz.custom_styling_theming#f2",
+                        "viz.custom_styling_theming#f3"
+                    ]
+                }
+            },
+            {
+                "type": "prose",
+                "block_id": f"{tid}.s09.b02",
+                "role": "takeaway",
+                "text": (
+                    "fig, axs = plt.subplots(nrows, ncols) creates a Figure with a grid of Axes. "
+                    "Each Axes is indexed separately (axs[0, 0]) and plotting calls on one panel "
+                    "don't affect the others."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.multi_panel_figures"],
+                    "teaching_block_ids": [],
+                    "fact_ids": ["viz.multi_panel_figures#f1", "viz.multi_panel_figures#f2"]
+                }
+            },
+            {
+                "type": "up_next",
+                "block_id": f"{tid}.s09.up_next",
+                "next_tile_id": "tile_stats_ab_test_lift",
+                "preview_text": "Next: seaborn's DataFrame interface and statistical plotting functions",
+                "lineage": {
+                    "concept_ids": [],
+                    "teaching_block_ids": [],
+                    "fact_ids": []
+                }
+            }
+        ],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.custom_styling_theming", "viz.multi_panel_figures"],
+            "teaching_block_ids": [],
+            "fact_ids": []
+        }
+    })
+
+    # Remediation steps
+    # r01 – for first check of custom_styling_theming (s02 measures f1)
+    steps.append({
+        "step_id": f"{tid}.r01",
+        "type": "remediation",
+        "concept_ids": ["viz.custom_styling_theming"],
+        "eyebrow": "Customizing plot appearance with rcParams and styles",
+        "title": "Let's review",
+        "lede": "Here's another way to think about style sheets.",
+        "blocks": [
+            {
+                "type": "prose",
+                "block_id": f"{tid}.r01.b01",
+                "role": "remediation",
+                "text": (
+                    "plt.style.use('ggplot') changes the look of all plots drawn after that call—"
+                    "background color, grid lines, font sizes, and more. You can see all available "
+                    "style names by printing plt.style.available. Call it once at the top of your "
+                    "notebook to set a consistent look."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.custom_styling_theming"],
+                    "teaching_block_ids": [],
+                    "fact_ids": ["viz.custom_styling_theming#f1"]
+                }
+            }
+        ],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.custom_styling_theming"],
+            "teaching_block_ids": [],
+            "fact_ids": ["viz.custom_styling_theming#f1"]
+        }
+    })
+
+    # r02 – for first check of multi_panel_figures (s07 measures f2)
+    steps.append({
+        "step_id": f"{tid}.r02",
+        "type": "remediation",
+        "concept_ids": ["viz.multi_panel_figures"],
+        "eyebrow": "Creating multi-panel figures with subplots",
+        "title": "Let's review",
+        "lede": "Here's another way to think about subplot indexing.",
+        "blocks": [
+            {
+                "type": "prose",
+                "block_id": f"{tid}.r02.b01",
+                "role": "remediation",
+                "text": (
+                    "When plt.subplots(2, 2) returns axs, think of it as a 2D grid. "
+                    "axs[0, 0] is the top-left panel, axs[0, 1] is top-right, axs[1, 0] is "
+                    "bottom-left, axs[1, 1] is bottom-right. Plotting on axs[0, 0] only affects "
+                    "that one panel—the others stay empty until you plot on them."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.multi_panel_figures"],
+                    "teaching_block_ids": [],
+                    "fact_ids": ["viz.multi_panel_figures#f2"]
+                }
+            }
+        ],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.multi_panel_figures"],
+            "teaching_block_ids": [],
+            "fact_ids": ["viz.multi_panel_figures#f2"]
+        }
+    })
+
+    return {
+        "tile_id": tid,
+        "title": "Multi-Panel Figures and Custom Styling",
+        "steps": steps
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TILE 3: tile_viz_seaborn_stats_themes
+# ─────────────────────────────────────────────────────────────────────────────
+
+def build_tile_seaborn_stats_themes(tile_plans, concepts):
+    tid = "tile_viz_seaborn_stats_themes"
+    steps = []
+
+    # s01 – explainer: seaborn_dataframe_plotting (tb1, tb2 → f1, f2)
+    steps.append({
+        "step_id": f"{tid}.s01",
+        "type": "explainer",
+        "concept_ids": ["viz.seaborn_dataframe_plotting"],
+        "eyebrow": "Plotting directly from pandas DataFrames with seaborn",
+        "title": "seaborn's DataFrame-first interface",
+        "lede": "seaborn functions take a DataFrame and column names—no array extraction needed.",
+        "blocks": [
+            {
+                "type": "prose",
+                "block_id": f"{tid}.s01.b01",
+                "role": "intro",
+                "text": (
+                    "Most matplotlib calls require you to extract a column from orders yourself before "
+                    "plotting it. Seaborn's plotting functions operate on DataFrames and arrays containing "
+                    "whole datasets, taking only the names of the variables and their roles in the plot—"
+                    "data=, x=, y=—rather than requiring the caller to extract each array."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.seaborn_dataframe_plotting"],
+                    "teaching_block_ids": ["viz.seaborn_dataframe_plotting#tb1"],
+                    "fact_ids": ["viz.seaborn_dataframe_plotting#f1"]
+                }
+            },
+            {
+                "type": "prose",
+                "block_id": f"{tid}.s01.b02",
+                "role": "explanation",
+                "text": (
+                    "sns.barplot(data=orders, x='city', y='delivery_time_minutes') plots average delivery "
+                    "time per city directly from the orders DataFrame and its column names—no separate "
+                    ".groupby() call needed first. Its default estimator is the mean, and it draws an "
+                    "error bar (uncertainty indicator) around each bar automatically."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.seaborn_dataframe_plotting"],
+                    "teaching_block_ids": ["viz.seaborn_dataframe_plotting#tb2"],
+                    "fact_ids": ["viz.seaborn_dataframe_plotting#f2"]
+                }
+            },
+            {
+                "type": "before_after",
+                "block_id": f"{tid}.s01.b03",
+                "before": {
+                    "type": "code_walkthrough",
+                    "block_id": f"{tid}.s01.b03.before",
+                    "language": "python",
+                    "code": (
+                        "import matplotlib.pyplot as plt\n"
+                        "# matplotlib: extract columns first\n"
+                        "fig, ax = plt.subplots()\n"
+                        "city_avg = orders.groupby('city')['delivery_time_minutes'].mean()\n"
+                        "ax.bar(city_avg.index, city_avg)\n"
+                        "plt.show()"
+                    ),
+                    "annotations": [
+                        {
+                            "start_line": 4,
+                            "end_line": 5,
+                            "text": "Must groupby and extract before plotting"
+                        }
+                    ],
+                    "reveal": "line_by_line",
+                    "lineage": {
+                        "concept_ids": ["viz.seaborn_dataframe_plotting"],
+                        "teaching_block_ids": [],
+                        "fact_ids": []
+                    }
+                },
+                "after": {
+                    "type": "code_walkthrough",
+                    "block_id": f"{tid}.s01.b03.after",
+                    "language": "python",
+                    "code": (
+                        "import seaborn as sns\n"
+                        "import matplotlib.pyplot as plt\n"
+                        "# seaborn: pass DataFrame and column names\n"
+                        "sns.barplot(data=orders, x='city', y='delivery_time_minutes')\n"
+                        "plt.show()"
+                    ),
+                    "annotations": [
+                        {
+                            "start_line": 4,
+                            "end_line": 4,
+                            "text": "data= takes the DataFrame; x= and y= take column names"
+                        }
+                    ],
+                    "reveal": "line_by_line",
+                    "lineage": {
+                        "concept_ids": ["viz.seaborn_dataframe_plotting"],
+                        "teaching_block_ids": [
+                            "viz.seaborn_dataframe_plotting#tb1",
+                            "viz.seaborn_dataframe_plotting#tb2"
+                        ],
+                        "fact_ids": [
+                            "viz.seaborn_dataframe_plotting#f1",
+                            "viz.seaborn_dataframe_plotting#f2"
+                        ]
+                    }
+                },
+                "change_summary": "seaborn's data= and column-name arguments replace manual groupby and array extraction.",
+                "lineage": {
+                    "concept_ids": ["viz.seaborn_dataframe_plotting"],
+                    "teaching_block_ids": [
+                        "viz.seaborn_dataframe_plotting#tb1",
+                        "viz.seaborn_dataframe_plotting#tb2"
+                    ],
+                    "fact_ids": [
+                        "viz.seaborn_dataframe_plotting#f1",
+                        "viz.seaborn_dataframe_plotting#f2"
+                    ],
+                    "anchors": ["viz.seaborn_dataframe_plotting#visual"]
+                }
+            }
+        ],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.seaborn_dataframe_plotting"],
+            "teaching_block_ids": [
+                "viz.seaborn_dataframe_plotting#tb1",
+                "viz.seaborn_dataframe_plotting#tb2"
+            ],
+            "fact_ids": [
+                "viz.seaborn_dataframe_plotting#f1",
+                "viz.seaborn_dataframe_plotting#f2"
+            ]
+        }
+    })
+
+    # s02 – check: seaborn_dataframe_plotting (f1, f2)
+    steps.append({
+        "step_id": f"{tid}.s02",
+        "type": "check",
+        "concept_ids": ["viz.seaborn_dataframe_plotting"],
+        "eyebrow": "Plotting directly from pandas DataFrames with seaborn",
+        "title": "Check your understanding",
+        "lede": "",
+        "blocks": [],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.seaborn_dataframe_plotting"],
+            "teaching_block_ids": [],
+            "fact_ids": [
+                "viz.seaborn_dataframe_plotting#f1",
+                "viz.seaborn_dataframe_plotting#f2"
+            ]
+        }
+    })
+
+    # s03 – hands_on: seaborn_dataframe_plotting (f1, f2)
+    steps.append({
+        "step_id": f"{tid}.s03",
+        "type": "hands_on",
+        "concept_ids": ["viz.seaborn_dataframe_plotting"],
+        "eyebrow": "Plotting directly from pandas DataFrames with seaborn",
+        "title": "Practice",
+        "lede": "Build a seaborn barplot from the orders DataFrame using column names.",
+        "blocks": [],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.seaborn_dataframe_plotting"],
+            "teaching_block_ids": [],
+            "fact_ids": [
+                "viz.seaborn_dataframe_plotting#f1",
+                "viz.seaborn_dataframe_plotting#f2"
+            ]
+        }
+    })
+
+    # s04 – explainer: seaborn_statistical_functions (tb1, tb2 → f1, f2)
+    steps.append({
+        "step_id": f"{tid}.s04",
+        "type": "explainer",
+        "concept_ids": ["viz.seaborn_statistical_functions"],
+        "eyebrow": "seaborn statistical plotting functions",
+        "title": "Automatic statistical estimation",
+        "lede": "Some seaborn functions compute statistics—means, regression lines—automatically.",
+        "blocks": [
+            {
+                "type": "prose",
+                "block_id": f"{tid}.s04.b01",
+                "role": "intro",
+                "text": (
+                    "Many seaborn functions automatically perform the statistical estimation necessary "
+                    "to answer questions such as the average value of one variable as a function of "
+                    "other variables. The sns.barplot() call from before is one such example—it computed "
+                    "each city's mean delivery time automatically, without a separate .groupby() step."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.seaborn_statistical_functions"],
+                    "teaching_block_ids": ["viz.seaborn_statistical_functions#tb1"],
+                    "fact_ids": ["viz.seaborn_statistical_functions#f1"]
+                }
+            },
+            {
+                "type": "prose",
+                "block_id": f"{tid}.s04.b02",
+                "role": "explanation",
+                "text": (
+                    "sns.regplot(data=orders, x='distance_km', y='delivery_time_minutes') plots a "
+                    "scatterplot of the observations together with a fitted linear regression line. "
+                    "It shows the distance/delivery-time scatter with a fitted trend line drawn through "
+                    "it in the same call—no separate fitting step required."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.seaborn_statistical_functions"],
+                    "teaching_block_ids": ["viz.seaborn_statistical_functions#tb2"],
+                    "fact_ids": ["viz.seaborn_statistical_functions#f2"]
+                }
+            },
+            {
+                "type": "before_after",
+                "block_id": f"{tid}.s04.b03",
+                "before": {
+                    "type": "chart",
+                    "chart_kind": "scatter",
+                    "asset_ref": {"asset_id": "ds.orders"},
+                    "title": "Distance vs Delivery Time (scatter only)",
+                    "alt_text": (
+                        "Scatter plot of distance_km vs delivery_time_minutes from the orders dataset. "
+                        "Points show a positive relationship but no trend line is drawn."
+                    ),
+                    "encoding": {
+                        "x": {
+                            "field": "distance_km",
+                            "type": "quantitative",
+                            "title": "Distance (km)"
+                        },
+                        "y": {
+                            "field": "delivery_time_minutes",
+                            "type": "quantitative",
+                            "title": "Delivery time (min)"
+                        }
+                    }
+                },
+                "after": {
+                    "type": "code_walkthrough",
+                    "block_id": f"{tid}.s04.b03.after",
+                    "language": "python",
+                    "code": (
+                        "import seaborn as sns\n"
+                        "import matplotlib.pyplot as plt\n"
+                        "sns.regplot(data=orders, x='distance_km', y='delivery_time_minutes')\n"
+                        "plt.show()\n"
+                        "# Scatter + fitted regression line in one call"
+                    ),
+                    "annotations": [
+                        {
+                            "start_line": 3,
+                            "end_line": 3,
+                            "text": "regplot draws scatter points and fits a regression line automatically"
+                        }
+                    ],
+                    "reveal": "line_by_line",
+                    "lineage": {
+                        "concept_ids": ["viz.seaborn_statistical_functions"],
+                        "teaching_block_ids": ["viz.seaborn_statistical_functions#tb2"],
+                        "fact_ids": ["viz.seaborn_statistical_functions#f2"]
+                    }
+                },
+                "change_summary": "sns.regplot() adds a fitted regression line to the scatter plot automatically.",
+                "lineage": {
+                    "concept_ids": ["viz.seaborn_statistical_functions"],
+                    "teaching_block_ids": [
+                        "viz.seaborn_statistical_functions#tb1",
+                        "viz.seaborn_statistical_functions#tb2"
+                    ],
+                    "fact_ids": [
+                        "viz.seaborn_statistical_functions#f1",
+                        "viz.seaborn_statistical_functions#f2"
+                    ],
+                    "anchors": ["viz.seaborn_statistical_functions#visual"]
+                }
+            }
+        ],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.seaborn_statistical_functions"],
+            "teaching_block_ids": [
+                "viz.seaborn_statistical_functions#tb1",
+                "viz.seaborn_statistical_functions#tb2"
+            ],
+            "fact_ids": [
+                "viz.seaborn_statistical_functions#f1",
+                "viz.seaborn_statistical_functions#f2"
+            ]
+        }
+    })
+
+    # s05 – check: seaborn_statistical_functions (f1)
+    steps.append({
+        "step_id": f"{tid}.s05",
+        "type": "check",
+        "concept_ids": ["viz.seaborn_statistical_functions"],
+        "eyebrow": "seaborn statistical plotting functions",
+        "title": "Check your understanding",
+        "lede": "",
+        "blocks": [],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.seaborn_statistical_functions"],
+            "teaching_block_ids": [],
+            "fact_ids": ["viz.seaborn_statistical_functions#f1"]
+        }
+    })
+
+    # s06 – check: seaborn_statistical_functions (f1, f2)
+    steps.append({
+        "step_id": f"{tid}.s06",
+        "type": "check",
+        "concept_ids": ["viz.seaborn_statistical_functions"],
+        "eyebrow": "seaborn statistical plotting functions",
+        "title": "Check your understanding",
+        "lede": "",
+        "blocks": [],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.seaborn_statistical_functions"],
+            "teaching_block_ids": [],
+            "fact_ids": [
+                "viz.seaborn_statistical_functions#f1",
+                "viz.seaborn_statistical_functions#f2"
+            ]
+        }
+    })
+
+    # s07 – hands_on: seaborn_statistical_functions (f2)
+    steps.append({
+        "step_id": f"{tid}.s07",
+        "type": "hands_on",
+        "concept_ids": ["viz.seaborn_statistical_functions"],
+        "eyebrow": "seaborn statistical plotting functions",
+        "title": "Practice",
+        "lede": "Use sns.regplot() to visualize the relationship between distance and delivery time.",
+        "blocks": [],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.seaborn_statistical_functions"],
+            "teaching_block_ids": [],
+            "fact_ids": ["viz.seaborn_statistical_functions#f2"]
+        }
+    })
+
+    # s08 – explainer: seaborn_themes_palettes (tb1, tb2 → f1, f2)
+    steps.append({
+        "step_id": f"{tid}.s08",
+        "type": "explainer",
+        "concept_ids": ["viz.seaborn_themes_palettes"],
+        "eyebrow": "seaborn built-in themes and color palettes",
+        "title": "Polishing plots with sns.set_theme()",
+        "lede": "sns.set_theme() changes the global defaults for all plots—seaborn and matplotlib alike.",
+        "blocks": [
+            {
+                "type": "prose",
+                "block_id": f"{tid}.s08.b01",
+                "role": "intro",
+                "text": (
+                    "sns.set_theme(style='whitegrid', palette='deep') switches to a white background "
+                    "with gridlines and seaborn's 'deep' color palette. The style parameter (default "
+                    "'darkgrid') controls the background and gridlines; the palette parameter (default "
+                    "'deep') controls the color sequence."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.seaborn_themes_palettes"],
+                    "teaching_block_ids": ["viz.seaborn_themes_palettes#tb1"],
+                    "fact_ids": ["viz.seaborn_themes_palettes#f2"]
+                }
+            },
+            {
+                "type": "prose",
+                "block_id": f"{tid}.s08.b02",
+                "role": "explanation",
+                "text": (
+                    "sns.set_theme() changes the global defaults for all plots using the matplotlib "
+                    "rcParams system, so it affects matplotlib plots too, even ones not made with seaborn. "
+                    "Because it works by changing global defaults, calling sns.set_theme() changes how "
+                    "plots drawn after that call look—it does not restyle a figure already displayed."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.seaborn_themes_palettes"],
+                    "teaching_block_ids": ["viz.seaborn_themes_palettes#tb2"],
+                    "fact_ids": ["viz.seaborn_themes_palettes#f1"]
+                }
+            },
+            {
+                "type": "before_after",
+                "block_id": f"{tid}.s08.b03",
+                "before": {
+                    "type": "chart",
+                    "chart_kind": "bar",
+                    "asset_ref": {"asset_id": "ds.theming_demo"},
+                    "title": "Default matplotlib style",
+                    "alt_text": (
+                        "Bar chart of category vs value using ds.theming_demo with matplotlib's "
+                        "default white background, blue bars, and no gridlines."
+                    ),
+                    "encoding": {
+                        "x": {"field": "category", "type": "nominal", "title": "Category"},
+                        "y": {"field": "value", "type": "quantitative", "title": "Value"}
+                    }
+                },
+                "after": {
+                    "type": "code_walkthrough",
+                    "block_id": f"{tid}.s08.b03.after",
+                    "language": "python",
+                    "code": (
+                        "import seaborn as sns\n"
+                        "import matplotlib.pyplot as plt\n"
+                        "sns.set_theme(style='whitegrid', palette='deep')\n"
+                        "sns.barplot(data=theming_demo, x='category', y='value')\n"
+                        "plt.show()\n"
+                        "# White background, gridlines, seaborn 'deep' palette"
+                    ),
+                    "annotations": [
+                        {
+                            "start_line": 3,
+                            "end_line": 3,
+                            "text": "set_theme applies style and palette globally via rcParams"
+                        }
+                    ],
+                    "reveal": "line_by_line",
+                    "lineage": {
+                        "concept_ids": ["viz.seaborn_themes_palettes"],
+                        "teaching_block_ids": ["viz.seaborn_themes_palettes#tb1"],
+                        "fact_ids": ["viz.seaborn_themes_palettes#f1", "viz.seaborn_themes_palettes#f2"]
+                    }
+                },
+                "change_summary": "sns.set_theme() changes the background, gridlines, and color palette for all subsequent plots.",
+                "lineage": {
+                    "concept_ids": ["viz.seaborn_themes_palettes"],
+                    "teaching_block_ids": [
+                        "viz.seaborn_themes_palettes#tb1",
+                        "viz.seaborn_themes_palettes#tb2"
+                    ],
+                    "fact_ids": [
+                        "viz.seaborn_themes_palettes#f1",
+                        "viz.seaborn_themes_palettes#f2"
+                    ],
+                    "anchors": ["viz.seaborn_themes_palettes#visual"]
+                }
+            }
+        ],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.seaborn_themes_palettes"],
+            "teaching_block_ids": [
+                "viz.seaborn_themes_palettes#tb1",
+                "viz.seaborn_themes_palettes#tb2"
+            ],
+            "fact_ids": [
+                "viz.seaborn_themes_palettes#f1",
+                "viz.seaborn_themes_palettes#f2"
+            ]
+        }
+    })
+
+    # s09 – check: seaborn_themes_palettes (f1)
+    steps.append({
+        "step_id": f"{tid}.s09",
+        "type": "check",
+        "concept_ids": ["viz.seaborn_themes_palettes"],
+        "eyebrow": "seaborn built-in themes and color palettes",
+        "title": "Check your understanding",
+        "lede": "",
+        "blocks": [],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.seaborn_themes_palettes"],
+            "teaching_block_ids": [],
+            "fact_ids": ["viz.seaborn_themes_palettes#f1"]
+        }
+    })
+
+    # s10 – hands_on: seaborn_themes_palettes (f1, f2)
+    steps.append({
+        "step_id": f"{tid}.s10",
+        "type": "hands_on",
+        "concept_ids": ["viz.seaborn_themes_palettes"],
+        "eyebrow": "seaborn built-in themes and color palettes",
+        "title": "Practice",
+        "lede": "Apply a seaborn theme and palette to produce a polished plot.",
+        "blocks": [],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.seaborn_themes_palettes"],
+            "teaching_block_ids": [],
+            "fact_ids": [
+                "viz.seaborn_themes_palettes#f1",
+                "viz.seaborn_themes_palettes#f2"
+            ]
+        }
+    })
+
+    # s11 – recap
+    steps.append({
+        "step_id": f"{tid}.s11",
+        "type": "recap",
+        "concept_ids": [
+            "viz.seaborn_dataframe_plotting",
+            "viz.seaborn_statistical_functions",
+            "viz.seaborn_themes_palettes"
+        ],
+        "eyebrow": "Recap",
+        "title": "What you learned",
+        "lede": "",
+        "blocks": [
+            {
+                "type": "prose",
+                "block_id": f"{tid}.s11.b01",
+                "role": "takeaway",
+                "text": (
+                    "Seaborn's plotting functions take data=, x=, and y= arguments, so you pass the "
+                    "DataFrame and column names directly—no array extraction needed. sns.barplot() "
+                    "computes the mean per category and draws error bars automatically."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.seaborn_dataframe_plotting"],
+                    "teaching_block_ids": [],
+                    "fact_ids": [
+                        "viz.seaborn_dataframe_plotting#f1",
+                        "viz.seaborn_dataframe_plotting#f2"
+                    ]
+                }
+            },
+            {
+                "type": "prose",
+                "block_id": f"{tid}.s11.b02",
+                "role": "takeaway",
+                "text": (
+                    "Many seaborn functions perform statistical estimation automatically. "
+                    "sns.regplot(data=orders, x='distance_km', y='delivery_time_minutes') plots "
+                    "a scatterplot together with a fitted linear regression line in one call."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.seaborn_statistical_functions"],
+                    "teaching_block_ids": [],
+                    "fact_ids": [
+                        "viz.seaborn_statistical_functions#f1",
+                        "viz.seaborn_statistical_functions#f2"
+                    ]
+                }
+            },
+            {
+                "type": "prose",
+                "block_id": f"{tid}.s11.b03",
+                "role": "takeaway",
+                "text": (
+                    "sns.set_theme(style='whitegrid', palette='deep') changes the global defaults "
+                    "for all subsequent plots via matplotlib's rcParams—including plots not made "
+                    "with seaborn."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.seaborn_themes_palettes"],
+                    "teaching_block_ids": [],
+                    "fact_ids": [
+                        "viz.seaborn_themes_palettes#f1",
+                        "viz.seaborn_themes_palettes#f2"
+                    ]
+                }
+            },
+            {
+                "type": "up_next",
+                "block_id": f"{tid}.s11.up_next",
+                "next_tile_id": None,
+                "preview_text": "You've completed the visualization section!",
+                "lineage": {
+                    "concept_ids": [],
+                    "teaching_block_ids": [],
+                    "fact_ids": []
+                }
+            }
+        ],
+        "reward": None,
+        "lineage": {
+            "concept_ids": [
+                "viz.seaborn_dataframe_plotting",
+                "viz.seaborn_statistical_functions",
+                "viz.seaborn_themes_palettes"
+            ],
+            "teaching_block_ids": [],
+            "fact_ids": []
+        }
+    })
+
+    # Remediation steps
+    # r01 – for first check of seaborn_dataframe_plotting (s02 measures f1, f2)
+    steps.append({
+        "step_id": f"{tid}.r01",
+        "type": "remediation",
+        "concept_ids": ["viz.seaborn_dataframe_plotting"],
+        "eyebrow": "Plotting directly from pandas DataFrames with seaborn",
+        "title": "Let's review",
+        "lede": "Here's another way to think about seaborn's DataFrame interface.",
+        "blocks": [
+            {
+                "type": "prose",
+                "block_id": f"{tid}.r01.b01",
+                "role": "remediation",
+                "text": (
+                    "With matplotlib you write ax.bar(orders['city'], orders['delivery_time_minutes']). "
+                    "With seaborn you write sns.barplot(data=orders, x='city', y='delivery_time_minutes'). "
+                    "The difference: seaborn takes the whole DataFrame and column names as strings, "
+                    "so you never extract a column manually."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.seaborn_dataframe_plotting"],
+                    "teaching_block_ids": [],
+                    "fact_ids": [
+                        "viz.seaborn_dataframe_plotting#f1",
+                        "viz.seaborn_dataframe_plotting#f2"
+                    ]
+                }
+            }
+        ],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.seaborn_dataframe_plotting"],
+            "teaching_block_ids": [],
+            "fact_ids": [
+                "viz.seaborn_dataframe_plotting#f1",
+                "viz.seaborn_dataframe_plotting#f2"
+            ]
+        }
+    })
+
+    # r02 – for first check of seaborn_statistical_functions (s05 measures f1)
+    steps.append({
+        "step_id": f"{tid}.r02",
+        "type": "remediation",
+        "concept_ids": ["viz.seaborn_statistical_functions"],
+        "eyebrow": "seaborn statistical plotting functions",
+        "title": "Let's review",
+        "lede": "Here's another way to think about seaborn's automatic estimation.",
+        "blocks": [
+            {
+                "type": "prose",
+                "block_id": f"{tid}.r02.b01",
+                "role": "remediation",
+                "text": (
+                    "When you call sns.barplot(data=orders, x='city', y='delivery_time_minutes'), "
+                    "seaborn computes the mean delivery time for each city automatically—you don't "
+                    "need a .groupby().mean() step first. This automatic statistical estimation is "
+                    "what makes seaborn different from matplotlib's raw plotting functions."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.seaborn_statistical_functions"],
+                    "teaching_block_ids": [],
+                    "fact_ids": ["viz.seaborn_statistical_functions#f1"]
+                }
+            }
+        ],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.seaborn_statistical_functions"],
+            "teaching_block_ids": [],
+            "fact_ids": ["viz.seaborn_statistical_functions#f1"]
+        }
+    })
+
+    # r03 – for first check of seaborn_themes_palettes (s09 measures f1)
+    steps.append({
+        "step_id": f"{tid}.r03",
+        "type": "remediation",
+        "concept_ids": ["viz.seaborn_themes_palettes"],
+        "eyebrow": "seaborn built-in themes and color palettes",
+        "title": "Let's review",
+        "lede": "Here's another way to think about sns.set_theme().",
+        "blocks": [
+            {
+                "type": "prose",
+                "block_id": f"{tid}.r03.b01",
+                "role": "remediation",
+                "text": (
+                    "sns.set_theme() works by changing matplotlib's rcParams—the global settings "
+                    "that control how all plots look. Because it changes global defaults, every plot "
+                    "drawn after the call uses the new style, whether it's a seaborn plot or a plain "
+                    "matplotlib plot."
+                ),
+                "lineage": {
+                    "concept_ids": ["viz.seaborn_themes_palettes"],
+                    "teaching_block_ids": [],
+                    "fact_ids": ["viz.seaborn_themes_palettes#f1"]
+                }
+            }
+        ],
+        "reward": None,
+        "lineage": {
+            "concept_ids": ["viz.seaborn_themes_palettes"],
+            "teaching_block_ids": [],
+            "fact_ids": ["viz.seaborn_themes_palettes#f1"]
+        }
+    })
+
+    return {
+        "tile_id": tid,
+        "title": "seaborn for Statistical Visualization",
+        "steps": steps
+    }
+
+
+if __name__ == '__main__':
+    main()
