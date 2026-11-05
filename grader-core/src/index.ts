@@ -118,3 +118,29 @@ export function grade(interaction: any, submission: any): Result {
     default: throw new Error(`grader-core: unknown interaction type ${i.type}`);
   }
 }
+
+import { gradeSql, type SqlEngine } from "./sql.ts";
+import { gradePython, type PyEngine } from "./py.ts";
+import { gradeSheet, gradeFormulaEntry, type SheetEngine } from "./sheet.ts";
+import type { Registry } from "./data.ts";
+export * from "./sql.ts"; export * from "./py.ts"; export * from "./sheet.ts"; export * from "./data.ts";
+
+export type Ctx = { registry?: Registry; sql?: SqlEngine; py?: PyEngine; sheet?: SheetEngine };
+type Any = Result | (Awaited<ReturnType<typeof gradeSql>> & { needs?: string });
+/** One entry point for every interaction type. Code answers are strings: `code` for a code_exercise (the entry file's text), the formula for a formula_entry.
+ *  Engines are injected; a missing engine returns `needs: "runtime"` instead of guessing. */
+export async function gradeInteraction(interaction: any, submission: any, ctx: Ctx = {}): Promise<Any> {
+  const i = interaction.interaction ?? interaction;
+  const need = (): Any => ({ correct: null, score: 0, feedback: null, needs: "runtime" });
+  const wrap = (r: { correct: boolean; feedback: string | null; parts: Record<string, boolean> }): Result => ({ correct: r.correct, score: r.correct ? 1 : Object.values(r.parts).length ? Object.values(r.parts).filter(Boolean).length / Object.values(r.parts).length : 0, feedback: r.feedback, parts: r.parts });
+  if (i.type === "formula_entry") return ctx.sheet && ctx.registry ? wrap(await gradeFormulaEntry(i, submission.formula ?? submission.code, { registry: ctx.registry, engine: ctx.sheet })) : need();
+  if (i.type === "code_exercise") {
+    const code = submission.code ?? "", k = i.public.runtime.kind;
+    if (!ctx.registry) return need();
+    if (k === "sql") return ctx.sql ? wrap(await gradeSql(i, code, { registry: ctx.registry, engine: ctx.sql })) : need();
+    if (k === "python" || k === "chart_renderer") return ctx.py ? wrap(await gradePython(i, code, { registry: ctx.registry, engine: ctx.py })) : need();
+    if (k === "spreadsheet") return ctx.sheet ? wrap(await gradeSheet(i, code, { registry: ctx.registry, engine: ctx.sheet })) : need();
+    return need();
+  }
+  return grade(interaction, submission);
+}
