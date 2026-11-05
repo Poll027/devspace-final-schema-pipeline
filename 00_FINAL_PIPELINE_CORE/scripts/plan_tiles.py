@@ -131,7 +131,7 @@ def plan_tile(bundles, tile_id, cids, next_tile, prof):
     btypes = {"prose", "heading"} | {s["planned_visual_block_type"] for s in steps if s["planned_visual_block_type"]}
     itypes = {s["planned_interaction_type"] for s in steps if s["planned_interaction_type"]}
     packs = sorted({BLOCK_REG[t] for t in btypes if t in BLOCK_REG} | {IX_REG[t] for t in itypes if t in IX_REG})
-    runtimes = sorted({prof["runtime_by_concept_prefix"].get(c.split(".")[0]) for c in cids if itypes & {"code_exercise", "formula_entry"}} - {None})
+    runtimes = sorted({prof["runtime_by_concept_prefix"].get(c) or prof["runtime_by_concept_prefix"].get(c.split(".")[0]) for c in cids if itypes & {"code_exercise", "formula_entry"}} - {None})
     return {"tile_id": tile_id, "region_id": bundles.by_id[cids[0]]["context"]["toc_location"]["region_id"], "terrain_id": bundles.by_id[cids[0]]["context"]["toc_location"]["terrain_id"],
             "title": next((c["title"] for c in bundles.clusters if set(c["concept_ids"]) & set(cids) and c["tile_id"] == tile_id), tile_id),
             "concept_ids": list(cids), "cluster_ids": sorted({b["cluster_ref"] for b in (bundles.by_id[c] for c in cids) if b.get("cluster_ref")}),
