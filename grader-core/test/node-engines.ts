@@ -10,3 +10,5 @@ const run = (file: string, job: unknown) => {
   return JSON.parse(r.stdout);
 };
 export const sqlEngine: SqlEngine = async (job) => run("run_sql.mjs", job).results;
+import type { PyEngine } from "../src/py.ts";
+export const pyEngine: PyEngine = async (job) => run("run_py.mjs", job).results;
