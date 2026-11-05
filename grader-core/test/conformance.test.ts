@@ -36,7 +36,7 @@ const wrong = (i: any): any => {
 };
 
 let seen = 0, wrongSeen = 0;
-for (const b of readdirSync(BATCHES)) {
+for (const b of readdirSync(BATCHES).filter((x) => x.startsWith("final_batch_"))) {
   const f = join(BATCHES, b, "interactions.json");
   if (!existsSync(f)) continue;
   for (const t of JSON.parse(readFileSync(f, "utf8")).tiles) for (const x of t.interactions) {

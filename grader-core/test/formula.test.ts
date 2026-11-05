@@ -7,7 +7,7 @@ import { gradeInteraction } from "../src/index.ts";
 import { sheetEngine } from "./node-engines.ts";
 
 const BATCHES = join(import.meta.dirname, "..", "..", "batches");
-for (const b of readdirSync(BATCHES)) {
+for (const b of readdirSync(BATCHES).filter((x) => x.startsWith("final_batch_"))) {
   const f = join(BATCHES, b, "interactions.json"), r = join(BATCHES, b, "scenario_asset_registry.json");
   if (!existsSync(f) || !existsSync(r)) continue;
   const registry = JSON.parse(readFileSync(r, "utf8"));

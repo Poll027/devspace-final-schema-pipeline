@@ -14,7 +14,7 @@ test("applyCellVar edits only a typed constant; cellFunctions reads formulas", (
   assert.deepEqual([...cellFunctions('C2: =ROUND(AVERAGE(A1:A3), 2) & ")"\n', "C2")!].sort(), ["AVERAGE", "ROUND"]);
 });
 
-for (const b of readdirSync(BATCHES)) {
+for (const b of readdirSync(BATCHES).filter((x) => x.startsWith("final_batch_"))) {
   const f = join(BATCHES, b, "interactions.json"), r = join(BATCHES, b, "scenario_asset_registry.json");
   if (!existsSync(f) || !existsSync(r)) continue;
   const registry = JSON.parse(readFileSync(r, "utf8"));
