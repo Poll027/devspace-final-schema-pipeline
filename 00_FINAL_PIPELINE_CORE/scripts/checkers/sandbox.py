@@ -186,6 +186,13 @@ def same_result(r, exp, ordered, tol=1e-9):
     return r is not None and [c.lower() for c in r["columns"]] == [c.lower() for c in exp["columns"]] and rows_equal(r["rows"], exp["rows"], ordered, tol)
 
 
+SYNTAX_EXEMPT_PREFIXES = ("capstone.",)  # integration tasks reuse everything taught before: the code must run and pass its tests, the allowed-syntax gate is skipped
+
+
+def syntax_exempt(ix):
+    return any(a.startswith(SYNTAX_EXEMPT_PREFIXES) for a in ix.get("anchors", []))
+
+
 def run_sql(registry, ix):
     o = Outcome()
     pub, gr = ix["public"], ix["grading"]
@@ -286,6 +293,8 @@ def run_sql(registry, ix):
     o.hidden_checks = hidden
     cons = pub.get("constraints") or {}
     viol, unmapped = sqlsyntax.judge(solution, cons.get("allowed_syntax", []), cons.get("blocked_syntax", []), coltypes)
+    if syntax_exempt(ix):
+        viol, unmapped = [], []
     o.problems += [f"solution {v}" for v in viol]
     if unmapped:
         o.unverified = f"syntax descriptors with no detector: {unmapped}"
@@ -596,6 +605,8 @@ def run_python(registry, ix):
         viol, unmapped, _ = pysyntax.judge(solution, cons.get("allowed_syntax", []), cons.get("blocked_syntax", []), starter)
     except SyntaxError as ex:
         viol, unmapped = [f"does not parse: {ex}"], []
+    if syntax_exempt(ix) and not any(v.startswith("does not parse") for v in viol):
+        viol, unmapped = [], []
     o.problems += [f"solution {v}" for v in viol]
     if unmapped:
         o.unverified = f"syntax descriptors with no detector: {unmapped}"
@@ -831,6 +842,8 @@ def run_sheet(registry, ix):
     o.hidden_checks = hidden
     cons = pub.get("constraints") or {}
     viol, unmapped, _ = sheetsyntax.judge(solution, cons.get("allowed_syntax", []), cons.get("blocked_syntax", []))
+    if syntax_exempt(ix):
+        viol, unmapped = [], []
     o.problems += [f"solution {v}" for v in viol]
     if unmapped:
         o.unverified = f"syntax descriptors with no detector: {unmapped}"
