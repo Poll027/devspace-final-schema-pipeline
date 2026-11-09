@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline test of run_pipeline.py: the model is stubbed (no AWS, no spend), the scripts and gates are real.
+"""Offline test of run_pipeline.py: the model is stubbed (no network, no spend), the scripts and gates are real.
 
     python3 test_driver.py batches/<a PASSing batch>      # its content is the stub generator's "answer"
 
@@ -88,7 +88,6 @@ def run(B, stub, cap=25):
 def retry_test():
     """A dropped connection is retried with backoff and the call still succeeds; a non-transient error is not retried."""
     import bedrock_agent as BA
-    from botocore.exceptions import ConnectionClosedError
 
     class Fake:
         def __init__(self, errs): self.errs, self.n = errs, 0
@@ -103,7 +102,7 @@ def retry_test():
     real_sleep = time.sleep
     time.sleep = lambda s: None
     try:
-        f = Fake([ConnectionClosedError(error=Exception("x"), request=None, endpoint_url="u")] * 2)
+        f = Fake([ConnectionError("connection dropped")] * 2)
         BA.make_client = lambda: f
         b = BA.Budget(5, Path(tempfile.mkdtemp()) / "c.jsonl")
         assert BA.run_agent("us.anthropic.claude-sonnet-4-6", "s", "t", b) == "done" and f.n == 3, f.n
@@ -233,6 +232,80 @@ def cache_test():
     return "prompt-cache checkpoints + pricing OK"
 
 
+def azure_test():
+    """The Azure client turns a Converse-shaped tool loop into Responses-API requests and back: instructions + input items (user, replayed reasoning and
+    function call, function output), no cachePoint, cached prompt tokens priced as cache reads, a 429 retried by the agent loop, a rejected optional
+    parameter dropped once and remembered, and an unpriced deployment costed at the dearest rate."""
+    import os
+    import time
+    import bedrock_agent as BA
+    import bedrock_llm as BL
+    import llm_azure as AZ
+    sent, replies = [], []
+
+    def post(body):
+        sent.append(json.loads(json.dumps(body)))
+        r = replies.pop(0)
+        if isinstance(r, Exception):
+            raise r
+        return r
+
+    def msg(text=None, calls=False, u=(100, 0, 10)):
+        out = [{"type": "reasoning", "id": "rs_1", "summary": []}] if calls else []
+        if text:
+            out.append({"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": text}]})
+        if calls:
+            out.append({"type": "function_call", "call_id": "call_1", "name": "bash", "arguments": json.dumps({"command": "echo hi"})})
+        return {"status": "completed", "output": out, "usage": {"input_tokens": u[0], "output_tokens": u[2], "input_tokens_details": {"cached_tokens": u[1]}}}
+    keep, keep_ep = (AZ._post, BA.make_client, time.sleep, os.environ.get("REASONING_EFFORT")), os.environ.get("AZURE_OPENAI_ENDPOINT", "")
+    AZ._post, BA.make_client, time.sleep = post, lambda: AZ.AzureClient(), lambda s: None
+    os.environ.pop("REASONING_EFFORT", None)
+    try:
+        replies[:] = [AZ._error(429, "{}", "7"), msg(calls=True, u=(1000, 800, 50)), msg("done")]
+        b = BA.Budget(5, Path(tempfile.mkdtemp()) / "c.jsonl")
+        assert BA.run_agent("gpt-6.1-sol", "sys", "task", b) == "done" and len(sent) == 3, len(sent)
+        assert "cachePoint" not in json.dumps(sent) and sent[0] == sent[1], "429 must be retried unchanged, with caching markers stripped"
+        req = sent[2]
+        assert req["instructions"] == "sys" and "temperature" not in req and req["max_output_tokens"] > 0
+        kinds = [x.get("type") or x["role"] for x in req["input"]]
+        assert kinds == ["user", "reasoning", "function_call", "function_call_output"], kinds  # reasoning is replayed between tool calls
+        assert req["input"][2]["call_id"] == req["input"][3]["call_id"] == "call_1"
+        assert {t["name"] for t in req["tools"]} == {"read_file", "write_file", "bash"} and all(t["type"] == "function" for t in req["tools"])
+        u = AZ.from_responses(msg(calls=True, u=(1000, 800, 50)))["usage"]
+        assert u == {"inputTokens": 200, "cacheReadInputTokens": 800, "cacheWriteInputTokens": 0, "outputTokens": 50}, u
+        assert abs(b.spent() - BL.price_usd("gpt-6.1-sol", u)) < 1e-3 and b.spent() > 0
+        cut = msg("partial")
+        cut.update(status="incomplete", incomplete_details={"reason": "max_output_tokens"})
+        assert AZ.from_responses(cut)["stopReason"] == "max_tokens"
+        # an optional parameter the deployment rejects is dropped, retried, and never sent again
+        os.environ["REASONING_EFFORT"] = "high"
+        sent.clear()
+        replies[:] = [AZ._error(400, json.dumps({"error": {"param": "reasoning.effort", "code": "unsupported_value"}})), msg("a"), msg("b")]
+        c = AZ.AzureClient()
+        kw = dict(system=[{"text": "s"}], messages=[{"role": "user", "content": [{"text": "hi"}]}])
+        assert c.converse(modelId="gpt-x", **kw)["stopReason"] == "end_turn" and c.converse(modelId="gpt-x", **kw)
+        assert "reasoning" in sent[0] and "reasoning" not in sent[1] and "reasoning" not in sent[2], sent
+        # a hard error is raised, never retried
+        replies[:] = [AZ._error(400, json.dumps({"error": {"param": "input"}}))]
+        try:
+            c.converse(modelId="gpt-y", **kw)
+            raise AssertionError("a 400 on a required field must raise")
+        except AZ.LLMError:
+            assert not BA.transient(AZ.LLMError("HTTP 400"))
+        assert BA.transient(AZ._error(503, "x")) and BA.transient(AZ._error(429, "x")) and not BA.transient(AZ._error(404, "DeploymentNotFound"))
+        assert BL.price_usd("mystery-model", {"inputTokens": 1_000_000}) == 10.0, "unpriced deployments must cost the dearest rate"
+        os.environ["AZURE_OPENAI_ENDPOINT"] = "https://r.services.ai.azure.com/openai/v1/responses"
+        assert AZ.base_url() == "https://r.services.ai.azure.com/openai/v1", "a full URL copied from Foundry must be trimmed to the base"
+        os.environ["AZURE_OPENAI_ENDPOINT"] = keep_ep
+    finally:
+        AZ._post, BA.make_client, time.sleep = keep[:3]
+        AZ._DROP.clear()
+        os.environ.pop("REASONING_EFFORT", None)
+        if keep[3]:
+            os.environ["REASONING_EFFORT"] = keep[3]
+    return "azure translation + retry + pricing OK"
+
+
 def packet_test():
     """Stages 03/04 are judged from one tool-free call over the rendered packet; a reply without a verdict falls back to the agent evaluator;
     --eval-mode agent never uses the packet."""
@@ -273,7 +346,7 @@ def packet_test():
 
 
 def main():
-    out = [retry_test(), cache_test(), protect_test(), guard_test(), packet_test(), reopen_test()]
+    out = [retry_test(), cache_test(), azure_test(), protect_test(), guard_test(), packet_test(), reopen_test()]
     # 1. happy path
     B = make_batch("_drvtest_a")
     s = Stub(B, evals={"03_screens": ["BLOCKING t/s01: wrong\nVERDICT: FAIL", "ADVISORY t/s02: reword\nVERDICT: PASS"],

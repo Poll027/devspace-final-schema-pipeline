@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Install the supervisor as a systemd service on the EC2 instance. Run from the repo root:
-#   export AWS_REGION=us-east-1 MAX_USD=300 SNS_TOPIC_ARN=arn:aws:sns:...:final-pipeline-driver
+# Install the supervisor as a systemd service on the pipeline VM. Run from the repo root.
+# The Azure endpoint and key live in <repo>/.env (gitignored; see .env.example), which the driver reads itself.
+#   export MAX_USD=300 NOTIFY_WEBHOOK_URL=https://hooks.slack.com/...   (the webhook is optional)
 #   bash deploy/install_service.sh batches/<batch_id>            (service "final-pipeline")
 #   SERVICE=final-pipeline-pandas bash deploy/install_service.sh batches/<other_batch_id>   (a second batch in parallel: any new service name)
 # It starts at boot and after a crash. It does NOT restart on exit codes 2/3 (needs-you / spend-cap): those mean a human must act.
@@ -9,13 +10,12 @@
 # Control: sudo systemctl stop|start|restart final-pipeline
 set -euo pipefail
 BATCH="${1:?usage: install_service.sh batches/<batch_id>}"
-: "${SNS_TOPIC_ARN:?export SNS_TOPIC_ARN first}"
 REPO="$(pwd)"; ME="$(whoami)"; SERVICE="${SERVICE:-final-pipeline}"
+[ -f "$REPO/.env" ] || { echo "missing $REPO/.env (copy .env.example and fill in the Azure endpoint and key)"; exit 1; }
 
 sudo tee /etc/${SERVICE}.env >/dev/null <<EOF
-AWS_REGION=${AWS_REGION:-us-east-1}
 MAX_USD=${MAX_USD:-300}
-SNS_TOPIC_ARN=${SNS_TOPIC_ARN}
+NOTIFY_WEBHOOK_URL=${NOTIFY_WEBHOOK_URL:-}
 DRIVER_ARGS=${DRIVER_ARGS:-}
 EOF
 

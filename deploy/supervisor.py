@@ -4,7 +4,7 @@
     python3 deploy/supervisor.py batches/<batch_id> [--max-usd 300] [--driver-args "..."]
 
 - Runs run_pipeline.py and appends its output to run.log. Exit 0 = batch done.
-- Stall watchdog: no file in the batch's working/ folder has changed for STALL_WARN_MIN (25) minutes -> SNS warning;
+- Stall watchdog: no file in the batch's working/ folder has changed for STALL_WARN_MIN (25) minutes -> webhook warning;
   for STALL_KILL_MIN (45) -> kill and restart (the driver resumes; finished chunks are cached/gated).
 - On a stop (driver exit 2 or a crash) a triage agent reads the stop file and logs and classifies it:
     transient -> wait, then restart automatically (max MAX_RESTARTS per distinct cause)
@@ -20,7 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "00_FINAL_PIPELINE_CORE" / "scripts"))
 from bedrock_agent import Budget, BudgetExceeded, run_agent  # noqa: E402
-from bedrock_llm import load_env  # noqa: E402
+from bedrock_llm import alert, load_env  # noqa: E402
 
 STALL_WARN_MIN = float(os.environ.get("STALL_WARN_MIN", 25))
 STALL_KILL_MIN = float(os.environ.get("STALL_KILL_MIN", 45))
@@ -38,13 +38,7 @@ Be efficient: use at most about 8 tool calls (read the stop file first, then onl
 
 def notify(subject, body):
     print(f"[supervisor] {subject}\n{body[:1500]}", flush=True)
-    topic = os.environ.get("SNS_TOPIC_ARN")
-    if topic:
-        try:
-            import boto3
-            boto3.client("sns", region_name=topic.split(":")[3]).publish(TopicArn=topic, Subject=subject[:100], Message=body[:20000])
-        except Exception as e:
-            print(f"[supervisor] SNS failed: {e}", flush=True)
+    alert(subject, body)
 
 
 def last_activity(B):

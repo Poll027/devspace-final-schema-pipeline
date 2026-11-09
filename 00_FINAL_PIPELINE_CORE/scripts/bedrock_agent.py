@@ -1,4 +1,4 @@
-"""Minimal tool-using agent on AWS Bedrock (Converse API): the stand-in for a Claude Code subagent.
+"""Minimal tool-using agent over the pipeline's Converse-shaped client (Azure OpenAI via llm_azure.py; Bedrock still works): the stand-in for a Claude Code subagent.
 
 The stage instruction files are written for agents that read inputs and write artifacts themselves, so this runs the same
 instructions with three tools: read_file, write_file, bash. A fresh call = a fresh context.
@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from bedrock_llm import LAST, ROOT, converse_ladder, load_env, log_usage, make_client  # noqa: E402
 
 MAX_TOOL_CHARS = 14000
-DENY = re.compile(r"\b(sudo|git\s+(push|reset|checkout|clean|commit)|aws\s|shutdown|reboot|mkfs|dd\s+if=)\b|rm\s+-rf\s+(/|~|\.\.)")
+DENY = re.compile(r"\b(sudo|git\s+(push|reset|checkout|clean|commit)|aws\s|az\s|shutdown|reboot|mkfs|dd\s+if=)\b|rm\s+-rf\s+(/|~|\.\.)")
 
 
 class BudgetExceeded(Exception):
@@ -156,7 +156,7 @@ def run_agent(model_id, system, task, budget, role="GEN", write_roots=(), max_tu
                     continue
                 if attempt == 9 or "per day" in str(e) or not transient(e):
                     raise
-                time.sleep(min(5 * 2 ** attempt, 120) + random.uniform(0, 5))  # capped backoff + jitter: parallel chunks and sibling services share one Bedrock rate limit
+                time.sleep(min(5 * 2 ** attempt, 120) + random.uniform(0, 5))  # capped backoff + jitter: parallel chunks and sibling services share one deployment's rate limit
         mine += LAST.get("usd", 0.0)
         msg = r["output"]["message"]
         messages.append(msg)

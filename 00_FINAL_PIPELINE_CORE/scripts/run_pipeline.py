@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run a Final Schema batch unattended on AWS Bedrock: the orchestrator loop from START_HERE.md as a program. ROLE-AGNOSTIC.
+"""Run a Final Schema batch unattended (Azure OpenAI / Foundry; set LLM_PROVIDER=bedrock for the legacy path): the orchestrator loop from START_HERE.md as a program. ROLE-AGNOSTIC.
 
     python3 run_pipeline.py batches/<batch_id> --max-usd 25 [--plan] [--selftest-batch batches/<passing batch>]
 
@@ -9,14 +9,14 @@ Walks pipeline_manifest.json. A stage already gated PASS on disk (ledger hash ma
                      -> up to 3 repair rounds (scoped re-evaluation) -> advisories get one reword-only repair, no re-evaluation
   evaluator_only     one fresh evaluator writes the stage artifact; a BLOCKING finding stops the run for a human
 Stages whose manifest status starts with "planned" are skipped (05 stops the run if the tile plans need sandbox types).
-Stops (exit 2, writes working/DRIVER_STOPPED.md, SNS if SNS_TOPIC_ARN is set) on: 3 failed rounds, the same blockers coming back
+Stops (exit 2, writes working/DRIVER_STOPPED.md, webhook alert if NOTIFY_WEBHOOK_URL is set) on: 3 failed rounds, the same blockers coming back
 unchanged, a failed script, or the spend cap (exit 3). Fix the cause and rerun the same command.
 
 run_config.json: {"path_id","glossary_bundle","glossary_batch_id","toc_workspace","tiles":[...]?,"player_version"?}
 Evaluators of stages with `eval_packet` in the manifest (03, 04) judge from ONE pre-digested packet (evaluator_packet.py) in a single tool-free call; they fall
 back to the file-exploring agent evaluator if the packet is unavailable or gives no verdict. `--eval-mode agent` / EVAL_MODE=agent forces the old way.
 Env: GEN_MODEL_ID / EVAL_MODEL_ID (pin one model) or GEN_LADDER / EVAL_LADDER, MAX_USD, CALL_CAP_USD (per agent call and tile, default 8),
-     CHUNK_WORKERS (default 2), EVAL_MODE (packet|agent, default packet), SNS_TOPIC_ARN, AWS_REGION.
+     CHUNK_WORKERS (default 2), EVAL_MODE (packet|agent, default packet), NOTIFY_WEBHOOK_URL, LLM_PROVIDER, AZURE_OPENAI_ENDPOINT / AZURE_OPENAI_API_KEY.
 # ponytail: the driver never commits or pushes; chunks need >12 tiles to fan out; blocking 08/09/11 findings are routed back to stages 03/04 for
 # the tiles they name (MAX_REOPENS loops), then stop for a human; findings that name no tile (registry-level) stop at once.
 """
@@ -35,7 +35,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import update_ledger as UL  # noqa: E402
 import evaluator_packet as EP  # noqa: E402
 from bedrock_agent import CACHE, Budget, BudgetExceeded, run_agent, transient  # noqa: E402
-from bedrock_llm import converse_ladder, load_env, log_usage, make_client, sns  # noqa: E402
+from bedrock_llm import alert, converse_ladder, load_env, log_usage, make_client  # noqa: E402
 from finlib import CORE, ROOT, load, save  # noqa: E402
 
 SCRIPTS = CORE / "scripts"
@@ -684,7 +684,7 @@ def notify(c, subject, body):
     c.log(f"NOTIFY {subject}")
     (c.B / "working" / ("DRIVER_STOPPED.md" if "STOPPED" in subject else "DRIVER_DONE.md")).write_text(f"# {subject}\n\n{body}\n")
     if not ("STOPPED" in subject and os.environ.get("SUPERVISED")):  # the supervisor sends the triaged stop email
-        sns(subject, body)
+        alert(subject, body)
 
 
 def walk_stages(c, a):
