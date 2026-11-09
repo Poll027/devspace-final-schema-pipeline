@@ -13,8 +13,8 @@ reasoning across tool calls.
 Env: AZURE_OPENAI_ENDPOINT (https://<resource>.services.ai.azure.com or .openai.azure.com; a full URL copied from Foundry is trimmed),
      AZURE_OPENAI_API_KEY, optional REASONING_EFFORT (none|low|medium|high), LLM_TEMPERATURE (not sent unless set), LLM_TIMEOUT_S (default 600).
 Errors are classed by exception name so bedrock_agent.transient() retries the right ones: ThrottlingError (429), ServiceUnavailableError (5xx),
-ConnectionError/TimeoutError (network); LLMError (everything else, never retried). Prompt caching is automatic: cachePoint blocks are dropped and
-cached prompt tokens come back as cacheReadInputTokens.
+ConnectionError/TimeoutError (network); LLMError (everything else, never retried). Prompt caching is automatic: cachePoint blocks are dropped; cached prompt tokens come back as
+cacheReadInputTokens and newly cached ones as cacheWriteInputTokens.
 # ponytail: no streaming; an optional parameter a deployment rejects (400 with error.param) is dropped and remembered for that deployment.
 """
 import http.client
@@ -98,7 +98,8 @@ def from_responses(r):
                 args = {"_malformed_arguments": raw[:500]}  # the tool errors back to the model, which retries
             content.append({"toolUse": {"toolUseId": it["call_id"], "name": it["name"], "input": args}})
     u = r.get("usage") or {}
-    cached = (u.get("input_tokens_details") or {}).get("cached_tokens", 0)
+    det = u.get("input_tokens_details") or {}
+    cached, written = det.get("cached_tokens", 0), det.get("cache_write_tokens", 0)  # input_tokens includes both; writes bill at 1.25x, reads at a fraction
     if any("toolUse" in b for b in content):
         stop = "tool_use"
     elif r.get("status") == "incomplete" and (r.get("incomplete_details") or {}).get("reason") == "max_output_tokens":
@@ -108,7 +109,7 @@ def from_responses(r):
     else:
         stop = "end_turn"
     return {"output": {"message": {"role": "assistant", "content": content, "_items": items}}, "stopReason": stop,
-            "usage": {"inputTokens": u.get("input_tokens", 0) - cached, "cacheReadInputTokens": cached, "cacheWriteInputTokens": 0,
+            "usage": {"inputTokens": u.get("input_tokens", 0) - cached - written, "cacheReadInputTokens": cached, "cacheWriteInputTokens": written,
                       "outputTokens": u.get("output_tokens", 0)}}  # output_tokens already include reasoning tokens (billed as output)
 
 
