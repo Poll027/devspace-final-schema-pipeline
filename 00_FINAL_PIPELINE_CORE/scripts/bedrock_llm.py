@@ -64,8 +64,9 @@ def price_usd(model, usage):
     role = "EVAL" if model in ladder("EVAL") else "GEN"
     if os.environ.get(f"PRICE_{role}"):
         pin, pout = (float(x) for x in os.environ[f"PRICE_{role}"].split(","))
-    return (usage.get("inputTokens", 0) + r["cache_read"] * usage.get("cacheReadInputTokens", 0) + r["cache_write"] * usage.get("cacheWriteInputTokens", 0)) / 1e6 * pin \
-        + usage.get("outputTokens", 0) / 1e6 * pout
+    flex = 0.5 if usage.get("serviceTier") == "flex" else 1.0  # Azure price list: every GPT-6 Flex meter is half its Standard meter
+    return flex * ((usage.get("inputTokens", 0) + r["cache_read"] * usage.get("cacheReadInputTokens", 0) + r["cache_write"] * usage.get("cacheWriteInputTokens", 0)) / 1e6 * pin
+                   + usage.get("outputTokens", 0) / 1e6 * pout)
 
 
 def log_usage(model, usage, label=""):
@@ -76,7 +77,7 @@ def log_usage(model, usage, label=""):
     if p:
         with open(p, "a") as f:
             f.write(json.dumps({"t": datetime.now(timezone.utc).isoformat(timespec="seconds"), "model": model, "label": label or Path(sys.argv[0]).name,
-                                "in": usage.get("inputTokens", 0), "cache_read": usage.get("cacheReadInputTokens", 0), "cache_write": usage.get("cacheWriteInputTokens", 0), "out": usage.get("outputTokens", 0), "usd": usd}) + "\n")
+                                "tier": usage.get("serviceTier", "default"), "in": usage.get("inputTokens", 0), "cache_read": usage.get("cacheReadInputTokens", 0), "cache_write": usage.get("cacheWriteInputTokens", 0), "out": usage.get("outputTokens", 0), "usd": usd}) + "\n")
     return usd
 
 
