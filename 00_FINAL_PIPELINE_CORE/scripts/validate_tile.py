@@ -80,7 +80,7 @@ def check_registry(registry, rep):
     if rep.E:
         return
     ids = [a["asset_id"] for a in registry["assets"]]
-    for dup in {i for i in ids if ids.count(i) > 1}:
+    for dup in sorted({i for i in ids if ids.count(i) > 1}):
         rep.e(f"duplicate asset_id {dup}")
     scen = {s["scenario_id"] for s in registry["scenarios"]}
     C = SimpleNamespace(registry=registry)
@@ -112,13 +112,13 @@ def validate_tile(C, tile_id, strict=False):
         rep.e("concept_ids differ from the plan")
     # structure
     sids = [s["step_id"] for s in L["steps"] + L["remediation_steps"]]
-    for d in {s for s in sids if sids.count(s) > 1}:
+    for d in sorted({s for s in sids if sids.count(s) > 1}):
         rep.e(f"duplicate step_id {d}")
     for s in sids:
         if not s.startswith(tile_id + "."):
             rep.e(f"step_id {s} must start with '{tile_id}.'")
     iids = [s["interaction"]["interaction_id"] for s in L["steps"] if "interaction" in s]
-    for d in {i for i in iids if iids.count(i) > 1}:
+    for d in sorted({i for i in iids if iids.count(i) > 1}):
         rep.e(f"duplicate interaction_id {d}")
     rem_ids = {s["step_id"] for s in L["remediation_steps"]}
     referenced = {s["interaction"]["feedback"]["remediation_step_id"] for s in L["steps"] if s.get("interaction", {}).get("feedback", {}).get("remediation_step_id")}
@@ -129,9 +129,9 @@ def validate_tile(C, tile_id, strict=False):
             measured = {f"{m['concept_id']}#{f}" for m in ix["measures"] for f in m["fact_ids"]}
             if measured and not (measured & rem_facts[rid]):
                 rep.w(f"{s['step_id']}: remediation {rid} re-teaches {sorted(rem_facts[rid])} but the check measures {sorted(measured)} — a learner who fails it is sent to an unrelated fact")
-    for r in referenced - rem_ids:
+    for r in sorted(referenced - rem_ids):  # sorted: set order changes with PYTHONHASHSEED, which changed the report hash and made the ledger call stage 07 STALE
         rep.e(f"feedback.remediation_step_id {r} is not a remediation step (this tile's remediation steps are {sorted(rem_ids)}; a main step id such as s06 is never valid)")
-    for r in rem_ids - referenced:
+    for r in sorted(rem_ids - referenced):
         rep.w(f"remediation step {r} is never referenced")
     for c in cids:
         if L["source"]["glossary_bundle_hashes"].get(c) != sha(bundles.by_id[c]):
