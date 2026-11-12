@@ -147,6 +147,11 @@ def judge(text, allowed, blocked):
     for _, _, c in parse_cells(text):
         if c.startswith("="):
             used |= tags(c)
+    if not allowed and (used - BASE):  # no list at all: say so, instead of blaming each operator as "not yet taught"
+        viol.append("constraints.allowed_syntax is empty or missing, but the solution uses " + ", ".join(sorted(used - BASE)) + ". The glossary gave this practice no live_code list, "
+                    "so YOU must write it: descriptors for the operators, reference styles and functions this concept and the earlier ones taught "
+                    "(e.g. '+ - * /', 'relative cell references', 'absolute references ($A$1)', 'SUM'), and blocked_syntax for later concepts' functions. See GENERATOR.md.")
+        return viol, sorted(set(unmapped)), sorted(set(nochk))
     for f in sorted(used - BASE):
         if f in ok:
             continue

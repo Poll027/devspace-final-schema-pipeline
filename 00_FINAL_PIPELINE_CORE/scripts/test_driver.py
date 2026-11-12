@@ -313,6 +313,19 @@ def azure_test():
     return "azure translation + retry + pricing OK"
 
 
+def sheet_gate_test():
+    """A formula practice with no syntax list (spreadsheet glossary anchors have no live_code) gets one explicit message, not an 'untaught' error per operator."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent / "checkers"))
+    import sheetsyntax as SH
+    sol = "H1: 0.075\nE2: =D2*$H$1\nE3: =D3*$H$1\n"
+    v, _, _ = SH.judge(sol, [], [])
+    assert len(v) == 1 and "constraints.allowed_syntax is empty" in v[0] and "op_mul" in v[0] and "ref_abs" in v[0], v
+    assert SH.judge(sol, ["+ - * /", "relative cell references", "absolute references ($A$1)"], ["SUM", "IF"])[0] == []
+    assert "not yet taught" in SH.judge(sol, ["+ - * /"], [])[0][0], "a non-empty list that lacks something keeps the old message"
+    assert SH.judge("A1: 5\n", [], [])[0] == [], "no formulas, nothing to judge"
+    return "empty-syntax-list message OK"
+
+
 def stall_test():
     """MAX_STALLS lets the same blocker repeat before the run stops (default 1 keeps the old stop at the first repeat); MAX_ROUNDS caps the rounds."""
     keep = (rp.MAX_STALLS, rp.MAX_ROUNDS)
@@ -371,7 +384,7 @@ def packet_test():
 
 
 def main():
-    out = [retry_test(), cache_test(), azure_test(), protect_test(), guard_test(), stall_test(), packet_test(), reopen_test()]
+    out = [retry_test(), cache_test(), azure_test(), protect_test(), guard_test(), sheet_gate_test(), stall_test(), packet_test(), reopen_test()]
     # 1. happy path
     B = make_batch("_drvtest_a")
     s = Stub(B, evals={"03_screens": ["BLOCKING t/s01: wrong\nVERDICT: FAIL", "ADVISORY t/s02: reword\nVERDICT: PASS"],
