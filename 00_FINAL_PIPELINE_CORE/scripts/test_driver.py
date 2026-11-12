@@ -272,7 +272,7 @@ def azure_test():
         assert req["input"][2]["call_id"] == req["input"][3]["call_id"] == "call_1"
         assert {t["name"] for t in req["tools"]} == {"read_file", "write_file", "bash"} and all(t["type"] == "function" for t in req["tools"])
         u = AZ.from_responses(msg(calls=True, u=(1000, 800, 50)))["usage"]
-        assert u == {"inputTokens": 200, "cacheReadInputTokens": 800, "cacheWriteInputTokens": 0, "outputTokens": 50}, u
+        assert u == {"inputTokens": 200, "cacheReadInputTokens": 800, "cacheWriteInputTokens": 0, "outputTokens": 50, "serviceTier": "default"}, u
         assert abs(b.spent() - BL.price_usd("gpt-6.1-sol", u)) < 1e-3 and b.spent() > 0
         cut = msg("partial")
         cut.update(status="incomplete", incomplete_details={"reason": "max_output_tokens"})
@@ -292,6 +292,13 @@ def azure_test():
             raise AssertionError("a 400 on a required field must raise")
         except AZ.LLMError:
             assert not BA.transient(AZ.LLMError("HTTP 400"))
+        # a deployment that has no Flex tier: the request is retried without service_tier and never sent with it again
+        os.environ["LLM_SERVICE_TIER"] = "flex"
+        sent.clear()
+        replies[:] = [AZ._error(400, json.dumps({"error": {"code": "service_tier_not_supported", "param": None}})), msg("a"), msg("b")]
+        assert c.converse(modelId="gpt-noflex", **kw)["stopReason"] == "end_turn" and c.converse(modelId="gpt-noflex", **kw)
+        assert "service_tier" in sent[0] and "service_tier" not in sent[1] and "service_tier" not in sent[2], sent
+        os.environ.pop("LLM_SERVICE_TIER", None)
         assert BA.transient(AZ._error(503, "x")) and BA.transient(AZ._error(429, "x")) and not BA.transient(AZ._error(404, "DeploymentNotFound"))
         assert BL.price_usd("mystery-model", {"inputTokens": 1_000_000}) == 10.0, "unpriced deployments must cost the dearest rate"
         os.environ["AZURE_OPENAI_ENDPOINT"] = "https://r.services.ai.azure.com/openai/v1/responses"
@@ -304,6 +311,24 @@ def azure_test():
         if keep[3]:
             os.environ["REASONING_EFFORT"] = keep[3]
     return "azure translation + retry + pricing OK"
+
+
+def stall_test():
+    """MAX_STALLS lets the same blocker repeat before the run stops (default 1 keeps the old stop at the first repeat); MAX_ROUNDS caps the rounds."""
+    keep = (rp.MAX_STALLS, rp.MAX_ROUNDS)
+    try:
+        B = make_batch("_drvtest_h")
+        s = Stub(B, evals={"03_screens": ["BLOCKING t/s01: wrong\nVERDICT: FAIL"] * 3 + ["VERDICT: PASS"], "04_interactions": ["VERDICT: PASS"]})
+        rp.MAX_STALLS, rp.MAX_ROUNDS = 3, 5
+        assert run(B, s) == 0, (B / "working" / "DRIVER_STOPPED.md").read_text()
+        assert [l for l, _ in s.calls].count("03_screens:all:eval") == 4
+        B = make_batch("_drvtest_i")
+        rp.MAX_STALLS, rp.MAX_ROUNDS = 3, 5
+        s = Stub(B, evals={"03_screens": ["BLOCKING t/s01: wrong\nVERDICT: FAIL"] * 6})
+        assert run(B, s) == 2 and "unchanged after 3 repair" in (B / "working" / "DRIVER_STOPPED.md").read_text()
+    finally:
+        rp.MAX_STALLS, rp.MAX_ROUNDS = keep
+    return "stall + round limits OK"
 
 
 def packet_test():
@@ -346,7 +371,7 @@ def packet_test():
 
 
 def main():
-    out = [retry_test(), cache_test(), azure_test(), protect_test(), guard_test(), packet_test(), reopen_test()]
+    out = [retry_test(), cache_test(), azure_test(), protect_test(), guard_test(), stall_test(), packet_test(), reopen_test()]
     # 1. happy path
     B = make_batch("_drvtest_a")
     s = Stub(B, evals={"03_screens": ["BLOCKING t/s01: wrong\nVERDICT: FAIL", "ADVISORY t/s02: reword\nVERDICT: PASS"],

@@ -25,7 +25,7 @@ import urllib.request
 
 
 class LLMError(Exception):
-    status, param = 0, None
+    status, param, code = 0, None, ""
 
 
 class ThrottlingError(LLMError):
@@ -176,7 +176,8 @@ def _error(status, text, retry_after=None):
     e = (ThrottlingError if status == 429 else ServiceUnavailableError if status >= 500 or status == 408 else LLMError)(msg)
     e.status = status
     try:
-        e.param = json.loads(text)["error"].get("param")
+        err = json.loads(text)["error"]
+        e.param, e.code = err.get("param"), str(err.get("code") or "")
     except (ValueError, KeyError, AttributeError, TypeError):
         pass
     return e
@@ -204,7 +205,7 @@ class AzureClient:
             try:
                 return from_chat(_post(body, "/chat/completions")) if chat else from_responses(_post(body))
             except LLMError as e:
-                key = (e.param or "").split(".")[0]
+                key = (e.param or "").split(".")[0] or ("service_tier" if "service_tier" in e.code else "")  # e.g. a deployment with no Flex tier
                 if e.status == 400 and key in OPTIONAL and key in body:
                     _DROP.setdefault(modelId, set()).add(key)
                     continue

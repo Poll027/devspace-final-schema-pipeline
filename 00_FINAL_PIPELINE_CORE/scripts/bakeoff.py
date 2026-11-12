@@ -176,7 +176,7 @@ def eval_test(specs):
     print(f"\nreplies: {EXP / 'replies'}   (earlier baseline on Claude Opus through the same packets: 11/11)")
 
 
-def setup(name, bundle, toc):
+def setup(name, bundle, toc, tiles=None):
     B = ROOT / "batches" / f"tmp_bakeoff_{name}"
     if B.exists():
         sys.exit(f"{B} already exists; remove it first if you want a fresh run")
@@ -185,8 +185,8 @@ def setup(name, bundle, toc):
             sys.exit(f"not found: {p}")
     B.mkdir(parents=True)
     save(B / "run_config.json", {"path_id": "data_analyst", "glossary_bundle": str(Path(bundle).resolve()), "glossary_batch_id": "glossary_batch_001_data_analyst_pilot",
-                                 "toc_workspace": str(Path(toc).resolve()), "tiles": GEN_TILES, "player_version": "0.1.0"})
-    print(f"created {B.relative_to(ROOT)} with {len(GEN_TILES)} tiles")
+                                 "toc_workspace": str(Path(toc).resolve()), "tiles": tiles or GEN_TILES, "player_version": "0.1.0"})
+    print(f"created {B.relative_to(ROOT)} with {len(tiles or GEN_TILES)} tiles")
 
 
 def report(names):
@@ -222,6 +222,7 @@ def main():
     s.add_argument("name")
     s.add_argument("--bundle", required=True, help="path_glossary_bundle.data_analyst.json")
     s.add_argument("--toc", required=True, help="the frozen Data Analyst TOC workspace folder")
+    s.add_argument("--tiles", help="comma-separated tile ids (default: the 5 mixed-topic tiles). Prefer tiles of ONE topic: a batch shares one scenario/asset registry")
     r = sub.add_parser("report")
     r.add_argument("names", nargs="+")
     a = ap.parse_args()
@@ -232,7 +233,7 @@ def main():
         else:
             eval_test(a.models)
     elif a.cmd == "setup":
-        setup(a.name, a.bundle, a.toc)
+        setup(a.name, a.bundle, a.toc, a.tiles.split(",") if a.tiles else None)
     else:
         report(a.names)
 

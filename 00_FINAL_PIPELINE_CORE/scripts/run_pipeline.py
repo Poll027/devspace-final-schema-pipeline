@@ -15,7 +15,7 @@ unchanged, a failed script, or the spend cap (exit 3). Fix the cause and rerun t
 run_config.json: {"path_id","glossary_bundle","glossary_batch_id","toc_workspace","tiles":[...]?,"player_version"?}
 Evaluators of stages with `eval_packet` in the manifest (03, 04) judge from ONE pre-digested packet (evaluator_packet.py) in a single tool-free call; they fall
 back to the file-exploring agent evaluator if the packet is unavailable or gives no verdict. `--eval-mode agent` / EVAL_MODE=agent forces the old way.
-Env: GEN_MODEL_ID / EVAL_MODEL_ID (pin one model) or GEN_LADDER / EVAL_LADDER, MAX_USD, CALL_CAP_USD (per agent call and tile, default 8),
+Env: GEN_MODEL_ID / EVAL_MODEL_ID (pin one model) or GEN_LADDER / EVAL_LADDER, MAX_USD, MAX_ROUNDS (3), MAX_STALLS (1), CALL_CAP_USD (per agent call and tile, default 8),
      CHUNK_WORKERS (default 2), EVAL_MODE (packet|agent, default packet), NOTIFY_WEBHOOK_URL, LLM_PROVIDER, AZURE_OPENAI_ENDPOINT / AZURE_OPENAI_API_KEY.
 # ponytail: the driver never commits or pushes; chunks need >12 tiles to fan out; blocking 08/09/11 findings are routed back to stages 03/04 for
 # the tiles they name (MAX_REOPENS loops), then stop for a human; findings that name no tile (registry-level) stop at once.
@@ -40,7 +40,8 @@ from finlib import CORE, ROOT, load, save  # noqa: E402
 
 SCRIPTS = CORE / "scripts"
 TEMPLATE = ROOT / "01_FINAL_PACK_TEMPLATE"
-MAX_ROUNDS = 3
+MAX_ROUNDS = int(os.environ.get("MAX_ROUNDS", 3))  # evaluator/repair rounds per chunk
+MAX_STALLS = int(os.environ.get("MAX_STALLS", 1))  # consecutive evaluations naming exactly the same blocking tile/steps before the run stops (1 = stop at the first repeat)
 MAX_REOPENS = 2  # automatic repair loops per evaluator-only stage (08/09/11) before the run stops for a human
 MAX_TILES_PER_CHUNK = 12
 SANDBOX_TYPES = {"code_exercise", "formula_entry", "spreadsheet_grid"}  # need a verified runtime (registry/runtimes.json)
@@ -451,7 +452,7 @@ def chunk_gen_eval(c, sid, chunk, ids):
             if not c.part(sid, chunk).exists():
                 c.log(f"  {sid}:{chunk} generator wrote no part; its reply: " + " ".join(str(out).split())[:700])
         ensure_gate(c, sid, chunk, ids)
-    prior, prev_keys = None, None
+    prior, prev_keys, stalls = None, None, 0
     for rnd in range(1, MAX_ROUNDS + 1):
         c.log(f"{sid}:{chunk} evaluating (round {rnd})")
         verdict, defects = run_evaluator(c, sid, chunk, ids, prior)
@@ -468,8 +469,9 @@ def chunk_gen_eval(c, sid, chunk, ids):
             return 0
         c.log(f"{sid}:{chunk} FAIL round {rnd}: {len(blocking)} blocking")
         keys = {re.sub(r"^\W*BLOCKING\s+", "", d).split(":")[0].strip() for d in blocking}
-        if rnd > 1 and keys == prev_keys:
-            raise Stuck(f"{sid}:{chunk} the same blocking defects came back unchanged after a repair (check whether the finding is a false positive):\n" + "\n".join(blocking[:15]))
+        stalls = stalls + 1 if (rnd > 1 and keys == prev_keys) else 0
+        if stalls >= MAX_STALLS:
+            raise Stuck(f"{sid}:{chunk} the same blocking defects came back unchanged after {stalls} repair(s) (check whether the finding is a false positive):\n" + "\n".join(blocking[:15]))
         prev_keys = keys
         if rnd == MAX_ROUNDS:
             raise Stuck(f"{sid}:{chunk} still failing after {MAX_ROUNDS} rounds:\n" + "\n".join(blocking[:15]))
