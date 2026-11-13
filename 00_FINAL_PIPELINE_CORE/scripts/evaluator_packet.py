@@ -226,13 +226,21 @@ def render(L, env):
         for a in b["assessment_anchors"]:
             P.w(f"ASSESSMENT ANCHOR: {a['capability']} facts={a['fact_ids']}")
     P.w("\n## DATA ASSETS USED")
-    for aid in L["requires"]["asset_ids"]:
+    ids, img_ds = list(L["requires"]["asset_ids"]), set()
+    for aid in list(ids):  # a rendered image is judged against the data it was drawn from: list those datasets too, with every row
+        side = env.batch / "assets" / f"{aid}.render.json"
+        if side.exists():
+            for d in J(side)["datasets"]:
+                img_ds.add(d["asset_id"])
+                if d["asset_id"] not in ids:
+                    ids.append(d["asset_id"])
+    for aid in ids:
         a = DS.asset_by_id(registry, aid)
         if not a or a["asset_kind"] != "dataset":
             P.w(f"{aid}: {a['asset_kind'] if a else 'MISSING'}")
             continue
         P.w(f"{aid}: {a['title']} — columns: " + ", ".join(f"{c['name']}({c['semantic_role']}{',digits-as-label' if c.get('numeric_looking_label') else ''})" for c in a["columns"]))
-        for r in a["rows"][:8]:
+        for r in a["rows"][:(60 if aid in img_ds else 8)]:
             P.w("   " + j(r, 300))
         for v in a.get("variants", []):
             P.w(f"   variant {v['variant_id']}: {len(v['ops'])} ops; planted: " + "; ".join(f"{p['issue_id']}({p['kind']})" for p in v.get("planted_issues", [])))
