@@ -383,8 +383,41 @@ def packet_test():
     return "packet evaluator + fallback + agent mode OK"
 
 
+def image_test():
+    """render_plot: input checks, byte-identical re-render, sidecar verification, and the image checker catching an edited file."""
+    import render_plot as RP
+    from types import SimpleNamespace
+    from checkers.image import check_image
+    bad = RP._check_plot({"asset_id": "img.x", "scenario_id": "s", "title": "t", "alt_text": "short", "code": "plt.savefig('a.png')"})
+    assert any("alt_text" in e for e in bad) and any("savefig" in e for e in bad), bad
+    if not list((ROOT / "00_FINAL_PIPELINE_CORE" / "sandbox" / "node_modules" / "pyodide").glob("matplotlib-*.whl")):
+        return "image checks OK (render SKIPPED: run deploy/prepare.sh)"
+    reg = {"assets": [], "scenarios": []}
+    plot = {"asset_id": "img.t", "scenario_id": "scen.t", "title": "t", "alt_text": "A bar chart of three values drawn for the test.", "datasets": [],
+            "code": "import matplotlib.pyplot as plt\nplt.bar(['a', 'b', 'c'], [1, 3, 2])\n"}
+    r1, r2 = RP.render(reg, [plot]), RP.render(reg, [plot])
+    assert r1["img.t"]["ok"] and r1["img.t"]["svg"] == r2["img.t"]["svg"], r1["img.t"].get("error")
+    B = Path(tempfile.mkdtemp())
+    entry = RP.write_assets(B, [plot], r1)[0]
+    reg["assets"].append(entry)
+
+    class Rep:
+        errs = []
+        e = lambda self, m: self.errs.append(m)  # noqa: E731
+        w = lambda self, m: None  # noqa: E731
+    rep = Rep()
+    check_image(SimpleNamespace(registry=reg, base=B, strict=True), entry, rep)
+    assert not rep.errs and not RP.verify(B, reg), rep.errs
+    (B / entry["uri"]).write_text((B / entry["uri"]).read_text() + "<!-- edited -->\n")
+    rep = Rep()
+    check_image(SimpleNamespace(registry=reg, base=B, strict=True), entry, rep)
+    assert any("sha256" in e for e in rep.errs), rep.errs
+    shutil.rmtree(B)
+    return "plot render determinism + image checker OK"
+
+
 def main():
-    out = [retry_test(), cache_test(), azure_test(), protect_test(), guard_test(), sheet_gate_test(), stall_test(), packet_test(), reopen_test()]
+    out = [retry_test(), cache_test(), azure_test(), protect_test(), guard_test(), sheet_gate_test(), stall_test(), packet_test(), image_test(), reopen_test()]
     # 1. happy path
     B = make_batch("_drvtest_a")
     s = Stub(B, evals={"03_screens": ["BLOCKING t/s01: wrong\nVERDICT: FAIL", "ADVISORY t/s02: reword\nVERDICT: PASS"],

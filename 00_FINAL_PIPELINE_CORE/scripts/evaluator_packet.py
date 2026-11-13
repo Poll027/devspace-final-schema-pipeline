@@ -35,6 +35,7 @@ class Env:
         self.B = {b["context"]["concept_id"]: b for b in bundle["bundles"]}
         self.names, self.order = bundle.get("names", {}), bundle.get("tile_order", [])
         self.registry = J(batch / "scenario_asset_registry.json")
+        self.batch = batch
         rep = next((p for p in (Path(report_dir or batch) / "reports" / "validation.tiles.json", batch / "reports" / "validation.tiles.json") if p.exists()), None)
         self.vrep = {r["name"]: r for r in J(rep)} if rep else {}
 
@@ -102,6 +103,15 @@ def render_block(P, b):
     elif t == "chart":
         enc = b["encoding"]
         P.w(f"[CHART {b['chart_kind']}: {b['title']}] data={b['asset_ref']['asset_id']} x={enc['x']['field']} y={enc.get('y', {}).get('field')} color={enc.get('color', {}).get('field')} annotations={[a['text'] for a in b.get('annotations', [])]} alt: {b['alt_text']}")
+    elif t == "annotated_image":
+        a = DS.asset_by_id(P.env.registry, b["asset_id"]) or {}
+        side = P.env.batch / "assets" / f"{b['asset_id']}.render.json"
+        P.w(f"[IMAGE {b['asset_id']}: {a.get('title', '')}] alt_text: {b['alt_text']}")
+        if side.exists():  # the picture itself is not readable from text: its code, data and a hash proof stand for it (render_plot.py re-renders it under --strict)
+            s = J(side)
+            P.w(f"  rendered by {s['engine']} from datasets {[d['asset_id'] for d in s['datasets']]} with this code (the gate re-renders it to the same bytes):\n{s['code']}")
+        for h in b.get("hotspots", []):
+            P.w(f"  hotspot: {j(h, 300)}")
     elif t == "up_next":
         P.w(f"[UP NEXT] {b['title']}: {b.get('text', '')}")
     elif t == "concept_chips":

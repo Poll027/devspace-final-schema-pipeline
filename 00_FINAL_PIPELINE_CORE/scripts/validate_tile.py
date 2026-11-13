@@ -74,7 +74,7 @@ def check_interaction(C, step, ix, rep):
 
 
 # ------------------------------------------------------------------ registry gate (stage 01)
-def check_registry(registry, rep):
+def check_registry(registry, rep, base=None, strict=False):
     for e in schema_errors(registry, "scenario_asset_registry.schema.json"):
         rep.e(f"schema: {e}")
     if rep.E:
@@ -83,7 +83,7 @@ def check_registry(registry, rep):
     for dup in sorted({i for i in ids if ids.count(i) > 1}):
         rep.e(f"duplicate asset_id {dup}")
     scen = {s["scenario_id"] for s in registry["scenarios"]}
-    C = SimpleNamespace(registry=registry)
+    C = SimpleNamespace(registry=registry, base=base, strict=strict)  # base/strict: image assets are files, and --strict re-renders them
     for a in registry["assets"]:
         if a["scenario_id"] not in scen:
             rep.e(f"{a['asset_id']}: unknown scenario_id {a['scenario_id']}")
@@ -280,7 +280,7 @@ def main():
     reports = []
     if a.registry:
         rep = Report("scenario_asset_registry")
-        check_registry(load(B / "scenario_asset_registry.json"), rep)
+        check_registry(load(B / "scenario_asset_registry.json"), rep, B, a.strict)
         if a.strict and any("UNVERIFIED" in w for w in rep.W):
             rep.e("strict: some asset kinds could not be verified")
         reports.append((rep, {}))
