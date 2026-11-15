@@ -25,16 +25,17 @@ def sh(*a, cwd=None, ok=False):
 
 
 def services():
-    out = sh("systemctl", "list-units", "final-pipeline*", "--all", "--plain", "--no-legend", "--type=service", ok=True)
+    out = sh("systemctl", "list-units", "final-pipeline*", "toc-*", "glossary-*", "--all", "--plain", "--no-legend", "--type=service", ok=True)
     return sorted({l.split()[0] for l in out.splitlines() if l.strip() and "-ops" not in l.split()[0]})
 
 
 def describe(unit):
     props = dict(l.split("=", 1) for l in sh("systemctl", "show", unit, "-p", "ActiveState,SubState,ExecMainStatus,WorkingDirectory,ExecStart,ActiveEnterTimestamp").splitlines() if "=" in l)
-    m = re.search(r"batches/([\w.-]+)", props.get("ExecStart", ""))
+    es = props.get("ExecStart", "")
+    m = re.search(r"batches/([\w.-]+)", es) or re.search(r"--workspace ([\w.-]+)", es)  # final-schema batch, or a TOC workspace
     repo = Path(props["WorkingDirectory"])
-    batch = repo / "batches" / m.group(1) if m else None
-    d = {"service": unit, "active": props["ActiveState"], "sub": props["SubState"], "exit_status": props["ExecMainStatus"], "repo": str(repo), "batch": m.group(1) if m else None}
+    batch = (repo / "batches" / m.group(1) if "batches/" in es else repo / m.group(1)) if m else None
+    d = {"kind": "toc" if unit.startswith("toc-") else "glossary" if unit.startswith("glossary-") else "final", "service": unit, "active": props["ActiveState"], "sub": props["SubState"], "exit_status": props["ExecMainStatus"], "repo": str(repo), "batch": m.group(1) if m else None}
     d["code_commit"] = sh("git", "rev-parse", "--short", "HEAD", cwd=repo, ok=True)
     d["journal_tail"] = sh("sudo", "journalctl", "-u", unit, "-n", "30", "--no-pager", "-o", "cat", ok=True).splitlines()[-30:]  # startup errors never reach driver.log
     if batch and (batch / "working").exists():
@@ -63,16 +64,18 @@ def apply_fix(d, repo, state, busy_repos=()):
     if str(repo) in busy_repos:  # a pull rewrites code under a sibling service running in this folder; its integrity guard reads that as an agent edit and stops it
         return "waiting: another service is running in this repo; will pull when it is idle"
     sh("git", "fetch", "-q", "origin", cwd=repo, ok=True)
-    new = sh("git", "rev-parse", "--short", "origin/main", cwd=repo, ok=True)
+    branch = sh("git", "rev-parse", "--abbrev-ref", "HEAD", cwd=repo, ok=True) or "main"  # the TOC repo's working branch is glm-pilot
+    new = sh("git", "rev-parse", "--short", f"origin/{branch}", cwd=repo, ok=True)
     if not new or state.get(d["service"]) == new:
         return None
     try:
         sh("git", "pull", "--ff-only", "-q", cwd=repo)
-        sh("git", "checkout", "--", "00_FINAL_PIPELINE_CORE", "01_FINAL_PACK_TEMPLATE", "deploy", cwd=repo, ok=True)  # twice a pull left stale files that tripped the integrity guard
+        sh("git", "checkout", "--", *[x for x in ("00_FINAL_PIPELINE_CORE", "01_FINAL_PACK_TEMPLATE", "00_PIPELINE_CORE", "02_ORCHESTRATION", "deploy") if (repo / x).exists()], cwd=repo, ok=True)  # twice a pull left stale files that tripped the integrity guard
     except RuntimeError as ex:
         return f"pull failed, not restarting: {ex}"
     state[d["service"]] = new
-    sh("bash", str(repo / "deploy" / "prepare.sh"), cwd=repo, ok=True)  # new dependencies must be installed before the driver's selftest runs
+    if (repo / "deploy" / "prepare.sh").exists():
+        sh("bash", str(repo / "deploy" / "prepare.sh"), cwd=repo, ok=True)  # new dependencies must be installed before the driver's selftest runs
     sh("sudo", "systemctl", "restart", d["service"], ok=True)
     return f"pulled {new} and restarted"
 
