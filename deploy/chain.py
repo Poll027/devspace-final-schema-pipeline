@@ -77,6 +77,7 @@ def glossary_step(role, ws):
         return bundles[0], bid
     svc = f"glossary-{role}"
     if not unit_exists(svc):
+        sh("git", "pull", "-q", "--ff-only", cwd=g)
         B.mkdir(parents=True, exist_ok=True)
         n = len(load(ws / "resolved_concept_inventory.json").get("resolved_concepts", []))
         (B / "batch_run_context.json").write_text(json.dumps({
@@ -102,6 +103,7 @@ def regions(ws):
 
 def final_step(role, ws, bundle, gbid):
     base = ROLES / role / "final"
+    sh("git", "pull", "-q", "--ff-only", cwd=base)  # clones are made from the latest main
     runs = ROLES / role / "final_runs"
     runs.mkdir(exist_ok=True)
     running = sum(1 for k, _ in regions(ws) if unit_state(f"final-pipeline-{role}-{k}") in ("active", "activating"))
@@ -116,7 +118,7 @@ def final_step(role, ws, bundle, gbid):
         if not run.exists():
             sh("git", "clone", "-q", "--local", str(base), str(run), ok=False)
             shutil.copy(base / ".env", run / ".env")
-            nm = base / "00_FINAL_PIPELINE_CORE" / "sandbox" / "node_modules"
+            nm = Path(os.environ.get("SHARED_NODE_MODULES", HOME / "shared_sandbox" / "node_modules"))
             if nm.exists() and not (run / "00_FINAL_PIPELINE_CORE" / "sandbox" / "node_modules").exists():
                 os.symlink(nm, run / "00_FINAL_PIPELINE_CORE" / "sandbox" / "node_modules")  # one set of Pyodide wheels for every clone
         batch = f"final_batch_{key}"
