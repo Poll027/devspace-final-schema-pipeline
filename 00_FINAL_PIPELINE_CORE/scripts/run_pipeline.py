@@ -664,7 +664,9 @@ def check_plan_gaps(c):
         if g:
             gaps[t["tile_id"]] = g
     if gaps:
-        raise Stuck("tile plans have gaps (NEW_ROLE_RUNBOOK step 4 / build the runner): fix them or remove these tiles from run_config.json/chunks.json, then rerun.\n"
+        prof = CORE / "registry" / "path_profiles" / f"{load(c.B / 'run_config.json')['path_id']}.json"
+        hint = "" if prof.exists() else f"\nNOTE: {prof.name} does not exist, so no runtimes can be inferred (NEW_ROLE_RUNBOOK step 3): add the path profile first.\n"
+        raise Stuck("tile plans have gaps (NEW_ROLE_RUNBOOK step 4 / build the runner): fix them or remove these tiles from run_config.json/chunks.json, then rerun." + hint + "\n"
                     + json.dumps(gaps, indent=1))
 
 

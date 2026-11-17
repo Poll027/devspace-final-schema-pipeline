@@ -104,6 +104,10 @@ def regions(ws):
 def final_step(role, ws, bundle, gbid):
     base = ROLES / role / "final"
     sh("git", "pull", "-q", "--ff-only", cwd=base)  # clones are made from the latest main
+    if not (base / "00_FINAL_PIPELINE_CORE" / "registry" / "path_profiles" / f"{role}.json").exists():
+        # without a profile no runtimes are inferred and every code/formula tile stops at the plan-gap check (NEW_ROLE_RUNBOOK steps 2-3)
+        print(f"[chain] {role}: no registry/path_profiles/{role}.json on main; not starting final batches (run visual_inventory.py, add the profile)", flush=True)
+        return
     runs = ROLES / role / "final_runs"
     runs.mkdir(exist_ok=True)
     running = sum(1 for k, _ in regions(ws) if unit_state(f"final-pipeline-{role}-{k}") in ("active", "activating"))
