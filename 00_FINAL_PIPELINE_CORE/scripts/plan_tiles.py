@@ -114,7 +114,10 @@ def plan_tile(bundles, tile_id, cids, next_tile, prof):
                           "anchors": [f"{cid}#assessment:{a['capability']}" for a in bn], "planned_interaction_type": MAP["check_default_interaction"],
                           "planned_visual_block_type": None, "visual_purpose": None, "word_budget": 0, "mapping_rule": "default_check"})
         if practice:
-            itype, rule = pick_interaction(practice["type"], practice)
+            ptype = prof.get("practice_type_by_concept", {}).get(cid, practice["type"])  # a concept whose code cannot run in the sandbox (e.g. PyTorch, Docker) is practised as inspect-and-judge: the profile re-types its anchor
+            itype, rule = pick_interaction(ptype, practice)
+            if ptype != practice["type"]:
+                rule = f"profile override {practice['type']}->{ptype}: {rule}"
             if itype is None:
                 warnings.append(f"{cid}: {rule} (needs a new interaction type)")
             steps.append({"step_id": "", "type": "hands_on", "concept_ids": [cid], "teaching_block_ids": [],

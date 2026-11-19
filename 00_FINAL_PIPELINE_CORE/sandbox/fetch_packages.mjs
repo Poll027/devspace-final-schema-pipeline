@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), "node_modules/pyodide");
 const lock = JSON.parse(fs.readFileSync(path.join(dir, "pyodide-lock.json"), "utf8"));
 const version = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8")).version;
-const WANT = ["numpy", "pandas", "scipy", "matplotlib", "fastapi", "httpx", "pydantic", "sqlalchemy", "anyio", "jinja2"];  // the last six: python_asgi  // ponytail: add statsmodels here when the stats tiles need it
+const WANT = ["numpy", "pandas", "scipy", "matplotlib", "scikit-learn", "pyyaml", "fastapi", "httpx", "pydantic", "sqlalchemy", "anyio", "jinja2"];  // the last six: python_asgi  // ponytail: add statsmodels here when the stats tiles need it
 const need = new Set();  // dependency names are normalised: the lock lists pydantic_core but keys it pydantic-core
 const stack = [...WANT];
 while (stack.length) { const n = stack.pop(); if (need.has(n)) continue; need.add(n); stack.push(...(lock.packages[n].depends || []).map((d) => d.replace(/_/g, "-"))); }

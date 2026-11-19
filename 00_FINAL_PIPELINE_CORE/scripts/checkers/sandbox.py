@@ -359,7 +359,7 @@ def run_query(registry, result_of):
 
 
 # ---------------------------------------------------------------- Python
-PY_INSTALLED = {"numpy", "pandas", "scipy", "matplotlib", "seaborn"}
+PY_INSTALLED = {"numpy", "pandas", "scipy", "matplotlib", "seaborn", "scikit-learn", "pyyaml"}
 PY_KINDS = {"stdout_equals", "value_equals", "dataframe_equals", "function_call", "forbidden_syntax"}
 # python_asgi = the same Pyodide runner serving FastAPI/Starlette apps in-process (sandbox/run_py.mjs, job.asgi). http_equals {requests:[{method,path,json?,params?,headers?,data?}], expected:{status?,json?,text?,headers?}, app?}
 # runs the requests in order against a FRESH copy of the program (lifespan included) and grades the LAST response on the keys `expected` names (headers: only those listed).
