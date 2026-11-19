@@ -148,7 +148,8 @@ def _run(job_json):
     buf, res = io.StringIO(), {"ok": True, "probes": {}}
     try:
         with contextlib.redirect_stdout(buf):
-            exec(compile(files[sc["entry"]], sc["entry"], "exec"), ns)
+            globals()["_CODE"] = compile(files[sc["entry"]], sc["entry"], "exec")
+            exec(_CODE, ns)
     except BaseException as e:
         res["ok"], res["error"] = False, "".join(traceback.format_exception_only(type(e), e)).strip()[-500:]
     res["stdout"] = buf.getvalue()
@@ -160,6 +161,7 @@ def _run(job_json):
             res["fig_error"] = "".join(traceback.format_exception_only(type(e), e)).strip()[-300:]
     if res["ok"]:
         for p in sc.get("probes", []):
+            if p["kind"] == "http": continue  # python_asgi: awaited by _http() after this returns
             try:
                 with contextlib.redirect_stdout(io.StringIO()):
                     v = eval(p["expr"], ns) if p["kind"] == "expr" else ns[p["function"]](*p.get("args", []), **p.get("kwargs", {}))
@@ -174,6 +176,60 @@ def _run(job_json):
 // ponytail: a program that monkeypatches the pandas/numpy classes themselves would leak into the next script of the same process; the scripts of one
 // exercise are the solution/starter/learner code and mutated copies of the same program, so the leak would repeat identically in each.
 const pkgs = job.packages || ["numpy", "pandas"];
+const PURE_WHEELS = { seaborn: "seaborn-0.13.2-py3-none-any.whl", pyjwt: "PyJWT-2.10.1-py3-none-any.whl", "python-multipart": "python_multipart-0.0.20-py3-none-any.whl" };  // not in the Pyodide lock
+const asgi = !!job.asgi;  // python_asgi: FastAPI/Starlette apps driven in-process through httpx.ASGITransport (no sockets, no threads)
+// Pyodide has no threads: FastAPI runs sync endpoints through anyio.to_thread.run_sync, so run them inline. Everything the app needs is imported and warmed here,
+// before _BASE_MODULES is taken, so the between-scripts purge cannot drop a half-initialised library.
+const ASGI = `
+import asyncio, httpx, anyio.to_thread, fastapi, pydantic, sqlalchemy, contextlib, io, json, math
+async def _inline(func, *args, abandon_on_cancel=False, cancellable=None, limiter=None):
+    return func(*args)
+anyio.to_thread.run_sync = _inline
+def _js_plain(v):  # no numpy/pandas in this runtime
+    if v is None or isinstance(v, (bool, str, int)): return v
+    if isinstance(v, float): return None if math.isnan(v) or math.isinf(v) else v
+    if hasattr(v, "model_dump"): return _js_plain(v.model_dump(mode="json"))
+    if hasattr(v, "isoformat"): return v.isoformat().replace("T", " ")
+    if isinstance(v, dict): return {str(k): _js_plain(x) for k, x in v.items()}
+    if isinstance(v, (set, frozenset)): return sorted((_js_plain(x) for x in v), key=lambda x: json.dumps(x, default=str))
+    if isinstance(v, (list, tuple)): return [_js_plain(x) for x in v]
+    return repr(v)
+_js = _js_plain
+async def _http(job_json):
+    """Each probe = a fresh copy of the program (fresh app state), lifespan run, then its requests in order; the value is the LAST response."""
+    out = {}
+    for p in json.loads(job_json):
+        try:
+            ns = {"__name__": "__main__"}
+            with contextlib.redirect_stdout(io.StringIO()):
+                exec(_CODE, ns)
+                app = ns[p.get("app") or "app"]
+                async with app.router.lifespan_context(app):
+                    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://testserver") as cl:
+                        for rq in p["requests"]:
+                            r = await cl.request(rq["method"], rq["path"], **{k: rq[k] for k in ("json", "params", "headers", "data", "content") if k in rq})
+            try: body = r.json()
+            except Exception: body = None
+            out[p["id"]] = {"ok": True, "value": {"status": r.status_code, "headers": {k.lower(): v for k, v in r.headers.items()}, "json": _js_plain(body), "text": r.text[:4000]}}
+        except BaseException as e:
+            out[p["id"]] = {"ok": False, "error": ("".join(traceback.format_exception_only(type(e), e)).strip())[-300:]}
+    return json.dumps(out)
+async def _warm():
+    from fastapi import FastAPI, Depends, HTTPException
+    from pydantic import BaseModel
+    from sqlalchemy import create_engine, text
+    class _M(BaseModel):
+        a: int
+    _app = FastAPI()
+    @_app.post("/w/{i}")
+    def _w(i: int, m: _M, d=Depends(lambda: 1)): return {"i": i}
+    @_app.get("/a")
+    async def _a(): raise HTTPException(404, "x")
+    with create_engine("sqlite://").connect() as c: c.execute(text("select 1")).scalar()
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=_app), base_url="http://t") as cl:
+        await cl.post("/w/1", json={"a": 1}); await cl.post("/w/1", json={}); await cl.get("/a")
+await _warm()
+`;
 const charts = pkgs.includes("matplotlib") || pkgs.includes("seaborn");
 let py = null;
 // loads every lazily-imported matplotlib/pandas/seaborn module once, so the "modules the script imported" purge between scripts cannot drop a half-initialised library
@@ -192,8 +248,8 @@ async function boot() {
   process.binding = stubBinding;
   try {
     py = await loadPyodide({ indexURL: dist, stdout: () => {}, stderr: () => {}, fullStdLib: false });
-    await py.loadPackage(pkgs.map((p) => (p === "seaborn" ? "matplotlib" : p)).filter((p, i, a) => a.indexOf(p) === i));
-    if (pkgs.includes("seaborn")) py.unpackArchive(new Uint8Array(fs.readFileSync(path.join(dist, "seaborn-0.13.2-py3-none-any.whl"))), "whl");  // pinned by fetch_packages.mjs
+    await py.loadPackage(pkgs.map((p) => (p === "seaborn" ? "matplotlib" : p)).filter((p) => !(p in PURE_WHEELS)).concat(pkgs.includes("seaborn") ? ["matplotlib"] : []).filter((p, i, a) => a.indexOf(p) === i));
+    for (const p of pkgs) if (p in PURE_WHEELS) py.unpackArchive(new Uint8Array(fs.readFileSync(path.join(dist, PURE_WHEELS[p]))), "whl");  // pinned by fetch_packages.mjs
     py.runPython(HARNESS);
     if (charts) py.runPython(`import os
 os.environ["MPLBACKEND"] = "Agg"
@@ -202,7 +258,8 @@ import matplotlib.pyplot
 ${pkgs.includes("seaborn") ? "import seaborn" : ""}
 _chart_patch()
 `);
-    py.runPython(`import ${pkgs.filter((p) => ["numpy", "pandas", "scipy"].includes(p)).join(", ")}
+    if (asgi) await py.runPythonAsync(ASGI);
+    py.runPython(`import sys${pkgs.filter((p) => ["numpy", "pandas", "scipy"].includes(p)).map((p) => ", " + p).join("")}
 ${charts ? WARM : ""}
 _BASE_MODULES = set(sys.modules)
 import random as _random
@@ -235,6 +292,11 @@ for (const s of job.scripts) {
     py.runPython(RESET);
     py.globals.set("_job", JSON.stringify(s));
     out.results[s.id] = JSON.parse(py.runPython("_run(_job)"));
+    const hp = (s.probes || []).filter((p) => p.kind === "http");
+    if (asgi && hp.length && out.results[s.id].ok) {
+      py.globals.set("_hjob", JSON.stringify(hp));
+      Object.assign(out.results[s.id].probes, JSON.parse(await py.runPythonAsync("await _http(_hjob)")));
+    }
   } catch (e) {
     out.results[s.id] = { ok: false, stdout: "", probes: {}, error: String(e.message || e).slice(0, 500) };
   }

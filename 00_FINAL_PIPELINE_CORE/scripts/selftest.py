@@ -734,6 +734,78 @@ def unit_chart_runner():
     return fails
 
 
+# ---- python_asgi (FastAPI apps served in-process on the Pyodide runner; http_equals tests) ----
+def unit_asgi_runner():
+    """A FastAPI app is graded by the HTTP responses it gives: correct work passes, every kind of wrong work is caught, app state never leaks between probes or scripts, the sandbox holds."""
+    import copy
+    from checkers import sandbox
+    reg = {"assets": []}
+    starter = ("from fastapi import FastAPI, HTTPException\nfrom pydantic import BaseModel\n\napp = FastAPI()\nMAX_QTY = 5\nSEEN = []\n\n\nclass Order(BaseModel):\n    item: str\n    qty: int\n\n\n"
+               "@app.post('/orders', status_code=201)\ndef create_order(order: Order):\n    # TODO: reject quantities above MAX_QTY with a 400\n    SEEN.append(order.item)\n    return {'item': order.item, 'qty': order.qty, 'n': len(SEEN)}\n")
+    sol = starter.replace("    SEEN.append", "    if order.qty > MAX_QTY:\n        raise HTTPException(status_code=400, detail='too many')\n    SEEN.append")
+    allowed = ["from fastapi import FastAPI", "@app.post(path)", "raise HTTPException(status_code=..., detail=...)", "name = value assignment"]
+    t = lambda tid, spec: {"test_id": tid, "kind": "http_equals", "spec": spec, "message_on_fail": "no"}
+    post = lambda body: {"method": "POST", "path": "/orders", "json": body}
+    good = {"type": "code_exercise", "interaction_id": "ix.a", "public": {"prompt": "p", "runtime": {"kind": "python_asgi", "version": "0.29.5", "packages": ["fastapi", "pydantic"]},
+            "workspace": {"entry": "main.py", "files": [{"path": "main.py", "role": "editable", "content": starter}]}, "constraints": {"allowed_syntax": allowed, "blocked_syntax": []}},
+            "grading": {"solution_files": [{"path": "main.py", "content": sol}],
+                        "tests": [t("t1", {"requests": [post({"item": "pen", "qty": 9})], "expected": {"status": 400, "json": {"detail": "too many"}}}),
+                                  t("t2", {"requests": [post({"item": "pen", "qty": 2})], "expected": {"status": 201, "json": {"item": "pen", "qty": 2, "n": 1}, "headers": {"Content-Type": "application/json"}}}),
+                                  t("t3", {"requests": [post({"item": "pen"})], "expected": {"status": 422}})]}}
+    fails = 0
+
+    def variant(f):
+        ix = copy.deepcopy(good)
+        f(ix)
+        return ix
+    setsol = lambda code: (lambda ix: ix["grading"]["solution_files"][0].update(content=code))
+    out = sandbox.run_exercise(reg, good)
+    ok = not out.problems and out.provenance and len(out.hidden_checks) >= 1
+    fails += not ok
+    print(("caught " if ok else "MISSED ") + f"asgi: a correct exercise passes with provenance and {len(out.hidden_checks)} hidden checks (fresh app state per probe: n == 1)" + ("" if ok else f" ({out.problems})"))
+    for name, mut, want in [("a solution that never rejects (wrong status)", setsol(starter), "differs from spec.expected"),
+                            ("a wrong expected error body", lambda ix: ix["grading"]["tests"][0]["spec"]["expected"]["json"].update(detail="nope"), "differs from spec.expected"),
+                            ("a starter that already passes every test", lambda ix: ix["public"]["workspace"]["files"][0].update(content=sol), "starter code already passes"),
+                            ("a hard-coded limit no variable or second request can change", lambda ix: (ix["grading"]["solution_files"][0].update(content=sol.replace("order.qty > MAX_QTY", "order.qty > 5")), ix["grading"].update(tests=[ix["grading"]["tests"][0]])), "hard-coded"),
+                            ("http_equals on a plain python runtime", lambda ix: ix["public"]["runtime"].update(kind="python", packages=[]), "not supported"),
+                            ("requests without a path", lambda ix: ix["grading"]["tests"][0]["spec"].update(requests=[{"method": "GET"}]), "spec.requests"),
+                            ("an expected object with an unknown key", lambda ix: ix["grading"]["tests"][0]["spec"].update(expected={"body": 1}), "spec.expected"),
+                            ("a package the sandbox does not have", lambda ix: ix["public"]["runtime"].update(packages=["django"]), "not installed"),
+                            ("a solution that does not start", setsol("from fastapi import FastAPI\napp = FastAPI(\n"), "solution does not run")]:
+        o = sandbox.run_exercise(reg, variant(mut))
+        ok = any(want in x for x in o.problems)
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + "asgi: " + name + ("" if ok else f" ({o.problems})"))
+    stamped = copy.deepcopy(good)
+    stamped["grading"]["hidden_checks"] = out.hidden_checks
+    for name, code, want in [("the reference passes", sol, True),
+                             ("a differently written correct app passes", sol.replace("raise HTTPException(status_code=400, detail='too many')", "raise HTTPException(400, 'too many')"), True),
+                             ("an app that never rejects is rejected", starter, False),
+                             ("an app that ignores the MAX_QTY variable is rejected", sol.replace("order.qty > MAX_QTY", "order.qty > 5"), False),
+                             ("an app that rejects everything is rejected", sol.replace("order.qty > MAX_QTY", "True"), False)]:
+        passed, reasons = sandbox.grade_learner_py(reg, stamped, code)
+        ok = passed == want
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + "asgi hidden: " + name + ("" if ok else f" (passed={passed}: {reasons})"))
+    # isolation + sandbox: app state, DB and env do not leak between probes/scripts; lifespan runs; the JS bridge, host files and the network stay out of reach
+    app = ("from fastapi import FastAPI\nfrom contextlib import asynccontextmanager\nDB = []\n@asynccontextmanager\nasync def lifespan(a):\n    DB.append('boot')\n    yield\n"
+           "app = FastAPI(lifespan=lifespan)\n@app.get('/n')\ndef n():\n    DB.append('hit')\n    return {'db': list(DB)}\n")
+    hp = lambda i: {"id": i, "kind": "http", "requests": [{"method": "GET", "path": "/n"}]}
+    sc = lambda i, body, probes: {"id": i, "entry": "m.py", "files": [{"path": "m.py", "content": body}], "mounts": [], "probes": probes}
+    r = sandbox.node_run({"asgi": True, "packages": sandbox.ASGI_PACKAGES, "scripts": [
+        sc("a", app, [hp("p1"), hp("p2")]), sc("b", app, [hp("p1")]),
+        sc("c", app + "import js\n", []), sc("d", "import os\nprint(open('/etc/hosts').read())\n", []),
+        sc("e", "import httpx\nprint(httpx.get('http://example.com').status_code)\n", [])]}, "sandbox/run_py.mjs")["results"]
+    same = lambda x: x["ok"] and x["value"]["json"] == {"db": ["boot", "hit"]}
+    for name, ok in [("every probe gets a fresh app (state does not carry over between probes of a script or into the next script) and the lifespan runs", same(r["a"]["probes"]["p1"]) and same(r["a"]["probes"]["p2"]) and same(r["b"]["probes"]["p1"])),
+                     ("importing the JS bridge", not r["c"]["ok"] and "not available" in r["c"]["error"]),
+                     ("reading a host file", not r["d"]["ok"] and "No such file" in r["d"]["error"]),
+                     ("a real outbound HTTP request", not r["e"]["ok"])]:
+        fails += not ok
+        print(("caught " if ok else "MISSED ") + "asgi: sandbox: " + name + ("" if ok else f" ({r})"))
+    return fails
+
+
 def unit_formula_entry():
     """formula_entry is verified by running its reference formula in the spreadsheet engine: right answer passes; wrong value, typed-in number, missing reference are caught."""
     from checkers import sandbox
@@ -761,7 +833,7 @@ def unit_formula_entry():
 def main():
     src = Path(sys.argv[1]).resolve()
     tmp_root = src.parent / TMP_NAME
-    failures = unit_interactions(src) + unit_fail_closed(src) + unit_graph_blocks() + unit_stale_cleanup(src) + unit_sql_runner() + unit_python_runner() + unit_sheet_runner() + unit_chart_runner() + unit_formula_entry()
+    failures = unit_interactions(src) + unit_fail_closed(src) + unit_graph_blocks() + unit_stale_cleanup(src) + unit_sql_runner() + unit_python_runner() + unit_sheet_runner() + unit_chart_runner() + unit_asgi_runner() + unit_formula_entry()
     for name, fn, expect in MUTATIONS:
         d = tmp_root / "case"
         if d.exists():

@@ -359,8 +359,52 @@ def run_query(registry, result_of):
 
 
 # ---------------------------------------------------------------- Python
-PY_INSTALLED = {"numpy", "pandas", "scipy", "matplotlib", "seaborn"}  # sandbox/fetch_packages.mjs
+PY_INSTALLED = {"numpy", "pandas", "scipy", "matplotlib", "seaborn"}
 PY_KINDS = {"stdout_equals", "value_equals", "dataframe_equals", "function_call", "forbidden_syntax"}
+# python_asgi = the same Pyodide runner serving FastAPI/Starlette apps in-process (sandbox/run_py.mjs, job.asgi). http_equals {requests:[{method,path,json?,params?,headers?,data?}], expected:{status?,json?,text?,headers?}, app?}
+# runs the requests in order against a FRESH copy of the program (lifespan included) and grades the LAST response on the keys `expected` names (headers: only those listed).
+ASGI_KINDS = {"http_equals"}
+ASGI_PACKAGES = ["fastapi", "httpx", "pydantic", "sqlalchemy", "anyio", "jinja2"]
+ASGI_INSTALLED = set(ASGI_PACKAGES) | {"starlette", "pyjwt", "python-multipart"}  # sandbox/fetch_packages.mjs
+HTTP_KEYS = {"status", "json", "text", "headers"}
+
+
+def _http_view(got, exp):
+    """The part of a response `expected` talks about (headers compared case-insensitively, only the ones listed)."""
+    if not isinstance(got, dict):
+        return got
+    v = {k: got.get(k) for k in exp if k in HTTP_KEYS and k != "headers"}
+    if "headers" in exp:
+        v["headers"] = {k.lower(): got.get("headers", {}).get(k.lower()) for k in exp["headers"]}
+    return v
+
+
+def _http_exp(exp):
+    return {**exp, "headers": {k.lower(): v for k, v in exp["headers"].items()}} if "headers" in exp else exp
+
+
+def _call_key(t):
+    """Tests that probe the same function / endpoint with different inputs count as 'depends on the input' (the anti-hard-coding rule)."""
+    sp = t["spec"]
+    if t["kind"] == "function_call":
+        return sp["function"], json.dumps([sp.get("args", []), sp.get("kwargs", {})], sort_keys=True)
+    rq = sp["requests"][-1]
+    return f"{rq['method'].upper()} {re.sub(r'/[0-9]+', '/{}', rq['path'].split('?')[0])}", json.dumps(sp["requests"], sort_keys=True)
+
+
+def _py_probe(t):
+    if t["kind"] == "function_call":
+        return {"id": t["test_id"], "kind": "call", "function": t["spec"]["function"], "args": t["spec"].get("args", []), "kwargs": t["spec"].get("kwargs", {})}
+    if t["kind"] == "http_equals":
+        return {"id": t["test_id"], "kind": "http", "requests": t["spec"]["requests"], "app": t["spec"].get("app")}
+    return {"id": t["test_id"], "kind": "expr", "expr": t["spec"]["expr"]}
+
+
+def _py_job(rt_kind, pkgs, scripts):
+    if rt_kind == "python_asgi":
+        return {"asgi": True, "packages": list(dict.fromkeys(ASGI_PACKAGES + pkgs)), "scripts": scripts}
+    chart = rt_kind == "chart_renderer"
+    return {"packages": list(dict.fromkeys(["numpy", "pandas"] + (["matplotlib"] if chart else []) + pkgs)), "scripts": scripts}
 # chart_renderer = the same Pyodide runner plus matplotlib/seaborn; the figures are serialised to JSON (sandbox/run_py.mjs _figs_json) and graded on structure, never pixels
 CHART_KINDS = {"figure_equals", "axes_property", "plotted_data_equals"}
 CHART_STATIC = {"title", "xlabel", "ylabel", "legend", "chart_types", "xscale", "yscale"}  # properties the data cannot change: exempt from "must vary" (>=1 test must still vary)
@@ -466,6 +510,8 @@ def _py_match(kind, spec, got):
     tol = float(spec.get("tolerance", 1e-9))
     if kind == "stdout_equals":
         return got == _norm_out(spec["expected"])
+    if kind == "http_equals":
+        return isinstance(got, dict) and deep_equal(_http_view(got, spec["expected"]), _http_exp(spec["expected"]), tol)
     if kind == "dataframe_equals":
         exp = spec["expected"]
         return isinstance(got, dict) and got.get("columns") == exp["columns"] and rows_equal(got["rows"], exp["rows"], bool(spec.get("ordered", False)), tol)
@@ -473,6 +519,8 @@ def _py_match(kind, spec, got):
 
 
 def _py_expected(kind, spec, got):
+    if kind == "http_equals":
+        return {"value": _http_view(got, spec["expected"])}
     if kind == "dataframe_equals":
         return {"columns": got["columns"], "rows": got["rows"]}
     return {"value": got}
@@ -484,14 +532,16 @@ def run_python(registry, ix):
     pub, gr = ix["public"], ix["grading"]
     rt = pub["runtime"]
     chart = rt["kind"] == "chart_renderer"
-    pin = RUNTIMES[rt["kind"]] if chart else RUNTIMES["python"]
-    kinds = PY_KINDS | (CHART_KINDS if chart else set())
+    asgi = rt["kind"] == "python_asgi"
+    pin = RUNTIMES[rt["kind"]] if chart or asgi else RUNTIMES["python"]
+    kinds = PY_KINDS | (CHART_KINDS if chart else set()) | (ASGI_KINDS if asgi else set())
     if rt.get("version") != pin["version"]:
         o.problems.append(f"runtime.version {rt.get('version')!r} must equal the pinned {pin['version']!r} (registry/runtimes.json)")
     pkgs = list(rt.get("packages") or [])
-    bad = sorted(set(pkgs) - PY_INSTALLED)
+    have_pkgs = ASGI_INSTALLED if asgi else PY_INSTALLED
+    bad = sorted(set(pkgs) - have_pkgs)
     if bad:
-        o.problems.append(f"runtime.packages {bad} are not installed in the sandbox (installed: {sorted(PY_INSTALLED)})")
+        o.problems.append(f"runtime.packages {bad} are not installed in the sandbox (installed: {sorted(have_pkgs)})")
     entry, solution = _entry(ix, "solution")
     _, starter = _entry(ix, "starter")
     if solution is None or starter is None:
@@ -509,18 +559,23 @@ def run_python(registry, ix):
     for t in graded:
         sp = t["spec"]
         need = {"stdout_equals": ["expected"], "value_equals": ["expr", "expected"], "dataframe_equals": ["expr", "expected"], "function_call": ["function", "expected"],
-                "figure_equals": ["expected"], "axes_property": ["property", "expected"], "plotted_data_equals": ["chart", "field", "expected"]}[t["kind"]]
+                "figure_equals": ["expected"], "axes_property": ["property", "expected"], "plotted_data_equals": ["chart", "field", "expected"], "http_equals": ["requests", "expected"]}[t["kind"]]
         miss = [k for k in need if k not in sp]
         if miss:
             o.problems.append(f"{t['test_id']}: spec needs {miss}")
+        if t["kind"] == "http_equals" and not miss:
+            rq, ex = sp["requests"], sp["expected"]
+            if not (isinstance(rq, list) and rq and all(isinstance(r, dict) and r.get("method") and str(r.get("path", "")).startswith("/") for r in rq)):
+                o.problems.append(f"{t['test_id']}: spec.requests is a non-empty list of {{method, path, json?, params?, headers?, data?}} with a path starting with /")
+            if not (isinstance(ex, dict) and ex and set(ex) <= HTTP_KEYS and isinstance(ex.get("headers", {}), dict)):
+                o.problems.append(f"{t['test_id']}: spec.expected is a non-empty object with keys from {sorted(HTTP_KEYS)} (headers: an object of the headers to check)")
         if t["kind"] == "dataframe_equals" and not ("columns" in sp.get("expected", {}) and "rows" in sp.get("expected", {})):
             o.problems.append(f"{t['test_id']}: spec.expected needs {{columns, rows}}")
         if t["kind"] == "figure_equals" and (not isinstance(sp.get("expected"), dict) or set(sp["expected"]) - FIGURE_KEYS):
             o.problems.append(f"{t['test_id']}: figure_equals spec.expected is an object with keys from {sorted(FIGURE_KEYS)}")
     if o.problems:
         return o
-    probes = [({"id": t["test_id"], "kind": "call", "function": t["spec"]["function"], "args": t["spec"].get("args", []), "kwargs": t["spec"].get("kwargs", {})}
-               if t["kind"] == "function_call" else {"id": t["test_id"], "kind": "expr", "expr": t["spec"]["expr"]}) for t in graded if t["kind"] not in {"stdout_equals"} | CHART_KINDS]
+    probes = [_py_probe(t) for t in graded if t["kind"] not in {"stdout_equals"} | CHART_KINDS]
     mk = lambda sid, code, tb: _py_script(sid, entry, code, _py_mounts(tb), probes, chart=chart)
     cands = [{**c, "tag": "data"} for c in candidate_mutations(tables, None)] + [{**c, "tag": "var"} for c in py_var_mutations(solution)]
 
@@ -541,7 +596,7 @@ def run_python(registry, ix):
     if o.problems:
         return o
     scripts += [mutated_script(c) for c in cands]
-    res = node_run({"packages": list(dict.fromkeys(["numpy", "pandas"] + (["matplotlib"] if chart else []) + pkgs)), "scripts": scripts}, pin["runner"])["results"]
+    res = node_run(_py_job(rt["kind"], pkgs, scripts), pin["runner"])["results"]
     if not res["solution"]["ok"]:
         o.problems.append(f"solution does not run: {res['solution']['error'].splitlines()[-1]}")
         return o
@@ -579,8 +634,9 @@ def run_python(registry, ix):
     # hidden checks + anti-hard-coding
     calls = {}
     for t in graded:
-        if t["kind"] == "function_call":
-            calls.setdefault(t["spec"]["function"], set()).add(json.dumps([t["spec"].get("args", []), t["spec"].get("kwargs", {})], sort_keys=True))
+        if t["kind"] in ("function_call", "http_equals"):
+            k, v = _call_key(t)
+            calls.setdefault(k, set()).add(v)
     hidden = []
     for t in graded:
         tid, kind, spec = t["test_id"], t["kind"], t["spec"]
@@ -594,9 +650,9 @@ def run_python(registry, ix):
         var = [h for h in mine if h["check_id"].startswith("hc_var_")]  # starter-variable checks always make the cut: they catch a program that ignores its inputs
         hidden += var[:2] + [h for h in mine if h not in var][:MAX_HIDDEN - len(var[:2])]
         static = kind == "figure_equals" or (kind == "axes_property" and spec.get("property") in CHART_STATIC)
-        if not mine and not static and not (kind == "function_call" and len(calls[spec["function"]]) >= 2):
+        if not mine and not static and not (kind in ("function_call", "http_equals") and len(calls[_call_key(t)[0]]) >= 2):
             o.problems.append(f"{tid}: the solution's result does not change when the data or the starter's values change: a hard-coded answer would pass. "
-                              "Make the result depend on the mounted data or on a starter variable, or (function tests) test the function with at least two different argument sets")
+                              "Make the result depend on the mounted data or on a starter variable, or (function / http_equals tests) test the same function or endpoint with at least two different inputs")
     o.hidden_checks = hidden
     if chart and not hidden:
         o.problems.append("no chart test depends on the data or the starter's values: a hard-coded figure would pass. Add a plotted_data_equals test (or xticklabels/ylim) on data the program reads or computes")
@@ -607,9 +663,14 @@ def run_python(registry, ix):
         viol, unmapped = [f"does not parse: {ex}"], []
     if syntax_exempt(ix) and not any(v.startswith("does not parse") for v in viol):
         viol, unmapped = [], []
+    advisory = None
+    if asgi and viol and not any(v.startswith("does not parse") for v in viol):  # ponytail: pysyntax has no FastAPI detectors (decorators, async def, Depends...): until it has, the allowed-syntax gate is the evaluator's job here
+        advisory, viol = f"allowed-syntax gate NOT enforced for python_asgi (no FastAPI detectors yet); would have flagged: {viol[:6]}", []
     o.problems += [f"solution {v}" for v in viol]
     if unmapped:
         o.unverified = f"syntax descriptors with no detector: {unmapped}"
+    elif advisory:
+        o.unverified = advisory
     if not o.problems:
         o.provenance = {"runtime": pin["engine"], "runtime_version": pin["version"], "solution_sha256": sha(solution), "tests_passed": o.tests_passed}
     return o
@@ -618,6 +679,8 @@ def run_python(registry, ix):
 def _py_match_vs(kind, spec, a, b):
     """Do two results of the same test agree (used to decide whether a mutation changes the solution's output)?"""
     tol = float(spec.get("tolerance", 1e-9))
+    if kind == "http_equals":
+        return deep_equal(_http_view(a, spec["expected"]), _http_view(b, spec["expected"]), tol)
     if kind == "dataframe_equals":
         return a.get("columns") == b.get("columns") and rows_equal(a["rows"], b["rows"], bool(spec.get("ordered", False)), tol)
     return deep_equal(a, b, tol)
@@ -626,14 +689,14 @@ def _py_match_vs(kind, spec, a, b):
 def grade_learner_py(registry, ix, learner_code):
     pub, gr = ix["public"], ix["grading"]
     chart = pub["runtime"]["kind"] == "chart_renderer"
-    pin = RUNTIMES[pub["runtime"]["kind"]] if chart else RUNTIMES["python"]
+    asgi = pub["runtime"]["kind"] == "python_asgi"
+    pin = RUNTIMES[pub["runtime"]["kind"]] if chart or asgi else RUNTIMES["python"]
     problems = []
     mounts = pub["workspace"].get("asset_mounts", [])
     tables, _ = _tables(registry, mounts, {}, problems)
     entry, _ = _entry(ix, "starter")
     graded = [t for t in gr["tests"] if t["kind"] != "forbidden_syntax"]
-    probes = [({"id": t["test_id"], "kind": "call", "function": t["spec"]["function"], "args": t["spec"].get("args", []), "kwargs": t["spec"].get("kwargs", {})}
-               if t["kind"] == "function_call" else {"id": t["test_id"], "kind": "expr", "expr": t["spec"]["expr"]}) for t in graded if t["kind"] not in {"stdout_equals"} | CHART_KINDS]
+    probes = [_py_probe(t) for t in graded if t["kind"] not in {"stdout_equals"} | CHART_KINDS]
     mk = lambda sid, code, tb: _py_script(sid, entry, code, _py_mounts(tb), probes, chart=chart)
     scripts = [mk("base", learner_code, tables)]
     for t in graded:
@@ -649,8 +712,7 @@ def grade_learner_py(registry, ix, learner_code):
             scripts.append(mk(f"hidden:{h['check_id']}", code, tables))
         else:
             scripts.append(mk(f"hidden:{h['check_id']}", learner_code, _mutated(tables, m)))
-    pkgs = list(dict.fromkeys(["numpy", "pandas"] + (["matplotlib"] if chart else []) + list(pub["runtime"].get("packages") or [])))
-    res = node_run({"packages": pkgs, "scripts": scripts}, pin["runner"])["results"]
+    res = node_run(_py_job(pub["runtime"]["kind"], list(pub["runtime"].get("packages") or []), scripts), pin["runner"])["results"]
     reasons = []
     for t in gr["tests"]:
         if t["kind"] == "forbidden_syntax":
@@ -894,7 +956,7 @@ def grade_learner_sheet(registry, ix, learner_sheet):
 
 
 run_chart, grade_learner_chart = run_python, grade_learner_py  # the same code path; the exercise's runtime.kind picks chart mode
-RUNNERS = {"sql": run_sql, "python": run_python, "spreadsheet": run_sheet, "chart_renderer": run_python}
+RUNNERS = {"sql": run_sql, "python": run_python, "spreadsheet": run_sheet, "chart_renderer": run_python, "python_asgi": run_python}
 
 
 def run_exercise(registry, ix):
