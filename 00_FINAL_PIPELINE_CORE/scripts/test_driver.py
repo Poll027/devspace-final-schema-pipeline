@@ -458,6 +458,12 @@ def main():
     out.append("spend cap stop OK")
     for n in "abcdefghij":
         shutil.rmtree(ROOT / "batches" / f"_drvtest_{n}", ignore_errors=True)
+    bp = Path(tempfile.mkdtemp()) / "r.md"
+    bp.write_text("")
+    for line, n in (("BLOCKING: 0 · ADVISORY: 0", 0), ("BLOCKING: 2 · ADVISORY: 1", 0), ("| BLOCKING | 0 |", 0), ("**BLOCKING defects: 0**", 0),
+                    ("BLOCKING: 0 tile_018/s01: incorrect fact", 1), ("BLOCKING tile_1: bad", 1)):
+        assert len(rp.blocking_in(bp, line)) == n, line
+    out.append("blocking_in summary lines OK")
     print("\n".join(out))
 
 
