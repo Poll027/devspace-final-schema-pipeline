@@ -260,6 +260,8 @@ def tail_errors(text, cap=6000):
     """Script output for the generator: every error line first (they sit at the top, above pages of warnings a plain tail would keep instead)."""
     lines = text.splitlines()
     errs = [l for l in lines if re.match(r"\s+E\s|.*(Traceback|Error:)", l)]
+    if errs:  # "strict: N item(s) could not be verified" is only actionable with the warning lines that name the items
+        errs += [l[:900] for l in lines if "UNVERIFIED" in l and l not in errs]
     return ("\n".join(dict.fromkeys(errs))[:cap] + "\n--- rest ---\n" + text[-1000:]) if errs else text[-2500:]
 
 
