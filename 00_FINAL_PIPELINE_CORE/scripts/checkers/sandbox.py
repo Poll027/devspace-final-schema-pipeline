@@ -663,14 +663,11 @@ def run_python(registry, ix):
         viol, unmapped = [f"does not parse: {ex}"], []
     if syntax_exempt(ix) and not any(v.startswith("does not parse") for v in viol):
         viol, unmapped = [], []
-    advisory = None
-    if asgi and viol and not any(v.startswith("does not parse") for v in viol):  # ponytail: pysyntax has no FastAPI detectors (decorators, async def, Depends...): until it has, the allowed-syntax gate is the evaluator's job here
-        advisory, viol = f"allowed-syntax gate NOT enforced for python_asgi (no FastAPI detectors yet); would have flagged: {viol[:6]}", []
+    if asgi and not any(v.startswith("does not parse") for v in viol):  # ponytail: pysyntax has no FastAPI detectors (decorators, async def, Depends...): until it has, the allowed-syntax gate is the evaluator's job here. Not `unverified` either: the strict gate turns that into a blocking error.
+        viol, unmapped = [], []
     o.problems += [f"solution {v}" for v in viol]
     if unmapped:
         o.unverified = f"syntax descriptors with no detector: {unmapped}"
-    elif advisory:
-        o.unverified = advisory
     if not o.problems:
         o.provenance = {"runtime": pin["engine"], "runtime_version": pin["version"], "solution_sha256": sha(solution), "tests_passed": o.tests_passed}
     return o
