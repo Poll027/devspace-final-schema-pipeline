@@ -419,7 +419,7 @@ def ensure_gate(c, sid, chunk, ids):
             raise Stuck(f"{sid}:{chunk} still failing its deterministic gate after {MAX_ROUNDS} generator repairs:\n{msg[-2000:]}")
         c.log(f"{sid}:{chunk} gate failed, generator repair {i + 1}")
         c.log("  gate: " + " | ".join(l.strip()[:230] for l in msg.splitlines() if re.match(r"\s*(E|schema|tile coverage)\b", l) or "UNVERIFIED" in l)[:1500])
-        teach = [l for l in msg.splitlines() if re.search(r"has taught it by text|is never taught by a text block|is not a registered image|data_table result_of: query does not run", l)]
+        teach = [l for l in msg.splitlines() if re.search(r"has taught it by text|is never taught by a text block|is not a registered image|data_table result_of: query does not run|^\s*E plan: \S+ must contain a .* block", l)]
         if sid == "04_interactions" and teach:  # teaching lives in stage 03's prose: the interactions generator can't fix it
             c.log(f"{sid}:{chunk} {len(teach)} fact(s) not taught by text; sending them to the screens generator")
             note = ("A strict check of the assembled lessons reports problems that live in the screens. For facts tested or required but not taught: teach each in a "
@@ -428,7 +428,7 @@ def ensure_gate(c, sid, chunk, ids):
                     "as an SVG diagram) or a `spreadsheet_grid`, keeping the same teaching purpose. For `data_table result_of: query does not run`: the `result_of.sql` is DuckDB SQL "
                     "run against ONLY its `asset_mounts` tables, so every column must come from a mounted table named in a FROM clause; text values take SINGLE quotes (a "
                     "double-quoted word is a column name); a non-aggregated column in a GROUP BY query must be grouped or aggregated. Fix the SQL, or if the table is not "
-                    "really a query over a registered dataset, show it with an `asset_ref` to a registered dataset instead of `result_of`; never type rows.\n" + "\n".join(teach))
+                    "really a query over a registered dataset, show it with an `asset_ref` to a registered dataset instead of `result_of`; never type rows. For `plan: <step> must contain a X or Y block (purpose)`: that explainer step is missing the visual the plan requires; add a block of one of the named types that shows the stated purpose, built only from registered assets/datasets and facts in the lesson (a `spreadsheet_grid` or `diagram` when no registered dataset fits); keep step ids and types.\n" + "\n".join(teach))
             art = c.artifact("03_screens")
             c.reopening.add(art)
             try:
