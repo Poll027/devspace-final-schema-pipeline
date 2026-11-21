@@ -1,5 +1,5 @@
 {
- "taken_at": "2026-11-21 14:34:56 UTC",
+ "taken_at": "2026-11-21 14:40:01 UTC",
  "services": [
   {
    "kind": "final",
@@ -63,7 +63,7 @@
     "2026-11-21 14:09:43 02_tile_plan: python3 00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py batches/final_batch_aws_devops.region.01_1",
     "2026-11-21 14:09:44 NOTIFY STOPPED final_batch_aws_devops.region.01_1"
    ],
-   "log_age_min": 25.2,
+   "log_age_min": 30.3,
    "stopped": "# STOPPED final_batch_aws_devops.region.01_1\n\ntile plans have gaps (NEW_ROLE_RUNBOOK step 4 / build the runner): fix them or remove these tiles from run_config.json/chunks.json, then rerun.\nNOTE: aws_devops_engineer.json does not exist, so no runtimes can be inferred (NEW_ROLE_RUNBOOK step 3): add the path profile first.\n\n{\n \"aws_devops.tile.011\": [\n  \"needs runtime(s) ['<none inferred>'] with no verified runner (verified: ['chart_renderer', 'python', 'python_asgi', 'spreadsheet', 'sql'])\"\n ]\n}\n\nSpend so far $0.15. Fix the cause, then rerun the same command (finished stages are skipped).\n",
    "done": null,
    "proposed_fix": null,
@@ -130,7 +130,7 @@
     "2026-11-21 14:09:46 02_tile_plan: python3 00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py batches/final_batch_aws_devops.region.01_2",
     "2026-11-21 14:09:46 NOTIFY STOPPED final_batch_aws_devops.region.01_2"
    ],
-   "log_age_min": 25.2,
+   "log_age_min": 30.2,
    "stopped": "# STOPPED final_batch_aws_devops.region.01_2\n\ntile plans have gaps (NEW_ROLE_RUNBOOK step 4 / build the runner): fix them or remove these tiles from run_config.json/chunks.json, then rerun.\nNOTE: aws_devops_engineer.json does not exist, so no runtimes can be inferred (NEW_ROLE_RUNBOOK step 3): add the path profile first.\n\n{\n \"aws_devops.tile.013\": [\n  \"needs runtime(s) ['<none inferred>'] with no verified runner (verified: ['chart_renderer', 'python', 'python_asgi', 'spreadsheet', 'sql'])\"\n ]\n}\n\nSpend so far $0.08. Fix the cause, then rerun the same command (finished stages are skipped).\n",
    "done": null,
    "proposed_fix": null,
@@ -197,7 +197,7 @@
     "2026-11-21 14:09:49 02_tile_plan: python3 00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py batches/final_batch_aws_devops.region.02_1",
     "2026-11-21 14:09:49 NOTIFY STOPPED final_batch_aws_devops.region.02_1"
    ],
-   "log_age_min": 25.1,
+   "log_age_min": 30.2,
    "stopped": "# STOPPED final_batch_aws_devops.region.02_1\n\ncommand failed (1): '/home/azureuser/env/bin/python' 00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py batches/final_batch_aws_devops.region.02_1\nTraceback (most recent call last):\n  File \"/home/azureuser/roles/aws_devops_engineer/final_runs/aws_devops.region.02_1/00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py\", line 169, in <module>\n    main()\n  File \"/home/azureuser/roles/aws_devops_engineer/final_runs/aws_devops.region.02_1/00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py\", line 159, in main\n    validate(out, \"tile_plan.schema.json\")\n  File \"/home/azureuser/roles/aws_devops_engineer/final_runs/aws_devops.region.02_1/00_FINAL_PIPELINE_CORE/scripts/schema_check.py\", line 47, in validate\n    raise ValueError(f\"{schema_name}: {len(errs)} problem(s):\\n  \" + \"\\n  \".join(errs))\nValueError: tile_plan.schema.json: 6 problem(s):\n  tiles/9/steps/2/anchors/0: 'aws_devops.choose_rolling_blue_green_or_canary_delivery_for_stated_availability_and_rollback_requirements#assessment:justify_delivery_strategy_for_stated_workload_requirements' is too long\n  tiles/9/steps/3/anchors/1: 'aws_devops.choose_rolling_blue_green_or_canary_delivery_for_stated_availability_and_rollback_requirements#assessment:justify_delivery_strategy_for_stated_workload_requirements' is too long\n  tiles/11/steps/2/anchors/0: 'aws_devops.configure_cloudwatch_alarm_evaluation_and_missing_data_behavior_from_supplied_signals_and_thresholds#assessment:predict_all_missing_alarm_state_from_missing_data_policy' is too long\n  tiles/11/steps/3/anchors/1: 'aws_devops.configure_cloudwatch_alarm_evaluation_and_missing_data_behavior_from_supplied_signals_and_thresholds#assessment:predict_alarm_state_from_supplied_metric_samples_and_threshold' is too long\n  tiles/11/steps/3/anchors/2: 'aws_devops.configure_cloudwatch_alarm_evaluation_and_missing_data_behavior_from_supplied_signals_and_thresholds#assessment:apply_evaluation_periods_and_datapoints_to_alarm' is too long\n  tiles/11/steps/3/anchors/3: 'aws_devops.configure_cloudwatch_alarm_evaluation_and_missing_data_behavior_from_supplied_signals_and_thresholds#assessment:predict_all_missing_alarm_state_from_missing_data_policy' is too long\n\n\nSpend so far $0.12. Fix the cause, then rerun the same command (finished stages are skipped).\n",
    "done": null,
    "proposed_fix": "# Proposed code fix (not applied)\n\n## Diagnosis\nStage 01 evaluator returned PASS. Stage 02 failed twice in driver.log/run.log: plan_tiles.py lines 114 and 125 concatenate concept ID, `#assessment:`, and the full capability. Six resulting references exceed common.schema.json's 160-character ID limit. This is a deterministic producer/representation bug, not an evaluator defect or transient outage. No working/sub_*.log files are present.\n\n## Implementation description\nKeep the existing schema limit and all evaluator, lineage, coverage, ledger and gate checks unchanged. Introduce a shared assessment-reference encoder and resolver in scripts/finlib.py:\n\n* For a `(concept_id, capability)` pair, preserve the existing `concept_id#assessment:capability` encoding when it fits the 160-character limit.\n* Otherwise encode as `ar.<sha256>` using the full SHA-256 hex digest of the canonical JSON array `[concept_id, capability]` (existing canon()/hashlib helpers). This is 67 characters and matches the existing ID pattern. Do not truncate capability text or change source glossary identifiers.\n* Build a reverse index from every glossary assessment anchor's encoded reference to its original `(concept_id, capability)` and anchor object. Reject duplicate source pairs and any reference collision; reject unknown references instead of guessing. Resolve legacy references through this same index.\n* Replace both assessment-reference comprehensions in plan_tiles.py (lines 114 and 125) with calls to that shared encoder. Keep practice/visual anchors unchanged.\n* Update validate_tile.py's planned assessment loop (lines 253\u2013257): identify assessment references through the reverse index rather than splitting every reference at '#'; resolve original concept and capability before comparing to interaction.measures. Preserve the current mismatch reporting and all independent coverage checks. An unknown assessment reference must be reported as an error, not silently skipped.\n* Include the resolved original capability and concept alongside compact reference IDs in generator/evaluator input packets, so models can faithfully copy reference IDs while using unchanged full capabilities in measures. Update evaluator_packet.py line 198 to display compact references via the resolver rather than unconditionally calling a.split('#')[1]. Audit other consumers/templates of assessment references for the same assumption; do not substitute digest strings into measures.capability.\n\n## Tests and resume\nAdd tests for short-reference backwards compatibility, all failing long references in this batch, deterministic encoding, round-trip resolution, unknown-reference rejection and collision detection. Verify stage 02 output and authored lineage against the unmodified schemas, and verify original capability coverage and planned-measure checks still work for compact references. Then rerun `/home/azureuser/env/bin/python 00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py batches/final_batch_aws_devops.region.02_1` and resume the original pipeline driver (finished PASS stages should be skipped).\n\nOnly this proposal was written. Code changes and reruns were not performed: investigation permits writes only under the batch working directory and prohibits editing code.\n",
@@ -266,7 +266,7 @@
     "2026-11-21 14:09:52 02_tile_plan: python3 00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py batches/final_batch_aws_devops.region.02_2",
     "2026-11-21 14:09:52 NOTIFY STOPPED final_batch_aws_devops.region.02_2"
    ],
-   "log_age_min": 25.1,
+   "log_age_min": 30.2,
    "stopped": "# STOPPED final_batch_aws_devops.region.02_2\n\ntile plans have gaps (NEW_ROLE_RUNBOOK step 4 / build the runner): fix them or remove these tiles from run_config.json/chunks.json, then rerun.\nNOTE: aws_devops_engineer.json does not exist, so no runtimes can be inferred (NEW_ROLE_RUNBOOK step 3): add the path profile first.\n\n{\n \"aws_devops.tile.029\": [\n  \"needs runtime(s) ['<none inferred>'] with no verified runner (verified: ['chart_renderer', 'python', 'python_asgi', 'spreadsheet', 'sql'])\"\n ]\n}\n\nSpend so far $0.16. Fix the cause, then rerun the same command (finished stages are skipped).\n",
    "done": null,
    "proposed_fix": null,
@@ -334,7 +334,7 @@
     "2026-11-21 14:09:55 02_tile_plan: python3 00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py batches/final_batch_aws_devops.region.03_1",
     "2026-11-21 14:09:55 NOTIFY STOPPED final_batch_aws_devops.region.03_1"
    ],
-   "log_age_min": 25.0,
+   "log_age_min": 30.1,
    "stopped": "# STOPPED final_batch_aws_devops.region.03_1\n\ntile plans have gaps (NEW_ROLE_RUNBOOK step 4 / build the runner): fix them or remove these tiles from run_config.json/chunks.json, then rerun.\nNOTE: aws_devops_engineer.json does not exist, so no runtimes can be inferred (NEW_ROLE_RUNBOOK step 3): add the path profile first.\n\n{\n \"aws_devops.tile.032\": [\n  \"needs runtime(s) ['<none inferred>'] with no verified runner (verified: ['chart_renderer', 'python', 'python_asgi', 'spreadsheet', 'sql'])\"\n ],\n \"aws_devops.tile.038\": [\n  \"needs runtime(s) ['<none inferred>'] with no verified runner (verified: ['chart_renderer', 'python', 'python_asgi', 'spreadsheet', 'sql'])\"\n ],\n \"aws_devops.tile.040\": [\n  \"needs runtime(s) ['<none inferred>'] with no verified runner (verified: ['chart_renderer', 'python', 'python_asgi', 'spreadsheet', 'sql'])\"\n ]\n}\n\nSpend so far $0.12. Fix the cause, then rerun the same command (finished stages are skipped).\n",
    "done": null,
    "proposed_fix": null,
@@ -433,7 +433,7 @@
     "2026-11-21 14:14:41 11_final_audit: reusing the 1 blocking finding(s) already on disk",
     "2026-11-21 14:14:41 NOTIFY STOPPED final_batch_aws_devops.region.03_2"
    ],
-   "log_age_min": 20.3,
+   "log_age_min": 25.3,
    "stopped": "# STOPPED final_batch_aws_devops.region.03_2\n\n11_final_audit reported blocking findings that name no tile of this batch, so they can't be routed automatically. See final_audit_report.json.\n{\"severity\": \"BLOCKER\", \"tile_id\": \"batch\", \"step_id\": \"11_final_audit/selftest\", \"problem\": \"BLOCKING: The required fixed-baseline mutation test did not achieve 0 missed. Running python3 00_FINAL_PIPELINE_CORE/scripts/selftest.py batches/final_batch_001_da_canary reported 12 MISSED SQL cases and th\n\nSpend so far $0.41. Fix the cause, then rerun the same command (finished stages are skipped).\n",
    "done": null,
    "proposed_fix": null,
@@ -501,7 +501,7 @@
     "2026-11-21 14:09:57 02_tile_plan: python3 00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py batches/final_batch_aws_devops.region.04_1",
     "2026-11-21 14:09:58 NOTIFY STOPPED final_batch_aws_devops.region.04_1"
    ],
-   "log_age_min": 25.0,
+   "log_age_min": 30.1,
    "stopped": "# STOPPED final_batch_aws_devops.region.04_1\n\ntile plans have gaps (NEW_ROLE_RUNBOOK step 4 / build the runner): fix them or remove these tiles from run_config.json/chunks.json, then rerun.\nNOTE: aws_devops_engineer.json does not exist, so no runtimes can be inferred (NEW_ROLE_RUNBOOK step 3): add the path profile first.\n\n{\n \"aws_devops.tile.053\": [\n  \"needs runtime(s) ['<none inferred>'] with no verified runner (verified: ['chart_renderer', 'python', 'python_asgi', 'spreadsheet', 'sql'])\"\n ],\n \"aws_devops.tile.064\": [\n  \"needs runtime(s) ['<none inferred>'] with no verified runner (verified: ['chart_renderer', 'python', 'python_asgi', 'spreadsheet', 'sql'])\"\n ],\n \"aws_devops.tile.066\": [\n  \"needs runtime(s) ['<none inferred>'] with no verified runner (verified: ['chart_renderer', 'python', 'python_asgi', 'spreadsheet', 'sql'])\"\n ]\n}\n\nSpend so far $0.13. Fix the cause, then rerun the same command (finished stages are skipped).\n",
    "done": null,
    "proposed_fix": null,
@@ -570,7 +570,7 @@
     "2026-11-21 14:10:00 02_tile_plan: python3 00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py batches/final_batch_aws_devops.region.04_2",
     "2026-11-21 14:10:00 NOTIFY STOPPED final_batch_aws_devops.region.04_2"
    ],
-   "log_age_min": 24.9,
+   "log_age_min": 30.0,
    "stopped": "# STOPPED final_batch_aws_devops.region.04_2\n\ntile plans have gaps (NEW_ROLE_RUNBOOK step 4 / build the runner): fix them or remove these tiles from run_config.json/chunks.json, then rerun.\nNOTE: aws_devops_engineer.json does not exist, so no runtimes can be inferred (NEW_ROLE_RUNBOOK step 3): add the path profile first.\n\n{\n \"aws_devops.tile.067\": [\n  \"needs runtime(s) ['<none inferred>'] with no verified runner (verified: ['chart_renderer', 'python', 'python_asgi', 'spreadsheet', 'sql'])\"\n ],\n \"aws_devops.tile.071\": [\n  \"needs runtime(s) ['<none inferred>'] with no verified runner (verified: ['chart_renderer', 'python', 'python_asgi', 'spreadsheet', 'sql'])\"\n ]\n}\n\nSpend so far $0.14. Fix the cause, then rerun the same command (finished stages are skipped).\n",
    "done": null,
    "proposed_fix": null,
@@ -640,7 +640,7 @@
     "2026-11-21 14:14:44 02_tile_plan: python3 00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py batches/final_batch_aws_devops.region.05_1",
     "2026-11-21 14:14:44 NOTIFY STOPPED final_batch_aws_devops.region.05_1"
    ],
-   "log_age_min": 20.2,
+   "log_age_min": 25.3,
    "stopped": "# STOPPED final_batch_aws_devops.region.05_1\n\ncommand failed (1): '/home/azureuser/env/bin/python' 00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py batches/final_batch_aws_devops.region.05_1\nTraceback (most recent call last):\n  File \"/home/azureuser/roles/aws_devops_engineer/final_runs/aws_devops.region.05_1/00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py\", line 169, in <module>\n    main()\n  File \"/home/azureuser/roles/aws_devops_engineer/final_runs/aws_devops.region.05_1/00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py\", line 159, in main\n    validate(out, \"tile_plan.schema.json\")\n  File \"/home/azureuser/roles/aws_devops_engineer/final_runs/aws_devops.region.05_1/00_FINAL_PIPELINE_CORE/scripts/schema_check.py\", line 47, in validate\n    raise ValueError(f\"{schema_name}: {len(errs)} problem(s):\\n  \" + \"\\n  \".join(errs))\nValueError: tile_plan.schema.json: 3 problem(s):\n  tiles/8/steps/1/anchors/0: 'aws_devops.deploy_a_supplied_cloudformation_s3_environment_across_accounts_and_regions_with_assumed_roles#assessment:verify_no_stack_in_supplied_unapproved_targets' is too long\n  tiles/8/steps/2/anchors/1: 'aws_devops.deploy_a_supplied_cloudformation_s3_environment_across_accounts_and_regions_with_assumed_roles#assessment:verify_template_deployment_targets_and_assumed_callers' is too long\n  tiles/8/steps/2/anchors/3: 'aws_devops.deploy_a_supplied_cloudformation_s3_environment_across_accounts_and_regions_with_assumed_roles#assessment:verify_no_stack_in_supplied_unapproved_targets' is too long\n\n\nSpend so far $0.19. Fix the cause, then rerun the same command (finished stages are skipped).\n",
    "done": null,
    "proposed_fix": "# Proposed fix: length-safe assessment reference encoding\n\nClassification: code. No code or batch inputs were changed, and the failing command was not rerun.\n\n`plan_tiles.py` lines 114 and 125 concatenate concept ID + `#assessment:` + full capability. The affected concept ID is 105 characters, so the two reference lengths are 163 and 171, exceeding `common.schema.json`'s unchanged 160-character ID limit. Both driver attempts fail deterministically after stage 01 passes. No `working/sub_*.log` files are present in this snapshot.\n\n## Implementation description\n\n1. Add a shared assessment-reference encoder and resolver in `00_FINAL_PIPELINE_CORE/scripts/finlib.py`. Preserve the existing `<cid>#assessment:<capability>` spelling when it fits the 160-character bound. For an overlength reference, use `<cid>#assessment:h_<digest>`, where digest is the first 32 hexadecimal characters of SHA-256 of the full UTF-8 capability. For this 105-character concept ID the result is 151 characters. Keep the complete original capability and assessment content in the glossary; do not truncate or rename capabilities or concept IDs.\n2. Build an exact per-concept reference-to-original-capability lookup from every assessment anchor using that encoder. Check injectivity against ALL references (including literal capability names); fail clearly on any collision, missing reference, or reference still exceeding the schema limit. Do not silently discard anchors. For concept IDs where this representation cannot fit, fail explicitly rather than bypassing schema validation.\n3. Replace both inline assessment-reference constructions in `plan_tiles.py` (check and hands_on steps) with the shared encoder. Preserve the existing anchor selection, practice token matching, facts, and all assessment coverage requirements.\n4. Update `validate_tile.py` lines 254\u2013258 to resolve the planned assessment reference against the original glossary before comparing `(concept_id, original_capability)` with `interaction.measures`. An unresolved reference must be an error, not a skipped check. Continue using original capability names in measures and coverage checks. Update any generator context/documentation that assumes the suffix is always the full capability: provide the exact reference-to-capability mapping to generation/evaluation, so hashed references retain explicit semantic traceability.\n5. Add tests for the two reported capabilities, unchanged short-reference behavior, duplicate reference/collision detection, unknown-reference rejection, and downstream measure/coverage conformance. Generate this batch's plan in a test and require the existing unmodified `tile_plan.schema.json` validation to pass with all original anchors present.\n\nDo not increase the shared ID limit, suppress validation, weaken evaluator/gate/ledger checks, or edit frozen glossary inputs to hide the defect.\n\nAfter a maintainer implements and tests this fix, rerun the original command:\n\n`/home/azureuser/env/bin/python 00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py batches/final_batch_aws_devops.region.05_1`\n\nThen resume the driver normally, retaining the finished-stage skip behavior and existing gates.\n",
@@ -709,7 +709,7 @@
     "2026-11-21 14:14:46 02_tile_plan: python3 00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py batches/final_batch_aws_devops.region.05_2",
     "2026-11-21 14:14:46 NOTIFY STOPPED final_batch_aws_devops.region.05_2"
    ],
-   "log_age_min": 20.2,
+   "log_age_min": 25.2,
    "stopped": "# STOPPED final_batch_aws_devops.region.05_2\n\ncommand failed (1): '/home/azureuser/env/bin/python' 00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py batches/final_batch_aws_devops.region.05_2\nTraceback (most recent call last):\n  File \"/home/azureuser/roles/aws_devops_engineer/final_runs/aws_devops.region.05_2/00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py\", line 169, in <module>\n    main()\n  File \"/home/azureuser/roles/aws_devops_engineer/final_runs/aws_devops.region.05_2/00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py\", line 159, in main\n    validate(out, \"tile_plan.schema.json\")\n  File \"/home/azureuser/roles/aws_devops_engineer/final_runs/aws_devops.region.05_2/00_FINAL_PIPELINE_CORE/scripts/schema_check.py\", line 47, in validate\n    raise ValueError(f\"{schema_name}: {len(errs)} problem(s):\\n  \" + \"\\n  \".join(errs))\nValueError: tile_plan.schema.json: 2 problem(s):\n  tiles/7/steps/1/anchors/0: 'aws_devops.route_an_operational_event_to_a_notification_or_established_systems_manager_action#assessment:verify_matching_and_nonmatching_events_against_target_evidence' is too long\n  tiles/7/steps/2/anchors/2: 'aws_devops.route_an_operational_event_to_a_notification_or_established_systems_manager_action#assessment:verify_matching_and_nonmatching_events_against_target_evidence' is too long\n\n\nSpend so far $0.15. Fix the cause, then rerun the same command (finished stages are skipped).\n",
    "done": null,
    "proposed_fix": "# Proposed code fix (not applied)\n\nStage 02 deterministically builds a 167-character assessment reference, but common.schema.json $defs/id caps identifiers at 160. Both plan_tiles.py:114 and :125 concatenate concept ID and full capability text. The scenario evaluator passed round 2; rerunning already reproduced this failure. No sub_*.log files are present in working/.\n\nKeep the schema limit, all coverage checks, original glossary capabilities, and ledger/gates unchanged. Fix the reference encoding, not the evaluator or source content.\n\nImplementation description:\n1. In scripts/finlib.py add a shared assessment_ref(cid, capability) helper. Return the current `cid + '#assessment:' + capability` when it fits the existing ID schema. For an overlong reference use `cid + '#assessment:sha256-' + sha256(capability.encode('utf-8')).hexdigest()[:N]`, where N = min(64, 160 - len(cid + '#assessment:sha256-')). Require N >= 16, otherwise fail explicitly (a separate concept-ID alias design would be required). Validate the result against the unchanged ID schema. Detect collisions across all capabilities of each concept and fail rather than silently merging anchors. For this batch N is sufficient and the concept prefix is preserved.\n2. Replace the assessment reference constructions at plan_tiles.py:114 and :125 with this helper. Keep realized_by_practice operating on the original capability, not the digest.\n3. Add a resolver using the bundle's original capabilities: build {assessment_ref(cid, cap): cap for cap in bundles.anchors(cid)} with duplicate detection. In validate_tile.py:253-256, resolve the planned assessment reference through this map instead of taking the substring after `assessment:`. Reject unknown/ambiguous references explicitly. Continue requiring the exact ORIGINAL (concept_id, capability) pair in interaction.measures; do not skip or relax the existing check. Other coverage checks on the original capabilities remain unchanged.\n4. Document the encoding in the planner and generator input guidance so generators copy the planned compact lineage reference but use the full glossary capability in measures. Audit consumers for any other assumptions that the reference suffix equals the full capability.\n5. Add regression tests for the reported 167-character reference in both check and hands_on steps, unchanged short refs, collision/unknown-ref rejection, and rejection of an interaction that omits or misstates the original capability. Validate tile plans and final lineage against unchanged schemas and run the normal coverage validator.\n\nAfter an authorized maintainer implements and tests this patch, rerun the same command:\n`/home/azureuser/env/bin/python 00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py batches/final_batch_aws_devops.region.05_2`\nThen resume the driver normally; retain completed-stage gates. No code or input files were changed and no rerun was attempted under this read-only triage authorization.\n",
@@ -776,7 +776,7 @@
     "2026-11-21 14:14:49 02_tile_plan: python3 00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py batches/final_batch_aws_devops.region.06_1",
     "2026-11-21 14:14:49 NOTIFY STOPPED final_batch_aws_devops.region.06_1"
    ],
-   "log_age_min": 20.1,
+   "log_age_min": 25.2,
    "stopped": "# STOPPED final_batch_aws_devops.region.06_1\n\ncommand failed (1): '/home/azureuser/env/bin/python' 00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py batches/final_batch_aws_devops.region.06_1\nTraceback (most recent call last):\n  File \"/home/azureuser/roles/aws_devops_engineer/final_runs/aws_devops.region.06_1/00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py\", line 169, in <module>\n    main()\n  File \"/home/azureuser/roles/aws_devops_engineer/final_runs/aws_devops.region.06_1/00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py\", line 159, in main\n    validate(out, \"tile_plan.schema.json\")\n  File \"/home/azureuser/roles/aws_devops_engineer/final_runs/aws_devops.region.06_1/00_FINAL_PIPELINE_CORE/scripts/schema_check.py\", line 47, in validate\n    raise ValueError(f\"{schema_name}: {len(errs)} problem(s):\\n  \" + \"\\n  \".join(errs))\nValueError: tile_plan.schema.json: 5 problem(s):\n  tiles/8/steps/2/anchors/0: 'aws_devops.automate_isolated_infrastructure_restoration_using_a_supplied_cloudformation_ec2_template#assessment:verify_restoration_target_and_execution_authority' is too long\n  tiles/8/steps/3/anchors/2: 'aws_devops.automate_isolated_infrastructure_restoration_using_a_supplied_cloudformation_ec2_template#assessment:verify_supplied_instance_and_service_recovery_ready_checks' is too long\n  tiles/10/steps/6/anchors/0: 'aws_devops.diagnose_ec2_or_container_health_failures_using_telemetry_and_prepared_linux_inspection_skills#assessment:distinguish_ec2_system_and_instance_status_check_boundaries' is too long\n  tiles/10/steps/7/anchors/1: 'aws_devops.diagnose_ec2_or_container_health_failures_using_telemetry_and_prepared_linux_inspection_skills#assessment:identify_failing_workload_component_from_correlated_telemetry_and_inspection' is too long\n  tiles/10/steps/7/anchors/2: 'aws_devops.diagnose_ec2_or_container_health_failures_using_telemetry_and_prepared_linux_inspection_skills#assessment:verify_evidence_supported_correction_with_repeated_health_check' is too long\n\n\nSpend so far $0.11. Fix the cause, then rerun the same command (finished stages are skipped).\n",
    "done": null,
    "proposed_fix": "# Proposed code fix (not applied)\n\n## Diagnosis\n`plan_tiles.py` lines 114 and 125 concatenate concept ID, `#assessment:`, and the full capability into an ID. Five resulting strings exceed `common.schema.json`'s 160-character ID limit. Stage 01 passed; stage 02 failed identically on two attempts. No sub_*.log files are present. This is a deterministic serializer/schema mismatch, not a repair-loop finding.\n\n## Implementation proposal\nKeep the existing schema limit, validation, gates, and ledger unchanged. Introduce shared assessment-reference encoding and resolution helpers (e.g. in finlib.py), used by both plan_tiles.py and validate_tile.py:\n\n1. Form the canonical reference `f\"{cid}#assessment:{capability}\"`. Return it unchanged if its length is <=160. Otherwise return `\"anchor.assessment.\" + hashlib.sha256(canonical.encode(\"utf-8\")).hexdigest()` (82 characters, legal ID characters).\n2. Build a reverse lookup from encoded reference to `(cid, original_capability)` from all glossary assessment anchors. Detect collisions between distinct canonical references and fail explicitly rather than merging them. Retain original capability strings in the glossary and interaction `measures`; never truncate or alter content.\n3. Replace both assessment-anchor comprehensions at plan_tiles.py lines 114 and 125 with calls to the encoder. Practice/visual references remain unchanged.\n4. In validate_tile.py lines 253\u2013258, replace the `split('#')`/`split('assessment:')` assessment detection and extraction with lookup through the resolver. For resolved assessment references compare the original `(cid, capability)` against interaction measures exactly as before. Explicitly reject unresolvable encoded assessment references. Do not skip coverage checks for encoded IDs. Audit generation prompts and all reference consumers to ensure they copy the encoded IDs into lineage/interaction anchors and obtain original capability text from the lookup or glossary, not by parsing the encoded string.\n\n## Tests and resumption\nAdd regression tests for the five reported references, <=160-character backward compatibility, deterministic encoding, collision rejection, round-trip resolution, and preservation of the existing missing-measure finding for encoded references. Validate the planned output and downstream lineage schemas with the existing checks. An authorized maintainer should apply and test the coordinated code change, then rerun `/home/azureuser/env/bin/python 00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py batches/final_batch_aws_devops.region.06_1` and resume the driver without changing completed gates.\n\nOnly this proposal was written. No code, inputs, schemas, or gates were modified, and the failing command was not rerun because this investigation is read-only.\n",
@@ -843,7 +843,7 @@
     "2026-11-21 14:14:51 02_tile_plan: python3 00_FINAL_PIPELINE_CORE/scripts/plan_tiles.py batches/final_batch_aws_devops.region.06_2",
     "2026-11-21 14:14:51 NOTIFY STOPPED final_batch_aws_devops.region.06_2"
    ],
-   "log_age_min": 20.1,
+   "log_age_min": 25.2,
    "stopped": "# STOPPED final_batch_aws_devops.region.06_2\n\ntile plans have gaps (NEW_ROLE_RUNBOOK step 4 / build the runner): fix them or remove these tiles from run_config.json/chunks.json, then rerun.\nNOTE: aws_devops_engineer.json does not exist, so no runtimes can be inferred (NEW_ROLE_RUNBOOK step 3): add the path profile first.\n\n{\n \"aws_devops.tile.121\": [\n  \"needs runtime(s) ['<none inferred>'] with no verified runner (verified: ['chart_renderer', 'python', 'python_asgi', 'spreadsheet', 'sql'])\"\n ],\n \"aws_devops.tile.122\": [\n  \"needs runtime(s) ['<none inferred>'] with no verified runner (verified: ['chart_renderer', 'python', 'python_asgi', 'spreadsheet', 'sql'])\"\n ],\n \"aws_devops.tile.125\": [\n  \"needs runtime(s) ['<none inferred>'] with no verified runner (verified: ['chart_renderer', 'python', 'python_asgi', 'spreadsheet', 'sql'])\"\n ]\n}\n\nSpend so far $0.11. Fix the cause, then rerun the same command (finished stages are skipped).\n",
    "done": null,
    "proposed_fix": null,
@@ -892,12 +892,6 @@
     "Started final-pipeline-machine_learning_engineer-mle.region.custom_training.service - Final schema machine_learning_engineer mle.region.custom_training."
    ],
    "log_tail": [
-    "2026-11-21 13:29:46 07_validate: python3 00_FINAL_PIPELINE_CORE/scripts/validate_tile.py batches/final_batch_mle.region.custom_training --strict",
-    "2026-11-21 13:29:47 GATE 07_validate PASS",
-    "2026-11-21 13:29:47 === 08_pedagogy_review (evaluator_only) spent $10.09",
-    "2026-11-21 13:32:31 NOTIFY STOPPED final_batch_mle.region.custom_training",
-    "2026-11-21 13:43:27 start final_batch_mle.region.custom_training; cap $25.0; spent so far $10.27",
-    "2026-11-21 13:43:27 00_preflight: gated PASS on disk, skipping",
     "2026-11-21 13:43:27 01_scenario_assets: gated PASS on disk, skipping",
     "2026-11-21 13:43:27 02_tile_plan: gated PASS on disk, skipping",
     "2026-11-21 13:43:27 03_screens: gated PASS on disk, skipping",
@@ -951,13 +945,19 @@
     "2026-11-21 14:24:57 03_screens:all generating",
     "2026-11-21 14:30:32 03_screens:all evaluating (round 1)",
     "2026-11-21 14:30:40 03_screens:all packet evaluation unavailable or gave no verdict; falling back to the agent evaluator",
-    "2026-11-21 14:32:41 03_screens:all FAIL round 1: 14 blocking"
+    "2026-11-21 14:32:41 03_screens:all FAIL round 1: 14 blocking",
+    "2026-11-21 14:35:17 03_screens:all evaluating (round 2)",
+    "2026-11-21 14:35:29 03_screens:all FAIL round 2: 1 blocking",
+    "2026-11-21 14:36:13 03_screens:all evaluating (round 3)",
+    "2026-11-21 14:36:19 GATE 03_screens PASS",
+    "2026-11-21 14:36:19 === 04_interactions (generate_evaluate) spent $12.27",
+    "2026-11-21 14:36:19 04_interactions:all generating"
    ],
-   "log_age_min": 2.3,
+   "log_age_min": 3.7,
    "stopped": null,
    "done": null,
    "proposed_fix": null,
-   "spend_usd": 12.11,
+   "spend_usd": 12.41,
    "ops_action": null
   },
   {
@@ -1063,11 +1063,11 @@
     "2026-11-21 14:31:31 === 04_interactions (generate_evaluate) spent $7.73",
     "2026-11-21 14:31:31 04_interactions:all generating"
    ],
-   "log_age_min": 3.4,
+   "log_age_min": 8.5,
    "stopped": null,
    "done": null,
    "proposed_fix": null,
-   "spend_usd": 7.87,
+   "spend_usd": 8.07,
    "ops_action": null
   },
   {
@@ -1173,11 +1173,11 @@
     "2026-11-21 14:33:33 === 04_interactions (generate_evaluate) spent $9.68",
     "2026-11-21 14:33:33 04_interactions:all generating"
    ],
-   "log_age_min": 1.4,
+   "log_age_min": 6.5,
    "stopped": null,
    "done": null,
    "proposed_fix": null,
-   "spend_usd": 9.78,
+   "spend_usd": 9.91,
    "ops_action": null
   },
   {
@@ -1283,26 +1283,23 @@
     "2026-11-21 14:33:36 === 04_interactions (generate_evaluate) spent $6.74",
     "2026-11-21 14:33:36 04_interactions:all generating"
    ],
-   "log_age_min": 1.4,
+   "log_age_min": 6.4,
    "stopped": null,
    "done": null,
    "proposed_fix": null,
-   "spend_usd": 6.85,
+   "spend_usd": 7.07,
    "ops_action": null
   },
   {
    "kind": "final",
    "service": "final-pipeline-machine_learning_engineer-mle.region.production_serving.service",
-   "active": "active",
-   "sub": "running",
+   "active": "inactive",
+   "sub": "dead",
    "exit_status": "0",
    "repo": "/home/azureuser/roles/machine_learning_engineer/final_runs/mle.region.production_serving",
    "batch": "final_batch_mle.region.production_serving",
    "code_commit": "76b21ca",
    "journal_tail": [
-    "Action: Wrote working/proposed_fix.md describing strict validation and bounded report recovery without dropping findings or weakening gates. Have a maintainer implement the fix, recover a valid audit report preserving its BLOCKER findings, then rerun the pipeline.",
-    "Stop reason:",
-    "# STOPPED final_batch_mle.region.production_serving",
     "unexpected JSONDecodeError: Expecting ',' delimiter: line 38 column 758 (char 8461)",
     "Traceback (most recent call last):",
     "  File \"/home/azureuser/roles/machine_learning_engineer/final_runs/mle.region.production_serving/00_FINAL_PIPELINE_CORE/scripts/run_pipeline.py\", line 748, in main",
@@ -1329,12 +1326,12 @@
     "final-pipeline-machine_learning_engineer-mle.region.production_serving.service: Main process exited, code=exited, status=2/INVALIDARGUMENT",
     "final-pipeline-machine_learning_engineer-mle.region.production_serving.service: Failed with result 'exit-code'.",
     "final-pipeline-machine_learning_engineer-mle.region.production_serving.service: Consumed 1h 35min 36.309s CPU time, 2.3G memory peak, 0B memory swap peak.",
-    "Started final-pipeline-machine_learning_engineer-mle.region.production_serving.service - Final schema machine_learning_engineer mle.region.production_serving."
+    "Started final-pipeline-machine_learning_engineer-mle.region.production_serving.service - Final schema machine_learning_engineer mle.region.production_serving.",
+    "[supervisor] driver finished cleanly",
+    "final-pipeline-machine_learning_engineer-mle.region.production_serving.service: Deactivated successfully.",
+    "final-pipeline-machine_learning_engineer-mle.region.production_serving.service: Consumed 34min 46.524s CPU time, 1.3G memory peak, 0B memory swap peak."
    ],
    "log_tail": [
-    "2026-11-21 13:52:44   gate: E mle.tile.060_063.s16/ix.mle.tile.060_063.s16: solution uses 'attr:dumps', which is not in this practice's allowed syntax (not yet taught) | E mle.tile.060_063.s16/ix.mle.tile.060_063.s16: solution uses 'attr:loads', which is not in this practice's allowed syntax (not yet taught) | E mle.tile.060_063.s16/ix.mle.tile.060_063.s16: solution uses 'block', which is not in this practice's allowed syntax (not yet taught) | E mle.tile.060_063.s16/ix.mle.tile.060_063.s16: solution uses 'call:supplied_fixtures', which is not in this practice's allowed syntax (not yet taught) | E mle.tile.060_063.s16/ix.mle.tile.060_063.s16: solution uses 'call_pos_user', which is not in this practice's allowed syntax (not yet taught) | E mle.tile.060_063.s16/ix.mle.tile.060_063.s16: solution uses 'call_user', which is not in this practice's allowed syntax (not yet taught) | E mle.tile.060_063.s16/ix.mle.tile.060_063.s16: solution uses 'cmp_eq', which is not in this practice's allowed syntax (not yet taught) | E mle.tile.060_063.s16/ix.mle.tile.060_063.s16: solution uses 'dict_lit', which is not in this practice's allowed syntax (not yet taught) | E mle.tile.060_063.s16/ix.mle.tile.060_063.s16: solution uses 'except', which is not in this practice's allowed syntax (not yet taught) | E mle.tile.060_063.s16/ix.mle.tile.060_063.s16: solution uses 'for', which is not in this practice's allowed syntax (not yet taught) | E mle.tile.060_063.s16/ix.mle.tile.060_063.s16: solution uses 'idx', which is not in thi",
-    "2026-11-21 13:55:29 00_preflight: gated PASS on disk, skipping",
-    "2026-11-21 13:55:29 01_scenario_assets: gated PASS on disk, skipping",
     "2026-11-21 13:55:29 02_tile_plan: gated PASS on disk, skipping",
     "2026-11-21 13:55:29 03_screens: gated PASS on disk, skipping",
     "2026-11-21 13:55:29 === 04_interactions (generate_evaluate) spent $8.84",
@@ -1391,13 +1388,16 @@
     "2026-11-21 14:29:26 GATE 09_leakage_check PASS",
     "2026-11-21 14:29:26 === 10_stage_gate_ledger (script) spent $9.82",
     "2026-11-21 14:29:26 10_stage_gate_ledger: python3 00_FINAL_PIPELINE_CORE/scripts/update_ledger.py batches/final_batch_mle.region.production_serving verify 00_preflight 01_scenario_as",
-    "2026-11-21 14:29:26 === 11_final_audit (evaluator_only) spent $9.82"
+    "2026-11-21 14:29:26 === 11_final_audit (evaluator_only) spent $9.82",
+    "2026-11-21 14:35:58 GATE 11_final_audit PASS",
+    "2026-11-21 14:35:58 12_publish: planned stage, not run",
+    "2026-11-21 14:35:58 NOTIFY DONE final_batch_mle.region.production_serving"
    ],
-   "log_age_min": 5.5,
+   "log_age_min": 4.1,
    "stopped": null,
-   "done": null,
+   "done": "# DONE final_batch_mle.region.production_serving\n\nAll implemented stages gated. Spend $9.93. 05 and 12 are planned stages and were not run.\n",
    "proposed_fix": null,
-   "spend_usd": 9.88,
+   "spend_usd": 9.93,
    "ops_action": null
   },
   {
@@ -1442,19 +1442,6 @@
     "Started final-pipeline-machine_learning_engineer-mle.region.reproducible_release.service - Final schema machine_learning_engineer mle.region.reproducible_release."
    ],
    "log_tail": [
-    "2026-11-21 13:38:14 07_validate: python3 00_FINAL_PIPELINE_CORE/scripts/validate_tile.py batches/final_batch_mle.region.reproducible_release --strict",
-    "2026-11-21 13:38:15 GATE 07_validate PASS",
-    "2026-11-21 13:38:15 === 08_pedagogy_review (evaluator_only) spent $8.51",
-    "2026-11-21 13:40:31 NOTIFY STOPPED final_batch_mle.region.reproducible_release",
-    "2026-11-21 13:43:27 start final_batch_mle.region.reproducible_release; cap $25.0; spent so far $8.67",
-    "2026-11-21 13:43:27 00_preflight: gated PASS on disk, skipping",
-    "2026-11-21 13:43:27 01_scenario_assets: gated PASS on disk, skipping",
-    "2026-11-21 13:43:27 02_tile_plan: gated PASS on disk, skipping",
-    "2026-11-21 13:43:27 03_screens: gated PASS on disk, skipping",
-    "2026-11-21 13:43:27 04_interactions: gated PASS on disk, skipping",
-    "2026-11-21 13:43:27 05_code_exercises: planned stage, not run (code exercises are authored in stage 04 and executed by its gate)",
-    "2026-11-21 13:43:27 06_assemble: gated PASS on disk, skipping",
-    "2026-11-21 13:43:27 07_validate: gated PASS on disk, skipping",
     "2026-11-21 13:43:27 === 08_pedagogy_review (evaluator_only) spent $8.67",
     "2026-11-21 13:43:27 08_pedagogy_review: reusing the 5 blocking finding(s) already on disk",
     "2026-11-21 13:43:27 08_pedagogy_review: 5 blocking finding(s) on 4 tile(s); reopening stages 03/04 for chunk(s) ['all'] (loop 1/2)",
@@ -1501,13 +1488,26 @@
     "2026-11-21 14:31:52 03_screens:all packet evaluation unavailable or gave no verdict; falling back to the agent evaluator",
     "2026-11-21 14:32:39 GATE 03_screens PASS",
     "2026-11-21 14:32:39 === 04_interactions (generate_evaluate) spent $9.87",
-    "2026-11-21 14:32:39 04_interactions:all generating"
+    "2026-11-21 14:32:39 04_interactions:all generating",
+    "2026-11-21 14:36:47 04_interactions:all evaluating (round 1)",
+    "2026-11-21 14:37:10 04_interactions:all FAIL round 1: 2 blocking",
+    "2026-11-21 14:37:48 04_interactions:all evaluating (round 2)",
+    "2026-11-21 14:37:53 04_interactions:all PASS with 3 advisories; one repair, no re-evaluation",
+    "2026-11-21 14:38:25 GATE 04_interactions PASS",
+    "2026-11-21 14:38:25 05_code_exercises: planned stage, not run (code exercises are authored in stage 04 and executed by its gate)",
+    "2026-11-21 14:38:25 === 06_assemble (script) spent $10.22",
+    "2026-11-21 14:38:25 06_assemble: python3 00_FINAL_PIPELINE_CORE/scripts/assemble_tiles.py batches/final_batch_mle.region.reproducible_release",
+    "2026-11-21 14:38:25 GATE 06_assemble PASS",
+    "2026-11-21 14:38:25 === 07_validate (script) spent $10.22",
+    "2026-11-21 14:38:25 07_validate: python3 00_FINAL_PIPELINE_CORE/scripts/validate_tile.py batches/final_batch_mle.region.reproducible_release --strict",
+    "2026-11-21 14:38:25 GATE 07_validate PASS",
+    "2026-11-21 14:38:25 === 08_pedagogy_review (evaluator_only) spent $10.22"
    ],
-   "log_age_min": 2.3,
+   "log_age_min": 1.6,
    "stopped": null,
    "done": null,
    "proposed_fix": null,
-   "spend_usd": 9.94,
+   "spend_usd": 10.32,
    "ops_action": null
   },
   {
@@ -1613,11 +1613,11 @@
     "2026-11-21 14:33:04 === 04_interactions (generate_evaluate) spent $6.61",
     "2026-11-21 14:33:04 04_interactions:all generating"
    ],
-   "log_age_min": 1.9,
+   "log_age_min": 7.0,
    "stopped": null,
    "done": null,
    "proposed_fix": null,
-   "spend_usd": 6.75,
+   "spend_usd": 6.93,
    "ops_action": null
   },
   {
@@ -1723,7 +1723,7 @@
     "2026-11-20 07:59:08 12_publish: planned stage, not run",
     "2026-11-20 07:59:08 NOTIFY DONE final_batch_foundations_1"
    ],
-   "log_age_min": 1835.8,
+   "log_age_min": 1840.9,
    "stopped": null,
    "done": "# DONE final_batch_foundations_1\n\nAll implemented stages gated. Spend $5.95. 05 and 12 are planned stages and were not run.\n",
    "proposed_fix": null,
@@ -1833,7 +1833,7 @@
     "2026-11-20 06:09:00 12_publish: planned stage, not run",
     "2026-11-20 06:09:00 NOTIFY DONE final_batch_foundations_2"
    ],
-   "log_age_min": 1945.9,
+   "log_age_min": 1951.0,
    "stopped": null,
    "done": "# DONE final_batch_foundations_2\n\nAll implemented stages gated. Spend $2.00. 05 and 12 are planned stages and were not run.\n",
    "proposed_fix": null,
@@ -1943,7 +1943,7 @@
     "2026-11-21 14:30:22 12_publish: planned stage, not run",
     "2026-11-21 14:30:22 NOTIFY DONE final_batch_implementation"
    ],
-   "log_age_min": 4.6,
+   "log_age_min": 9.7,
    "stopped": null,
    "done": "# DONE final_batch_implementation\n\nAll implemented stages gated. Spend $7.20. 05 and 12 are planned stages and were not run.\n",
    "proposed_fix": null,
@@ -1953,14 +1953,13 @@
   {
    "kind": "final",
    "service": "final-pipeline-python_fastapi_backend_developer-persistence.service",
-   "active": "failed",
-   "sub": "failed",
-   "exit_status": "2",
+   "active": "active",
+   "sub": "running",
+   "exit_status": "0",
    "repo": "/home/azureuser/roles/python_fastapi_backend_developer/final_runs/persistence",
    "batch": "final_batch_persistence",
-   "code_commit": "f0e5faf",
+   "code_commit": "a542c25",
    "journal_tail": [
-    "Started final-pipeline-python_fastapi_backend_developer-persistence.service - Final schema python_fastapi_backend_developer persistence.",
     "[supervisor] triage: {'class': 'human', 'reason': '11_final_audit remained blocked after two repair loops by an apparent grading false positive in tile_065.s04: \"A factually correct migration review is graded wrong solely for using \\\\\"confirm\\\\\" instead of a recognized verification verb.\" The report identifies an arguable grading key, not a missing learner fact; spending was below the $25 cap.', 'action': 'Reviewed the stop file, driver.log, run.log, and final_audit_report.json; no sub_*.log files were present. A human should adjudicate the synonym handling and authorize the report\u2019s authored-scaffold normalization and regression tests, retaining negative-review checks. Then reopen 04_interactions, reassemble, strictly validate, renew affected gates, and rerun the same command without weakening any evaluator or gate.'}",
     "[supervisor] Final pipeline needs you (human)",
     "Class: human",
@@ -1989,25 +1988,10 @@
     "Spend so far $9.40. Fix the cause, then rerun the same",
     "final-pipeline-python_fastapi_backend_developer-persistence.service: Main process exited, code=exited, status=2/INVALIDARGUMENT",
     "final-pipeline-python_fastapi_backend_developer-persistence.service: Failed with result 'exit-code'.",
-    "final-pipeline-python_fastapi_backend_developer-persistence.service: Consumed 2h 2min 58.959s CPU time, 1.3G memory peak, 0B memory swap peak."
+    "final-pipeline-python_fastapi_backend_developer-persistence.service: Consumed 2h 2min 58.959s CPU time, 1.3G memory peak, 0B memory swap peak.",
+    "Started final-pipeline-python_fastapi_backend_developer-persistence.service - Final schema python_fastapi_backend_developer persistence."
    ],
    "log_tail": [
-    "2026-11-21 13:19:53 NOTIFY STOPPED final_batch_persistence",
-    "2026-11-21 13:22:43 start final_batch_persistence; cap $25.0; spent so far $8.33",
-    "2026-11-21 13:22:43 00_preflight: gated PASS on disk, skipping",
-    "2026-11-21 13:22:43 01_scenario_assets: gated PASS on disk, skipping",
-    "2026-11-21 13:22:43 02_tile_plan: gated PASS on disk, skipping",
-    "2026-11-21 13:22:43 03_screens: gated PASS on disk, skipping",
-    "2026-11-21 13:22:43 04_interactions: gated PASS on disk, skipping",
-    "2026-11-21 13:22:43 05_code_exercises: planned stage, not run (code exercises are authored in stage 04 and executed by its gate)",
-    "2026-11-21 13:22:43 06_assemble: gated PASS on disk, skipping",
-    "2026-11-21 13:22:43 07_validate: gated PASS on disk, skipping",
-    "2026-11-21 13:22:43 08_pedagogy_review: gated PASS on disk, skipping",
-    "2026-11-21 13:22:43 09_leakage_check: gated PASS on disk, skipping",
-    "2026-11-21 13:22:43 === 10_stage_gate_ledger (script) spent $8.33",
-    "2026-11-21 13:22:43 10_stage_gate_ledger: python3 00_FINAL_PIPELINE_CORE/scripts/update_ledger.py batches/final_batch_persistence verify 00_preflight 01_scenario_assets 02_tile_plan ",
-    "2026-11-21 13:22:43 === 11_final_audit (evaluator_only) spent $8.33",
-    "2026-11-21 13:22:43 11_final_audit: reusing the 1 blocking finding(s) already on disk",
     "2026-11-21 13:22:43 11_final_audit: 1 blocking finding(s) on 1 tile(s); reopening stages 03/04 for chunk(s) ['all'] (loop 1/2)",
     "2026-11-21 13:35:11 00_preflight: gated PASS on disk, skipping",
     "2026-11-21 13:35:11 01_scenario_assets: gated PASS on disk, skipping",
@@ -2051,14 +2035,30 @@
     "2026-11-21 14:16:25 === 10_stage_gate_ledger (script) spent $9.23",
     "2026-11-21 14:16:25 10_stage_gate_ledger: python3 00_FINAL_PIPELINE_CORE/scripts/update_ledger.py batches/final_batch_persistence verify 00_preflight 01_scenario_assets 02_tile_plan ",
     "2026-11-21 14:16:26 === 11_final_audit (evaluator_only) spent $9.23",
-    "2026-11-21 14:29:51 NOTIFY STOPPED final_batch_persistence"
+    "2026-11-21 14:29:51 NOTIFY STOPPED final_batch_persistence",
+    "2026-11-21 14:34:57 start final_batch_persistence; cap $25.0; spent so far $9.41",
+    "2026-11-21 14:34:57 00_preflight: gated PASS on disk, skipping",
+    "2026-11-21 14:34:57 01_scenario_assets: gated PASS on disk, skipping",
+    "2026-11-21 14:34:57 02_tile_plan: gated PASS on disk, skipping",
+    "2026-11-21 14:34:57 03_screens: gated PASS on disk, skipping",
+    "2026-11-21 14:34:57 04_interactions: gated PASS on disk, skipping",
+    "2026-11-21 14:34:57 05_code_exercises: planned stage, not run (code exercises are authored in stage 04 and executed by its gate)",
+    "2026-11-21 14:34:57 06_assemble: gated PASS on disk, skipping",
+    "2026-11-21 14:34:57 07_validate: gated PASS on disk, skipping",
+    "2026-11-21 14:34:57 08_pedagogy_review: gated PASS on disk, skipping",
+    "2026-11-21 14:34:57 09_leakage_check: gated PASS on disk, skipping",
+    "2026-11-21 14:34:57 === 10_stage_gate_ledger (script) spent $9.41",
+    "2026-11-21 14:34:57 10_stage_gate_ledger: python3 00_FINAL_PIPELINE_CORE/scripts/update_ledger.py batches/final_batch_persistence verify 00_preflight 01_scenario_assets 02_tile_plan ",
+    "2026-11-21 14:34:57 === 11_final_audit (evaluator_only) spent $9.41",
+    "2026-11-21 14:34:57 11_final_audit: reusing the 1 blocking finding(s) already on disk",
+    "2026-11-21 14:34:57 11_final_audit: 1 blocking finding(s) on 1 tile(s); reopening stages 03/04 for chunk(s) ['all'] (loop 1/2)"
    ],
    "log_age_min": 5.1,
-   "stopped": "# STOPPED final_batch_persistence\n\n11_final_audit still reports blocking findings after 2 automatic repair loops; a person must decide. See final_audit_report.json.\nBLOCKING (BLOCKER) tile_065/tile_065.s04: Comment grading rejects a correct review and accepts one forbidding required correction \u2192 reopen `04_interactions`; apply the pinned grader replacements and regression cases in the report.\n{\"severity\": \"BLOCKER\", \"tile_id\": \"tile_065\", \"step_id\": \"tile_065.s04\", \"problem\": \"BLOCKING: The review_findings comment grader both rejects a defensible correct review and accepts a factually wrong one. Executing the supplied grader independently, this correct review gives deleted_data_not_resto\n\nSpend so far $9.40. Fix the cause, then rerun the same command (finished stages are skipped).\n",
+   "stopped": null,
    "done": null,
    "proposed_fix": null,
-   "spend_usd": 9.41,
-   "ops_action": "pulled a542c25 and restarted"
+   "spend_usd": 9.49,
+   "ops_action": null
   },
   {
    "kind": "final",
@@ -2163,7 +2163,7 @@
     "2026-11-21 12:33:31 12_publish: planned stage, not run",
     "2026-11-21 12:33:31 NOTIFY DONE final_batch_readiness"
    ],
-   "log_age_min": 121.4,
+   "log_age_min": 126.5,
    "stopped": null,
    "done": "# DONE final_batch_readiness\n\nAll implemented stages gated. Spend $9.28. 05 and 12 are planned stages and were not run.\n",
    "proposed_fix": null,
@@ -2273,7 +2273,7 @@
     "2026-11-20 07:40:08 12_publish: planned stage, not run",
     "2026-11-20 07:40:08 NOTIFY DONE final_batch_verification_1"
    ],
-   "log_age_min": 1854.8,
+   "log_age_min": 1859.9,
    "stopped": null,
    "done": "# DONE final_batch_verification_1\n\nAll implemented stages gated. Spend $3.48. 05 and 12 are planned stages and were not run.\n",
    "proposed_fix": null,
@@ -2383,7 +2383,7 @@
     "2026-11-21 12:21:13 12_publish: planned stage, not run",
     "2026-11-21 12:21:13 NOTIFY DONE final_batch_verification_2"
    ],
-   "log_age_min": 133.7,
+   "log_age_min": 138.8,
    "stopped": null,
    "done": "# DONE final_batch_verification_2\n\nAll implemented stages gated. Spend $7.00. 05 and 12 are planned stages and were not run.\n",
    "proposed_fix": null,
@@ -2432,7 +2432,6 @@
     "Started glossary-aws_devops_engineer.service - Glossary pipeline aws_devops_engineer."
    ],
    "log_tail": [
-    "2026-11-21 13:55:10 11_reconciliation:all evaluating (round 1)",
     "2026-11-21 13:56:10 GATE 11_reconciliation PASS",
     "2026-11-21 13:56:12 12_cluster_pass: gated PASS on disk, skipping",
     "2026-11-21 13:56:12 === 13_leakage_check (evaluator_only) spent $24.64",
@@ -2491,13 +2490,14 @@
     "",
     "2026-11-21 14:33:42 04_depth_classification: gated PASS on disk, skipping",
     "2026-11-21 14:33:42 === 05_glossary_pass_a (generate_evaluate) spent $26.01",
-    "2026-11-21 14:33:42 05_glossary_pass_a:all evaluating (round 1)"
+    "2026-11-21 14:33:42 05_glossary_pass_a:all evaluating (round 1)",
+    "2026-11-21 14:39:58 05_glossary_pass_a:all FAIL round 1: 3 blocking"
    ],
-   "log_age_min": 1.2,
+   "log_age_min": 0.1,
    "stopped": null,
    "done": null,
    "proposed_fix": null,
-   "spend_usd": 26.08,
+   "spend_usd": 26.51,
    "ops_action": null
   },
   {
@@ -2542,7 +2542,6 @@
     "Started glossary-learn_python.service - Glossary pipeline learn_python."
    ],
    "log_tail": [
-    "2026-11-19 18:17:11 GATE 02_registry_lookup PASS",
     "2026-11-19 18:17:12 === 03_coverage_brief (generate_evaluate) spent $0.09",
     "2026-11-19 18:17:12 03_coverage_brief:all generating",
     "2026-11-19 18:25:03 03_coverage_brief:all evaluating (round 1)",
@@ -2601,13 +2600,14 @@
     "2026-11-21 14:30:46 02_registry_lookup: python3 00_GLOSSARY_PIPELINE_CORE/scripts/registry_lookup.py batches/glossary_batch_learn_python/extracted_concepts.json    batches/glossary",
     "2026-11-21 14:30:46 GATE 02_registry_lookup PASS",
     "2026-11-21 14:30:47 === 03_coverage_brief (generate_evaluate) spent $2.66",
-    "2026-11-21 14:30:47 03_coverage_brief:all generating"
+    "2026-11-21 14:30:47 03_coverage_brief:all generating",
+    "2026-11-21 14:38:14 03_coverage_brief:all evaluating (round 1)"
    ],
-   "log_age_min": 4.2,
+   "log_age_min": 1.8,
    "stopped": null,
    "done": null,
    "proposed_fix": null,
-   "spend_usd": 2.86,
+   "spend_usd": 3.18,
    "ops_action": null
   },
   {
@@ -2713,7 +2713,7 @@
     "2026-11-17 19:42:47 16b_registry_merge: python3 00_GLOSSARY_PIPELINE_CORE/scripts/merge_registry.py batches/glossary_batch_machine_learning_engineer 00_GLOSSARY_PIPELINE_CORE",
     "2026-11-17 19:42:49 NOTIFY DONE glossary_batch_machine_learning_engineer"
    ],
-   "log_age_min": 5452.1,
+   "log_age_min": 5457.2,
    "stopped": null,
    "done": "# DONE glossary_batch_machine_learning_engineer\n\nAll stages gated and registry merged. Spend $33.27. Review list: batches/glossary_batch_machine_learning_engineer/human_spot_check.md\n",
    "proposed_fix": null,
@@ -2823,7 +2823,7 @@
     "2026-11-17 08:15:19 16b_registry_merge: python3 00_GLOSSARY_PIPELINE_CORE/scripts/merge_registry.py batches/glossary_batch_python_fastapi_backend_developer 00_GLOSSARY_PIPELINE_COR",
     "2026-11-17 08:15:20 NOTIFY DONE glossary_batch_python_fastapi_backend_developer"
    ],
-   "log_age_min": 6139.6,
+   "log_age_min": 6144.7,
    "stopped": null,
    "done": "# DONE glossary_batch_python_fastapi_backend_developer\n\nAll stages gated and registry merged. Spend $19.84. Review list: batches/glossary_batch_python_fastapi_backend_developer/human_spot_check.md\n",
    "proposed_fix": null,
@@ -2933,7 +2933,7 @@
     "Next: merge registry_delta.json's proposed_additions into 00_PIPELINE_CORE/registry/global_concept_registry.json (collision-check first), then start the next role.",
     "NOTIFY TOC DONE aws_devops_engineer"
    ],
-   "log_age_min": 5635.7,
+   "log_age_min": 5640.8,
    "stopped": null,
    "done": "# TOC DONE aws_devops_engineer\n\naws_devops_engineer is frozen in 04_aws_devops_engineer_OUTPUT_WORKSPACE. Spend $280.19.\n",
    "proposed_fix": null,
@@ -3043,7 +3043,7 @@
     "Next: merge registry_delta.json's proposed_additions into 00_PIPELINE_CORE/registry/global_concept_registry.json (collision-check first), then start the next role.",
     "NOTIFY TOC DONE learn_python"
    ],
-   "log_age_min": 2661.4,
+   "log_age_min": 2666.5,
    "stopped": null,
    "done": "# TOC DONE learn_python\n\nlearn_python is frozen in 04_learn_python_OUTPUT_WORKSPACE. Spend $56.46.\n",
    "proposed_fix": null,
@@ -3153,7 +3153,7 @@
     "Next: merge registry_delta.json's proposed_additions into 00_PIPELINE_CORE/registry/global_concept_registry.json (collision-check first), then start the next role.",
     "NOTIFY TOC DONE machine_learning_engineer"
    ],
-   "log_age_min": 6490.2,
+   "log_age_min": 6495.3,
    "stopped": null,
    "done": "# TOC DONE machine_learning_engineer\n\nmachine_learning_engineer is frozen in 04_machine_learning_engineer_OUTPUT_WORKSPACE. Spend $201.49.\n",
    "proposed_fix": null,
@@ -3263,7 +3263,7 @@
     "Next: merge registry_delta.json's proposed_additions into 00_PIPELINE_CORE/registry/global_concept_registry.json (collision-check first), then start the next role.",
     "NOTIFY TOC DONE python_fastapi_backend_developer"
    ],
-   "log_age_min": 7471.8,
+   "log_age_min": 7476.9,
    "stopped": null,
    "done": "# TOC DONE python_fastapi_backend_developer\n\npython_fastapi_backend_developer is frozen in 04_python_fastapi_backend_developer_OUTPUT_WORKSPACE. Spend $101.61.\n",
    "proposed_fix": null,
