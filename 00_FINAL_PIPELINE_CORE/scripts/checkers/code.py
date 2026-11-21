@@ -27,13 +27,14 @@ def code_exercise(C, step, ix, rep):
             if list(have.get(k, [])) != list(lc.get(k, [])):
                 rep.e(f"{where}: constraints.{k} differs from {cid}'s glossary practice anchor (it must be copied verbatim, never widened or trimmed)")
     out = sandbox.run_exercise(C.registry, ix)
+    advisory = bool(out.unverified) and out.unverified.startswith("syntax descriptors with no detector") and bool(C.profile.get("syntax_gate_advisory"))  # profile opt-in: the program ran and passed its tests; only the descriptor check has no detector (the evaluator judges teaching order)
     if out.unverified and not out.problems and out.provenance is None and ix["public"]["runtime"]["kind"] not in sandbox.RUNNERS:
         rep.w(f"{where}: UNVERIFIED — {out.unverified}")
         return
     for p in out.problems:
         rep.e(f"{where}: {p}")
     if out.unverified:
-        rep.w(f"{where}: UNVERIFIED — {out.unverified}")
+        rep.w(f"{where}: {'ADVISORY' if advisory else 'UNVERIFIED'} — {out.unverified}")
     if not out.problems:
         stored = ix["grading"].get("hidden_checks")
         if stored is None:
