@@ -381,7 +381,13 @@ def packet_eval(c, sid, chunk, ids, prior=None):
 def run_evaluator(c, sid, chunk, ids, prior):
     """(verdict, defects) for one chunk: the packet evaluator first, the file-exploring agent evaluator as fallback (and in --eval-mode agent)."""
     if c.eval_mode == "packet" and c.stage[sid].get("eval_packet"):
-        reply = packet_eval(c, sid, chunk, ids, prior)
+        try:
+            reply = packet_eval(c, sid, chunk, ids, prior)
+        except Exception as e:  # provider error (llm_azure.LLMError carries status/code); anything else propagates unchanged
+            if getattr(e, "status", None) != 400 or getattr(e, "code", "") != "context_length_exceeded":
+                raise
+            c.log(f"{sid}:{chunk} complete packet exceeds the model context window")
+            reply = None
         if reply:
             verdict, defects = parse_eval(reply)
             if verdict:
