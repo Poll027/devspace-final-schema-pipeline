@@ -15,7 +15,7 @@ Anchors/facts/blocks are written fully qualified ("<concept_id>#f1", "<concept_i
 import sys
 from pathlib import Path
 
-from finlib import CORE, Bundles, load, profile, save, words
+from finlib import CORE, Bundles, assessment_ref, load, profile, save, words
 from schema_check import validate
 
 MAP = load(CORE / "registry" / "anchor_mapping.json")
@@ -111,7 +111,7 @@ def plan_tile(bundles, tile_id, cids, next_tile, prof):
         for bn in bins:
             steps.append({"step_id": "", "type": "check", "concept_ids": [cid], "teaching_block_ids": [],
                           "fact_ids": sorted({f"{cid}#{f}" for a in bn for f in a["fact_ids"]}), "segment_ids": [],
-                          "anchors": [f"{cid}#assessment:{a['capability']}" for a in bn], "planned_interaction_type": MAP["check_default_interaction"],
+                          "anchors": [assessment_ref(cid, a['capability']) for a in bn], "planned_interaction_type": MAP["check_default_interaction"],
                           "planned_visual_block_type": None, "visual_purpose": None, "word_budget": 0, "mapping_rule": "default_check"})
         if practice:
             ptype = prof.get("practice_type_by_concept", {}).get(cid, practice["type"])  # a concept whose code cannot run in the sandbox (e.g. PyTorch, Docker) is practised as inspect-and-judge: the profile re-types its anchor
@@ -122,7 +122,7 @@ def plan_tile(bundles, tile_id, cids, next_tile, prof):
                 warnings.append(f"{cid}: {rule} (needs a new interaction type)")
             steps.append({"step_id": "", "type": "hands_on", "concept_ids": [cid], "teaching_block_ids": [],
                           "fact_ids": sorted({f"{cid}#{f}" for a in hands_anchors for f in a["fact_ids"]}), "segment_ids": [],
-                          "anchors": [f"{cid}#practice"] + [f"{cid}#assessment:{a['capability']}" for a in hands_anchors],
+                          "anchors": [f"{cid}#practice"] + [assessment_ref(cid, a['capability']) for a in hands_anchors],
                           "planned_interaction_type": itype, "planned_visual_block_type": None, "visual_purpose": None, "word_budget": 0, "mapping_rule": rule})
     steps.append({"step_id": "", "type": "recap", "concept_ids": list(cids), "teaching_block_ids": recap_blocks, "fact_ids": sorted(set(recap_facts)), "segment_ids": [],
                   "anchors": [], "planned_interaction_type": None, "planned_visual_block_type": "up_next" if next_tile else None, "visual_purpose": None,

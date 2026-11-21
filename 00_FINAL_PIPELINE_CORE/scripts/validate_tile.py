@@ -24,7 +24,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import checkers
-from finlib import CORE, Ctx, load, save, sha, words
+from finlib import CORE, Ctx, assessment_ref, load, save, sha, words
 from schema_check import errors as schema_errors
 
 _MAP = load(CORE / "registry" / "anchor_mapping.json")
@@ -252,8 +252,7 @@ def validate_tile(C, tile_id, strict=False):
                 rep.e(f"plan: {p['step_id']} must contain a {' or '.join(sorted(ok_types))} block ({p['visual_purpose']})")
         for a in p["anchors"]:
             if a.split("#", 1)[1].startswith("assessment:") and s.get("interaction"):
-                cap = a.split("assessment:")[1]
-                if (a.split("#")[0], cap) not in {(m["concept_id"], m["capability"]) for m in s["interaction"]["measures"]}:
+                if a not in {assessment_ref(m["concept_id"], m["capability"]) for m in s["interaction"]["measures"]}:
                     rep.w(f"plan: {p['step_id']} was planned to measure {a} but its interaction does not")
     planned = {p["step_id"] for p in plan["steps"]}
     for s in authored:

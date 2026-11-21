@@ -8,6 +8,16 @@ CORE = Path(__file__).resolve().parent.parent
 ROOT = CORE.parent
 
 
+def assessment_ref(cid, cap):
+    """Qualified anchor id '<cid>#assessment:<cap>'. common.schema.json caps ids at 160 chars, so an over-long one is
+    shortened deterministically (prefix + '-' + 8 hex of sha256 of the full capability); validate_tile compares via this same function."""
+    full = f"{cid}#assessment:{cap}"
+    if len(full) <= 160:
+        return full
+    h = hashlib.sha256(full.encode()).hexdigest()[:8]
+    return full[:151] + "-" + h
+
+
 def load(p):
     return json.loads(Path(p).read_text())
 
