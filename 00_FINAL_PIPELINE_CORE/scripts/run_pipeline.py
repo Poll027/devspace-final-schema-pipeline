@@ -556,14 +556,15 @@ def reopen_for_findings(c, sid, hits):
     independent check. Raises Reopen; raises Stuck when no tile can be identified in the findings (e.g. a registry-level defect)."""
     plan_ids = [t["tile_id"] for t in load(c.B / "tile_plans.json")["tiles"]]
     findings = "\n".join(hits)
-    tiles = sorted({t for t in re.findall(r"tile_[a-z0-9_]+", findings) if t in plan_ids})
+    named_tiles = lambda text: sorted(t for t in plan_ids if re.search(r"(?<![A-Za-z0-9_])" + re.escape(t) + r"(?![A-Za-z0-9_])", text))  # ids may contain dots ("mle.tile.035_037"), not only "tile_035"
+    tiles = named_tiles(findings)
     if not tiles:  # findings written under a per-tile heading ("## tile_x" then "BLOCKING Step 3: ...") name no tile themselves: use the nearest tile id above each
         art = c.B / c.artifact(sid)
         if art.exists() and art.suffix != ".json":
             want, cur, found = {h.strip() for h in hits}, None, set()
             for ln in art.read_text().splitlines():
-                m = re.findall(r"tile_[a-z0-9_]+", ln)
-                if m and m[0] in plan_ids:
+                m = named_tiles(ln)
+                if m:
                     cur = m[0]
                 if cur and ln.strip() in want:
                     found.add(cur)
