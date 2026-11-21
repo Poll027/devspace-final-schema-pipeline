@@ -597,6 +597,17 @@ def reopen_for_findings(c, sid, hits):
     raise Reopen()
 
 
+def json_error(art):
+    """Parse diagnostic when a JSON stage artifact is unreadable (evaluators sometimes write unescaped quotes inside a finding string), else ''."""
+    if art.suffix != ".json" or not art.exists():
+        return ""
+    try:
+        json.loads(art.read_text())
+    except ValueError as e:
+        return str(e)
+    return ""
+
+
 def run_evaluator_only(c, sid):
     art = c.B / c.artifact(sid)
     instr = "INDEPENDENT_AUDIT.md" if sid.endswith("final_audit") else "EVALUATOR.md"
@@ -604,18 +615,24 @@ def run_evaluator_only(c, sid):
             f"Write the stage artifact `{c.rel(art)}` yourself. Label defects BLOCKING or ADVISORY (audit: BLOCKER/HIGH/MEDIUM/LOW). "
             f"End your reply with `VERDICT: PASS`, `VERDICT: PASS_WITH_NONBLOCKING_CHANGES` or `VERDICT: FAIL`.")
     if art.exists() and c.reopens.get(sid, 0) < MAX_REOPENS:  # a previous run stopped on this stage's findings: act on them instead of paying for the review again
-        prior = blocking_in(art, "")
+        bad = json_error(art)
+        if bad:
+            c.log(f"{sid}: existing {c.artifact(sid)} is not valid JSON ({bad}); not reusing it, a fresh review will rewrite it")
+        prior = [] if bad else blocking_in(art, "")
         if prior:
             c.log(f"{sid}: reusing the {len(prior)} blocking finding(s) already on disk")
             c.reopens[sid] = c.reopens.get(sid, 0) + 1
             reopen_for_findings(c, sid, prior)
-    text = ""
+    text, bad = "", ""
     for _ in range(2):
-        text = c.agent("EVAL", task, f"{sid}:eval", tiles=len(load(c.B / "tile_plans.json")["tiles"]))  # whole-batch review: ceiling scales with tiles
-        if art.exists() and VERDICT.findall(text):
+        text = c.agent("EVAL", task + (f"\n\nYour previous `{c.rel(art)}` is NOT valid JSON ({bad}). Rewrite the WHOLE report as valid JSON "
+                                      f"(escape every double quote inside strings, e.g. write \\\"ready\\\": true, and keep all findings), then check it parses." if bad else ""),
+                       f"{sid}:eval", tiles=len(load(c.B / "tile_plans.json")["tiles"]))  # whole-batch review: ceiling scales with tiles
+        bad = json_error(art)
+        if art.exists() and VERDICT.findall(text) and not bad:
             break
     else:
-        raise Stuck(f"{sid} evaluator did not write {c.artifact(sid)} with a VERDICT line")
+        raise Stuck(f"{sid} evaluator did not write {c.artifact(sid)} with a VERDICT line" + (f" and valid JSON ({bad})" if bad else ""))
     hits = blocking_in(art, text)
     if hits or VERDICT.findall(text)[-1] == "FAIL":
         if c.reopens.get(sid, 0) < MAX_REOPENS:
