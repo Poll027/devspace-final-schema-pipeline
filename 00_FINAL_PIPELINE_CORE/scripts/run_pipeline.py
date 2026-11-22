@@ -65,6 +65,7 @@ class Ctx:
         (B / "working").mkdir(exist_ok=True)
         self.budget = Budget(args.max_usd, B / "working" / "cost_log.jsonl")
         self.call_cap = float(os.environ.get("CALL_CAP_USD", 8))
+        self.gate_rejects = {}  # (stage, chunk) -> gate errors that rejected a generator repair; told to the next evaluator so it stops re-demanding them
         self.reopens, self.reopening = {}, set()  # reopen count per stage; artifacts a repair agent may write right now
         self.eval_mode = getattr(args, "eval_mode", None) or os.environ.get("EVAL_MODE", "packet")
         self.manifest = load(CORE / "pipeline_manifest.json")
@@ -309,6 +310,16 @@ def generator_task(c, sid, chunk, ids, repair=None, gate_msg=None):
             f"Build large files with a script, not by hand. Run the stage gate named in GENERATOR.md before finishing.")
 
 
+def gate_reject_note(c, sid, chunk):
+    """Text for the evaluator when the deterministic gate rejected the last generator repair (else ''): the demanded change cannot pass the gate."""
+    g = c.gate_rejects.get((sid, chunk))
+    if not g:
+        return ""
+    return ("\n\nThe generator's last repair was REJECTED by the deterministic gate with these errors (the gate wins over your finding):\n" + g +
+            "\nIf one of your findings demanded the change that triggered these errors (e.g. a learner-written body using syntax the anchor's allowed_syntax does not list), "
+            "do not repeat it as BLOCKING: report it ADVISORY, or `PLAN GAP:` if no gate-passable exercise can measure the anchor.")
+
+
 def evaluator_task(c, sid, chunk, ids, prior=None):
     part = c.rel(c.part(sid, chunk))
     sb = c.stage[sid].get("gate", {}).get("sandbox")
@@ -320,7 +331,7 @@ def evaluator_task(c, sid, chunk, ids, prior=None):
     if prior:
         t += ("\n\nThis is a SCOPED re-evaluation after a repair. Check only what the repair changed against its sources and confirm nothing else changed. "
               f"Findings that were sent for repair:\n{prior}")
-    return t
+    return t + gate_reject_note(c, sid, chunk)
 
 
 PACKET_RULES = """EVALUATION BY PACKET. You have no tools and cannot open files. The user message starts with an evaluator packet per tile: source facts with
@@ -375,6 +386,7 @@ def packet_eval(c, sid, chunk, ids, prior=None):
     if prior:
         task += ("\n\nThis is a SCOPED re-evaluation after a repair. Check only what the repair changed against its sources and confirm nothing else changed. "
                  f"Findings that were sent for repair:\n{prior}")
+    task += gate_reject_note(c, sid, chunk)
     return c.llm(system, [{"text": pk}, {"text": task}], f"{sid}:{chunk}:eval")
 
 
@@ -424,6 +436,7 @@ def ensure_gate(c, sid, chunk, ids):
         if i == MAX_ROUNDS:
             raise Stuck(f"{sid}:{chunk} still failing its deterministic gate after {MAX_ROUNDS} generator repairs:\n{msg[-2000:]}")
         c.log(f"{sid}:{chunk} gate failed, generator repair {i + 1}")
+        c.gate_rejects[(sid, chunk)] = "\n".join(l.strip()[:230] for l in msg.splitlines() if re.match(r"\s*E\b", l))[:1500]
         c.log("  gate: " + " | ".join(l.strip()[:230] for l in msg.splitlines() if re.match(r"\s*(E|schema|tile coverage)\b", l) or "UNVERIFIED" in l)[:1500])
         teach = [l for l in msg.splitlines() if re.search(r"has taught it by text|is never taught by a text block|is not a registered image|(?:spreadsheet_grid|data_table): .no dataset asset|data_table result_of: query does not run|^\s*E plan: \S+ must contain a .* block", l)]
         if sid == "04_interactions" and teach:  # teaching lives in stage 03's prose: the interactions generator can't fix it
@@ -467,6 +480,7 @@ def chunk_gen_eval(c, sid, chunk, ids):
     for rnd in range(1, MAX_ROUNDS + 1):
         c.log(f"{sid}:{chunk} evaluating (round {rnd})")
         verdict, defects = run_evaluator(c, sid, chunk, ids, prior)
+        c.gate_rejects.pop((sid, chunk), None)  # told to this evaluation only
         (c.B / "working" / f"eval_{sid}_{chunk}_r{rnd}.txt").write_text(f"{verdict}\n" + "\n".join(defects))
         if not verdict:
             raise Stuck(f"{sid}:{chunk} evaluator never produced a VERDICT line")
