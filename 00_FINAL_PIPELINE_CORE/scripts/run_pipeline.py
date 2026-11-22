@@ -438,7 +438,7 @@ def ensure_gate(c, sid, chunk, ids):
         c.log(f"{sid}:{chunk} gate failed, generator repair {i + 1}")
         c.gate_rejects[(sid, chunk)] = "\n".join(l.strip()[:230] for l in msg.splitlines() if re.match(r"\s*E\b", l))[:1500]
         c.log("  gate: " + " | ".join(l.strip()[:230] for l in msg.splitlines() if re.match(r"\s*(E|schema|tile coverage)\b", l) or "UNVERIFIED" in l)[:1500])
-        teach = [l for l in msg.splitlines() if re.search(r"has taught it by text|is never taught by a text block|is not a registered image|(?:spreadsheet_grid|data_table): .no dataset asset|data_table result_of: query does not run|^\s*E plan: \S+ must contain a .* block", l)]
+        teach = [l for l in msg.splitlines() if re.search(r"has taught it by text|is never taught by a text block|is not a registered image|(?:spreadsheet_grid|data_table): .no dataset asset|data_table result_of: query does not run|lineage fact \S+ does not exist in the glossary bundle|^\s*E plan: \S+ must contain a .* block", l)]
         if sid == "04_interactions" and teach:  # teaching lives in stage 03's prose: the interactions generator can't fix it
             c.log(f"{sid}:{chunk} {len(teach)} fact(s) not taught by text; sending them to the screens generator")
             note = ("A strict check of the assembled lessons reports problems that live in the screens. For facts tested or required but not taught: teach each in a "
@@ -447,7 +447,7 @@ def ensure_gate(c, sid, chunk, ids):
                     "as an SVG diagram) or a `spreadsheet_grid`, keeping the same teaching purpose. For `data_table result_of: query does not run`: the `result_of.sql` is DuckDB SQL "
                     "run against ONLY its `asset_mounts` tables, so every column must come from a mounted table named in a FROM clause; text values take SINGLE quotes (a "
                     "double-quoted word is a column name); a non-aggregated column in a GROUP BY query must be grouped or aggregated. Fix the SQL, or if the table is not "
-                    "really a query over a registered dataset, show it with an `asset_ref` to a registered dataset instead of `result_of`; never type rows. For `plan: <step> must contain a X or Y block (purpose)`: that explainer step is missing the visual the plan requires; add a block of one of the named types that shows the stated purpose, built only from registered assets/datasets and facts in the lesson (a `spreadsheet_grid` or `data_table` whose `asset_ref` is a registered asset with `asset_kind: dataset`). A `diagram`/SVG does NOT satisfy a requirement for `data_table` or `spreadsheet_grid`: if the step shows the comparison as a diagram today, replace it with (or add) a real table block of a named type, and keep one only if it still teaches something; keep step ids and types. For `spreadsheet_grid`/`data_table` `no dataset asset 'X'`: `asset_ref` must name an asset whose `asset_kind` is `dataset` in `scenario_asset_registry.json`; an `img.*` image id is not a dataset, so pick the registered dataset that holds the comparison, and if none does, say so in your reply rather than inventing an id.\n" + "\n".join(teach))
+                    "really a query over a registered dataset, show it with an `asset_ref` to a registered dataset instead of `result_of`; never type rows. For `plan: <step> must contain a X or Y block (purpose)`: that explainer step is missing the visual the plan requires; add a block of one of the named types that shows the stated purpose, built only from registered assets/datasets and facts in the lesson (a `spreadsheet_grid` or `data_table` whose `asset_ref` is a registered asset with `asset_kind: dataset`). A `diagram`/SVG does NOT satisfy a requirement for `data_table` or `spreadsheet_grid`: if the step shows the comparison as a diagram today, replace it with (or add) a real table block of a named type, and keep one only if it still teaches something; keep step ids and types. For `spreadsheet_grid`/`data_table` `no dataset asset 'X'`: `asset_ref` must name an asset whose `asset_kind` is `dataset` in `scenario_asset_registry.json`; an `img.*` image id is not a dataset, so pick the registered dataset that holds the comparison, and if none does, say so in your reply rather than inventing an id. For `lineage fact X does not exist in the glossary bundle (valid for C: ...)`: a step's `lineage.fact_ids` (or a block's) cites a fact id the concept does not have; replace it with a valid id from the list in the error that the text really teaches, or drop it; never invent ids.\n" + "\n".join(teach))
             art = c.artifact("03_screens")
             c.reopening.add(art)
             try:
@@ -642,7 +642,11 @@ def run_evaluator_only(c, sid):
         if prior:
             c.log(f"{sid}: reusing the {len(prior)} blocking finding(s) already on disk")
             c.reopens[sid] = c.reopens.get(sid, 0) + 1
-            reopen_for_findings(c, sid, prior)
+            try:
+                reopen_for_findings(c, sid, prior)
+            except Stuck as e:  # batch-level findings name no tile, so they can't be routed; reusing them would stop on the same stale file forever: review again instead
+                c.reopens[sid] -= 1
+                c.log(f"{sid}: the findings on disk can't be routed to a tile ({str(e).splitlines()[0][:100]}); running a fresh review instead")
     text, bad = "", ""
     for _ in range(2):
         text = c.agent("EVAL", task + (f"\n\nYour previous `{c.rel(art)}` is NOT valid JSON ({bad}). Rewrite the WHOLE report as valid JSON "
