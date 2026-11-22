@@ -26,6 +26,7 @@ def code_exercise(C, step, ix, rep):
         for k in ("allowed_syntax", "blocked_syntax"):
             if list(have.get(k, [])) != list(lc.get(k, [])):
                 rep.e(f"{where}: constraints.{k} differs from {cid}'s glossary practice anchor (it must be copied verbatim, never widened or trimmed)")
+    sandbox.UNTAUGHT_ADVISORY = bool((getattr(C, "profile", None) or {}).get("syntax_untaught_advisory"))
     out = sandbox.run_exercise(C.registry, ix)
     advisory = bool(out.unverified) and out.unverified.startswith("syntax descriptors with no detector") and bool((getattr(C, "profile", None) or {}).get("syntax_gate_advisory"))  # profile opt-in: the program ran and passed its tests; only the descriptor check has no detector (the evaluator judges teaching order)
     if out.unverified and not out.problems and out.provenance is None and ix["public"]["runtime"]["kind"] not in sandbox.RUNNERS:

@@ -14,7 +14,7 @@ import copy
 import sys
 from pathlib import Path
 
-from finlib import CORE, Bundles, load, save, sha, words
+from finlib import CORE, Bundles, load, profile, save, sha, words
 from checkers import sandbox
 from schema_check import errors
 
@@ -99,6 +99,7 @@ def main():
     bundles = Bundles(B / ctx["glossary_bundle_file"])
     plans = {t["tile_id"]: t for t in load(B / "tile_plans.json")["tiles"]}
     registry = load(B / "scenario_asset_registry.json")
+    sandbox.UNTAUGHT_ADVISORY = bool(profile(ctx["path_id"]).get("syntax_untaught_advisory"))
     screens = {t["tile_id"]: t for t in load(B / "screens.json")["tiles"]}
     inters = {t["tile_id"]: {i["step_id"]: i["interaction"] for i in t["interactions"]} for t in load(B / "interactions.json")["tiles"]}
     cid_by_seg = {sid: cid for cid in bundles.order for sid in bundles.segments(cid)}

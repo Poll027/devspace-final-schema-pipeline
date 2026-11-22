@@ -661,6 +661,8 @@ def run_python(registry, ix):
         viol, unmapped, _ = pysyntax.judge(solution, cons.get("allowed_syntax", []), cons.get("blocked_syntax", []), starter)
     except SyntaxError as ex:
         viol, unmapped = [f"does not parse: {ex}"], []
+    if UNTAUGHT_ADVISORY:  # profile opt-in (learners already know Python): a construct outside the glossary's allowed list is not an error; a construct the glossary BLOCKS still is
+        viol = [v for v in viol if not v.endswith("(not yet taught)")]
     if syntax_exempt(ix) and not any(v.startswith("does not parse") for v in viol):
         viol, unmapped = [], []
     if asgi and not any(v.startswith("does not parse") for v in viol):  # ponytail: pysyntax has no FastAPI detectors (decorators, async def, Depends...): until it has, the allowed-syntax gate is the evaluator's job here. Not `unverified` either: the strict gate turns that into a blocking error.
@@ -954,6 +956,9 @@ def grade_learner_sheet(registry, ix, learner_sheet):
 
 run_chart, grade_learner_chart = run_python, grade_learner_py  # the same code path; the exercise's runtime.kind picks chart mode
 RUNNERS = {"sql": run_sql, "python": run_python, "spreadsheet": run_sheet, "chart_renderer": run_python, "python_asgi": run_python}
+
+
+UNTAUGHT_ADVISORY = False  # set by the callers from the path profile (syntax_untaught_advisory)
 
 
 def run_exercise(registry, ix):
