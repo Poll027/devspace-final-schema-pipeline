@@ -166,7 +166,7 @@ def validate_tile(C, tile_id, strict=False):
                 for f in lin.get("fact_ids", []):
                     cid, _, fid = f.partition("#")
                     if cid not in cids or fid not in bundles.facts(cid):
-                        rep.e(f"{s['step_id']}: lineage fact {f} does not exist in the glossary bundle")
+                        rep.e(f"{s['step_id']}: lineage fact {f} does not exist in the glossary bundle (valid for {cid}: {', '.join(sorted(bundles.facts(cid))) if cid in cids else 'concept not in this tile'})")
                 for tb in lin.get("teaching_block_ids", []):
                     cid, _, bid = tb.partition("#")
                     if cid not in cids or bid not in bundles.blocks(cid):
@@ -182,7 +182,7 @@ def validate_tile(C, tile_id, strict=False):
         for f in s["lineage"].get("fact_ids", []):
             cid, _, fid = f.partition("#")
             if cid not in cids or fid not in bundles.facts(cid):
-                rep.e(f"{s['step_id']}: step lineage fact {f} does not exist in the glossary bundle")
+                rep.e(f"{s['step_id']}: step lineage fact {f} does not exist in the glossary bundle (valid for {cid}: {', '.join(sorted(bundles.facts(cid))) if cid in cids else 'concept not in this tile'})")
         if s["type"] in ("explainer", "recap", "remediation") and s in L["steps"]:
             ps = next((p for p in plan["steps"] if p["step_id"] == s["step_id"]), None)
             if ps and ps["word_budget"] and st_words > ps["word_budget"] * 1.5 + 20:
