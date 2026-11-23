@@ -550,9 +550,20 @@ def run_gen_eval(c, sid):
     gate(c, sid, gen=c.gen, ev=c.ev, unresolved=sum(n.values()))
 
 
+_BLOCKING_RE = re.compile(r"\s*[-*|]?\s*\**(BLOCKING|BLOCKER)\b(?!\s+(defects?|findings?|count)\b)(?![\s|:*]*\d+(?:[\s·|,*]+(?:BLOCKING|BLOCKER|ADVISORY|MAJOR|MINOR|INFO)\b[\s|:*]*\d+)*[\s|*]*\.?[\s|*]*$)")
+# full-line count/verdict summary, e.g. "**BLOCKING: 0. ADVISORY: 8. VERDICT: PASS.**" (a summary, not a finding)
+_SUMMARY_RE = re.compile(r"(?:BLOCKING|BLOCKER):\s*\d+\.\s*ADVISORY:\s*\d+\.\s*VERDICT:\s*(?:PASS|FAIL)\.?")
+
+
+def _is_blocking_line(ln):
+    if _SUMMARY_RE.fullmatch(ln.replace("*", "").strip()):
+        return False
+    return bool(_BLOCKING_RE.match(ln))
+
+
 def blocking_in(path, reply):
     """BLOCKING/BLOCKER findings in an evaluator-only artifact (json or text) or its reply."""
-    hits = [ln.strip() for ln in reply.splitlines() if re.match(r"\s*[-*|]?\s*\**(BLOCKING|BLOCKER)\b(?!\s+(defects?|findings?|count)\b)(?![\s|:*]*\d+(?:[\s·|,*]+(?:BLOCKING|BLOCKER|ADVISORY|MAJOR|MINOR|INFO)\b[\s|:*]*\d+)*[\s|*]*\.?[\s|*]*$)", ln)]
+    hits = [ln.strip() for ln in reply.splitlines() if _is_blocking_line(ln)]
     if path.suffix == ".json":
         def walk(o):
             if isinstance(o, dict):
@@ -565,7 +576,7 @@ def blocking_in(path, reply):
                     walk(v)
         walk(load(path))
     else:
-        hits += [ln.strip() for ln in path.read_text().splitlines() if re.match(r"\s*[-*|]?\s*\**(BLOCKING|BLOCKER)\b(?!\s+(defects?|findings?|count)\b)(?![\s|:*]*\d+(?:[\s·|,*]+(?:BLOCKING|BLOCKER|ADVISORY|MAJOR|MINOR|INFO)\b[\s|:*]*\d+)*[\s|*]*\.?[\s|*]*$)", ln)]
+        hits += [ln.strip() for ln in path.read_text().splitlines() if _is_blocking_line(ln)]
     return hits
 
 
