@@ -1,0 +1,343 @@
+{
+  "step_id": "tile_043.s04",
+  "interaction": {
+    "type": "code_exercise",
+    "interaction_id": "ix.tile_043.s04",
+    "difficulty": "stretch",
+    "grading_mode": "client",
+    "standalone": false,
+    "measures": [
+      {
+        "concept_id": "fastapi.bounded_multipart_inputs",
+        "fact_ids": [
+          "f1"
+        ],
+        "capability": "bind_form_metadata_and_uploaded_file"
+      },
+      {
+        "concept_id": "fastapi.bounded_multipart_inputs",
+        "fact_ids": [
+          "f2",
+          "f5"
+        ],
+        "capability": "handle_spooled_upload_resources_safely"
+      },
+      {
+        "concept_id": "fastapi.bounded_multipart_inputs",
+        "fact_ids": [
+          "f3"
+        ],
+        "capability": "enforce_actual_multipart_body_byte_limit"
+      },
+      {
+        "concept_id": "fastapi.bounded_multipart_inputs",
+        "fact_ids": [
+          "f3",
+          "f4"
+        ],
+        "capability": "distinguish_multipart_parser_limits_from_total_body_limit"
+      },
+      {
+        "concept_id": "fastapi.bounded_multipart_inputs",
+        "fact_ids": [
+          "f5"
+        ],
+        "capability": "reject_disallowed_upload_types_and_invalid_metadata"
+      }
+    ],
+    "anchors": [
+      "fastapi.bounded_multipart_inputs#practice",
+      "fastapi.bounded_multipart_inputs#assessment:bind_form_metadata_and_uploaded_file",
+      "fastapi.bounded_multipart_inputs#assessment:handle_spooled_upload_resources_safely",
+      "fastapi.bounded_multipart_inputs#assessment:enforce_actual_multipart_body_byte_limit",
+      "fastapi.bounded_multipart_inputs#assessment:distinguish_multipart_parser_limits_from_total_body_limit",
+      "fastapi.bounded_multipart_inputs#assessment:reject_disallowed_upload_types_and_invalid_metadata"
+    ],
+    "feedback": {
+      "correct": {
+        "message": "You applied the declared boundary and preserved its required behavior."
+      },
+      "incorrect": {
+        "message": "Recheck the stated boundary and distinguish the separate obligations rather than assuming one implies the other."
+      },
+      "hints": [
+        "Compare each declaration with its input or lifecycle boundary.",
+        "Trace what happens on the alternative input or exit, not only the successful path."
+      ]
+    },
+    "public": {
+      "prompt": "Register RequestBodyLimitMiddleware using budgets['max_body_size']. Complete attachment with metadata: Annotated[str, Form()] and file: Annotated[UploadFile, File()]. Inside try/finally, reject content types outside permitted_content_types with 415 and metadata longer than budgets['metadata_max_length'] with 422 before reading. Read at most budgets['read_size']; return {'metadata': metadata, 'size': len(content)}. Always await file.close() in finally. Keep the supplied bounded route (parser limits before binding) unchanged. The harness covers permitted input, rejection, actual-byte overflow including multipart overhead, file/field counts and non-file part size.",
+      "runtime": {
+        "kind": "python_asgi",
+        "version": "0.29.5",
+        "packages": [
+          "python-multipart"
+        ]
+      },
+      "workspace": {
+        "entry": "exercise.py",
+        "files": [
+          {
+            "path": "exercise.py",
+            "role": "editable",
+            "language": "python",
+            "content": "from fastapi.routing import APIRoute\nfrom starlette.datastructures import UploadFile\nfrom starlette.responses import Response\nbudgets = {'max_body_size': 4096, 'max_files': 1, 'max_fields': 1,\n           'max_part_size': 256, 'read_size': 1024, 'metadata_max_length': 80}\npermitted_content_types = ('text/plain',)\nclass RequestBodyLimitMiddleware:\n    def __init__(self, app, max_body_size):\n        self.app, self.limit = app, max_body_size\n    async def __call__(self, scope, receive, send):\n        if scope['type'] != 'http':\n            return await self.app(scope, receive, send)\n        messages, size = [], 0\n        while True:\n            message = await receive()\n            if message['type'] == 'http.disconnect':\n                return\n            size += len(message.get('body', b''))\n            if size > self.limit:\n                return await Response(status_code=413)(scope, receive, send)\n            messages.append(message)\n            if not message.get('more_body', False):\n                break\n        async def replay():\n            if messages:\n                return messages.pop(0)\n            return await receive()\n        await self.app(scope, replay, send)\nclass BoundedMultipartRoute(APIRoute):\n    def get_route_handler(self):\n        original = super().get_route_handler()\n        async def bounded(request):\n            # Parsing precedes automatic typed parameter binding.\n            form = await request.form(max_files=budgets['max_files'],\n                max_fields=budgets['max_fields'], max_part_size=budgets['max_part_size'])\n            try:\n                return await original(request)\n            finally:\n                await form.close()\n        return bounded\nfrom typing import Annotated\nfrom fastapi import FastAPI, Form, File, UploadFile, Request, HTTPException\napp = FastAPI()\napp.router.route_class = BoundedMultipartRoute\n# TODO: register the actual-byte middleware using the supplied budget.\n\nasync def attachment():\n    # TODO: bind only metadata and file using Form/File/UploadFile.\n    # Validate before processing, read at most budgets['read_size'],\n    # and await file.close() in finally.\n    raise NotImplementedError\nattachment = app.post('/orders/attachments')(attachment)\nimport asyncio, inspect, json, ast\nimport httpx\nfrom contextlib import contextmanager\n\ndef _drive(coro):\n    try:\n        pending = coro.send(None)\n    except StopIteration as done:\n        return done.value\n    raise RuntimeError('Harness encountered a suspending operation: ' + repr(pending))\n\nasync def _requests(application, requests):\n    async with application.router.lifespan_context(application):\n        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=application, raise_app_exceptions=False), base_url='http://testserver') as client:\n            out=[]\n            for method,path,kwargs in requests:\n                response=await client.request(method,path,**kwargs)\n                try: body=response.json()\n                except ValueError: body=response.text\n                out.append({'status':response.status_code,'body':body})\n            return out\ndef _case(which):\n    from unittest.mock import patch\n    from starlette.datastructures import UploadFile as StarletteUploadFile\n    reads=[]; closed=[]\n    old_read=StarletteUploadFile.read; old_close=StarletteUploadFile.close\n    async def read(file,size=-1):\n        reads.append(size)\n        return await old_read(file,size)\n    async def close(file):\n        await old_close(file)\n        closed.append(file.file.closed)\n    async def run():\n        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app,raise_app_exceptions=False),base_url='http://testserver') as client:\n            metadata='valid';type_='text/plain';payload=b'attachment'\n            parts=None\n            if which=='invalid_metadata': metadata='m'*(budgets['metadata_max_length']+1)\n            if which=='type': type_='application/octet-stream'\n            if which=='overflow':payload=b'x'*(budgets['max_body_size']+1)\n            parts=[('metadata',(None,metadata)),('file',('attachment.txt',payload,type_))]\n            if which=='files': parts.append(('file',('extra.txt',b'extra','text/plain')))\n            if which=='fields': parts.append(('extra',(None,'extra')))\n            if which=='part': parts[0]=('metadata',(None,'m'*(budgets['max_part_size']+1)))\n            response=await client.post('/orders/attachments',files=parts)\n            return response\n    with patch.object(StarletteUploadFile,'read',read),patch.object(StarletteUploadFile,'close',close):\n        r=_drive(run())\n    expected={'valid':200,'invalid_metadata':422,'type':415,'overflow':413,'files':400,'fields':400,'part':400}[which]\n    assert r.status_code==expected, (which,r.status_code,r.text)\n    if which=='valid':assert reads==[budgets['read_size']]\n    if which in ('invalid_metadata','type'): assert reads==[]\n    if which in ('valid','invalid_metadata','type'): assert closed and all(closed)\n    return {'case':which,'status':r.status_code,'reads':reads,'closed':closed}\nimport inspect\nfrom fastapi import FastAPI, Body\nverification_app=FastAPI()\n\nasync def verify_case(payload: dict=Body(...)):\n    result=_case(payload['case'])\n    if inspect.isawaitable(result):return await result\n    return result\nverify_case = verification_app.post('/_verify')(verify_case)\n"
+          }
+        ],
+        "asset_mounts": []
+      },
+      "constraints": {
+        "allowed_syntax": [
+          "from typing import Annotated",
+          "from fastapi import FastAPI, Form, File, UploadFile, Request, HTTPException",
+          "app = FastAPI()",
+          "@app.post(...)",
+          "async def",
+          "Annotated[str, Form()]",
+          "Annotated[UploadFile, File()]",
+          "app.add_middleware(RequestBodyLimitMiddleware, max_body_size=...)",
+          "await request.form(max_files=..., max_fields=..., max_part_size=...)",
+          "await file.read(size)",
+          "await file.seek(0)",
+          "await file.close()",
+          "file.content_type",
+          "if",
+          "not in",
+          "len(metadata)",
+          "raise HTTPException(status_code=..., detail=...)",
+          "try",
+          "finally",
+          "return",
+          "assignment",
+          "string and integer literals",
+          "tuple literals",
+          "dictionary literals",
+          "comparison operators"
+        ],
+        "blocked_syntax": [
+          "TestClient(...)",
+          "app.dependency_overrides[...]",
+          "Header(...)",
+          "Cookie(...)",
+          "@app.exception_handler(...)",
+          "CORSMiddleware(...)",
+          "TrustedHostMiddleware(...)",
+          "model_dump(exclude_unset=True)"
+        ]
+      }
+    },
+    "grading": {
+      "solution_files": [
+        {
+          "path": "exercise.py",
+          "content": "from fastapi.routing import APIRoute\nfrom starlette.datastructures import UploadFile\nfrom starlette.responses import Response\nbudgets = {'max_body_size': 4096, 'max_files': 1, 'max_fields': 1,\n           'max_part_size': 256, 'read_size': 1024, 'metadata_max_length': 80}\npermitted_content_types = ('text/plain',)\nclass RequestBodyLimitMiddleware:\n    def __init__(self, app, max_body_size):\n        self.app, self.limit = app, max_body_size\n    async def __call__(self, scope, receive, send):\n        if scope['type'] != 'http':\n            return await self.app(scope, receive, send)\n        messages, size = [], 0\n        while True:\n            message = await receive()\n            if message['type'] == 'http.disconnect':\n                return\n            size += len(message.get('body', b''))\n            if size > self.limit:\n                return await Response(status_code=413)(scope, receive, send)\n            messages.append(message)\n            if not message.get('more_body', False):\n                break\n        async def replay():\n            if messages:\n                return messages.pop(0)\n            return await receive()\n        await self.app(scope, replay, send)\nclass BoundedMultipartRoute(APIRoute):\n    def get_route_handler(self):\n        original = super().get_route_handler()\n        async def bounded(request):\n            # Parsing precedes automatic typed parameter binding.\n            form = await request.form(max_files=budgets['max_files'],\n                max_fields=budgets['max_fields'], max_part_size=budgets['max_part_size'])\n            try:\n                return await original(request)\n            finally:\n                await form.close()\n        return bounded\nfrom typing import Annotated\nfrom fastapi import FastAPI, Form, File, UploadFile, Request, HTTPException\napp = FastAPI()\napp.router.route_class = BoundedMultipartRoute\napp.add_middleware(RequestBodyLimitMiddleware, max_body_size=budgets['max_body_size'])\n\nasync def attachment(metadata: Annotated[str, Form()], file: Annotated[UploadFile, File()]):\n    try:\n        if file.content_type not in permitted_content_types:\n            raise HTTPException(status_code=415, detail='disallowed attachment')\n        if len(metadata) > budgets['metadata_max_length']:\n            raise HTTPException(status_code=422, detail='invalid metadata')\n        content = await file.read(budgets['read_size'])\n        return {'metadata': metadata, 'size': len(content)}\n    finally:\n        await file.close()\nattachment = app.post('/orders/attachments')(attachment)\nimport asyncio, inspect, json, ast\nimport httpx\nfrom contextlib import contextmanager\n\ndef _drive(coro):\n    try:\n        pending = coro.send(None)\n    except StopIteration as done:\n        return done.value\n    raise RuntimeError('Harness encountered a suspending operation: ' + repr(pending))\n\nasync def _requests(application, requests):\n    async with application.router.lifespan_context(application):\n        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=application, raise_app_exceptions=False), base_url='http://testserver') as client:\n            out=[]\n            for method,path,kwargs in requests:\n                response=await client.request(method,path,**kwargs)\n                try: body=response.json()\n                except ValueError: body=response.text\n                out.append({'status':response.status_code,'body':body})\n            return out\ndef _case(which):\n    from unittest.mock import patch\n    from starlette.datastructures import UploadFile as StarletteUploadFile\n    reads=[]; closed=[]\n    old_read=StarletteUploadFile.read; old_close=StarletteUploadFile.close\n    async def read(file,size=-1):\n        reads.append(size)\n        return await old_read(file,size)\n    async def close(file):\n        await old_close(file)\n        closed.append(file.file.closed)\n    async def run():\n        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app,raise_app_exceptions=False),base_url='http://testserver') as client:\n            metadata='valid';type_='text/plain';payload=b'attachment'\n            parts=None\n            if which=='invalid_metadata': metadata='m'*(budgets['metadata_max_length']+1)\n            if which=='type': type_='application/octet-stream'\n            if which=='overflow':payload=b'x'*(budgets['max_body_size']+1)\n            parts=[('metadata',(None,metadata)),('file',('attachment.txt',payload,type_))]\n            if which=='files': parts.append(('file',('extra.txt',b'extra','text/plain')))\n            if which=='fields': parts.append(('extra',(None,'extra')))\n            if which=='part': parts[0]=('metadata',(None,'m'*(budgets['max_part_size']+1)))\n            response=await client.post('/orders/attachments',files=parts)\n            return response\n    with patch.object(StarletteUploadFile,'read',read),patch.object(StarletteUploadFile,'close',close):\n        r=_drive(run())\n    expected={'valid':200,'invalid_metadata':422,'type':415,'overflow':413,'files':400,'fields':400,'part':400}[which]\n    assert r.status_code==expected, (which,r.status_code,r.text)\n    if which=='valid':assert reads==[budgets['read_size']]\n    if which in ('invalid_metadata','type'): assert reads==[]\n    if which in ('valid','invalid_metadata','type'): assert closed and all(closed)\n    return {'case':which,'status':r.status_code,'reads':reads,'closed':closed}\nimport inspect\nfrom fastapi import FastAPI, Body\nverification_app=FastAPI()\n\nasync def verify_case(payload: dict=Body(...)):\n    result=_case(payload['case'])\n    if inspect.isawaitable(result):return await result\n    return result\nverify_case = verification_app.post('/_verify')(verify_case)\n"
+        }
+      ],
+      "tests": [
+        {
+          "test_id": "test_1",
+          "kind": "http_equals",
+          "spec": {
+            "requests": [
+              {
+                "method": "POST",
+                "path": "/_verify",
+                "json": {
+                  "case": "valid"
+                }
+              }
+            ],
+            "app": "verification_app",
+            "expected": {
+              "status": 200,
+              "json": {
+                "case": "valid",
+                "status": 200,
+                "reads": [
+                  1024
+                ],
+                "closed": [
+                  true,
+                  true,
+                  true
+                ]
+              }
+            }
+          },
+          "visible": true,
+          "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+        },
+        {
+          "test_id": "test_2",
+          "kind": "http_equals",
+          "spec": {
+            "requests": [
+              {
+                "method": "POST",
+                "path": "/_verify",
+                "json": {
+                  "case": "invalid_metadata"
+                }
+              }
+            ],
+            "app": "verification_app",
+            "expected": {
+              "status": 200,
+              "json": {
+                "case": "invalid_metadata",
+                "status": 422,
+                "reads": [],
+                "closed": [
+                  true,
+                  true,
+                  true
+                ]
+              }
+            }
+          },
+          "visible": true,
+          "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+        },
+        {
+          "test_id": "test_3",
+          "kind": "http_equals",
+          "spec": {
+            "requests": [
+              {
+                "method": "POST",
+                "path": "/_verify",
+                "json": {
+                  "case": "type"
+                }
+              }
+            ],
+            "app": "verification_app",
+            "expected": {
+              "status": 200,
+              "json": {
+                "case": "type",
+                "status": 415,
+                "reads": [],
+                "closed": [
+                  true,
+                  true,
+                  true
+                ]
+              }
+            }
+          },
+          "visible": true,
+          "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+        },
+        {
+          "test_id": "test_4",
+          "kind": "http_equals",
+          "spec": {
+            "requests": [
+              {
+                "method": "POST",
+                "path": "/_verify",
+                "json": {
+                  "case": "overflow"
+                }
+              }
+            ],
+            "app": "verification_app",
+            "expected": {
+              "status": 200,
+              "json": {
+                "case": "overflow",
+                "status": 413,
+                "reads": [],
+                "closed": []
+              }
+            }
+          },
+          "visible": true,
+          "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+        },
+        {
+          "test_id": "test_5",
+          "kind": "http_equals",
+          "spec": {
+            "requests": [
+              {
+                "method": "POST",
+                "path": "/_verify",
+                "json": {
+                  "case": "files"
+                }
+              }
+            ],
+            "app": "verification_app",
+            "expected": {
+              "status": 200,
+              "json": {
+                "case": "files",
+                "status": 400,
+                "reads": [],
+                "closed": []
+              }
+            }
+          },
+          "visible": true,
+          "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+        },
+        {
+          "test_id": "test_6",
+          "kind": "http_equals",
+          "spec": {
+            "requests": [
+              {
+                "method": "POST",
+                "path": "/_verify",
+                "json": {
+                  "case": "fields"
+                }
+              }
+            ],
+            "app": "verification_app",
+            "expected": {
+              "status": 200,
+              "json": {
+                "case": "fields",
+                "status": 400,
+                "reads": [],
+                "closed": []
+              }
+            }
+          },
+          "visible": true,
+          "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+        },
+        {
+          "test_id": "test_7",
+          "kind": "http_equals",
+          "spec": {
+            "requests": [
+              {
+                "method": "POST",
+                "path": "/_verify",
+                "json": {
+                  "case": "part"
+                }
+              }
+            ],
+            "app": "verification_app",
+            "expected": {
+              "status": 200,
+              "json": {
+                "case": "part",
+                "status": 400,
+                "reads": [],
+                "closed": []
+              }
+            }
+          },
+          "visible": true,
+          "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+        }
+      ]
+    }
+  }
+}

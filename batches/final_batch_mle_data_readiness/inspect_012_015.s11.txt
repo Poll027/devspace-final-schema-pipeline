@@ -1,0 +1,153 @@
+PROMPT Sandbox note: this exercise uses a supplied bounded NumPy fixture simulator, not a running scikit-learn implementation. It reproduces only the declared fixture behavior for training-fitted state and transformation assertions. In the supplied workflow, replace only `learner_operation = None` with a binding of `learner_operation` to `supplied_operation` (without calling it). The helper implements `FixtureScaler(with_mean=True, with_std=True)`. Leave the inputs, helper and verification scaffolding unchanged. This is a scaffolded operation-binding task; the remaining implementation is supplied. The completed workflow must meet the following output contract: Implement scale(training, validation). Fit FixtureScaler(with_mean=True, with_std=True) only on training, then transform validation. Return {mean, scale, validation, population_std}. Compute population_std over training rows with axis=0, ddof=0. Assert unchanged mean_ and scale_, verify constant feature scale is one, and compare transformed validation with an independent arithmetic calculation. The supplied deliberately wrong-result harness must fail its assertion.
+SOLUTION
+# Supplied inputs and operation; do not edit.
+if True:
+    FIXTURES = {'X_train': [[2, 10], [6, 10]], 'X_validation': [[8.0, 10]], 'with_mean': True, 'with_std': True, 'ddof': 0, 'incorrect_transformed_fixture': [[0, 1]]}
+if True:
+
+    def supplied_operation(FixtureScaler):
+        return FixtureScaler(with_mean=True, with_std=True)
+
+learner_operation = supplied_operation
+
+# Stop before loading the workflow while the learner hook is incomplete.
+if learner_operation is None:
+    raise NotImplementedError("Complete learner_operation before running the workflow")
+
+# Supplied workflow and verification scaffolding; do not edit.
+if True:
+    import numpy as np
+    if True:
+
+        def supplied_wrong_result(actual):
+            try:
+                assert np.allclose(actual, FIXTURES['incorrect_transformed_fixture'])
+            except AssertionError:
+                return True
+            return False
+    import numpy as np
+    # Bounded NumPy fixture simulator, not the scikit-learn implementation.
+    class FixtureScaler:
+        def __init__(self, with_mean, with_std):
+            if not (with_mean and with_std):
+                raise ValueError('This supplied simulator supports centering and scaling only')
+        def fit(self, training):
+            self.mean_ = np.mean(training, axis=0)
+            spread = np.std(training, axis=0, ddof=0)
+            self.scale_ = np.where(spread == 0, 1, spread)
+            return self
+        def transform(self, values):
+            return (values - self.mean_) / self.scale_
+
+    def scale(training, validation):
+        X_train = np.array(training)
+        X_validation = np.array(validation)
+        scaler = learner_operation(FixtureScaler)
+        scaler.fit(X_train)
+        mean = scaler.mean_.copy()
+        scale = scaler.scale_.copy()
+        transformed = scaler.transform(X_validation)
+        assert np.allclose(mean, scaler.mean_)
+        assert np.allclose(scale, scaler.scale_)
+        assert scale[1] == 1
+        assert np.allclose(transformed, (X_validation - mean) / scale)
+        assert supplied_wrong_result(transformed)
+        return {'mean': mean, 'scale': scale, 'validation': transformed, 'population_std': np.std(X_train, axis=0, ddof=0)}
+
+TESTS
+[
+  {
+    "test_id": "case_1",
+    "kind": "function_call",
+    "spec": {
+      "function": "scale",
+      "args": [
+        [
+          [
+            2,
+            10
+          ],
+          [
+            6,
+            10
+          ]
+        ],
+        [
+          [
+            8.0,
+            10
+          ]
+        ]
+      ],
+      "expected": {
+        "mean": [
+          4,
+          10
+        ],
+        "scale": [
+          2,
+          1
+        ],
+        "validation": [
+          [
+            2,
+            0
+          ]
+        ],
+        "population_std": [
+          2,
+          0
+        ]
+      }
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  },
+  {
+    "test_id": "case_2",
+    "kind": "function_call",
+    "spec": {
+      "function": "scale",
+      "args": [
+        [
+          [
+            2,
+            10
+          ],
+          [
+            6,
+            10
+          ]
+        ],
+        [
+          [
+            2,
+            10
+          ]
+        ]
+      ],
+      "expected": {
+        "mean": [
+          4,
+          10
+        ],
+        "scale": [
+          2,
+          1
+        ],
+        "validation": [
+          [
+            -1,
+            0
+          ]
+        ],
+        "population_std": [
+          2,
+          0
+        ]
+      }
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  }
+]
+CONSTRAINTS
+{"allowed_syntax": ["import numpy as np", "from sklearn.preprocessing import StandardScaler", "def", "return", "variable assignment", "array indexing", "arithmetic operators", "comparison operators", "assert predicate", "np.array", "np.mean(numeric_values, axis=0)", "np.std(numeric_values, axis=0, ddof=0)", "np.std(numeric_values, axis=0, ddof=1)", "np.allclose", "array.copy()", "StandardScaler(with_mean=True, with_std=True)", "scaler.fit(X_train)", "scaler.transform(X_train)", "scaler.transform(X_validation)", "scaler.mean_", "scaler.scale_"], "blocked_syntax": ["OneHotEncoder", "OrdinalEncoder", "Pipeline", "ColumnTransformer", "model.fit", "model.predict", "mlflow", "torch"]}

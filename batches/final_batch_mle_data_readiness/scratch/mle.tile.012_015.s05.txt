@@ -1,0 +1,54 @@
+# Supplied implementation, fixtures and verification harness; complete only the marked assignments and assertions.
+import numpy as np
+
+exec("class MeanImputerFixture:\n\n    def __init__(self, strategy='mean'):\n        self.strategy = strategy\n\n    def fit(self, X):\n        self.statistics_ = np.nanmean(X, axis=0)\n        return self\n\n    def transform(self, X):\n        return np.where(np.isnan(X), self.statistics_, X)\nSimpleImputer = MeanImputerFixture\n")
+
+training_rows = [[2], [6], [None]]
+
+observed_rows = [[2], [6]]
+
+validation_rows = [[100], [None]]
+
+boundary_rows = [[None]]
+
+declared_strategy = 'mean'
+
+incorrect_replacement = 2
+
+X_train = np.array([[np.nan if v is None else v for v in row] for row in training_rows])
+
+numeric_values = np.array(observed_rows)
+
+X_validation = np.array([[np.nan if v is None else v for v in row] for row in validation_rows])
+
+X_boundary = np.array([[np.nan if v is None else v for v in row] for row in boundary_rows])
+
+if True:
+
+    def supplied_impute(X_train, X_validation, X_boundary, numeric_values):
+        imputer = SimpleImputer(strategy=declared_strategy)
+        imputer.fit(X_train)
+        stored = imputer.statistics_.copy()
+        transformed = imputer.transform(X_validation)
+        boundary = imputer.transform(X_boundary)
+        mean = np.mean(numeric_values, axis=0)
+        std = np.std(numeric_values, axis=0, ddof=0)
+        assert np.array_equal(stored, imputer.statistics_)
+        assert np.allclose(transformed[0], X_validation[0])
+        assert np.allclose(transformed[1], stored)
+        assert np.allclose(boundary[0], stored)
+        return {'transformed': transformed, 'boundary': boundary, 'statistics': imputer.statistics_, 'mean': mean, 'std': std}
+
+# TODO: complete the required impute assignment.
+impute = None
+
+result = impute(X_train, X_validation, X_boundary, numeric_values)
+
+try:
+    assert np.allclose(result['boundary'], incorrect_replacement)
+except AssertionError:
+    bad_replacement_caught = True
+
+# TODO: assert the supplied check outcome.
+
+exec('def probe_contract(training, validation, boundary, observed):\n    arrays = [np.array([[np.nan if v is None else v for v in row] for row in rows]) for rows in [training,validation,boundary,observed]]\n    return impute(*arrays)\n')

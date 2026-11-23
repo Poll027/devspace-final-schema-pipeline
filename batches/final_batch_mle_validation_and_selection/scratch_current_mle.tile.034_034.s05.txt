@@ -1,0 +1,93 @@
+Configure the supplied evaluation scaffold by assigning `conditional_count` to `supplied_np_sum`; `alignment_check` to `supplied_np_array_equal`. Assign the callable names without calling them. These interfaces control the Evaluate supplied foundation or pretrained task-model outputs against a task-specific validation baseline computation. Keep input loading, the complete evaluation functions, guards and returned fields unchanged; only replace the marked interface assignments.
+# Supplied input loading and dependencies.
+import pandas as pd
+
+contract = pd.read_csv('acceptance_contract.csv').iloc[0]
+
+p_negative = contract['deployment_negative_probability']
+
+p_positive = contract['deployment_positive_probability']
+
+cost_FP = contract['cost_FP']
+
+cost_FN = contract['cost_FN']
+
+bound = contract['expected_cost_bound']
+
+validation = pd.read_csv('validation_scores.csv')
+
+outputs = pd.read_csv('foundation_outputs.csv')
+
+ids = validation['observation_id'].to_numpy()
+
+output_ids = outputs['observation_id'].to_numpy()
+
+y = validation['actual_label'].to_numpy()
+
+outputs_y = outputs['foundation_output'].to_numpy()
+
+reference = validation['reference_output'].to_numpy()
+
+output_kind = outputs['output_kind'].to_numpy()
+
+cohort_ids = validation['cohort_id'].to_numpy()
+
+output_cohort_ids = outputs['cohort_id'].to_numpy()
+
+import numpy as np
+
+count_errors = np.sum
+
+# Supplied evaluation scaffolding. Configure its interfaces below; keep this block unchanged.
+if __name__:
+    def deployment_weighted_cost(p_negative, FPR, cost_FP, p_positive, FNR, cost_FN):
+        return p_negative * FPR * cost_FP + p_positive * FNR * cost_FN
+
+    def quantities(y, predictions, p_negative, p_positive, cost_FP, cost_FN):
+        FP = conditional_count((y == 0) & (predictions == 1))
+        TN = conditional_count((y == 0) & (predictions == 0))
+        FN = conditional_count((y == 1) & (predictions == 0))
+        TP = conditional_count((y == 1) & (predictions == 1))
+        negative_count = FP + TN
+        positive_count = FN + TP
+        FPR = None
+        FNR = None
+        expected_cost = None
+        if negative_count > 0:
+            FPR = FP / negative_count
+        if positive_count > 0:
+            FNR = FN / positive_count
+        if negative_count > 0:
+            if positive_count > 0:
+                expected_cost = p_negative * FPR * cost_FP + p_positive * FNR * cost_FN
+        return {'FP': FP, 'TN': TN, 'FN': FN, 'TP': TP, 'actual_negative_count': negative_count, 'actual_positive_count': positive_count, 'FPR': FPR, 'FNR': FNR, 'expected_cost': expected_cost, 'accuracy': conditional_count(y == predictions) / y.shape[0]}
+
+    def evaluate(ids, output_ids, y, outputs_y, reference, output_kind, p_negative, p_positive, cost_FP, cost_FN, bound, cohort_ids, output_cohort_ids):
+        if not alignment_check(cohort_ids, output_cohort_ids):
+            return {'aligned': False, 'accepted': False, 'reason': 'unmatched cohorts'}
+        if ids.shape != y.shape or cohort_ids.shape != y.shape or output_ids.shape != outputs_y.shape or (output_cohort_ids.shape != outputs_y.shape) or (output_kind.shape != outputs_y.shape):
+            return {'aligned': False, 'accepted': False, 'reason': 'unmatched observations'}
+        if not alignment_check(ids, output_ids):
+            return {'aligned': False, 'accepted': False, 'reason': 'unmatched observations'}
+        if y.shape != outputs_y.shape or y.shape != reference.shape:
+            return {'aligned': False, 'accepted': False, 'reason': 'unmatched observations'}
+        if conditional_count(output_kind != 'foundation-model') > 0:
+            return {'aligned': False, 'accepted': False, 'reason': 'candidate is not the supplied foundation-model output kind'}
+        candidate = quantities(y, outputs_y, p_negative, p_positive, cost_FP, cost_FN)
+        baseline = quantities(y, reference, p_negative, p_positive, cost_FP, cost_FN)
+        accepted = False
+        if candidate['expected_cost'] is not None:
+            if candidate['expected_cost'] <= bound:
+                accepted = True
+        return {'aligned': True, 'candidate': candidate, 'baseline': baseline, 'accepted': accepted, 'bound': bound, 'limitations': 'Quality verdict is bounded to supplied order-task validation observations; no application construction, fitting or protected-test evidence is implied.'}
+
+# Supplied callable operations; keep these assignments unchanged.
+supplied_np_sum = np.sum
+supplied_np_array_equal = np.array_equal
+# TODO: configure each interface using the matching supplied callable, without calling it.
+conditional_count = None  # TODO: select the supplied callable
+alignment_check = None  # TODO: select the supplied callable
+SYNTAX
+{'allowed_syntax': ['import numpy as np', 'def', 'function parameters and calls', 'assignment', 'return', 'if/elif/else', 'raise ValueError(...)', 'numeric, string, Boolean and None literals', 'dictionary construction and key access', 'np.asarray(...)', 'array.shape', 'array.dtype', 'array comparisons using == and !=', 'elementwise Boolean masks using &', 'np.sum(...)', 'np.array_equal(...)', 'arithmetic using +, -, *, /', 'scalar comparisons using ==, !=, <, <=, >, >=', 'Boolean conditions using and, or, not'], 'blocked_syntax': ['import torch', 'torch.tensor(...)', 'torch.utils.data.DataLoader(...)', 'torch.nn.Module', 'torch.nn.Linear(...)', 'torch.nn.BCEWithLogitsLoss(...)', 'torch.optim.Adam(...)', '.backward()', '.zero_grad()', '.step()', '.train()', '.eval()', 'torch.save(...)', 'torch.load(...)', '.to(...)']}
+TESTS
+[{'test_id': 't1', 'kind': 'value_equals', 'spec': {'expr': 'evaluate(ids, output_ids, y, outputs_y, reference, output_kind, p_negative, p_positive, cost_FP, cost_FN, bound, cohort_ids, output_cohort_ids)', 'expected': {'aligned': True, 'candidate': {'FP': 8, 'TN': 72, 'FN': 4, 'TP': 16, 'actual_negative_count': 80, 'actual_positive_count': 20, 'FPR': 0.1, 'FNR': 0.2, 'expected_cost': 0.28, 'accuracy': 0.88}, 'baseline': {'FP': 0, 'TN': 80, 'FN': 20, 'TP': 0, 'actual_negative_count': 80, 'actual_positive_count': 20, 'FPR': 0, 'FNR': 1, 'expected_cost': 1, 'accuracy': 0.8}, 'accepted': True, 'bound': 0.3, 'limitations': 'Quality verdict is bounded to supplied order-task validation observations; no application construction, fitting or protected-test evidence is implied.'}}, 'visible': True, 'message_on_fail': 'Check the named result fields, fixed assumptions, and empty-group behavior.'}, {'test_id': 't2', 'kind': 'value_equals', 'spec': {'expr': '(evaluate(ids, output_ids, y, outputs_y, reference, output_kind, p_negative, p_positive, cost_FP, cost_FN, bound, cohort_ids, output_cohort_ids), evaluate(ids, output_ids[::-1], y, outputs_y, reference, output_kind, p_negative, p_positive, cost_FP, cost_FN, bound, cohort_ids, output_cohort_ids))', 'expected': [{'aligned': True, 'candidate': {'FP': 8, 'TN': 72, 'FN': 4, 'TP': 16, 'actual_negative_count': 80, 'actual_positive_count': 20, 'FPR': 0.1, 'FNR': 0.2, 'expected_cost': 0.28, 'accuracy': 0.88}, 'baseline': {'FP': 0, 'TN': 80, 'FN': 20, 'TP': 0, 'actual_negative_count': 80, 'actual_positive_count': 20, 'FPR': 0, 'FNR': 1, 'expected_cost': 1, 'accuracy': 0.8}, 'accepted': True, 'bound': 0.3, 'limitations': 'Quality verdict is bounded to supplied order-task validation observations; no application construction, fitting or protected-test evidence is implied.'}, {'aligned': False, 'accepted': False, 'reason': 'unmatched observations'}]}, 'visible': False, 'message_on_fail': 'Check the named result fields, fixed assumptions, and empty-group behavior.'}, {'test_id': 't3', 'kind': 'value_equals', 'spec': {'expr': 'evaluate(ids[y == 0], output_ids[y == 0], y[y == 0], outputs_y[y == 0], reference[y == 0], output_kind[y == 0], p_negative, p_positive, cost_FP, cost_FN, bound, cohort_ids[y == 0], output_cohort_ids[y == 0])', 'expected': {'aligned': True, 'candidate': {'FP': 8, 'TN': 72, 'FN': 0, 'TP': 0, 'actual_negative_count': 80, 'actual_positive_count': 0, 'FPR': 0.1, 'FNR': None, 'expected_cost': None, 'accuracy': 0.9}, 'baseline': {'FP': 0, 'TN': 80, 'FN': 0, 'TP': 0, 'actual_negative_count': 80, 'actual_positive_count': 0, 'FPR': 0, 'FNR': None, 'expected_cost': None, 'accuracy': 1}, 'accepted': False, 'bound': 0.3, 'limitations': 'Quality verdict is bounded to supplied order-task validation observations; no application construction, fitting or protected-test evidence is implied.'}}, 'visible': False, 'message_on_fail': 'Check the named result fields, fixed assumptions, and empty-group behavior.'}, {'test_id': 'wrong_cohort', 'kind': 'value_equals', 'spec': {'expr': '(evaluate(ids, output_ids, y, outputs_y, reference, output_kind, p_negative, p_positive, cost_FP, cost_FN, bound, cohort_ids, output_cohort_ids), evaluate(ids, output_ids, y, outputs_y, reference, output_kind, p_negative, p_positive, cost_FP, cost_FN, bound, cohort_ids, np.asarray(["wrong_cohort"] * len(output_cohort_ids))))', 'expected': [{'aligned': True, 'candidate': {'FP': 8, 'TN': 72, 'FN': 4, 'TP': 16, 'actual_negative_count': 80, 'actual_positive_count': 20, 'FPR': 0.1, 'FNR': 0.2, 'expected_cost': 0.28, 'accuracy': 0.88}, 'baseline': {'FP': 0, 'TN': 80, 'FN': 20, 'TP': 0, 'actual_negative_count': 80, 'actual_positive_count': 20, 'FPR': 0, 'FNR': 1, 'expected_cost': 1, 'accuracy': 0.8}, 'accepted': True, 'bound': 0.3, 'limitations': 'Quality verdict is bounded to supplied order-task validation observations; no application construction, fitting or protected-test evidence is implied.'}, {'aligned': False, 'accepted': False, 'reason': 'unmatched cohorts'}]}, 'visible': False, 'message_on_fail': 'Matching observation ids alone do not establish a matched cohort.'}]

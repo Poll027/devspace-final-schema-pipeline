@@ -1,0 +1,1026 @@
+
+### tile_039 Binding request bodies to typed models
+GLOSSARY {"coverage": {"learning_objective": "Declare JSON bodies: add one typed create body.", "required_facts": [{"id": "f1", "statement": "Define a BaseModel subclass and annotate a handler parameter with that model to bind a structured JSON request body.", "source_refs": ["fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/body/#create-your-data-model", "fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/body/#declare-it-as-a-parameter"]}, {"id": "f2", "statement": "FastAPI reads the JSON body, converts compatible values, validates the declared model and passes the model instance to the handler.", "source_refs": ["fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/body/#results"]}, {"id": "f3", "statement": "Path-declared parameters bind from the path, scalar parameters generally bind from the query, and model parameters bind from the body, so these inputs can coexist in one operation.", "source_refs": ["fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/body/#request-body-path-query-parameters"]}], "misconceptions": []}, "assessment_anchors": [{"fact_ids": ["f1", "f3"], "capability": "determine_body_path_and_query_binding"}, {"fact_ids": ["f2"], "capability": "trace_json_body_to_validated_model_instance"}], "practice_anchor": {"type": "live_code", "objective": "Add a body parameter annotated with OrderInput to the supplied order-creation handler, preserving its existing customer identifier and scalar query option.", "success": "The handler declares one structured body using OrderInput. The customer identifier remains bound from the path, and the ordinary scalar option remains bound from the query.", "live_code": {"required_skill": "Use a BaseModel subclass as a handler parameter annotation to declare a structured JSON body.", "allowed_syntax": ["from fastapi import FastAPI", "from pydantic import BaseModel", "class OrderInput(BaseModel):", "model field annotations using str and int", "def handler declarations", "FastAPI path-operation decorators", "handler parameter annotations", "body: OrderInput", "model attribute access", "return statements", "dictionary literals", "string and integer literals"], "blocked_syntax": ["yield", "Form()", "File()", "UploadFile", "Header()", "Cookie()", "TestClient", "app.openapi()", "app.dependency_overrides", "model_dump(exclude_unset=True)"], "starter_state_intent": "Provide an OrderInput BaseModel subclass and an order-creation handler with the running example's customer identifier in the route path and ordinary scalar query option. Leave the structured body parameter undeclared.", "observable_success": "Code inspection shows body: OrderInput in the handler signature without changing the existing path and query declarations. The learner identifies that FastAPI reads the JSON body, converts compatible values, validates OrderInput and supplies its instance as body."}}, "visual_anchor": {"type": "code", "purpose": "Show the OrderInput BaseModel subclass beside the handler signature, with annotations identifying the customer identifier as path input, the ordinary scalar option as query input and body: OrderInput as structured JSON body input."}}
+tile_039.s01 explainer
+{"type": "prose", "text": "Structured JSON bodies are distinct from URL inputs: path-declared parameters come from the path, ordinary scalars generally come from the query, and model parameters come from the body. One operation can receive all three.", "role": "mechanism"}
+{"type": "prose", "text": "Bind structured JSON by defining a BaseModel subclass and typing a handler parameter with that model.", "role": "mechanism"}
+{"type": "prose", "text": "FastAPI reads JSON, converts compatible values, validates the declared model, then gives the handler a model instance.", "role": "mechanism"}
+{"type": "code_walkthrough", "language": "python", "code": "from fastapi import FastAPI\nfrom pydantic import BaseModel\napp = FastAPI()\nclass OrderInput(BaseModel):\n    quantity: int\n@app.post('/customers/{customer_id}/orders')\ndef create_order(customer_id: int, body: OrderInput, option: str = 'standard'):\n    return {'customer_id': customer_id, 'option': option}\n", "reveal": "all", "annotations": [{"start_line": 4, "end_line": 5, "text": "BaseModel describes the structured body."}, {"start_line": 7, "end_line": 7, "text": "customer_id: path; option: generally query; body: JSON model."}]}
+tile_039.s02 explainer
+{"type": "prose", "text": "Read the signature as a source map: the customer identifier is path input, an ordinary scalar option generally comes from the query, and OrderInput is structured body input. For the body, trace JSON reading, compatible conversion, model validation and delivery of the model instance. A body field is not an assumed query parameter.", "role": "mental_model"}
+tile_039.s03 explainer
+{"type": "prose", "text": "OrderInput declares the body’s shape. Add a body parameter typed with it while keeping the path identifier and ordinary scalar option. Trace JSON to compatible conversion to validation to the model supplied to the handler. A combined operation can receive these inputs together; the model declaration identifies the structured body rather than scattering its fields into assumed query inputs.", "role": "walkthrough"}
+tile_039.s04 check
+QUESTION {"prompt": "For a handler parameter annotated with OrderInput, which sequence describes FastAPI handling a compatible JSON body?", "options": [{"option_id": "option_1", "text": "Read JSON, convert compatible values, validate OrderInput, and supply a model instance."}, {"option_id": "option_2", "text": "Pass the raw JSON text to the handler without model validation."}, {"option_id": "option_3", "text": "Bind each JSON body field as an ordinary query parameter."}], "selection": "single", "shuffle": true}
+KEY {"correct_option_ids": ["option_1"], "option_feedback": {"option_1": {"message": "This is the declared-model body flow."}, "option_2": {"message": "The model declaration causes JSON reading, compatible conversion and validation; the handler receives its instance."}, "option_3": {"message": "A model parameter is body input, not a set of assumed query parameters."}}}
+tile_039.s05 hands_on
+TASK Add body: OrderInput to create_order. Keep customer_id as the integer path input and option as the scalar query input with its existing default. Do not change the supplied model or response. The harness inspects binding declarations and submits two different JSON bodies.
+STARTER exercise.py from fastapi import FastAPI
+from pydantic import BaseModel
+app = FastAPI()
+class OrderInput(BaseModel):
+    quantity: int
+@app.post('/customers/{customer_id}/orders')
+def create_order(customer_id: int, option: str = 'standard'):
+    # TODO: declare body: OrderInput, preserving path and query inputs.
+    return {'customer_id': customer_id, 'option': option}
+
+SOLUTION exercise.py from fastapi import FastAPI
+from pydantic import BaseModel
+app = FastAPI()
+class OrderInput(BaseModel):
+    quantity: int
+@app.post('/customers/{customer_id}/orders')
+def create_order(customer_id: int, body: OrderInput, option: str = 'standard'):
+    # TODO: declare body: OrderInput, preserving path and query inputs.
+    return {'customer_id': customer_id, 'option': option}
+
+TESTS [{"test_id": "test_1", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "A"}}], "app": "verification_app", "expected": {"status": 200, "json": [{"status": 200, "body": {"customer_id": 7, "option": "priority"}}]}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}, {"test_id": "test_2", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "B"}}], "app": "verification_app", "expected": {"status": 200, "json": [{"status": 200, "body": {"customer_id": 9, "option": "standard"}}]}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}]
+tile_039.s06 recap
+{"type": "prose", "text": "Type a model parameter for JSON; trace conversion and validation; distinguish path, ordinary query and body inputs.", "role": "takeaway"}
+{"type": "up_next", "title": "Next: tile_040 — Yield-based dependency cleanup", "text": "Start with Yield-based dependency cleanup."}
+
+### tile_040 Yield-based dependency cleanup
+GLOSSARY {"coverage": {"learning_objective": "Release yield dependency resources: provide and close one request resource.", "required_facts": [{"id": "f1", "statement": "A dependency with yield acquires a resource before yielding it and supplies that yielded value to the operation.", "source_refs": ["fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/dependencies/dependencies-with-yield/#a-database-dependency-with-yield"]}, {"id": "f2", "statement": "Put resource release in a finally block surrounding yield so exit cleanup runs after successful use or an exception.", "source_refs": ["fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/dependencies/dependencies-with-yield/#a-dependency-with-yield-and-try"]}, {"id": "f3", "statement": "A yielding dependency defaults to request scope, ending after the response is sent; Depends(provider, scope=\"function\") ends it after the handler finishes but before sending the response.", "source_refs": ["fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/dependencies/dependencies-with-yield/#early-exit-and-scope"]}, {"id": "f4", "statement": "If a yielding dependency catches an exception without intentionally handling it, re-raise it rather than silently concealing the failure from FastAPI.", "source_refs": ["fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/dependencies/dependencies-with-yield/#always-raise-in-dependencies-with-yield-and-except"]}], "misconceptions": []}, "assessment_anchors": [{"fact_ids": ["f1", "f2"], "capability": "determine_resource_cleanup_after_success_and_failure"}, {"fact_ids": ["f3"], "capability": "distinguish_request_and_function_cleanup_boundaries"}, {"fact_ids": ["f2", "f4"], "capability": "preserve_cleanup_and_exception_visibility"}], "practice_anchor": {"type": "live_code", "objective": "Implement a yielding provider that supplies one resource to an operation and closes it in finally. Compare default request scope with explicit function scope, and preserve any unhandled exception.", "success": "The operation receives the yielded resource. Release runs on both successful and exceptional exits. Default request-scope cleanup occurs after response sending; function-scope cleanup occurs after handler completion but before response sending. Any caught, unhandled exception is re-raised.", "live_code": {"required_skill": "Enclose yield in try/finally, inject the yielded resource with Depends, and reason about cleanup timing and exception propagation.", "allowed_syntax": ["def provider():", "resource = supplied acquisition callable", "try:", "yield resource", "finally:", "resource.close()", "except Exception:", "raise", "Depends(provider)", "Depends(provider, scope=\"function\")", "def operation(...):", "return", "raise HTTPException(status_code=..., detail=...)"], "blocked_syntax": ["TestClient(...)", "app.dependency_overrides[...]", "AsyncSession(...)", "session.commit()", "session.rollback()"], "starter_state_intent": "Supply a resource acquisition callable, a resource with a close() method, and an operation scaffold with successful and exceptional paths. Leave the provider's yield/finally boundary and dependency declaration incomplete.", "observable_success": "For each execution path, the resource is supplied before operation use and closed at scope exit. An execution trace places closure after response sending for default request scope and before response sending for function scope. The exceptional path remains a failure rather than being silently swallowed."}}, "visual_anchor": {"type": "process_flow", "purpose": "Show acquisition, yield, operation use, handler completion, response sending, and cleanup as separate events. Contrast default request scope with function scope, including successful and exceptional paths and re-raising an unhandled exception."}}
+tile_040.s01 explainer
+{"type": "prose", "text": "Acquire the resource before yield. The dependency supplies the yielded resource to the operation.", "role": "mechanism"}
+{"type": "prose", "text": "Surround yield with try/finally and release the resource in finally, covering successful use and exceptions.", "role": "mechanism"}
+{"type": "prose", "text": "Default request scope ends after response sending. Depends(provider, scope=\"function\") ends after handler completion, before the response is sent.", "role": "mechanism"}
+{"type": "prose", "text": "If you catch an exception without intentionally handling it, re-raise it. Do not conceal the failure from FastAPI.", "role": "mechanism"}
+{"type": "process_flow", "title": "Resource ownership and scope boundaries", "direction": "TB", "nodes": [{"id": "acquire", "label": "Acquire resource"}, {"id": "yield", "label": "Yield to operation"}, {"id": "use", "label": "Operation uses resource"}, {"id": "done", "label": "Handler completion"}, {"id": "choice", "label": "Declared scope"}, {"id": "function", "label": "Function scope: finally releases resource"}, {"id": "response", "label": "Send response"}, {"id": "request", "label": "Default request scope: finally releases resource"}, {"id": "exception", "label": "Exceptional use"}, {"id": "raise", "label": "Re-raise unhandled exception"}, {"id": "finally", "label": "finally: release resource"}], "edges": [{"from": "acquire", "to": "yield"}, {"from": "yield", "to": "use"}, {"from": "use", "to": "done", "label": "success"}, {"from": "done", "to": "choice"}, {"from": "choice", "to": "function", "label": "scope=\"function\""}, {"from": "function", "to": "response"}, {"from": "choice", "to": "response", "label": "default request scope"}, {"from": "response", "to": "request", "label": "default only"}, {"from": "use", "to": "exception", "label": "failure"}, {"from": "exception", "to": "raise", "label": "not intentionally handled"}, {"from": "raise", "to": "finally"}], "alt_text": "Resource ownership and scope boundaries: Acquire resource; Yield to operation; Operation uses resource; Handler completion; Declared scope; Function scope: finally releases resource; Send response; Default request scope: finally releases resource; Exceptional use; Re-raise unhandled exception; finally: release resource"}
+tile_040.s02 explainer
+{"type": "prose", "text": "Trace acquisition, yield and operation use separately. Put release in finally so both successful and exceptional paths clean up. Default request scope ends after response sending; function scope ends after handler completion, before sending. If a caught exception was not intentionally handled, re-raise it. Yield is not a promise that every dependency ends at handler completion.", "role": "mental_model"}
+tile_040.s03 check
+QUESTION {"prompt": "Which pattern releases resources on both exits, preserves an unhandled caught exception, and correctly distinguishes cleanup scopes?", "options": [{"option_id": "option_1", "text": "Release in finally, re-raise the unhandled exception; default request scope cleans up after response sending, while function scope cleans up after handler completion but before sending."}, {"option_id": "option_2", "text": "Release in finally, suppress the unhandled caught exception; default request scope cleans up after response sending, while function scope cleans up after handler completion but before sending."}, {"option_id": "option_3", "text": "Release in finally, re-raise the unhandled exception; default request scope cleans up before response sending, while function scope cleans up after sending."}], "selection": "single", "shuffle": true}
+KEY {"correct_option_ids": ["option_1"], "option_feedback": {"option_1": {"message": "Finally releases on successful and exceptional exits; re-raising preserves the unhandled exception. Request scope cleans up after sending; function scope after handler completion but before sending."}, "option_2": {"message": "Suppressing the unhandled caught exception conceals it even though finally releases the resource."}, "option_3": {"message": "The scope timings are reversed: default request cleanup follows response sending, while function cleanup follows handler completion and precedes sending."}}}
+tile_040.s04 hands_on
+TASK Complete provider with try/finally around yield resource and resource.close() on exit. Do not catch and conceal exceptions. The supplied boundary harness verifies successful and exceptional exits and compares default request-scope release after response sending with function-scope release after handler completion but before sending. The pinned FastAPI lacks the scope keyword, so this comparison is an explicit supplied boundary model, not a claim that this older runtime supports Depends(provider, scope="function").
+STARTER exercise.py events = []
+class Resource:
+    def __init__(self):
+        self.closed = False
+        events.append('acquire')
+    def use(self):
+        events.append('operation use')
+    def close(self):
+        self.closed = True
+        events.append('cleanup')
+def acquire_resource():
+    return Resource()
+from fastapi import FastAPI, Depends, HTTPException
+app = FastAPI()
+def provider():
+    resource = acquire_resource()
+    # TODO: yield resource inside try/finally; close on exit.
+    raise NotImplementedError
+@app.get('/orders')
+def operation(fail: bool = False, resource=Depends(provider)):
+    resource.use()
+    if fail:
+        raise HTTPException(status_code=400, detail='synthetic failure')
+    return {'result': 'used'}
+# Compare this declaration with Depends(provider, scope="function").
+
+SOLUTION exercise.py events = []
+class Resource:
+    def __init__(self):
+        self.closed = False
+        events.append('acquire')
+    def use(self):
+        events.append('operation use')
+    def close(self):
+        self.closed = True
+        events.append('cleanup')
+def acquire_resource():
+    return Resource()
+from fastapi import FastAPI, Depends, HTTPException
+app = FastAPI()
+def provider():
+    resource = acquire_resource()
+    try:
+        yield resource
+    finally:
+        resource.close()
+@app.get('/orders')
+def operation(fail: bool = False, resource=Depends(provider)):
+    resource.use()
+    if fail:
+        raise HTTPException(status_code=400, detail='synthetic failure')
+    return {'result': 'used'}
+# Compare this declaration with Depends(provider, scope="function").
+
+TESTS [{"test_id": "test_1", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "normal"}}], "app": "verification_app", "expected": {"status": 200, "json": [{"scope": "request", "status": 200, "events": ["acquire", "yield", "operation use", "handler completion", "response sending", "cleanup"]}, {"scope": "function", "status": 200, "events": ["acquire", "yield", "operation use", "handler completion", "cleanup", "response sending"]}]}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}, {"test_id": "test_2", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "exceptional"}}], "app": "verification_app", "expected": {"status": 200, "json": [{"scope": "request", "status": 400, "events": ["acquire", "yield", "operation use", "exception", "response sending", "cleanup"]}, {"scope": "function", "status": 400, "events": ["acquire", "yield", "operation use", "exception", "cleanup", "response sending"]}]}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}]
+tile_040.s05 recap
+{"type": "prose", "text": "Acquire before yield; release in finally; distinguish request and function scope; re-raise unhandled exceptions.", "role": "takeaway"}
+{"type": "up_next", "title": "Next: tile_041 — Structured service request and error logs", "text": "Start with Structured service request and error logs."}
+
+### tile_041 Structured service request and error logs
+GLOSSARY {"coverage": {"learning_objective": "Emit structured diagnostics: add structured logs for one failure.", "required_facts": [{"id": "f1", "statement": "A useful event log records when and where an event happened, its type and severity, and enough context to interpret the event's outcome.", "source_refs": ["owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html#event-attributes"]}, {"id": "f2", "statement": "For a failure, record consistently named fields for timestamp, application or code location, event type, severity, result status and reason rather than an unexplained free-text message.", "source_refs": ["owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html#event-attributes"]}, {"id": "f3", "statement": "Emit logger.error(message, extra=event_fields) with the standard logging library to attach structured fields to the LogRecord, and configure the existing formatter or collection pipeline to preserve those field names; custom keys must not collide with reserved LogRecord attributes.", "source_refs": ["python_tutorial#https://docs.python.org/3/library/logging.html#logging.Logger.debug", "owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html#event-collection"]}], "misconceptions": []}, "assessment_anchors": [{"fact_ids": ["f1", "f2"], "capability": "identify_missing_failure_event_context"}, {"fact_ids": ["f3"], "capability": "identify_structured_field_emission_and_preservation_gaps"}, {"fact_ids": ["f3"], "capability": "identify_reserved_log_record_attribute_collisions"}], "practice_anchor": {"type": "live_code", "objective": "Add structured logging for one synthetic order failure using consistently named event fields, and configure the supplied formatter to preserve those fields.", "success": "The emitted failure record preserves timestamp, code location, event type, severity, result status and reason under consistent field names. The logging call uses extra=event_fields, and custom keys do not collide with reserved LogRecord attributes.", "live_code": {"required_skill": "Construct an event-fields dictionary, attach it with the standard logging library, and preserve its fields through an existing formatter.", "allowed_syntax": ["import logging", "logging.getLogger(...)", "variable assignment", "dictionary literals with string keys and string values", "logger.error(message, extra=event_fields)", "logging.Formatter(...)", "existing_handler.setFormatter(...)", "%(field_name)s formatter placeholders"], "blocked_syntax": ["TestClient(...)", "app.dependency_overrides[...] = ...", "@app.exception_handler(...)", "ContextVar(...)"], "starter_state_intent": "Provide an initialized logger, an existing handler and formatter, and a synthetic order failure currently logged only as 'failed'. Supply fixed failure values and the reserved-attribute reference. Learners add timestamp, code_location, event_type, event_severity, result_status and reason fields and update the existing formatter; the supplied runner captures the output.", "observable_success": "Running the supplied failure path produces an error-level record with all six event fields visible in the captured output. Each emitted field matches the synthetic failure, and no custom key overwrites a reserved LogRecord attribute."}}, "visual_anchor": {"type": "before_after", "purpose": "Show the order failure's unexplained 'failed' output beside the structured output, with timestamp, code location, event type, severity, result status and reason visibly labeled. Connect the extra dictionary's keys to the fields preserved by the formatter."}}
+tile_041.s01 explainer
+{"type": "prose", "text": "An interpretable event log says when and where an event happened, its type and severity, and enough context to understand the outcome.", "role": "mechanism"}
+{"type": "prose", "text": "For a failure, use consistent field names for timestamp, application or code location, event type, severity, result status and reason—not just unexplained free text.", "role": "mechanism"}
+{"type": "prose", "text": "logger.error(message, extra=event_fields) attaches fields to the LogRecord. Configure the existing formatter or collector to preserve their names, and avoid custom keys that collide with reserved LogRecord attributes.", "role": "mechanism"}
+{"type": "before_after", "before": {"type": "code_walkthrough", "language": "python", "code": "import io\nimport logging\ncaptured_output = io.StringIO()\nlogger = logging.getLogger('order.failure.exercise')\nlogger.handlers.clear()\nlogger.propagate = False\nlogger.setLevel(logging.ERROR)\nexisting_handler = logging.StreamHandler(captured_output)\nexisting_handler.setFormatter(logging.Formatter('%(message)s'))\nlogger.addHandler(existing_handler)\nfailure_values = {\n    'timestamp': '2026-01-01T12:00:00Z',\n    'code_location': 'orders.create_order',\n    'event_type': 'order_failure',\n    'event_severity': 'error',\n    'result_status': 'failed',\n    'reason': 'synthetic stock unavailable',\n}\nreserved_attributes = sorted(set(logging.makeLogRecord({}).__dict__) | {'message', 'asctime'})\n\nlogger.error('failed')\nprint(captured_output.getvalue(), end='')\n", "reveal": "all", "lineage": {"concept_ids": ["observability.structured_service_logs"], "teaching_block_ids": ["observability.structured_service_logs#tb1", "observability.structured_service_logs#tb2", "observability.structured_service_logs#tb3"], "fact_ids": ["observability.structured_service_logs#f1", "observability.structured_service_logs#f2", "observability.structured_service_logs#f3"], "anchors": ["observability.structured_service_logs#visual"]}}, "after": {"type": "code_walkthrough", "language": "python", "code": "import io\nimport logging\ncaptured_output = io.StringIO()\nlogger = logging.getLogger('order.failure.exercise')\nlogger.handlers.clear()\nlogger.propagate = False\nlogger.setLevel(logging.ERROR)\nexisting_handler = logging.StreamHandler(captured_output)\nexisting_handler.setFormatter(logging.Formatter('%(message)s'))\nlogger.addHandler(existing_handler)\nfailure_values = {\n    'timestamp': '2026-01-01T12:00:00Z',\n    'code_location': 'orders.create_order',\n    'event_type': 'order_failure',\n    'event_severity': 'error',\n    'result_status': 'failed',\n    'reason': 'synthetic stock unavailable',\n}\nreserved_attributes = sorted(set(logging.makeLogRecord({}).__dict__) | {'message', 'asctime'})\n\nevent_fields = dict(failure_values)\nexisting_handler.setFormatter(logging.Formatter('timestamp=%(timestamp)s code_location=%(code_location)s event_type=%(event_type)s event_severity=%(event_severity)s result_status=%(result_status)s reason=%(reason)s'))\nlogger.error('order failure', extra=event_fields)\nprint(captured_output.getvalue(), end='')\n", "reveal": "all", "lineage": {"concept_ids": ["observability.structured_service_logs"], "teaching_block_ids": ["observability.structured_service_logs#tb1", "observability.structured_service_logs#tb2", "observability.structured_service_logs#tb3"], "fact_ids": ["observability.structured_service_logs#f1", "observability.structured_service_logs#f2", "observability.structured_service_logs#f3"], "anchors": ["observability.structured_service_logs#visual"]}}, "change_summary": "Before: unexplained message. After: preserve the six named failure fields through the existing formatter. Emitted output is computed, not an observed production event."}
+tile_041.s02 explainer
+{"type": "prose", "text": "Follow the fields from event_fields into the LogRecord and then into the emitted record. Use timestamp, code location, event type, severity, result status and reason consistently. Passing extra is not enough: inspect the existing formatter or collector to ensure those names survive. Custom names must not collide with reserved LogRecord attributes.", "role": "mental_model"}
+tile_041.s03 check
+QUESTION {"prompt": "When attaching custom structured fields using logger.error(message, extra=event_fields), which naming rule is required?", "options": [{"option_id": "option_1", "text": "Use consistent custom field names that do not collide with reserved LogRecord attributes."}, {"option_id": "option_2", "text": "Reuse reserved LogRecord attribute names for custom context."}, {"option_id": "option_3", "text": "Put context only in free text so the formatter need not preserve field names."}], "selection": "single", "shuffle": true}
+KEY {"correct_option_ids": ["option_1"], "option_feedback": {"option_1": {"message": "Structured extra fields must avoid reserved attribute collisions."}, "option_2": {"message": "Custom keys must not collide with reserved LogRecord attributes."}, "option_3": {"message": "The structured-field goal requires attaching and preserving consistently named fields, not unexplained free text."}}}
+tile_041.s04 hands_on
+TASK event_fields is supplied with six consistently named failure fields. Configure the existing handler formatter to emit exactly timestamp=<value> code_location=<value> event_type=<value> event_severity=<value> result_status=<value> reason=<value>, in that order, followed by a newline. Emit logger.error('failed', extra=event_fields). Preserve all field names; use no reserved LogRecord names for custom fields.
+STARTER exercise.py failure_reason = 'synthetic stock unavailable'
+import io
+import logging
+captured_output = io.StringIO()
+logger = logging.getLogger('order.failure.exercise')
+logger.handlers.clear()
+logger.propagate = False
+logger.setLevel(logging.ERROR)
+existing_handler = logging.StreamHandler(captured_output)
+existing_handler.setFormatter(logging.Formatter('%(message)s'))
+logger.addHandler(existing_handler)
+failure_values = {
+    'timestamp': '2026-01-01T12:00:00Z',
+    'code_location': 'orders.create_order',
+    'event_type': 'order_failure',
+    'event_severity': 'error',
+    'result_status': 'failed',
+    'reason': failure_reason,
+}
+reserved_attributes = sorted(set(logging.makeLogRecord({}).__dict__) | {'message', 'asctime'})
+import logging
+# TODO: copy the six failure values into event_fields and preserve their
+# names in the existing formatter. Emit logger.error(..., extra=event_fields).
+event_fields = {
+    'timestamp': failure_values['timestamp'],
+    'code_location': failure_values['code_location'],
+    'event_type': failure_values['event_type'],
+    'event_severity': failure_values['event_severity'],
+    'result_status': failure_values['result_status'],
+    'reason': failure_values['reason'],
+}
+# TODO: configure the existing formatter and emit with extra=event_fields.
+logger.error('failed')
+
+SOLUTION exercise.py failure_reason = 'synthetic stock unavailable'
+import io
+import logging
+captured_output = io.StringIO()
+logger = logging.getLogger('order.failure.exercise')
+logger.handlers.clear()
+logger.propagate = False
+logger.setLevel(logging.ERROR)
+existing_handler = logging.StreamHandler(captured_output)
+existing_handler.setFormatter(logging.Formatter('%(message)s'))
+logger.addHandler(existing_handler)
+failure_values = {
+    'timestamp': '2026-01-01T12:00:00Z',
+    'code_location': 'orders.create_order',
+    'event_type': 'order_failure',
+    'event_severity': 'error',
+    'result_status': 'failed',
+    'reason': failure_reason,
+}
+reserved_attributes = sorted(set(logging.makeLogRecord({}).__dict__) | {'message', 'asctime'})
+import logging
+# TODO: copy the six failure values into event_fields and preserve their
+# names in the existing formatter. Emit logger.error(..., extra=event_fields).
+event_fields = {
+    'timestamp': failure_values['timestamp'],
+    'code_location': failure_values['code_location'],
+    'event_type': failure_values['event_type'],
+    'event_severity': failure_values['event_severity'],
+    'result_status': failure_values['result_status'],
+    'reason': failure_values['reason'],
+}
+existing_handler.setFormatter(logging.Formatter('timestamp=%(timestamp)s code_location=%(code_location)s event_type=%(event_type)s event_severity=%(event_severity)s result_status=%(result_status)s reason=%(reason)s'))
+logger.error('failed', extra=event_fields)
+
+TESTS [{"test_id": "test_1", "kind": "value_equals", "spec": {"expr": "captured_output.getvalue()", "expected": "timestamp=2026-01-01T12:00:00Z code_location=orders.create_order event_type=order_failure event_severity=error result_status=failed reason=synthetic stock unavailable\n"}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}]
+tile_041.s05 recap
+{"type": "prose", "text": "Name failure fields consistently, attach them with extra, avoid reserved names and preserve them in emitted output.", "role": "takeaway"}
+{"type": "up_next", "title": "Next: tile_042 — Preventing unsafe outbound requests and SSRF", "text": "Start with Preventing unsafe outbound requests and SSRF."}
+
+### tile_042 Preventing unsafe outbound requests and SSRF
+GLOSSARY {"coverage": {"learning_objective": "Constrain outbound destinations: implement one destination policy.", "required_facts": [{"id": "f1", "statement": "When destinations are known, enforce a destination allowlist instead of allowing an untrusted value to choose an arbitrary outbound URL.", "source_refs": ["owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html#application-layer"]}, {"id": "f2", "statement": "A destination policy must reject private, loopback, link-local and other non-public addresses, including IPv6 equivalents, when access is intended only to public services.", "source_refs": ["owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html#case-2-application-can-send-requests-to-any-external-ip-address-or-domain-name"]}, {"id": "f3", "statement": "Validate the resolved address actually used for the connection, not merely a hostname checked earlier, to avoid a DNS rebinding gap.", "source_refs": ["owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Webhook_Security_Cheat_Sheet.html#ssrf-prevention-publisher-side"]}, {"id": "f4", "statement": "Disable automatic redirects or apply the same destination checks to each redirect target so a permitted initial URL cannot redirect into a forbidden destination.", "source_refs": ["owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html#application-layer", "owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Webhook_Security_Cheat_Sheet.html#ssrf-prevention-publisher-side"]}], "misconceptions": []}, "assessment_anchors": [{"fact_ids": ["f1"], "capability": "identify_arbitrary_destination_selection"}, {"fact_ids": ["f2"], "capability": "identify_non_public_address_boundary_violations"}, {"fact_ids": ["f3"], "capability": "identify_dns_rebinding_validation_gaps"}, {"fact_ids": ["f4"], "capability": "identify_redirect_destination_policy_bypasses"}], "practice_anchor": {"type": "live_code", "objective": "Implement a destination allowlist that maps a requested provider to a fixed, approved destination and rejects unknown providers instead of treating their input as an outbound URL.", "success": "Known provider values return only their configured destinations. Unknown provider values, including arbitrary URL strings, are rejected. This implements destination selection, not the separate connected-address and redirect checks.", "live_code": {"required_skill": "Use a fixed provider-to-destination mapping and reject input that is not an allowed mapping key.", "allowed_syntax": ["def", "str parameter and return annotations", "string literals", "dictionary literals", "dictionary key lookup", "if", "not in", "return", "raise ValueError"], "blocked_syntax": ["TestClient", "app.dependency_overrides", "Header", "Cookie", "app.exception_handler"], "starter_state_intent": "Provide a fixed allowed_destinations mapping containing provider names and approved public-service destination URLs, plus an unfinished destination_for_provider(provider: str) -> str function. Keep network connections outside this exercise.", "observable_success": "Calling the function with each configured provider returns its exact configured destination. Calling it with an unknown provider or an arbitrary URL raises ValueError rather than returning the supplied value."}}, "visual_anchor": {"type": "diagram", "purpose": "Make the outbound trust boundary visible across three separate stages: requested provider mapped to an allowed destination, the resolved address actually used for the connection, and any redirect target. Mark private, loopback, link-local and other non-public IPv4 and IPv6 destinations as forbidden for public-only access, and show where each stage requires enforcement."}}
+tile_042.s01 explainer
+{"type": "prose", "text": "For known destinations, map untrusted provider input to an allowed destination instead of accepting an arbitrary outbound URL.", "role": "mechanism"}
+{"type": "prose", "text": "For public-only access, reject private, loopback, link-local and other non-public addresses, including IPv6 equivalents.", "role": "mechanism"}
+{"type": "prose", "text": "Validate the resolved address actually used for the connection. Checking a hostname earlier is insufficient against a DNS rebinding gap.", "role": "mechanism"}
+{"type": "prose", "text": "Disable automatic redirects or enforce the same destination checks on every redirect target. An allowed starting URL can redirect somewhere forbidden.", "role": "mechanism"}
+{"type": "diagram", "diagram_kind": "network", "title": "Outbound destination trust boundary", "nodes": [{"id": "input", "label": "Requested provider"}, {"id": "map", "label": "Allowlist: catalog → https://catalog.example/lookup; shipping → https://shipping.example/lookup"}, {"id": "address", "label": "Validate resolved address actually used"}, {"id": "deny", "label": "Reject private, loopback, link-local and other non-public IPv4/IPv6"}, {"id": "redirect", "label": "Redirect target: same checks or disable automatic redirects"}, {"id": "public", "label": "Public-only connection boundary"}], "edges": [{"from": "input", "to": "map", "label": "reject arbitrary destinations", "directed": true}, {"from": "map", "to": "address", "label": "not just earlier hostname check", "directed": true}, {"from": "address", "to": "deny", "label": "non-public", "directed": true}, {"from": "address", "to": "public", "label": "policy permits", "directed": true}, {"from": "public", "to": "redirect", "label": "redirect response", "directed": true}, {"from": "redirect", "to": "map", "label": "reapply destination checks", "directed": true}], "layout": "auto", "alt_text": "Outbound destination trust boundary: Requested provider; Allowlist: catalog → https://catalog.example/lookup; shipping → https://shipping.example/lookup; Validate resolved address actually used; Reject private, loopback, link-local and other non-public IPv4/IPv6; Redirect target: same checks or disable automatic redirects; Public-only connection boundary"}
+tile_042.s02 explainer
+{"type": "prose", "text": "Trace three boundaries, not just one hostname: requested provider, address actually connected to, and redirect target. Map known providers to allowed destinations. Reject non-public IPv4 and IPv6 addresses for public-only access, and validate the resolved address used by the connection. Disable redirects or check each target. A permitted-looking hostname alone leaves the connected-address and redirect boundaries unverified.", "role": "mental_model"}
+tile_042.s03 check
+QUESTION {"prompt": "An outbound policy permits only public services. What must it do with a destination resolving to a private, loopback or link-local address, including IPv6 equivalents?", "options": [{"option_id": "option_1", "text": "Reject it under the public-address boundary."}, {"option_id": "option_2", "text": "Allow it whenever the destination hostname looks public."}, {"option_id": "option_3", "text": "Reject those IPv4 destinations but permit equivalent IPv6 destinations."}], "selection": "single", "shuffle": true}
+KEY {"correct_option_ids": ["option_1"], "option_feedback": {"option_1": {"message": "The policy excludes private, loopback, link-local and other non-public addresses."}, "option_2": {"message": "A hostname appearance does not make a resolved non-public address acceptable."}, "option_3": {"message": "The non-public boundary includes IPv6 equivalents."}}}
+tile_042.s04 check
+QUESTION {"prompt": "Resolution can change after an earlier hostname check, and an approved URL can redirect. Which policy closes both gaps?", "options": [{"option_id": "option_2", "text": "Trust later resolution and check only the initial URL"}, {"option_id": "option_3", "text": "Validate the connected address but follow redirects without checking their targets."}, {"option_id": "option_1", "text": "Validate the resolved address actually used for connection, and disable automatic redirects or apply the same destination checks to every redirect target."}], "selection": "single", "shuffle": true}
+KEY {"correct_option_ids": ["option_1"], "option_feedback": {"option_2": {"message": "Trusting later resolution omits validation of the connected address, and checking only the initial URL omits the redirect-target boundary."}, "option_3": {"message": "Connected-address validation does not cover redirect targets; automatic redirects must be disabled or every target must undergo the same destination checks."}, "option_1": {"message": "Checking the connected address closes the resolution gap; disabling redirects or checking every target preserves the destination policy across redirects."}}}
+tile_042.s05 hands_on
+TASK Complete destination_for_provider. Return the configured dictionary destination only for known provider keys; raise ValueError for every other input, including arbitrary URL strings. No network is contacted. This task implements destination selection only, not connected-address validation or redirect enforcement.
+STARTER exercise.py allowed_destinations = {
+    'catalog': 'https://catalog.example/lookup',
+    'shipping': 'https://shipping.example/lookup',
+}
+def destination_for_provider(provider: str) -> str:
+    # TODO: return only a configured destination; reject unknown keys.
+    raise NotImplementedError
+def _case(provider):
+    try: return {'destination':destination_for_provider(provider)}
+    except ValueError: return {'rejected':provider}
+import inspect
+from fastapi import FastAPI, Body
+verification_app=FastAPI()
+
+async def verify_case(payload: dict=Body(...)):
+    result=_case(payload['case'])
+    if inspect.isawaitable(result):return await result
+    return result
+verify_case = verification_app.post('/_verify')(verify_case)
+
+SOLUTION exercise.py allowed_destinations = {
+    'catalog': 'https://catalog.example/lookup',
+    'shipping': 'https://shipping.example/lookup',
+}
+def destination_for_provider(provider: str) -> str:
+    if provider not in allowed_destinations:
+        raise ValueError('unknown provider')
+    return allowed_destinations[provider]
+def _case(provider):
+    try: return {'destination':destination_for_provider(provider)}
+    except ValueError: return {'rejected':provider}
+import inspect
+from fastapi import FastAPI, Body
+verification_app=FastAPI()
+
+async def verify_case(payload: dict=Body(...)):
+    result=_case(payload['case'])
+    if inspect.isawaitable(result):return await result
+    return result
+verify_case = verification_app.post('/_verify')(verify_case)
+
+TESTS [{"test_id": "test_1", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "catalog"}}], "app": "verification_app", "expected": {"status": 200, "json": {"destination": "https://catalog.example/lookup"}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}, {"test_id": "test_2", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "shipping"}}], "app": "verification_app", "expected": {"status": 200, "json": {"destination": "https://shipping.example/lookup"}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}, {"test_id": "test_3", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "unknown"}}], "app": "verification_app", "expected": {"status": 200, "json": {"rejected": "unknown"}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}, {"test_id": "test_4", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "https://arbitrary.example/lookup"}}], "app": "verification_app", "expected": {"status": 200, "json": {"rejected": "https://arbitrary.example/lookup"}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}, {"test_id": "test_5", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": ""}}], "app": "verification_app", "expected": {"status": 200, "json": {"rejected": ""}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}, {"test_id": "test_6", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "CATALOG"}}], "app": "verification_app", "expected": {"status": 200, "json": {"rejected": "CATALOG"}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}]
+tile_042.s06 recap
+{"type": "prose", "text": "Allowlist destinations; reject non-public IPv4/IPv6; validate connected addresses; disable or recheck redirects.", "role": "takeaway"}
+{"type": "up_next", "title": "Next: tile_043 — Bounded form and multipart file inputs", "text": "Start with Bounded form and multipart file inputs."}
+
+### tile_043 Bounded form and multipart file inputs
+GLOSSARY {"coverage": {"learning_objective": "Accept bounded form and multipart inputs: implement one bounded multipart endpoint with form metadata and a file.", "required_facts": [{"id": "f1", "statement": "Declare form metadata with Annotated[Type, Form()] and an uploaded file with Annotated[UploadFile, File()] in the same multipart handler; multipart parsing requires python-multipart.", "source_refs": ["fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/request-forms-and-files/#define-file-and-form-parameters"]}, {"id": "f2", "statement": "UploadFile uses a spooled file rather than requiring the entire upload to be represented as bytes in memory, and exposes asynchronous read, seek and close methods.", "source_refs": ["fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/request-files/#uploadfile"]}, {"id": "f3", "statement": "Apply RequestBodyLimitMiddleware with a finite max_body_size to count actual incoming body bytes, including multipart overhead, and return 413 when the limit is exceeded.", "source_refs": ["fastapi_docs_advanced#https://starlette.dev/middleware/#requestbodylimitmiddleware"]}, {"id": "f4", "statement": "Multipart parsing can separately bound file count, field count and non-file field size with request.form(max_files=..., max_fields=..., max_part_size=...); these controls do not replace a total body limit.", "source_refs": ["fastapi_docs_advanced#https://starlette.dev/requests/#request-files"]}, {"id": "f5", "statement": "Reject disallowed content types and validate the supplied fields before processing, then close an UploadFile with await file.close() when finished with its resource.", "source_refs": ["owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Webhook_Security_Cheat_Sheet.html#input-validation", "fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/request-files/#uploadfile"]}], "misconceptions": []}, "assessment_anchors": [{"fact_ids": ["f1"], "capability": "bind_form_metadata_and_uploaded_file"}, {"fact_ids": ["f2", "f5"], "capability": "handle_spooled_upload_resources_safely"}, {"fact_ids": ["f3"], "capability": "enforce_actual_multipart_body_byte_limit"}, {"fact_ids": ["f3", "f4"], "capability": "distinguish_multipart_parser_limits_from_total_body_limit"}, {"fact_ids": ["f5"], "capability": "reject_disallowed_upload_types_and_invalid_metadata"}], "practice_anchor": {"type": "live_code", "objective": "Implement one bounded attachment endpoint that binds form metadata and an uploaded file, enforces a finite total body budget and separate multipart parser limits, validates inputs before processing, and closes the uploaded file.", "success": "The endpoint accepts permitted metadata and attachment content, rejects disallowed attachment content types and invalid metadata before processing, returns 413 when actual body bytes exceed the budget, applies the configured parser limits before binding, and closes every file resource it handles.", "live_code": {"required_skill": "Combine typed multipart binding, existing middleware configuration, bounded multipart parsing, input checks, and asynchronous file cleanup.", "allowed_syntax": ["from typing import Annotated", "from fastapi import FastAPI, Form, File, UploadFile, Request, HTTPException", "app = FastAPI()", "@app.post(...)", "async def", "Annotated[str, Form()]", "Annotated[UploadFile, File()]", "app.add_middleware(RequestBodyLimitMiddleware, max_body_size=...)", "await request.form(max_files=..., max_fields=..., max_part_size=...)", "await file.read(size)", "await file.seek(0)", "await file.close()", "file.content_type", "if", "not in", "len(metadata)", "raise HTTPException(status_code=..., detail=...)", "try", "finally", "return", "assignment", "string and integer literals", "tuple literals", "dictionary literals", "comparison operators"], "blocked_syntax": ["TestClient(...)", "app.dependency_overrides[...]", "Header(...)", "Cookie(...)", "@app.exception_handler(...)", "CORSMiddleware(...)", "TrustedHostMiddleware(...)", "model_dump(exclude_unset=True)"], "starter_state_intent": "Provide an application scaffold, installed python-multipart, an importable RequestBodyLimitMiddleware implementation, and a pre-binding parsing scaffold that applies request.form limits before automatic parameter binding. Use only metadata and file as input names. Supply a finite body budget, parser budgets, permitted attachment content types, and a metadata length rule; leave endpoint binding, configuration values, validation, bounded reading, and cleanup unfinished.", "observable_success": "In the supplied execution harness, permitted metadata and file inputs reach processing; invalid metadata and disallowed attachment content types do not. An oversized actual body produces 413, including when multipart overhead pushes it over budget. Excess files, fields, or non-file field size are rejected by the parser boundary. The handler reads a bounded amount and closes its file on both successful processing and handler-level rejection."}}, "visual_anchor": {"type": "code", "purpose": "Make the total-body middleware boundary, pre-binding multipart parser limits, typed metadata and file parameters, validation-before-processing order, and finally-based asynchronous file cleanup visible in one endpoint scaffold."}}
+tile_043.s01 explainer
+{"type": "prose", "text": "In one multipart handler, declare metadata with Annotated[Type, Form()] and the file with Annotated[UploadFile, File()]. Install python-multipart for parsing.", "role": "mechanism"}
+{"type": "prose", "text": "UploadFile uses a spooled file rather than requiring the entire upload as in-memory bytes. Its read, seek and close methods are asynchronous.", "role": "mechanism"}
+{"type": "prose", "text": "Set a finite RequestBodyLimitMiddleware max_body_size. Count actual incoming bytes, including multipart overhead; exceeding that limit returns 413.", "role": "mechanism"}
+{"type": "prose", "text": "request.form(max_files=..., max_fields=..., max_part_size=...) separately limits file count, field count and non-file field size. These limits do not replace the total-body limit.", "role": "mechanism"}
+{"type": "prose", "text": "Reject disallowed content types and validate fields before processing. When finished, release the upload with await file.close().", "role": "mechanism"}
+{"type": "prose", "role": "mechanism", "text": "For this lab, disallowed attachment types use 415 and overlong metadata uses 422; total-body overflow uses 413. These are separate rejection conditions."}
+{"type": "code_walkthrough", "language": "python", "code": "from typing import Annotated\nfrom fastapi import FastAPI, Form, File, UploadFile, HTTPException\nfrom support import (RequestBodyLimitMiddleware, BoundedMultipartRoute,\n                     budgets, permitted_content_types)\napp = FastAPI()\napp.router.route_class = BoundedMultipartRoute\napp.add_middleware(RequestBodyLimitMiddleware,\n                   max_body_size=budgets['max_body_size'])\n@app.post('/orders/attachments')\nasync def attachment(metadata: Annotated[str, Form()],\n                     file: Annotated[UploadFile, File()]):\n    try:\n        if file.content_type not in permitted_content_types:\n            raise HTTPException(status_code=415, detail='disallowed content type')\n        if len(metadata) > budgets['metadata_max_length']:\n            raise HTTPException(status_code=422, detail='invalid metadata')\n        data = await file.read(budgets['read_size'])\n        await file.seek(0)\n        return {'metadata': metadata}\n    finally:\n        await file.close()\n", "reveal": "all", "annotations": [{"start_line": 6, "end_line": 8, "text": "Total actual-body-byte boundary, including multipart overhead."}, {"start_line": 10, "end_line": 11, "text": "Typed form metadata and spooled file; python-multipart required."}, {"start_line": 12, "end_line": 16, "text": "Validate before reading."}, {"start_line": 20, "end_line": 21, "text": "Asynchronous cleanup on success or rejection."}]}
+{"type": "code_walkthrough", "language": "python", "code": "from fastapi.routing import APIRoute\nfrom support import budgets\nclass BoundedMultipartRoute(APIRoute):\n    def get_route_handler(self):\n        original = super().get_route_handler()\n        async def bounded(request):\n            # Parsing precedes automatic typed parameter binding.\n            form = await request.form(max_files=budgets['max_files'],\n                max_fields=budgets['max_fields'], max_part_size=budgets['max_part_size'])\n            try:\n                return await original(request)\n            finally:\n                await form.close()\n        return bounded\n", "reveal": "all", "annotations": [{"start_line": 6, "end_line": 8, "text": "Parser limits run before automatic typed parameter binding; non-file part size is separate from the total body budget."}]}
+tile_043.s02 explainer
+{"type": "prose", "text": "Treat limits as separate controls. Form and File declarations need python-multipart; a spooled UploadFile offers asynchronous resource methods, not unlimited input. The finite body budget counts actual bytes including overhead and returns 413 on excess. Parser options bound file count, field count and non-file field size, but do not replace that budget. Validate fields and content type before processing, and close the file afterward.", "role": "mental_model"}
+tile_043.s03 check
+QUESTION {"prompt": "Which policy correctly handles invalid uploads and the separate input limits?", "options": [{"option_id": "option_1", "text": "Reject invalid metadata or content types before processing and close handled uploads; parser file-count, field-count and non-file-part-size limits remain separate from the actual total-body-byte limit."}, {"option_id": "option_2", "text": "Process uploads before checking metadata or content types, then close handled uploads; keep parser limits separate from the total-body-byte limit."}, {"option_id": "option_3", "text": "Reject invalid metadata or content types before processing and close handled uploads; parser limits replace the total-body-byte limit."}], "selection": "single", "shuffle": true}
+KEY {"correct_option_ids": ["option_1"], "option_feedback": {"option_1": {"message": "Validation precedes processing and handled uploads are closed. Parser counts and non-file-part sizes do not replace the actual total-body-byte budget."}, "option_2": {"message": "Processing before checking metadata and content types violates validation-before-processing, even if the upload is later closed."}, "option_3": {"message": "Parser file-count, field-count and non-file-part-size limits are separate from, not replacements for, the actual total-body-byte limit."}}}
+tile_043.s04 hands_on
+TASK Register RequestBodyLimitMiddleware using budgets['max_body_size']. Complete attachment with metadata: Annotated[str, Form()] and file: Annotated[UploadFile, File()]. Inside try/finally, reject content types outside permitted_content_types with 415 and metadata longer than budgets['metadata_max_length'] with 422 before reading. Read at most budgets['read_size']; return {'metadata': metadata, 'size': len(content)}. Always await file.close() in finally. Keep the supplied bounded route (parser limits before binding) unchanged. The harness covers permitted input, rejection, actual-byte overflow including multipart overhead, file/field counts and non-file part size.
+STARTER exercise.py from fastapi.routing import APIRoute
+from starlette.datastructures import UploadFile
+from starlette.responses import Response
+budgets = {'max_body_size': 4096, 'max_files': 1, 'max_fields': 1,
+           'max_part_size': 256, 'read_size': 1024, 'metadata_max_length': 80}
+permitted_content_types = ('text/plain',)
+class RequestBodyLimitMiddleware:
+    def __init__(self, app, max_body_size):
+        self.app, self.limit = app, max_body_size
+    async def __call__(self, scope, receive, send):
+        if scope['type'] != 'http':
+            return await self.app(scope, receive, send)
+        messages, size = [], 0
+        while True:
+            message = await receive()
+            if message['type'] == 'http.disconnect':
+                return
+            size += len(message.get('body', b''))
+            if size > self.limit:
+                return await Response(status_code=413)(scope, receive, send)
+            messages.append(message)
+            if not message.get('more_body', False):
+                break
+        async def replay():
+            if messages:
+                return messages.pop(0)
+            return await receive()
+        await self.app(scope, replay, send)
+class BoundedMultipartRoute(APIRoute):
+    def get_route_handler(self):
+        original = super().get_route_handler()
+        async def bounded(request):
+            # Parsing precedes automatic typed parameter binding.
+            form = await request.form(max_files=budgets['max_files'],
+                max_fields=budgets['max_fields'], max_part_size=budgets['max_part_size'])
+            try:
+                return await original(request)
+            finally:
+                await form.close()
+        return bounded
+from typing import Annotated
+from fastapi import FastAPI, Form, File, UploadFile, Request, HTTPException
+app = FastAPI()
+app.router.route_class = BoundedMultipartRoute
+# TODO: register the actual-byte middleware using the supplied budget.
+
+async def attachment():
+    # TODO: bind only metadata and file using Form/File/UploadFile.
+    # Validate before processing, read at most budgets['read_size'],
+    # and await file.close() in finally.
+    raise NotImplementedError
+attachment = app.post('/orders/attachments')(attachment)
+
+SOLUTION exercise.py from fastapi.routing import APIRoute
+from starlette.datastructures import UploadFile
+from starlette.responses import Response
+budgets = {'max_body_size': 4096, 'max_files': 1, 'max_fields': 1,
+           'max_part_size': 256, 'read_size': 1024, 'metadata_max_length': 80}
+permitted_content_types = ('text/plain',)
+class RequestBodyLimitMiddleware:
+    def __init__(self, app, max_body_size):
+        self.app, self.limit = app, max_body_size
+    async def __call__(self, scope, receive, send):
+        if scope['type'] != 'http':
+            return await self.app(scope, receive, send)
+        messages, size = [], 0
+        while True:
+            message = await receive()
+            if message['type'] == 'http.disconnect':
+                return
+            size += len(message.get('body', b''))
+            if size > self.limit:
+                return await Response(status_code=413)(scope, receive, send)
+            messages.append(message)
+            if not message.get('more_body', False):
+                break
+        async def replay():
+            if messages:
+                return messages.pop(0)
+            return await receive()
+        await self.app(scope, replay, send)
+class BoundedMultipartRoute(APIRoute):
+    def get_route_handler(self):
+        original = super().get_route_handler()
+        async def bounded(request):
+            # Parsing precedes automatic typed parameter binding.
+            form = await request.form(max_files=budgets['max_files'],
+                max_fields=budgets['max_fields'], max_part_size=budgets['max_part_size'])
+            try:
+                return await original(request)
+            finally:
+                await form.close()
+        return bounded
+from typing import Annotated
+from fastapi import FastAPI, Form, File, UploadFile, Request, HTTPException
+app = FastAPI()
+app.router.route_class = BoundedMultipartRoute
+app.add_middleware(RequestBodyLimitMiddleware, max_body_size=budgets['max_body_size'])
+
+async def attachment(metadata: Annotated[str, Form()], file: Annotated[UploadFile, File()]):
+    try:
+        if file.content_type not in permitted_content_types:
+            raise HTTPException(status_code=415, detail='disallowed attachment')
+        if len(metadata) > budgets['metadata_max_length']:
+            raise HTTPException(status_code=422, detail='invalid metadata')
+        content = await file.read(budgets['read_size'])
+        return {'metadata': metadata, 'size': len(content)}
+    finally:
+        await file.close()
+attachment = app.post('/orders/attachments')(attachment)
+
+TESTS [{"test_id": "test_1", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "valid"}}], "app": "verification_app", "expected": {"status": 200, "json": {"case": "valid", "status": 200, "reads": [1024], "handled_uploads_closed": true}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}, {"test_id": "test_2", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "invalid_metadata"}}], "app": "verification_app", "expected": {"status": 200, "json": {"case": "invalid_metadata", "status": 422, "reads": [], "handled_uploads_closed": true}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}, {"test_id": "test_3", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "type"}}], "app": "verification_app", "expected": {"status": 200, "json": {"case": "type", "status": 415, "reads": [], "handled_uploads_closed": true}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}, {"test_id": "test_4", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "overflow"}}], "app": "verification_app", "expected": {"status": 200, "json": {"case": "overflow", "status": 413, "reads": [], "closed": []}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}, {"test_id": "test_5", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "files"}}], "app": "verification_app", "expected": {"status": 200, "json": {"case": "files", "status": 400, "reads": [], "closed": []}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}, {"test_id": "test_6", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "fields"}}], "app": "verification_app", "expected": {"status": 200, "json": {"case": "fields", "status": 400, "reads": [], "closed": []}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}, {"test_id": "test_7", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "part"}}], "app": "verification_app", "expected": {"status": 200, "json": {"case": "part", "status": 400, "reads": [], "closed": []}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}]
+tile_043.s05 recap
+{"type": "prose", "text": "Bind Form/File inputs; use spooled asynchronous uploads; enforce total and parser limits separately; validate before processing and close files.", "role": "takeaway"}
+{"type": "up_next", "title": "Next: tile_044 — CORS origin and credential policy", "text": "Start with CORS origin and credential policy."}
+
+### tile_044 CORS origin and credential policy
+GLOSSARY {"coverage": {"learning_objective": "Set safe CORS policy: configure one browser-client policy.", "required_facts": [{"id": "f1", "statement": "Configure app.add_middleware(CORSMiddleware, allow_origins=[...], allow_methods=[...], allow_headers=[...], allow_credentials=...) with the origins, methods and headers the browser client actually needs.", "source_refs": ["fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/cors/#use-corsmiddleware"]}, {"id": "f2", "statement": "CORSMiddleware defaults are restrictive: allowed methods default to GET and credentials default to false.", "source_refs": ["fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/cors/#use-corsmiddleware"]}, {"id": "f3", "statement": "When allow_credentials=True, explicitly specify allowed origins, methods and headers rather than wildcard lists.", "source_refs": ["fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/cors/#use-corsmiddleware"]}, {"id": "f4", "statement": "CORS signals browser access permission; it does not replace access-control checks at API endpoints.", "source_refs": ["owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html#cors", "owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html#access-control"]}], "misconceptions": []}, "assessment_anchors": [{"fact_ids": ["f1", "f3"], "capability": "identify_unsafe_origin_and_credential_combinations"}, {"fact_ids": ["f2"], "capability": "recognize_restrictive_cors_defaults"}, {"fact_ids": ["f4"], "capability": "distinguish_browser_access_from_endpoint_access_control"}], "practice_anchor": {"type": "live_code", "objective": "Configure CORSMiddleware for the browser client at https://shop.example, allowing GET and POST requests with the Content-Type header and credentialed browser access.", "success": "The application registers CORSMiddleware with the exact client origin, explicit GET and POST methods, an explicit Content-Type header list, and allow_credentials=True, without wildcard entries.", "live_code": {"required_skill": "Translate one browser client's origin, method, header and credential requirements into an explicit CORSMiddleware policy.", "allowed_syntax": ["from fastapi import FastAPI", "from fastapi.middleware.cors import CORSMiddleware", "app = FastAPI()", "app.add_middleware(CORSMiddleware, allow_origins=[...], allow_methods=[...], allow_headers=[...], allow_credentials=...)", "String literals", "List literals", "True and False boolean literals", "Keyword arguments"], "blocked_syntax": ["TestClient(...)", "app.dependency_overrides[...]", "@app.exception_handler(...)", "Header(...)", "Cookie(...)", "Security(...)"], "starter_state_intent": "Provide the FastAPI and CORSMiddleware imports and an app = FastAPI() declaration. State that https://shop.example needs GET, POST, Content-Type and credentialed browser access; leave middleware registration for the learner.", "observable_success": "The completed app.add_middleware call uses CORSMiddleware, allow_origins=[\"https://shop.example\"], allow_methods=[\"GET\", \"POST\"], allow_headers=[\"Content-Type\"], and allow_credentials=True. None of the three lists contains a wildcard."}}, "visual_anchor": {"type": "code", "purpose": "Make the CORSMiddleware declaration visible with annotations linking each explicit list and the credential flag to the shop client's requirements, alongside a separate boundary showing that browser access permission does not replace endpoint access checks."}}
+tile_044.s01 explainer
+{"type": "prose", "text": "Use app.add_middleware(CORSMiddleware, ...) with allow_origins, allow_methods, allow_headers and allow_credentials matching the browser client’s actual needs.", "role": "mechanism"}
+{"type": "prose", "text": "Defaults are restrictive: allowed methods default to GET, and credentials default to false.", "role": "mechanism"}
+{"type": "prose", "text": "With allow_credentials=True, specify origins, methods and headers explicitly rather than using wildcard lists.", "role": "mechanism"}
+{"type": "prose", "text": "CORS grants browser access permission; endpoint access-control checks remain separate and necessary.", "role": "mechanism"}
+{"type": "code_walkthrough", "language": "python", "code": "from fastapi import FastAPI\nfrom fastapi.middleware.cors import CORSMiddleware\napp = FastAPI()\n# Content-Type, and credentials; use explicit lists with no wildcards.\napp.add_middleware(CORSMiddleware,\n    allow_origins=['https://shop.example'],\n    allow_methods=['GET', 'POST'],\n    allow_headers=['Content-Type'],\n    allow_credentials=True)\n", "reveal": "all", "annotations": [{"start_line": 4, "end_line": 8, "text": "Explicit shop-client permissions; credentials enabled. Browser permission does not replace endpoint access checks."}]}
+tile_044.s02 explainer
+{"type": "prose", "text": "The shop browser needs its origin, methods and headers listed explicitly, with credentials enabled for this scenario. Defaults alone allow GET and leave credentials false. When credentials are true, do not use wildcard lists for origins, methods or headers. CORS answers a browser-permission question, not whether an endpoint should grant access. Keep endpoint access-control checks separate.", "role": "mental_model"}
+tile_044.s03 check
+QUESTION {"prompt": "Which statement correctly describes CORS defaults and its access-control boundary?", "options": [{"option_id": "option_1", "text": "Allowed methods default to GET and credentials to false; CORS controls browser access permission and does not replace endpoint access-control checks."}, {"option_id": "option_2", "text": "Allowed methods default to all methods and credentials to true; CORS controls browser access permission and does not replace endpoint access-control checks."}, {"option_id": "option_3", "text": "Allowed methods default to GET and credentials to false; CORS replaces endpoint access-control checks."}], "selection": "single", "shuffle": true}
+KEY {"correct_option_ids": ["option_1"], "option_feedback": {"option_1": {"message": "Allowed methods default to GET and credentials to false. Browser access permission is separate from endpoint access-control checks."}, "option_2": {"message": "These defaults are not permissive: allowed methods default to GET and credentials to false."}, "option_3": {"message": "CORS controls browser access permission, not endpoint access control; endpoint checks remain necessary."}}}
+tile_044.s04 hands_on
+TASK Register CORSMiddleware for exactly https://shop.example, explicit GET and POST methods, an explicit Content-Type header list, and allow_credentials=True. Do not use wildcards. Keep the supplied endpoint and verification harness unchanged; two preflights check the allowed client and an unrelated origin. This is browser access policy, not endpoint authorization.
+STARTER exercise.py from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+app = FastAPI()
+# TODO: add middleware for https://shop.example with GET, POST,
+# Content-Type, and credentials; use explicit lists with no wildcards.
+
+SOLUTION exercise.py from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+app = FastAPI()
+# TODO: add middleware for https://shop.example with GET, POST,
+# Content-Type, and credentials; use explicit lists with no wildcards.
+app.add_middleware(CORSMiddleware, allow_origins=['https://shop.example'], allow_methods=['GET', 'POST'], allow_headers=['Content-Type'], allow_credentials=True)
+
+TESTS [{"test_id": "test_1", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "https://shop.example"}}], "app": "verification_app", "expected": {"status": 200, "json": {"status": 200, "origin": "https://shop.example", "credentials": "true"}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}, {"test_id": "test_2", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "https://unrelated.example"}}], "app": "verification_app", "expected": {"status": 200, "json": {"status": 400, "origin": null, "credentials": "true"}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}]
+tile_044.s05 recap
+{"type": "prose", "text": "Match explicit CORS lists to the browser; remember restrictive defaults; credentials require explicit lists; endpoint access checks remain separate.", "role": "takeaway"}
+{"type": "up_next", "title": "Next: tile_045 — Request-scoped dependency reuse and lifetime", "text": "Start with Request-scoped dependency reuse and lifetime."}
+
+### tile_045 Request-scoped dependency reuse and lifetime · Endpoint integration tests using TestClient or async HTTPX as appropriate
+GLOSSARY {"coverage": {"learning_objective": "Control dependency reuse: verify one shared provider's identity.", "required_facts": [{"id": "f1", "statement": "FastAPI normally caches a dependency's returned value within one request when multiple dependants declare the same dependency.", "source_refs": ["fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/dependencies/sub-dependencies/#using-the-same-dependency-multiple-times"]}, {"id": "f2", "statement": "Set Depends(provider, use_cache=False) when that declaration needs a fresh execution instead of the cached result.", "source_refs": ["fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/dependencies/sub-dependencies/#using-the-same-dependency-multiple-times"]}, {"id": "f3", "statement": "Verify request-local reuse by having two dependants receive the same provider result during one request and checking a fresh request independently; this cache is not application-wide storage.", "source_refs": ["fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/dependencies/sub-dependencies/#using-the-same-dependency-multiple-times"]}], "misconceptions": []}, "assessment_anchors": [{"fact_ids": ["f1"], "capability": "predict_shared_dependency_reuse_within_one_request"}, {"fact_ids": ["f2"], "capability": "predict_fresh_execution_for_uncached_declaration"}, {"fact_ids": ["f3"], "capability": "distinguish_request_local_reuse_from_application_wide_storage"}], "practice_anchor": {"type": "live_code", "objective": "Have two dependants declare the same provider, compare their received values by identity during one request, and repeat the check in a fresh request.", "success": "Requests A and B each report that both dependants received the same instance. Provider execution records show one execution in A and a separate execution in B, establishing reuse within each request rather than across requests.", "live_code": {"required_skill": "Compose two dependants around one shared provider and use Python identity comparison to verify request-local reuse.", "allowed_syntax": ["from fastapi import FastAPI, Depends", "class declarations", "def declarations", "instance construction", "parameter annotations", "Depends(provider)", "Depends(provider, use_cache=False)", "path-operation decorators", "local assignment", "return statements", "is identity comparison", "dictionary literals", "string and boolean literals", "calls to the existing structured logger"], "blocked_syntax": ["TestClient(...)", "httpx.AsyncClient(...)", "app.dependency_overrides", "Header(...)", "Cookie(...)"], "starter_state_intent": "Provide a running FastAPI application with a provider that constructs a new instance and records each execution through the existing structured logger. Include two dependants declaring that provider and an unfinished handler that compares their returned values. Use the provider and value terminology from the worked example.", "observable_success": "After completing the identity comparison, manually send request A and then request B. Each response reports true for shared identity, and the execution records show a separate provider execution for each request."}}, "visual_anchor": {"type": "diagram", "purpose": "Show separate boundaries for requests A and B. Within each boundary, trace one provider execution supplying the same instance to two dependants. Contrast a declaration using use_cache=False, which requires a fresh execution rather than reuse of the cached result."}}
+GLOSSARY {"coverage": {"learning_objective": "Test an endpoint through its HTTP interface: write one integration test with TestClient or compatible async HTTPX setup.", "required_facts": [{"id": "f1", "statement": "Create TestClient(app), send an HTTP request with client.get(...) or another request method, and assert response.status_code and response.json() in a test_ function run by pytest.", "source_refs": ["fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/testing/#using-testclient"]}, {"id": "f2", "statement": "Use with TestClient(app) as client when the test must execute application lifespan setup and teardown.", "source_refs": ["fastapi_docs_advanced#https://fastapi.tiangolo.com/advanced/testing-events/#testing-events-lifespan-and-startup-shutdown"]}, {"id": "f3", "statement": "Sending a request through TestClient exercises the application's route and dependency resolution rather than only calling the handler function directly.", "source_refs": ["fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/testing/#using-testclient", "fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/dependencies/#declare-the-dependency-in-the-dependant"]}], "misconceptions": []}, "assessment_anchors": [{"fact_ids": ["f1"], "capability": "assert_endpoint_status_and_json_payload"}, {"fact_ids": ["f2"], "capability": "include_application_lifespan_in_test_boundary"}, {"fact_ids": ["f3"], "capability": "distinguish_http_route_and_dependency_resolution_from_direct_handler_calls"}], "practice_anchor": {"type": "live_code", "objective": "Write one pytest test for the supplied application's GET /orders/42 endpoint using a TestClient context manager, asserting status 200 and the JSON body {\"id\": 42, \"quantity\": 2}.", "success": "Pytest discovers and passes the test. The test sends an HTTP request through the supplied application, asserts both status and JSON, and uses the context manager to include lifespan setup and teardown.", "live_code": {"required_skill": "Create a TestClient endpoint integration test with explicit HTTP status and JSON assertions and a lifespan-aware context.", "allowed_syntax": ["from fastapi.testclient import TestClient", "def test_get_order():", "with TestClient(app) as client:", "response = client.get(\"/orders/42\")", "assert response.status_code == 200", "assert response.json() == {\"id\": 42, \"quantity\": 2}"], "blocked_syntax": ["app.dependency_overrides", "request.headers", "request.cookies", "app.openapi()", "@app.exception_handler", "session.execute(...)", "session.commit()", "session.rollback()"], "starter_state_intent": "Provide app already configured with the synthetic GET /orders/42 contract returning {\"id\": 42, \"quantity\": 2}, its existing dependencies, and lifespan setup and teardown. Leave the test for the learner to write; require no application changes.", "observable_success": "Running pytest passes test_get_order, whose body uses with TestClient(app) as client, requests /orders/42, and independently asserts response.status_code and response.json()."}}, "visual_anchor": {"type": "code", "purpose": "Make the TestClient context, GET request, status assertion, and JSON assertion visible together, alongside the pytest result for the synthetic order-retrieval contract."}}
+tile_045.s01 explainer
+{"type": "prose", "text": "FastAPI normally caches a dependency result within a request when several dependants declare the same dependency.", "role": "mechanism"}
+{"type": "prose", "text": "Use Depends(provider, use_cache=False) on a declaration that needs fresh execution instead of the cached result.", "role": "mechanism"}
+{"type": "prose", "text": "Check that two dependants receive the same provider result in one request, then examine a fresh request independently. This cache is request-local, not application-wide storage.", "role": "mechanism"}
+{"type": "diagram", "diagram_kind": "container", "title": "Separate request-cache boundaries", "nodes": [{"id": "a", "label": "Request A", "group": "A"}, {"id": "pa", "label": "Provider execution → value A", "group": "A"}, {"id": "a1", "label": "First dependant: same value A", "group": "A"}, {"id": "a2", "label": "Second dependant: same value A", "group": "A"}, {"id": "fresh", "label": "Depends(provider, use_cache=False): fresh execution", "group": "A"}, {"id": "b", "label": "Request B", "group": "B"}, {"id": "pb", "label": "Independent provider execution → value B", "group": "B"}, {"id": "b1", "label": "First dependant: value B", "group": "B"}, {"id": "b2", "label": "Second dependant: value B", "group": "B"}], "edges": [{"from": "a", "to": "pa", "label": "normal request-local cache", "directed": true}, {"from": "pa", "to": "a1", "label": "reuse", "directed": true}, {"from": "pa", "to": "a2", "label": "reuse", "directed": true}, {"from": "a", "to": "fresh", "label": "explicit uncached declaration", "directed": true}, {"from": "b", "to": "pb", "label": "new request", "directed": true}, {"from": "pb", "to": "b1", "label": "reuse", "directed": true}, {"from": "pb", "to": "b2", "label": "reuse", "directed": true}], "layout": "auto", "alt_text": "Separate request-cache boundaries: Request A; Provider execution → value A; First dependant: same value A; Second dependant: same value A; Depends(provider, use_cache=False): fresh execution; Request B; Independent provider execution → value B; First dependant: value B; Second dependant: value B"}
+tile_045.s02 explainer
+{"type": "prose", "text": "Draw request A around its provider result and both dependants. Verify reuse inside that boundary, then inspect request B independently. On a declaration needing another execution, use Depends(provider, use_cache=False). The normal cache reduces repeat execution within one request; it does not turn a request-specific value into storage shared by all clients.", "role": "mental_model"}
+tile_045.s03 check
+QUESTION {"prompt": "A particular dependency declaration must execute the provider freshly instead of using its request-local cached result. Which declaration requests that behavior?", "options": [{"option_id": "option_1", "text": "Depends(provider, use_cache=False)."}, {"option_id": "option_2", "text": "Depends(provider) with normal caching."}, {"option_id": "option_3", "text": "Move the result into application-wide storage and retain normal caching."}], "selection": "single", "shuffle": true}
+KEY {"correct_option_ids": ["option_1"], "option_feedback": {"option_1": {"message": "This declaration opts out of the normal cached result."}, "option_2": {"message": "The normal declaration reuses the request-local cached provider result."}, "option_3": {"message": "Application-wide storage is not the declaration-level fresh-execution behavior."}}}
+tile_045.s04 check
+QUESTION {"prompt": "Two dependants normally reuse one provider value in request A. Request B starts independently. What boundary should verification establish?", "options": [{"option_id": "option_2", "text": "The same stored instance must be reused across requests A and B."}, {"option_id": "option_3", "text": "Normal caching requires two separate provider executions within request A."}, {"option_id": "option_1", "text": "Shared instance within each request, with a separate provider execution for request B."}], "selection": "single", "shuffle": true}
+KEY {"correct_option_ids": ["option_1"], "option_feedback": {"option_2": {"message": "Request-local caching does not imply application-wide shared storage."}, "option_3": {"message": "Multiple dependants normally reuse the same provider result within one request."}, "option_1": {"message": "Reuse is request-local rather than application-wide storage."}}}
+tile_045.s05 hands_on
+TASK Replace the operation placeholder with return {'same_instance': a is b}. Keep provider and both cached dependency declarations unchanged. The harness sends request A and request B separately, verifies shared identity within each request and distinct provider executions across requests. Do not make a module-global shared value.
+STARTER exercise.py import logging
+logger = logging.getLogger('order.provider.exercise')
+logger.addHandler(logging.StreamHandler())
+logger.setLevel(logging.INFO)
+executions = []
+def record_execution(value):
+    executions.append(value)
+    logger.info('provider execution', extra={'event_type': 'provider_execution'})
+from fastapi import FastAPI, Depends
+app = FastAPI()
+class Value:
+    pass
+def provider():
+    value = Value()
+    record_execution(value)
+    return value
+def first(value=Depends(provider)):
+    return value
+def second(value=Depends(provider)):
+    return value
+@app.get('/orders')
+def operation(a=Depends(first), b=Depends(second)):
+    # TODO: report Python identity comparison of the two supplied values.
+    raise NotImplementedError
+# Then compare a declaration using Depends(provider, use_cache=False).
+
+SOLUTION exercise.py import logging
+logger = logging.getLogger('order.provider.exercise')
+logger.addHandler(logging.StreamHandler())
+logger.setLevel(logging.INFO)
+executions = []
+def record_execution(value):
+    executions.append(value)
+    logger.info('provider execution', extra={'event_type': 'provider_execution'})
+from fastapi import FastAPI, Depends
+app = FastAPI()
+class Value:
+    pass
+def provider():
+    value = Value()
+    record_execution(value)
+    return value
+def first(value=Depends(provider)):
+    return value
+def second(value=Depends(provider)):
+    return value
+@app.get('/orders')
+def operation(a=Depends(first), b=Depends(second)):
+    return {'same_instance': a is b}
+# Then compare a declaration using Depends(provider, use_cache=False).
+
+TESTS [{"test_id": "test_1", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": 1}}], "app": "verification_app", "expected": {"status": 200, "json": {"responses": [{"status": 200, "body": {"same_instance": true}}], "provider_executions": 1, "distinct_values": 1}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}, {"test_id": "test_2", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": 2}}], "app": "verification_app", "expected": {"status": 200, "json": {"responses": [{"status": 200, "body": {"same_instance": true}}, {"status": 200, "body": {"same_instance": true}}], "provider_executions": 2, "distinct_values": 2}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}]
+tile_045.s06 explainer
+{"type": "prose", "text": "Create TestClient(app), send a request such as client.get(...), and assert both response.status_code and response.json() in a pytest test_ function.", "role": "mechanism"}
+{"type": "prose", "text": "When setup and teardown matter, use with TestClient(app) as client to execute application lifespan.", "role": "mechanism"}
+{"type": "prose", "text": "A TestClient request exercises route and dependency resolution through the application. Calling the handler directly does not exercise that HTTP boundary.", "role": "mechanism"}
+{"type": "code_walkthrough", "language": "python", "code": "from fastapi.testclient import TestClient\nfrom app import app\n\ndef test_get_order():\n    with TestClient(app) as client:\n        response = client.get('/orders/42')\n        assert response.status_code == 200\n        assert response.json() == {'id': 42, 'quantity': 2}\n", "reveal": "all", "annotations": [{"start_line": 5, "end_line": 5, "text": "Context runs lifespan setup and teardown."}, {"start_line": 6, "end_line": 6, "text": "HTTP request exercises routing and dependency resolution."}, {"start_line": 7, "end_line": 8, "text": "Independent status and public JSON assertions; pytest executes test_get_order."}]}
+tile_045.s07 explainer
+{"type": "prose", "text": "Specify an HTTP exchange, not merely a call that avoids crashing: method, path, expected status and expected public JSON. TestClient sends it through route and dependency resolution. Add the context manager when lifespan setup and teardown belong in the test. A direct handler call checks a different boundary and cannot establish the registered endpoint’s complete exchange.", "role": "mental_model"}
+tile_045.s08 explainer
+{"type": "prose", "text": "Use the supplied order fixture to make separate status and JSON assertions in test_get_order. Send the GET through TestClient rather than invoking get_order directly. Run the test_ function with pytest; use the context manager to execute lifespan when the case needs it. The status assertion checks the HTTP outcome, and the JSON assertion checks public content. Neither substitutes for the other.", "role": "walkthrough"}
+tile_045.s09 video
+{"type": "media_group", "segment_ids": ["seg_fastapi.endpoint_integration_tests_9gC3Ot0LoUQ_327_429"], "group_title": "Verify an endpoint's HTTP response", "bridge": {"before": "Watch how TestClient sends a GET request and how separate status and JSON assertions define the expected response. Notice how changing the response makes the test fail.", "after": "The clip demonstrates request and response assertions, but does not explain lifespan execution or dependency resolution. The text covers both, including when to use the TestClient context manager."}, "default_mode": "video"}
+tile_045.s10 check
+QUESTION {"prompt": "Which test exercises the application's HTTP route and dependency resolution instead of only directly calling its handler?", "options": [{"option_id": "option_1", "text": "Send the request through TestClient(app)."}, {"option_id": "option_2", "text": "Call the handler as an ordinary function without sending a request."}, {"option_id": "option_3", "text": "Read the handler function source without sending a request."}], "selection": "single", "shuffle": true}
+KEY {"correct_option_ids": ["option_1"], "option_feedback": {"option_1": {"message": "A TestClient request traverses the application route and dependency resolution."}, "option_2": {"message": "A direct call does not establish the HTTP route and dependency resolution boundary."}, "option_3": {"message": "Source inspection alone is not an HTTP request through the application."}}}
+tile_045.s11 hands_on
+TASK Write def test_get_order() using with TestClient(app) as client. Send GET /orders/42; independently assert response.status_code == 200 and response.json() == {"id": 42, "quantity": 2}. Only on sys.platform == 'emscripten', the supplied WASM adapter preserves the TestClient API and traverses the real ASGI app without threads, including lifespan. The verification harness requires the HTTP request, checks setup/teardown, and verifies that incorrect status and incorrect JSON each cause an assertion failure independently. In a native environment, run pytest exercise.py for discovery verification; the native TestClient is not patched.
+STARTER exercise.py from contextlib import asynccontextmanager
+from fastapi import FastAPI, Depends
+lifecycle_events = []
+
+# Supplied harness scaffolding (unchanged in the solution).
+if True:
+    async def lifespan(app):
+        lifecycle_events.append('setup')
+        try:
+            yield
+        finally:
+            lifecycle_events.append('teardown')
+lifespan = asynccontextmanager(lifespan)
+app = FastAPI(lifespan=lifespan)
+# Supplied harness scaffolding (unchanged in the solution).
+if True:
+    def order_dependency():
+        return {'id': 42, 'quantity': 2}
+# Supplied harness scaffolding (unchanged in the solution).
+if True:
+    @app.get('/orders/42')
+    def get_order(order=Depends(order_dependency)):
+        return order
+
+SOLUTION exercise.py from contextlib import asynccontextmanager
+from fastapi import FastAPI, Depends
+lifecycle_events = []
+
+# Supplied harness scaffolding (unchanged in the solution).
+if True:
+    async def lifespan(app):
+        lifecycle_events.append('setup')
+        try:
+            yield
+        finally:
+            lifecycle_events.append('teardown')
+lifespan = asynccontextmanager(lifespan)
+app = FastAPI(lifespan=lifespan)
+# Supplied harness scaffolding (unchanged in the solution).
+if True:
+    def order_dependency():
+        return {'id': 42, 'quantity': 2}
+# Supplied harness scaffolding (unchanged in the solution).
+if True:
+    @app.get('/orders/42')
+    def get_order(order=Depends(order_dependency)):
+        return order
+
+TESTS [{"test_id": "test_1", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": 1}}], "app": "verification_app", "expected": {"status": 200, "json": {"test_name": "test_get_order", "runs": 1, "lifespan_events": ["setup", "teardown"]}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}, {"test_id": "test_2", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": 2}}], "app": "verification_app", "expected": {"status": 200, "json": {"test_name": "test_get_order", "runs": 2, "lifespan_events": ["setup", "teardown", "setup", "teardown"]}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}]
+tile_045.s12 recap
+{"type": "prose", "text": "Verify request-local reuse, check a fresh request independently, and request fresh execution with use_cache=False when needed.", "role": "takeaway"}
+{"type": "prose", "text": "Use a pytest test_ function to request the HTTP endpoint and assert status plus JSON; include lifespan through the TestClient context when needed.", "role": "takeaway"}
+{"type": "up_next", "title": "Next: tile_047 — Required, optional and default input semantics", "text": "Start with Required, optional and default input semantics."}
+
+### tile_047 Required, optional and default input semantics · FastAPI OpenAPI generation from typed route contracts
+GLOSSARY {"coverage": {"learning_objective": "Define required, nullable and default inputs: test omitted, null and concrete values for one input.", "required_facts": [{"id": "f1", "statement": "Requiredness depends on whether a declaration supplies a default, while nullability depends on whether its type admits None.", "source_refs": ["pydantic_models_docs#https://pydantic.dev/docs/validation/latest/concepts/fields/#default-values", "fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/body/#request-body-path-query-parameters"]}, {"id": "f2", "statement": "A nullable field without a default still requires presence; writing field: Type | None = None permits both omission and an explicit null.", "source_refs": ["pydantic_models_docs#https://pydantic.dev/docs/validation/latest/concepts/fields/#default-values"]}, {"id": "f3", "statement": "Test absence, an explicit JSON null and a concrete value as separate requests and compare them with the field's declared default and nullable type.", "source_refs": ["pydantic_models_docs#https://pydantic.dev/docs/validation/latest/concepts/models/#basic-model-usage", "fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/testing/#using-testclient"]}], "misconceptions": []}, "assessment_anchors": [{"fact_ids": ["f1", "f2"], "capability": "distinguish_requiredness_from_nullability"}, {"fact_ids": ["f2", "f3"], "capability": "compare_omitted_null_and_concrete_inputs"}], "practice_anchor": {"type": "live_code", "objective": "Test three separate request bodies for note: an omitted field, explicit JSON null and a concrete string. Compare the results for note: str | None and note: str | None = None.", "success": "Tests establish that the declaration without a default requires note to be present but accepts null or a string, while the declaration defaulting to None accepts all three inputs and uses None when note is omitted.", "live_code": {"required_skill": "Declare a nullable request-model field with and without a default, then use endpoint integration tests to distinguish omission, null and a supplied string.", "allowed_syntax": ["from pydantic import BaseModel", "from fastapi import FastAPI", "from fastapi.testclient import TestClient", "class declarations inheriting from BaseModel", "note: str | None", "note: str | None = None", "app = FastAPI()", "@app.post(...)", "def path-operation functions with typed request-model parameters", "request-model instance attribute access", "return statements", "dictionary literals containing only the note field", "empty dictionary literals", "string literals", "None", "client = TestClient(app)", "client.post(..., json=...)", "response.status_code", "response.json()", "assert statements", "equality comparisons"], "blocked_syntax": ["app.openapi()", "Field(json_schema_extra=...)", "app.dependency_overrides", "Header(...)", "Cookie(...)", "@app.exception_handler(...)", "RequestValidationError", "model_dump(exclude_unset=True)"], "starter_state_intent": "Provide a request model containing only note, a POST endpoint returning the accepted note value, and a TestClient. Begin with note: str | None; let the learner add separate tests using {}, {\"note\": None} and {\"note\": \"Leave at reception\"}, then repeat after adding the None default.", "observable_success": "For the declaration without a default, the omitted-field request is not accepted and the null and string requests are accepted. After adding the None default, all three are accepted; the returned note is None for omission and null, and the supplied string for the concrete-value request."}}, "visual_anchor": {"type": "data_table", "purpose": "Show rows for omitted note, explicit null and a concrete string, with columns comparing acceptance and resulting value for note: str | None versus note: str | None = None. Keep presence requirements and admitted values separately visible."}}
+GLOSSARY {"coverage": {"learning_objective": "Generate OpenAPI from declarations: inspect one endpoint schema.", "required_facts": [{"id": "f1", "statement": "FastAPI normally exposes the generated OpenAPI document at /openapi.json, describing the application's operations and data schemas.", "source_refs": ["fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/first-steps/#check-the-openapi-json"]}, {"id": "f2", "statement": "Typed body declarations and response models contribute input and output schemas to the generated API contract.", "source_refs": ["fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/body/#results", "fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/response-model/#response-model-parameter"]}, {"id": "f3", "statement": "Inspect the method entry under paths for an endpoint and follow its schema references into components to see the generated public input and output definitions.", "source_refs": ["fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/first-steps/#check-the-openapi-json"]}], "misconceptions": []}, "assessment_anchors": [{"fact_ids": ["f1"], "capability": "locate_generated_openapi_document"}, {"fact_ids": ["f2"], "capability": "identify_declaration_sources_for_input_and_output_schemas"}, {"fact_ids": ["f3"], "capability": "trace_operation_references_to_input_and_output_definitions"}], "practice_anchor": {"type": "live_code", "objective": "Inspect the supplied POST /orders contract, trace its request-body and response schema references, and assign the corresponding component definitions to OrderInput and OrderOutput.", "success": "OrderInput refers to the component definition containing required integer quantity, and OrderOutput refers to the component definition containing required integer id. Both selections agree with the references under paths → /orders → post.", "live_code": {"required_skill": "Navigate a supplied contract using dictionary key access, distinguish request-body and response references, and select the referenced component definitions.", "allowed_syntax": ["Variable assignment", "Dictionary subscription with string keys", "String literals"], "blocked_syntax": ["Header()", "Cookie()", "app.dependency_overrides", "app.openapi() overrides", "@app.exception_handler"], "starter_state_intent": "Provide the teaching example's OpenAPI excerpt as an already-loaded dictionary named schema. Include only POST /orders, its request and response references, and the OrderInput and OrderOutput definitions with quantity and id. No parsing, server setup, or network request is required.", "observable_success": "The learner navigates the operation's requestBody and responses entries, follows their references to components.schemas, and assigns the correct definitions to OrderInput and OrderOutput. The environment checks these assignments without requiring output statements."}}, "visual_anchor": {"type": "code", "purpose": "Make the POST /orders method entry and both schema references visible alongside components.schemas.OrderInput and components.schemas.OrderOutput, showing quantity as the input field and id as the output field."}}
+tile_047.s01 explainer
+{"type": "prose", "text": "A default determines requiredness; a type that admits None determines nullability. These are different questions.", "role": "mechanism"}
+{"type": "prose", "text": "A nullable field with no default still requires presence. field: Type | None = None allows both omission and explicit null.", "role": "mechanism"}
+{"type": "prose", "text": "Send absence, explicit JSON null and a concrete value as separate requests. Compare each with the declared default and nullable type.", "role": "mechanism"}
+{"type": "data_table", "result_of": {"runtime": "sql", "sql": "WITH inputs(ordinal, supplied, note) AS (VALUES (1,FALSE,NULL),(2,TRUE,NULL),(3,TRUE,'Leave at reception')), declarations(label, has_default) AS (VALUES ('note: str | None', FALSE), ('note: str | None = None', TRUE))\nSELECT CASE WHEN NOT supplied THEN 'omitted' WHEN note IS NULL THEN 'explicit null' ELSE 'concrete string' END AS input,\n label AS declaration, (supplied OR has_default) AS accepted,\n CASE WHEN supplied OR has_default THEN note ELSE NULL END AS resulting_note\nFROM orders CROSS JOIN inputs CROSS JOIN declarations ORDER BY ordinal, has_default", "asset_mounts": [{"asset_id": "ds.orders", "mount_path": "orders"}]}, "caption": "Declaration comparison derived from the presence rule and supplied request bodies, not an HTTP run. Read resulting_note only where accepted is true.", "result": {"columns": ["input", "declaration", "accepted", "resulting_note"], "rows": [["omitted", "note: str | None", false, null], ["omitted", "note: str | None = None", true, null], ["explicit null", "note: str | None", true, null], ["explicit null", "note: str | None = None", true, null], ["concrete string", "note: str | None", true, "Leave at reception"], ["concrete string", "note: str | None = None", true, "Leave at reception"]], "execution_provenance": {"runtime": "duckdb-wasm", "runtime_version": "1.32.0", "sql_sha256": "509f2f94fc6c7c30a46d83dfdea8690eff9b65206e04606d958e77344c399bb7"}}}
+tile_047.s02 explainer
+{"type": "prose", "text": "Keep two columns in your mental model: must the field appear, and may its value be null? note: str | None requires presence but admits null. Adding = None allows omission too. Test missing, null and a concrete string separately against those declarations; “optional” alone does not identify both rules.", "role": "mental_model"}
+tile_047.s03 explainer
+{"type": "prose", "text": "Start with the supplied nullable note declaration, then add its default. Send each supplied body separately before and after the change. Without a default, the field must appear even though null is allowed; with = None, omission is also allowed. Compare the declared presence rule with the admitted values instead of collapsing all three requests into one optional case.", "role": "walkthrough"}
+tile_047.s04 check
+QUESTION {"prompt": "A Pydantic field is declared note: str | None with no default. Which input boundary follows?", "options": [{"option_id": "option_1", "text": "The field must be present, but its value may be null or a string."}, {"option_id": "option_2", "text": "The field may be omitted because its type accepts None."}, {"option_id": "option_3", "text": "The field must be present and may never be null."}], "selection": "single", "shuffle": true}
+KEY {"correct_option_ids": ["option_1"], "option_feedback": {"option_1": {"message": "Nullability and requiredness are different: no default still requires presence."}, "option_2": {"message": "A nullable type without a default does not make omission acceptable."}, "option_3": {"message": "The union with None explicitly permits null."}}}
+tile_047.s05 hands_on
+TASK Write test_required_note for app (note: str | None without a default) and test_default_note for default_app (note: str | None = None). For each, send three separate POST /orders/note requests with {}, {'note': None}, and {'note': 'Leave at reception'}. Assert omitted input returns 422 for app but 200 and {'note': None} for default_app; both declarations accept null and the string with 200 and the corresponding JSON payload. Preserve the supplied declarations. The threadless TestClient adapter uses the actual ASGI app.
+STARTER exercise.py 
+SOLUTION exercise.py 
+TESTS [{"test_id": "test_1", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "required"}}], "app": "verification_app", "expected": {"status": 200, "json": [{"status": 422, "body": {"detail": [{"type": "missing", "loc": ["body", "note"], "msg": "Field required", "input": {}}]}}, {"status": 200, "body": {"note": null}}, {"status": 200, "body": {"note": "Leave at reception"}}]}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}, {"test_id": "test_2", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "default"}}], "app": "verification_app", "expected": {"status": 200, "json": [{"status": 200, "body": {"note": null}}, {"status": 200, "body": {"note": null}}, {"status": 200, "body": {"note": "Leave at reception"}}]}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}]
+tile_047.s06 explainer
+{"type": "prose", "text": "FastAPI normally serves the generated OpenAPI document at /openapi.json. It describes operations and data schemas.", "role": "mechanism"}
+{"type": "prose", "text": "Typed body declarations contribute input schemas; response models contribute output schemas to the generated public contract.", "role": "mechanism"}
+{"type": "prose", "text": "Locate the endpoint’s method entry under paths, then follow its schema references into components to find the public input and output definitions.", "role": "mechanism"}
+{"type": "code_walkthrough", "language": "python", "code": "import json\nschema = {'paths': {'/orders': {'post': {'requestBody': {'content': {'application/json': {'schema': {'$ref': '#/components/schemas/OrderInput'}}}},\n                                'responses': {'200': {'description': 'Successful '\n                                                                     'Response',\n                                                      'content': {'application/json': {'schema': {'$ref': '#/components/schemas/OrderOutput'}}}}}}}},\n 'components': {'schemas': {'OrderInput': {'type': 'object',\n                                           'properties': {'quantity': {'type': 'integer'}},\n                                           'required': ['quantity']},\n                            'OrderOutput': {'type': 'object',\n                                            'properties': {'id': {'type': 'integer'}},\n                                            'required': ['id']}}}}\nprint(json.dumps(schema, indent=2))\n", "reveal": "all", "annotations": [{"start_line": 2, "end_line": 2, "text": "POST /orders: requestBody reference → components.schemas.OrderInput; response reference → OrderOutput. quantity is input, id is output."}]}
+tile_047.s07 explainer
+{"type": "prose", "text": "Navigate by endpoint path and method first. Follow the body and response references into components, then compare their field definitions with the typed declarations. OpenAPI is generated from those declarations; it describes operations and schemas. Reading the document does not establish every runtime outcome, and schema details need not be inline in the operation entry.", "role": "mental_model"}
+tile_047.s08 explainer
+{"type": "prose", "text": "In the supplied POST /orders excerpt, follow the request-body reference to OrderInput and the response reference to OrderOutput. The input definition has quantity; the output definition has id. These are different public definitions contributed by the body and response-model declarations. Retrieve the generated document at /openapi.json and navigate through paths and components rather than assuming every field is inline. This is contract structure, not proof of every runtime result.", "role": "walkthrough"}
+tile_047.s09 check
+QUESTION {"prompt": "At which endpoint does FastAPI normally expose its generated OpenAPI document?", "options": [{"option_id": "option_3", "text": "Only in a request body submitted by a client."}, {"option_id": "option_1", "text": "/openapi.json."}, {"option_id": "option_2", "text": "Inside the ordinary order response payload only."}], "selection": "single", "shuffle": true}
+KEY {"correct_option_ids": ["option_1"], "option_feedback": {"option_3": {"message": "The application exposes the generated document at /openapi.json; it is not merely client-submitted content."}, "option_1": {"message": "This is the normal document endpoint."}, "option_2": {"message": "The generated contract is normally exposed separately at /openapi.json."}}}
+tile_047.s10 hands_on
+TASK Inspect schema['paths']['/orders']['post']. Assign input_reference to the requestBody application/json schema $ref and output_reference to the 200 response application/json schema $ref. Follow these shown component names into schema['components']['schemas']; assign OrderInput and OrderOutput to the complete definition dictionaries, not $ref strings. Include each corresponding reference and definition in the named variables. Preserve supplied schema fixtures.
+STARTER exercise.py input_field_type = 'integer'
+output_field_type = 'integer'
+schema = {'paths': {'/orders': {'post': {'requestBody': {'content': {'application/json': {'schema': {'$ref': '#/components/schemas/OrderInput'}}}}, 'responses': {'200': {'description': 'Successful Response', 'content': {'application/json': {'schema': {'$ref': '#/components/schemas/OrderOutput'}}}}}}}}, 'components': {'schemas': {'OrderInput': {'type': 'object', 'properties': {'quantity': {'type': 'integer'}}, 'required': ['quantity']}, 'OrderOutput': {'type': 'object', 'properties': {'id': {'type': 'integer'}}, 'required': ['id']}}}}
+# Supplied schema fixture variations; do not edit this scaffolding.
+schema['components']['schemas']['OrderInput']['properties']['quantity']['type'] = input_field_type
+schema['components']['schemas']['OrderOutput']['properties']['id']['type'] = output_field_type
+# TODO: select the POST operation, inspect its request/response references,
+# and assign component definitions (not reference strings).
+
+SOLUTION exercise.py input_field_type = 'integer'
+output_field_type = 'integer'
+schema = {'paths': {'/orders': {'post': {'requestBody': {'content': {'application/json': {'schema': {'$ref': '#/components/schemas/OrderInput'}}}}, 'responses': {'200': {'description': 'Successful Response', 'content': {'application/json': {'schema': {'$ref': '#/components/schemas/OrderOutput'}}}}}}}}, 'components': {'schemas': {'OrderInput': {'type': 'object', 'properties': {'quantity': {'type': 'integer'}}, 'required': ['quantity']}, 'OrderOutput': {'type': 'object', 'properties': {'id': {'type': 'integer'}}, 'required': ['id']}}}}
+# Supplied schema fixture variations; do not edit this scaffolding.
+schema['components']['schemas']['OrderInput']['properties']['quantity']['type'] = input_field_type
+schema['components']['schemas']['OrderOutput']['properties']['id']['type'] = output_field_type
+# TODO: select the POST operation, inspect its request/response references,
+# and assign component definitions (not reference strings).
+operation = schema['paths']['/orders']['post']
+input_reference = operation['requestBody']['content']['application/json']['schema']['$ref']
+output_reference = operation['responses']['200']['content']['application/json']['schema']['$ref']
+OrderInput = schema['components']['schemas']['OrderInput']
+OrderOutput = schema['components']['schemas']['OrderOutput']
+
+TESTS [{"test_id": "test_1", "kind": "value_equals", "spec": {"expr": "{'reference': input_reference, 'definition': OrderInput}", "expected": {"reference": "#/components/schemas/OrderInput", "definition": {"type": "object", "properties": {"quantity": {"type": "integer"}}, "required": ["quantity"]}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}, {"test_id": "test_2", "kind": "value_equals", "spec": {"expr": "{'reference': output_reference, 'definition': OrderOutput}", "expected": {"reference": "#/components/schemas/OrderOutput", "definition": {"type": "object", "properties": {"id": {"type": "integer"}}, "required": ["id"]}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}]
+tile_047.s11 recap
+{"type": "prose", "text": "Defaults govern presence; nullable types govern null. Compare omitted, null and concrete inputs separately.", "role": "takeaway"}
+{"type": "prose", "text": "Locate /openapi.json; connect typed body and response declarations to schemas; follow path/method references into components.", "role": "takeaway"}
+{"type": "up_next", "title": "Next: tile_049 — Trusted host validation", "text": "Start with Trusted host validation."}
+
+### tile_049 Trusted host validation
+GLOSSARY {"coverage": {"learning_objective": "Enforce accepted HTTP hosts: configure one deployment host allowlist.", "required_facts": [{"id": "f1", "statement": "TrustedHostMiddleware validates the request Host against an allowed_hosts list and responds with 400 when the host is not allowed.", "source_refs": ["fastapi_docs_advanced#https://starlette.dev/middleware/#trustedhostmiddleware"]}, {"id": "f2", "statement": "Configure app.add_middleware(TrustedHostMiddleware, allowed_hosts=[...]) using domain names; *.example.com permits subdomains and [\"*\"] permits any host.", "source_refs": ["fastapi_docs_advanced#https://starlette.dev/middleware/#trustedhostmiddleware"]}, {"id": "f3", "statement": "www_redirect defaults to true and can redirect an allowed non-www host to its www counterpart, so account for it when verifying an allowlist's response.", "source_refs": ["fastapi_docs_advanced#https://starlette.dev/middleware/#trustedhostmiddleware"]}], "misconceptions": []}, "assessment_anchors": [{"fact_ids": ["f1", "f2"], "capability": "identify_hosts_rejected_by_an_allowlist"}, {"fact_ids": ["f2"], "capability": "distinguish_exact_domain_subdomain_and_all_host_policies"}, {"fact_ids": ["f1", "f3"], "capability": "distinguish_host_rejection_from_allowed_host_redirection"}], "practice_anchor": {"type": "live_code", "objective": "Configure a deployment allowlist that accepts example.com and its subdomains, rejects unrelated hosts, and explicitly disables www redirection for predictable verification.", "success": "The application registers TrustedHostMiddleware with allowed_hosts=[\"example.com\", \"*.example.com\"] and www_redirect=False. Supplied checks confirm that intended hosts pass the host boundary and an unrelated host receives 400.", "live_code": {"required_skill": "Register existing middleware on a FastAPI application with domain-name allowlist entries and an explicit www_redirect setting.", "allowed_syntax": ["from fastapi import FastAPI", "from fastapi.middleware.trustedhost import TrustedHostMiddleware", "app = FastAPI()", "app.add_middleware(TrustedHostMiddleware, allowed_hosts=[...], www_redirect=False)", "Lists of domain-name strings", "Exact domain strings and wildcard domain strings", "True and False keyword argument values"], "blocked_syntax": ["Header(...)", "Cookie(...)", "app.dependency_overrides[...] = ...", "@app.exception_handler(...)"], "starter_state_intent": "Provide a minimal FastAPI application named app with no host allowlist configured. Supply a verification harness that submits requests using example.com, www.example.com, and an unrelated host; learners only add the middleware import and registration.", "observable_success": "The configured list includes both the apex domain and the subdomain wildcard, excludes the all-host wildcard, and sets www_redirect=False. The supplied harness reports that example.com and www.example.com are not rejected by the host boundary, while the unrelated host receives 400."}}, "visual_anchor": {"type": "data_table", "purpose": "Make the host boundary visible by pairing an allowlist configuration with supplied Host values and outcomes: accepted, rejected with 400, or redirected when an applicable www_redirect policy is enabled. Distinguish exact-domain, subdomain-wildcard, and all-host-wildcard policies."}}
+tile_049.s01 explainer
+{"type": "prose", "text": "TrustedHostMiddleware checks Host against allowed_hosts. An unallowed host receives 400.", "role": "mechanism"}
+{"type": "prose", "text": "Register TrustedHostMiddleware through app.add_middleware with domain names in allowed_hosts. *.example.com allows subdomains; [\"*\"] allows any host.", "role": "mechanism"}
+{"type": "prose", "text": "www_redirect defaults to true and can redirect an allowed non-www host to its www counterpart. Account for redirects when checking the allowlist’s response.", "role": "mechanism"}
+{"type": "data_table", "asset_ref": {"asset_id": "ds.host_checks", "columns": ["policy", "allowed_hosts", "www_redirect", "Host", "outcome", "status"]}, "caption": "Authored host-policy comparison. Null redirect status means the glossary does not specify its code."}
+tile_049.s02 check
+QUESTION {"prompt": "When verifying TrustedHostMiddleware, which distinction correctly separates rejection from www redirection?", "options": [{"option_id": "option_1", "text": "A disallowed Host receives 400; an allowed non-www host can be redirected when www_redirect applies."}, {"option_id": "option_2", "text": "Every redirect means the Host was rejected with 400."}, {"option_id": "option_3", "text": "www_redirect always defaults to false, so an allowed host cannot redirect by default."}], "selection": "single", "shuffle": true}
+KEY {"correct_option_ids": ["option_1"], "option_feedback": {"option_1": {"message": "Rejection and configured/default www redirection are separate outcomes."}, "option_2": {"message": "An allowed non-www host can redirect; rejection instead returns 400."}, "option_3": {"message": "www_redirect defaults to true and can redirect an allowed non-www host."}}}
+tile_049.s03 hands_on
+TASK Import TrustedHostMiddleware and register it with allowed_hosts=['example.com', '*.example.com'] and www_redirect=False. Keep /orders unchanged and do not use the all-host wildcard. The harness checks the exact domain, a www subdomain and an unrelated host without following redirects.
+STARTER exercise.py from fastapi import FastAPI
+app = FastAPI()
+# TODO: import and register TrustedHostMiddleware for example.com and
+# *.example.com, with www_redirect=False and without the all-host wildcard.
+@app.get('/orders')
+def orders():
+    return {'result': 'host boundary passed'}
+
+SOLUTION exercise.py from fastapi import FastAPI
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+app = FastAPI()
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=['example.com', '*.example.com'], www_redirect=False)
+# TODO: import and register TrustedHostMiddleware for example.com and
+# *.example.com, with www_redirect=False and without the all-host wildcard.
+@app.get('/orders')
+def orders():
+    return {'result': 'host boundary passed'}
+
+TESTS [{"test_id": "test_1", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "example.com"}}], "app": "verification_app", "expected": {"status": 200, "json": [{"status": 200, "body": {"result": "host boundary passed"}}]}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}, {"test_id": "test_2", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "www.example.com"}}], "app": "verification_app", "expected": {"status": 200, "json": [{"status": 200, "body": {"result": "host boundary passed"}}]}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}, {"test_id": "test_3", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "unrelated.example"}}], "app": "verification_app", "expected": {"status": 200, "json": [{"status": 400, "body": "Invalid host header"}]}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}]
+tile_049.s04 recap
+{"type": "prose", "text": "Check Host against domain policies; distinguish rejection from www redirection; an all-host wildcard permits every host.", "role": "takeaway"}
+{"type": "up_next", "title": "Next: tile_050 — Credential and sensitive-data redaction from emitted logs", "text": "Start with Credential and sensitive-data redaction from emitted logs."}
+
+### tile_050 Credential and sensitive-data redaction from emitted logs
+GLOSSARY {"coverage": {"learning_objective": "Redact sensitive logs: verify one failure's redaction.", "required_facts": [{"id": "f1", "statement": "Access tokens, passwords, primary secrets and sensitive personal data should usually not be recorded directly in logs; remove or mask them according to the logging policy.", "source_refs": ["owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html#data-to-exclude"]}, {"id": "f2", "statement": "Review diagnostic context as well as the main log message, because connection strings, session identifiers and other sensitive values can appear in supplemental fields.", "source_refs": ["owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html#data-to-exclude"]}, {"id": "f3", "statement": "Exercise a failure with recognizable synthetic sensitive values, inspect the emitted records and confirm that the redaction policy removes the prohibited values while retaining the intended event fields.", "source_refs": ["owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html#verification"]}], "misconceptions": []}, "assessment_anchors": [{"fact_ids": ["f1", "f2"], "capability": "identify_sensitive_values_in_diagnostic_records"}], "practice_anchor": {"type": "live_code", "objective": "Exercise one supplied failure with a recognizable fake token and fake connection-string secret, then verify redaction across the complete emitted record.", "success": "Neither prohibited synthetic value appears in the emitted message or supplemental context, and the intended event field remains intact.", "live_code": {"required_skill": "Invoke a supplied failure harness with synthetic sensitive values and assert that its captured log output satisfies the supplied logging policy.", "allowed_syntax": ["variable assignment", "string literals", "function calls with keyword arguments", "dictionary key access", "assert statements", "string membership checks using not in", "equality comparison using =="], "blocked_syntax": ["app.dependency_overrides", "Header(...)", "Cookie(...)", "@app.exception_handler(...)", "AsyncSession(...)"], "starter_state_intent": "Provide a configured redaction policy and a callable failure harness accepting token and connection_string. The harness returns the complete captured emitted record as text and its structured fields. The policy prohibits the token and connection-string secret while retaining the event field. Learners supply recognizable fake values and add verification assertions; no new logging infrastructure is required.", "observable_success": "Assertions pass only when both recognizable synthetic sensitive strings are absent from the complete captured output and the structured event field still identifies the synthetic failure."}}, "visual_anchor": {"type": "before_after", "purpose": "Make the synthetic failure inputs and resulting emitted record visible together, showing removal or masking of the fake token and connection-string secret in both message and supplemental context while retaining the intended event field."}}
+tile_050.s01 explainer
+{"type": "prose", "text": "Access tokens, passwords, primary secrets and sensitive personal data should usually not appear directly in logs. Remove or mask them under the logging policy.", "role": "mechanism"}
+{"type": "prose", "text": "Inspect supplemental context as well as the message: connection strings, session identifiers and other sensitive values can appear there.", "role": "mechanism"}
+{"type": "prose", "text": "Trigger a failure with recognizable synthetic sensitive values. Inspect emitted records to confirm prohibited values are removed while intended event fields remain.", "role": "mechanism"}
+{"type": "before_after", "before": {"type": "code_walkthrough", "language": "python", "code": "import io\nimport logging\nclass RedactingFormatter(logging.Formatter):\n    def __init__(self, secrets):\n        super().__init__('%(message)s context=%(context)s event=%(event)s')\n        self.secrets = secrets\n    def format(self, record):\n        text = super().format(record)\n        for secret in self.secrets:\n            text = text\n        return text\ndef failure_harness(*, token, connection_string):\n    output = io.StringIO()\n    logger = logging.getLogger('order.redaction.exercise')\n    logger.handlers.clear()\n    logger.propagate = False\n    logger.setLevel(logging.ERROR)\n    handler = logging.StreamHandler(output)\n    handler.setFormatter(RedactingFormatter([token, connection_string]))\n    logger.addHandler(handler)\n    logger.error('synthetic failure token=' + token, extra={\n        'context': 'connection=' + connection_string + ' token=' + token,\n        'event': 'order_failure'})\n    text = output.getvalue()\n    message, tail = text.rstrip('\\n').split(' context=', 1)\n    context, event = tail.rsplit(' event=', 1)\n    return {'text': text, 'fields': {'event': event, 'context': context}}\n\nresult = failure_harness(token='FAKE_ORDER_TOKEN_ABC', connection_string='FAKE_CONNECTION_SECRET_XYZ')\nprint(result['text'], end='')\n", "reveal": "all", "lineage": {"concept_ids": ["observability.log_redaction"], "teaching_block_ids": ["observability.log_redaction#tb1", "observability.log_redaction#tb2", "observability.log_redaction#tb3", "observability.log_redaction#tb4", "observability.log_redaction#tb5"], "fact_ids": ["observability.log_redaction#f1", "observability.log_redaction#f2", "observability.log_redaction#f3"], "anchors": ["observability.log_redaction#visual"]}}, "after": {"type": "code_walkthrough", "language": "python", "code": "import io\nimport logging\nclass RedactingFormatter(logging.Formatter):\n    def __init__(self, secrets):\n        super().__init__('%(message)s context=%(context)s event=%(event)s')\n        self.secrets = secrets\n    def format(self, record):\n        text = super().format(record)\n        for secret in self.secrets:\n            text = text.replace(secret, '[REDACTED]')\n        return text\ndef failure_harness(*, token, connection_string):\n    output = io.StringIO()\n    logger = logging.getLogger('order.redaction.exercise')\n    logger.handlers.clear()\n    logger.propagate = False\n    logger.setLevel(logging.ERROR)\n    handler = logging.StreamHandler(output)\n    handler.setFormatter(RedactingFormatter([token, connection_string]))\n    logger.addHandler(handler)\n    logger.error('synthetic failure token=' + token, extra={\n        'context': 'connection=' + connection_string + ' token=' + token,\n        'event': 'order_failure'})\n    text = output.getvalue()\n    message, tail = text.rstrip('\\n').split(' context=', 1)\n    context, event = tail.rsplit(' event=', 1)\n    return {'text': text, 'fields': {'event': event, 'context': context}}\n\nresult = failure_harness(token='FAKE_ORDER_TOKEN_ABC', connection_string='FAKE_CONNECTION_SECRET_XYZ')\nprint(result['text'], end='')\n", "reveal": "all", "lineage": {"concept_ids": ["observability.log_redaction"], "teaching_block_ids": ["observability.log_redaction#tb1", "observability.log_redaction#tb2", "observability.log_redaction#tb3", "observability.log_redaction#tb4", "observability.log_redaction#tb5"], "fact_ids": ["observability.log_redaction#f1", "observability.log_redaction#f2", "observability.log_redaction#f3"], "anchors": ["observability.log_redaction#visual"]}}, "change_summary": "Before: the same synthetic failure with masking disabled. After: policy masks prohibited strings throughout message and context while retaining the event field. Output is computed from this fixture."}
+tile_050.s02 check
+QUESTION {"prompt": "A failure record has both a main message and supplemental diagnostic context. Where should a redaction check look for prohibited synthetic sensitive values?", "options": [{"option_id": "option_1", "text": "In the complete emitted message and supplemental context, while checking intended event fields remain."}, {"option_id": "option_2", "text": "Only in the main message; supplemental connection context can be ignored."}, {"option_id": "option_3", "text": "Only in supplemental fields; main-message secrets can be ignored."}], "selection": "single", "shuffle": true}
+KEY {"correct_option_ids": ["option_1"], "option_feedback": {"option_1": {"message": "Sensitive data can occur in either part; the event context must be retained."}, "option_2": {"message": "Connection strings and other sensitive data can occur in supplemental fields."}, "option_3": {"message": "The main message is also emitted log text and must not retain prohibited values."}}}
+tile_050.s03 hands_on
+TASK Use the supplied recognizable token and connection_string variables to invoke failure_harness(token=token, connection_string=connection_string), assigning result. Assert each prohibited value is not in result['text'] (the entire emitted message and context), and assert result['fields']['event'] == 'order_failure'. Do not replace the variables with literal secrets or inspect only the main message.
+STARTER exercise.py import io
+import logging
+class RedactingFormatter(logging.Formatter):
+    def __init__(self, secrets):
+        super().__init__('%(message)s context=%(context)s event=%(event)s')
+        self.secrets = secrets
+    def format(self, record):
+        text = super().format(record)
+        for secret in self.secrets:
+            text = text.replace(secret, '[REDACTED]')
+        return text
+def failure_harness(*, token, connection_string):
+    output = io.StringIO()
+    logger = logging.getLogger('order.redaction.exercise')
+    logger.handlers.clear()
+    logger.propagate = False
+    logger.setLevel(logging.ERROR)
+    handler = logging.StreamHandler(output)
+    handler.setFormatter(RedactingFormatter([token, connection_string]))
+    logger.addHandler(handler)
+    logger.error('synthetic failure token=' + token, extra={
+        'context': 'connection=' + connection_string + ' token=' + token,
+        'event': 'order_failure'})
+    text = output.getvalue()
+    message, tail = text.rstrip('\n').split(' context=', 1)
+    context, event = tail.rsplit(' event=', 1)
+    return {'text': text, 'fields': {'event': event, 'context': context}}
+
+token = 'FAKE_ORDER_TOKEN_ABC'
+connection_string = 'FAKE_CONNECTION_SECRET_XYZ'
+# TODO: run failure_harness and verify complete text plus retained event.
+import ast,inspect
+class _VerifiedResult(dict):
+    def verify(self):
+        tree=ast.parse(inspect.getsource(failure_harness)) if False else ast.parse(_solution_source)
+        def normalized(node):
+            if isinstance(node,ast.Compare) and len(node.ops)==1 and isinstance(node.ops[0],ast.Eq):
+                return ('Eq',tuple(sorted((ast.dump(node.left),ast.dump(node.comparators[0])))))
+            return ast.dump(node)
+        checks=[normalized(n.test) for n in ast.walk(tree) if isinstance(n,ast.Assert)]
+        required=[normalized(ast.parse(line).body[0].test) for line in (
+            "assert token not in result['text']",
+            "assert connection_string not in result['text']",
+            "assert result['fields']['event'] == 'order_failure'")]
+        assert all(test in checks for test in required)
+        return {'text':self['text'],'fields':self['fields'],'checked_token':token,'checked_connection':connection_string}
+
+_solution_source = open('exercise.py').read()
+
+SOLUTION exercise.py import io
+import logging
+class RedactingFormatter(logging.Formatter):
+    def __init__(self, secrets):
+        super().__init__('%(message)s context=%(context)s event=%(event)s')
+        self.secrets = secrets
+    def format(self, record):
+        text = super().format(record)
+        for secret in self.secrets:
+            text = text.replace(secret, '[REDACTED]')
+        return text
+def failure_harness(*, token, connection_string):
+    output = io.StringIO()
+    logger = logging.getLogger('order.redaction.exercise')
+    logger.handlers.clear()
+    logger.propagate = False
+    logger.setLevel(logging.ERROR)
+    handler = logging.StreamHandler(output)
+    handler.setFormatter(RedactingFormatter([token, connection_string]))
+    logger.addHandler(handler)
+    logger.error('synthetic failure token=' + token, extra={
+        'context': 'connection=' + connection_string + ' token=' + token,
+        'event': 'order_failure'})
+    text = output.getvalue()
+    message, tail = text.rstrip('\n').split(' context=', 1)
+    context, event = tail.rsplit(' event=', 1)
+    return {'text': text, 'fields': {'event': event, 'context': context}}
+
+token = 'FAKE_ORDER_TOKEN_ABC'
+connection_string = 'FAKE_CONNECTION_SECRET_XYZ'
+# TODO: run failure_harness and verify complete text plus retained event.
+result = failure_harness(token=token, connection_string=connection_string)
+assert token not in result['text']
+assert connection_string not in result['text']
+assert result['fields']['event'] == 'order_failure'
+import ast,inspect
+class _VerifiedResult(dict):
+    def verify(self):
+        tree=ast.parse(inspect.getsource(failure_harness)) if False else ast.parse(_solution_source)
+        def normalized(node):
+            if isinstance(node,ast.Compare) and len(node.ops)==1 and isinstance(node.ops[0],ast.Eq):
+                return ('Eq',tuple(sorted((ast.dump(node.left),ast.dump(node.comparators[0])))))
+            return ast.dump(node)
+        checks=[normalized(n.test) for n in ast.walk(tree) if isinstance(n,ast.Assert)]
+        required=[normalized(ast.parse(line).body[0].test) for line in (
+            "assert token not in result['text']",
+            "assert connection_string not in result['text']",
+            "assert result['fields']['event'] == 'order_failure'")]
+        assert all(test in checks for test in required)
+        return {'text':self['text'],'fields':self['fields'],'checked_token':token,'checked_connection':connection_string}
+
+_solution_source = open('exercise.py').read()
+
+TESTS [{"test_id": "test_1", "kind": "value_equals", "spec": {"expr": "_VerifiedResult(result).verify()", "expected": {"text": "synthetic failure token=[REDACTED] context=connection=[REDACTED] token=[REDACTED] event=order_failure\n", "fields": {"event": "order_failure", "context": "connection=[REDACTED] token=[REDACTED]"}, "checked_token": "FAKE_ORDER_TOKEN_ABC", "checked_connection": "FAKE_CONNECTION_SECRET_XYZ"}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}]
+tile_050.s04 recap
+{"type": "prose", "text": "Apply logging policy to sensitive values in both message and context; verify emitted records with synthetic failures while retaining intended fields.", "role": "takeaway"}
+{"type": "up_next", "title": "Next: tile_051 — Request-scoped async-compatible PostgreSQL session lifecycle", "text": "Start with Request-scoped async-compatible PostgreSQL session lifecycle."}
+
+### tile_051 Request-scoped async-compatible PostgreSQL session lifecycle
+GLOSSARY {"coverage": {"learning_objective": "Own an async-compatible database session for a request: supply and close one async-compatible session per request.", "required_facts": [{"id": "f1", "statement": "AsyncSession maintains mutable state for current database work and is not safe to share across concurrent tasks; use a separate session for each concurrent unit of work.", "source_refs": ["sqlalchemy_20_tutorial#https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html#using-asyncsession-with-concurrent-tasks"]}, {"id": "f2", "statement": "Build an async_sessionmaker bound to an async engine and use async with session_factory() as session to obtain and close a session for the request's unit of work.", "source_refs": ["sqlalchemy_20_tutorial#https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html#synopsis-orm"]}, {"id": "f3", "statement": "A request dependency can yield a session from its async context, leaving session cleanup to that context on both normal and exceptional exit.", "source_refs": ["sqlalchemy_20_tutorial#https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html#synopsis-orm", "fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/dependencies/dependencies-with-yield/#a-dependency-with-yield-and-try"]}], "misconceptions": []}, "assessment_anchors": [{"fact_ids": ["f1"], "capability": "identify_unsafe_session_sharing_across_concurrent_requests"}, {"fact_ids": ["f2", "f3"], "capability": "identify_session_leaks_from_missing_context_owned_cleanup"}], "practice_anchor": {"type": "live_code", "objective": "Using a supplied async engine, build a session_factory and implement an async request dependency that yields one session from an async context.", "success": "Separate concurrent request dependency invocations receive distinct sessions, and each session's context closes on both normal and exceptional exit.", "live_code": {"required_skill": "Bind async_sessionmaker to an async engine and yield a request-owned session from an async with context.", "allowed_syntax": ["from sqlalchemy.ext.asyncio import async_sessionmaker", "session_factory = async_sessionmaker(engine)", "async def get_session():", "async with session_factory() as session:", "yield session"], "blocked_syntax": ["session.execute(...)", "session.get(...)", "session.scalar(...)", "session.scalars(...)", "select(...)", "session.add(...)", "session.delete(...)", "update(...)", "session.commit()", "session.rollback()", "session.begin()", "app.dependency_overrides[...]"], "starter_state_intent": "Supply a configured async engine named engine and an incomplete session_factory setup and get_session dependency. A provided lifecycle harness represents request A and request B without requiring database operations.", "observable_success": "The harness observes distinct sessions for concurrent request A and request B, verifies that each yielded session belongs to its own async context, and confirms context closure after normal completion and an injected exception."}}, "visual_anchor": {"type": "diagram", "purpose": "Show one engine-bound session_factory supplying separate session A and session B boxes for concurrent requests. Trace each session through dependency yield to context exit, with normal and exceptional paths both ending in cleanup."}}
+tile_051.s01 explainer
+{"type": "prose", "text": "AsyncSession holds mutable state for database work. It is unsafe to share across concurrent tasks; give each concurrent unit of work a separate session.", "role": "mechanism"}
+{"type": "prose", "text": "Bind async_sessionmaker to an async engine. async with session_factory() as session obtains and closes a session for the request’s unit of work.", "role": "mechanism"}
+{"type": "prose", "text": "A request dependency can yield the session from that async context. The context still owns cleanup on normal and exceptional exit.", "role": "mechanism"}
+{"type": "diagram", "diagram_kind": "container", "title": "One factory, separate concurrent sessions", "nodes": [{"id": "factory", "label": "async_sessionmaker(async engine)"}, {"id": "sa", "label": "Session A: mutable work state", "group": "request A"}, {"id": "sb", "label": "Session B: mutable work state", "group": "request B"}, {"id": "ya", "label": "Dependency yields session A", "group": "request A"}, {"id": "yb", "label": "Dependency yields session B", "group": "request B"}, {"id": "ca", "label": "async context exit closes A", "group": "request A"}, {"id": "cb", "label": "async context exit closes B", "group": "request B"}], "edges": [{"from": "factory", "to": "sa", "label": "async with session_factory()", "directed": true}, {"from": "factory", "to": "sb", "label": "async with session_factory()", "directed": true}, {"from": "sa", "to": "ya", "label": "operation use", "directed": true}, {"from": "sb", "to": "yb", "label": "operation use", "directed": true}, {"from": "ya", "to": "ca", "label": "normal or exceptional exit", "directed": true}, {"from": "yb", "to": "cb", "label": "normal or exceptional exit", "directed": true}], "layout": "auto", "alt_text": "One factory, separate concurrent sessions: async_sessionmaker(async engine); Session A: mutable work state; Session B: mutable work state; Dependency yields session A; Dependency yields session B; async context exit closes A; async context exit closes B"}
+tile_051.s02 explainer
+{"type": "prose", "text": "Separate the engine-bound factory from the mutable sessions it creates. Concurrent request A and request B need separate sessions. Each request’s async context owns closure, including exceptional exit. Yield supplies the session to the operation without transferring that cleanup responsibility. A shared factory is not a shared AsyncSession.", "role": "mental_model"}
+tile_051.s03 explainer
+{"type": "prose", "text": "Bind the factory to the async engine, then open a session with async with for each request’s work. Yield that session from inside the context so both normal and exceptional exit close it. Draw session A and session B separately for concurrent requests. Sharing factory setup does not permit both tasks to borrow one mutable session, and cleanup must not depend only on a successful return.", "role": "walkthrough"}
+tile_051.s04 video
+{"type": "media_group", "segment_ids": ["seg_sqlalchemy.async_session_lifecycle_T0JXFhJ7pM0_216_441"], "group_title": "Create a factory and supply a request-owned async session", "bridge": {"before": "Watch how the engine-bound factory supplies a session inside an async context. The clip calls the factory async_session_local; Devspace uses session_factory to distinguish the factory from an individual session.", "after": "The clip demonstrates factory setup and yielding with context cleanup, but does not explain concurrent-sharing safety or exceptional-exit cleanup. The text covers separate sessions for concurrent work and cleanup on both normal and exceptional exit."}, "default_mode": "video"}
+tile_051.s05 check
+QUESTION {"prompt": "A request dependency yields an AsyncSession. Which ownership pattern closes the session after both normal and exceptional exit?", "options": [{"option_id": "option_1", "text": "Yield inside async with session_factory() as session so the context owns cleanup."}, {"option_id": "option_2", "text": "Create a session, yield it, and never enter or close its context."}, {"option_id": "option_3", "text": "Close the session only if the handler succeeds."}], "selection": "single", "shuffle": true}
+KEY {"correct_option_ids": ["option_1"], "option_feedback": {"option_1": {"message": "The session context owns closure on either exit."}, "option_2": {"message": "A bare yield does not establish context-owned session cleanup."}, "option_3": {"message": "Cleanup is required after exceptional exit as well as normal exit."}}}
+tile_051.s06 hands_on
+TASK Build session_factory = async_sessionmaker(engine). Complete async def get_session() with async with session_factory() as session: yield session. Preserve the supplied unconnected engine and harness; this is session lifetime, not SQL execution. The harness keeps two dependency invocations open simultaneously, verifies distinct real AsyncSession objects, and verifies context-owned closure after normal and exceptional exit without concealing an exception. A supplied no-I/O close bridge replaces unavailable greenlet only for this unconnected fixture.
+STARTER exercise.py from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncEngine
+from sqlalchemy import create_engine
+sync_engine = create_engine('sqlite:///:memory:')
+sync_engine.dialect.is_async = True
+engine = AsyncEngine(sync_engine)
+# Supplied engine fixture never connects or issues SQL.
+from sqlalchemy.ext.asyncio import async_sessionmaker
+# TODO: session_factory = async_sessionmaker(engine)
+async def get_session():
+    # TODO: async with session_factory() as session: yield session
+    raise NotImplementedError
+
+SOLUTION exercise.py from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncEngine
+from sqlalchemy import create_engine
+sync_engine = create_engine('sqlite:///:memory:')
+sync_engine.dialect.is_async = True
+engine = AsyncEngine(sync_engine)
+# Supplied engine fixture never connects or issues SQL.
+from sqlalchemy.ext.asyncio import async_sessionmaker
+session_factory = async_sessionmaker(engine)
+async def get_session():
+    async with session_factory() as session:
+        yield session
+
+TESTS [{"test_id": "test_1", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "normal"}}], "app": "verification_app", "expected": {"status": 200, "json": {"distinct_sessions": true, "entered": 2, "closed": 2, "B_exit": "GeneratorExit"}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}, {"test_id": "test_2", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": "failure"}}], "app": "verification_app", "expected": {"status": 200, "json": {"distinct_sessions": true, "entered": 2, "closed": 2, "B_exit": "RuntimeError"}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}]
+tile_051.s07 recap
+{"type": "prose", "text": "Share factory setup, not mutable sessions across concurrent tasks. Obtain sessions with async contexts and yield without losing normal or exceptional cleanup.", "role": "takeaway"}
+{"type": "up_next", "title": "Next: tile_052 — Graceful termination and shutdown verification", "text": "Start with Graceful termination and shutdown verification."}
+
+### tile_052 Graceful termination and shutdown verification · Service health and readiness checks
+GLOSSARY {"coverage": {"learning_objective": "Verify graceful shutdown: verify termination during one request.", "required_facts": [{"id": "f1", "statement": "Graceful server termination stops old processes accepting new connections and permits active responses and background tasks to finish within configured time limits.", "source_refs": ["fastapi_docs_tutorial#https://uvicorn.dev/server-behavior/#graceful-process-shutdown"]}, {"id": "f2", "statement": "Configure --timeout-graceful-shutdown seconds as the maximum wait before Uvicorn starts terminating remaining requests.", "source_refs": ["fastapi_docs_tutorial#https://uvicorn.dev/settings/#timeouts"]}, {"id": "f3", "statement": "Verify termination during an active request by observing whether its response completes within the limit and whether lifespan cleanup releases the application's shared resources.", "source_refs": ["fastapi_docs_advanced#https://fastapi.tiangolo.com/advanced/events/#lifespan-function", "fastapi_docs_tutorial#https://uvicorn.dev/server-behavior/#graceful-process-shutdown"]}], "misconceptions": []}, "assessment_anchors": [{"fact_ids": ["f1", "f2", "f3"], "capability": "identify_interrupted_work_against_shutdown_limit"}, {"fact_ids": ["f3"], "capability": "identify_shared_resources_not_released_by_lifespan_cleanup"}], "practice_anchor": {"type": "live_code", "objective": "Configure Uvicorn's graceful-shutdown wait for the supplied order application, ensure its lifespan cleanup closes the shared HTTP client, and initiate termination while one controlled order request is active.", "success": "Record the configured limit, confirm that termination began during the request, observe whether the response completed within that limit, and verify that lifespan cleanup closed the shared HTTP client. Distinguish interrupted work from an unreleased resource.", "live_code": {"required_skill": "Configure bounded graceful shutdown and verify active-request completion and shared-resource cleanup.", "allowed_syntax": ["uvicorn --timeout-graceful-shutdown <seconds>", "async def", "await", "try/finally", "@asynccontextmanager", "yield", "FastAPI(lifespan=...)", "@app.get(...)", "await asyncio.sleep(...)", "httpx.AsyncClient()", "await client.aclose()", "client.is_closed"], "blocked_syntax": ["app.dependency_overrides", "Header(...)", "Cookie(...)", "@app.exception_handler(...)", "session.commit()", "session.rollback()"], "starter_state_intent": "Provide an order application with one controlled delayed request, a shared HTTP client managed by lifespan, and an incomplete cleanup section. Supply termination controls and a harness that records request timing, response outcome, and client closure without requiring additional application features.", "observable_success": "The configured graceful-shutdown limit is applied. Termination occurs while the order request is active, its response completes within the limit, and the harness confirms that lifespan cleanup closes the shared client."}}, "visual_anchor": {"type": "process_flow", "purpose": "Make the shutdown sequence visible: an active order request, termination initiation, old processes stopping acceptance of new connections, bounded completion of active responses and background tasks, and lifespan resource cleanup. Mark the configured wait boundary and show the recorded response outcome and shared-client closure evidence."}}
+GLOSSARY {"coverage": {"learning_objective": "Design health probe contracts: specify one service's probes.", "required_facts": [{"id": "f1", "statement": "A failed liveness probe can cause a container restart, whereas a failed readiness probe removes its eligibility to receive service traffic without requiring a restart.", "source_refs": ["fastapi_docs_tutorial#https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/"]}, {"id": "f2", "statement": "Readiness can depend on temporary conditions such as required backend availability, even while the process is alive.", "source_refs": ["fastapi_docs_tutorial#https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-readiness-probes"]}, {"id": "f3", "statement": "Configure separate livenessProbe and readinessProbe HTTP checks with path, port, periodSeconds and failureThreshold that match the service's intended restart and traffic-eligibility contracts.", "source_refs": ["fastapi_docs_tutorial#https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-a-liveness-http-request", "fastapi_docs_tutorial#https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-readiness-probes"]}, {"id": "f4", "statement": "An HTTP probe regards response status codes from 200 through 399 as success; other codes are failure.", "source_refs": ["fastapi_docs_tutorial#https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-a-liveness-http-request"]}], "misconceptions": []}, "assessment_anchors": [{"fact_ids": ["f1", "f2"], "capability": "distinguish_restart_from_traffic_removal"}, {"fact_ids": ["f1", "f3", "f4"], "capability": "determine_probe_outcomes_from_http_status_and_failure_threshold"}], "practice_anchor": {"type": "live_code", "objective": "Specify separate livenessProbe and readinessProbe HTTP checks for one service using supplied endpoint paths, port, check periods and failure thresholds. Keep temporary required-backend unavailability in the readiness contract rather than treating it as a reason to restart an otherwise live process.", "success": "Both probe mappings contain the intended HTTP path and port, periodSeconds and failureThreshold. The liveness contract permits restart after its failure threshold; the readiness contract removes traffic eligibility after its failure threshold without requiring restart. Endpoint response contracts classify 200 through 399 as success and other codes as failure.", "live_code": {"required_skill": "Configure separate HTTP probe mappings that express restart and traffic-eligibility contracts.", "allowed_syntax": ["YAML mappings and indentation", "livenessProbe", "readinessProbe", "httpGet", "path", "port", "periodSeconds", "failureThreshold", "String path values", "Integer port, period and threshold values"], "blocked_syntax": ["app.dependency_overrides", "Header(...)", "Cookie(...)"], "starter_state_intent": "Provide incomplete livenessProbe and readinessProbe mappings, supplied paths and port, and intended periodSeconds and failureThreshold values. Include a written service contract distinguishing an alive process from temporary required-backend unavailability; no endpoint implementation is required.", "observable_success": "The completed mappings use the supplied values under the correct probe keys. The accompanying contract keeps liveness successful during temporary backend unavailability while readiness returns a failure status, and correctly identifies which probe failure can restart the container and which removes traffic eligibility."}}, "visual_anchor": {"type": "process_flow", "purpose": "Show separate liveness and readiness decision paths: HTTP statuses 200–399 count as success; failures reaching the configured threshold lead respectively to possible container restart or removal of traffic eligibility. Include a temporary required-backend outage with the process still alive to make the readiness-only effect visible."}}
+tile_052.s01 explainer
+{"type": "prose", "text": "Graceful termination stops old processes accepting new connections and lets active responses and background tasks finish within configured limits.", "role": "mechanism"}
+{"type": "prose", "text": "Set --timeout-graceful-shutdown seconds as Uvicorn’s maximum wait before it starts terminating remaining requests.", "role": "mechanism"}
+{"type": "prose", "text": "Terminate during an active request. Observe whether its response completes within the limit and whether lifespan cleanup releases shared application resources.", "role": "mechanism"}
+{"type": "process_flow", "title": "Bounded shutdown and evidence to inspect", "direction": "TB", "nodes": [{"id": "active", "label": "Controlled order request active"}, {"id": "terminate", "label": "Initiate termination"}, {"id": "stop", "label": "Old processes stop accepting new connections"}, {"id": "wait", "label": "Responses and background tasks may finish; maximum wait 5 seconds"}, {"id": "limit", "label": "Wait limit reached: Uvicorn starts terminating remaining requests"}, {"id": "cleanup", "label": "Lifespan cleanup releases shared client"}, {"id": "evidence", "label": "Inspect recorded response outcome and client.is_closed"}], "edges": [{"from": "active", "to": "terminate"}, {"from": "terminate", "to": "stop"}, {"from": "stop", "to": "wait"}, {"from": "wait", "to": "limit", "label": "remaining work at boundary"}, {"from": "wait", "to": "cleanup", "label": "finish within limit"}, {"from": "limit", "to": "cleanup"}, {"from": "cleanup", "to": "evidence", "label": "verify, do not assume"}], "alt_text": "Bounded shutdown and evidence to inspect: Controlled order request active; Initiate termination; Old processes stop accepting new connections; Responses and background tasks may finish; maximum wait 5 seconds; Wait limit reached: Uvicorn starts terminating remaining requests; Lifespan cleanup releases shared client; Inspect recorded response outcome and client.is_closed"}
+tile_052.s02 check
+QUESTION {"prompt": "During shutdown an active response finishes within the configured limit, but the shared HTTP client remains open. Which verification result identifies the remaining failure?", "options": [{"option_id": "option_1", "text": "Response completion passed, but lifespan resource-release verification failed."}, {"option_id": "option_2", "text": "Response completion proves the shared client was closed."}, {"option_id": "option_3", "text": "An open shared client is evidence that the response could not have completed."}], "selection": "single", "shuffle": true}
+KEY {"correct_option_ids": ["option_1"], "option_feedback": {"option_1": {"message": "Completing a response and closing shared resources are separate checks."}, "option_2": {"message": "Response completion alone does not verify lifespan cleanup."}, "option_3": {"message": "Interrupted work and unreleased resources are distinct observations."}}}
+tile_052.s03 hands_on
+TASK Add --timeout-graceful-shutdown 5 to server_command. Complete lifespan finally with await client.aclose() and app.state.client_closed = client.is_closed. Keep the supplied request and harness unchanged. The WASM result is in-process completion and cleanup only, not termination evidence. After saving exercise.py, run the supplied termination_harness.py in a native environment with FastAPI, Uvicorn and httpx installed. It applies the configured limit to Uvicorn, starts the controlled HTTP request, sends SIGTERM after request_started while the request is unfinished, and records actual response completion and lifespan client closure. Termination practice succeeds only with that native evidence; distinguish interrupted work from an unreleased resource.
+STARTER exercise.py request_delay = 0.01
+shutdown_limit = 5
+import asyncio
+from contextlib import asynccontextmanager
+import httpx
+from fastapi import FastAPI
+
+async def lifespan(app):
+    client = httpx.AsyncClient()
+    app.state.client = client
+    try:
+        yield
+    finally:
+        # TODO: await client.aclose(); record client.is_closed.
+        pass
+lifespan = asynccontextmanager(lifespan)
+app = FastAPI(lifespan=lifespan)
+
+async def controlled_order():
+    print('request_started', flush=True)
+    await asyncio.sleep(request_delay)
+    print('request_completed', flush=True)
+    return {'id': 42, 'quantity': 2}
+controlled_order = app.get('/orders/42')(controlled_order)
+
+server_command = 'uvicorn main:app --host 127.0.0.1 --port 8000'
+
+STARTER termination_harness.py # Native adaptation of the registered termination harness. Run beside exercise.py.
+# This report, not the in-process WASM result, establishes termination practice.
+import ast
+import json
+import os
+from pathlib import Path
+import shlex
+import signal
+import subprocess
+import tempfile
+import threading
+import time
+import httpx
+
+source = Path('exercise.py').read_text().split('
+SOLUTION exercise.py request_delay = 0.01
+shutdown_limit = 5
+import asyncio
+from contextlib import asynccontextmanager
+import httpx
+from fastapi import FastAPI
+
+async def lifespan(app):
+    client = httpx.AsyncClient()
+    app.state.client = client
+    try:
+        yield
+    finally:
+        await client.aclose()
+        app.state.client_closed = client.is_closed
+lifespan = asynccontextmanager(lifespan)
+app = FastAPI(lifespan=lifespan)
+
+async def controlled_order():
+    print('request_started', flush=True)
+    await asyncio.sleep(request_delay)
+    print('request_completed', flush=True)
+    return {'id': 42, 'quantity': 2}
+controlled_order = app.get('/orders/42')(controlled_order)
+
+server_command = 'uvicorn main:app --host 127.0.0.1 --port 8000 --timeout-graceful-shutdown 5'
+
+TESTS [{"test_id": "test_1", "kind": "http_equals", "spec": {"requests": [{"method": "GET", "path": "/verify-shutdown/normal"}], "expected": {"status": 200, "json": {"configured_limit": 5, "termination_during_active_request": false, "response": {"id": 42, "quantity": 2}, "closed": true, "verification_mode": "in-process completion and cleanup only"}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}, {"test_id": "test_2", "kind": "http_equals", "spec": {"requests": [{"method": "GET", "path": "/verify-shutdown/repeat"}], "expected": {"status": 200, "json": {"configured_limit": 5, "termination_during_active_request": false, "response": {"id": 42, "quantity": 2}, "closed": true, "verification_mode": "in-process completion and cleanup only"}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}]
+tile_052.s04 explainer
+{"type": "prose", "text": "Failed liveness can cause a container restart. Failed readiness removes service-traffic eligibility without requiring restart.", "role": "mechanism"}
+{"type": "prose", "text": "Readiness can reflect temporary required-backend unavailability even when the process remains alive.", "role": "mechanism"}
+{"type": "prose", "text": "Configure separate livenessProbe and readinessProbe HTTP checks with path, port, periodSeconds and failureThreshold matching the intended restart and traffic contracts.", "role": "mechanism"}
+{"type": "prose", "text": "HTTP probes count statuses 200 through 399 as success; other statuses are failure.", "role": "mechanism"}
+{"type": "process_flow", "title": "Separate restart and traffic decisions", "direction": "TB", "nodes": [{"id": "outage", "label": "Temporary required-backend outage; process alive"}, {"id": "live", "label": "livenessProbe: /live:8000, periodSeconds=10, failureThreshold=3"}, {"id": "ready", "label": "readinessProbe: /ready:8000, periodSeconds=5, failureThreshold=2"}, {"id": "status", "label": "HTTP 200–399 success; other statuses failure"}, {"id": "lf", "label": "Liveness failures reach threshold"}, {"id": "rf", "label": "Readiness failures reach threshold"}, {"id": "restart", "label": "Can cause container restart"}, {"id": "traffic", "label": "Remove service-traffic eligibility; no restart required"}], "edges": [{"from": "outage", "to": "live", "label": "can remain successful"}, {"from": "outage", "to": "ready", "label": "can fail"}, {"from": "live", "to": "status", "label": "classify response"}, {"from": "ready", "to": "status", "label": "classify response"}, {"from": "status", "to": "lf", "label": "liveness failure"}, {"from": "status", "to": "rf", "label": "readiness failure"}, {"from": "lf", "to": "restart"}, {"from": "rf", "to": "traffic"}], "alt_text": "Separate restart and traffic decisions: Temporary required-backend outage; process alive; livenessProbe: /live:8000, periodSeconds=10, failureThreshold=3; readinessProbe: /ready:8000, periodSeconds=5, failureThreshold=2; HTTP 200–399 success; other statuses failure; Liveness failures reach threshold; Readiness failures reach threshold; Can cause container restart; Remove service-traffic eligibility; no restart required"}
+tile_052.s05 explainer
+{"type": "prose", "text": "During a temporary required-backend outage, liveness can succeed while readiness removes traffic eligibility without requiring restart. Failed liveness can cause restart. HTTP statuses 200 through 399, including 3xx, mean success; an “unready” body does not override that status.", "role": "mental_model"}
+{"type": "prose", "role": "mechanism", "text": "A YAML mapping uses `key: value`; a key with no value starts a nested mapping. Indent its children with spaces. For each probe, path and port are children of httpGet; periodSeconds and failureThreshold are siblings of httpGet. Edit only the YAML inside probe_yaml's triple quotes; the parser and service contract are supplied infrastructure."}
+{"type": "code_walkthrough", "language": "python", "code": "probe_yaml = \"\"\"\nlivenessProbe:\n  httpGet:\n    path: /live\n    port: 8000\n  periodSeconds: 10\n  failureThreshold: 3\nreadinessProbe:\n  httpGet:\n    path: /ready\n    port: 8000\n  periodSeconds: 5\n  failureThreshold: 2\n\"\"\"\n", "reveal": "all", "annotations": [{"start_line": 2, "end_line": 5, "text": "Spaces nest httpGet under the probe, then path and port under httpGet."}, {"start_line": 6, "end_line": 7, "text": "Same indentation: periodSeconds and failureThreshold are siblings of httpGet."}, {"start_line": 8, "end_line": 13, "text": "The separate readiness mapping uses the same nesting and its supplied values."}]}
+tile_052.s06 check
+QUESTION {"prompt": "During temporary required-backend unavailability, the live process returns 200 from liveness and readiness repeatedly returns 503 until its failure threshold. What follows?", "options": [{"option_id": "option_3", "text": "503 counts as success, so traffic eligibility remains."}, {"option_id": "option_1", "text": "Liveness succeeds; readiness fails and removes traffic eligibility without requiring restart."}, {"option_id": "option_2", "text": "The readiness failures require a restart"}], "selection": "single", "shuffle": true}
+KEY {"correct_option_ids": ["option_1"], "option_feedback": {"option_3": {"message": "Only statuses 200 through 399 count as HTTP probe success. Readiness returning 503 fails and, at its threshold, removes traffic eligibility."}, "option_1": {"message": "200 is a successful HTTP probe status; 503 is a failure. Readiness reaching its threshold removes traffic eligibility without requiring restart, while liveness succeeds."}, "option_2": {"message": "Readiness failure removes traffic eligibility without requiring restart. Restart is the separate consequence of failed liveness; here liveness returns a successful 200."}}}
+tile_052.s07 hands_on
+TASK Edit only the YAML between the supplied triple quotes. Complete livenessProbe and readinessProbe using supplied path and port under httpGet, plus periodSeconds and failureThreshold at each probe level. Keep the supplied service contract: temporary backend unavailability fails readiness but not liveness; liveness failure at threshold may restart, readiness failure removes traffic eligibility without requiring restart; 200 through 399 succeeds. No endpoint implementation is required. The harness checks both mappings for a healthy backend and an outage.
+STARTER exercise.py probe_yaml = '''
+# TODO: complete each mapping using supplied_values.json.
+livenessProbe:
+  httpGet: {}
+readinessProbe:
+  httpGet: {}
+'''
+# Supplied minimal parser covers only the mappings in this task.
+import json
+supplied = {'livenessProbe': {'path': '/live', 'port': 8000, 'periodSeconds': 10, 'failureThreshold': 3}, 'readinessProbe': {'path': '/ready', 'port': 8000, 'periodSeconds': 5, 'failureThreshold': 2}}
+service_contract = 'Fictional order service: a live process returns a successful liveness status even during temporary required-backend unavailability. Readiness uses a failure status during that outage. HTTP statuses 200 through 399 count as success; other statuses count as failure. A liveness failure reaching its configured threshold can cause restart. A readiness failure reaching its threshold removes traffic eligibility without requiring restart. No endpoint implementation is required.\n'
+def _parse(text):
+    root={};stack=[(-1,root)]
+    for raw in text.splitlines():
+        if not raw.strip() or raw.lstrip().startswith('#'):continue
+        indent=len(raw)-len(raw.lstrip());key,val=raw.strip().split(':',1);val=val.strip()
+        while stack[-1][0]>=indent:stack.pop()
+        parent=stack[-1][1]
+        if not val:parent[key]={};stack.append((indent,parent[key]))
+        elif val=='{}':parent[key]={}
+        elif val.startswith('"') and val.endswith('"'):parent[key]=json.loads(val)
+        elif val.startswith("'") and val.endswith("'"):parent[key]=val[1:-1].replace("''","'")
+        else:parent[key]=int(val) if val.isdigit() else val
+    return root
+def _case(outage):
+    mappings=_parse(probe_yaml)
+    for key,v in supplied.items():
+        assert mappings[key]=={'httpGet':{'path':v['path'],'port':v['port']},'periodSeconds':v['periodSeconds'],'failureThreshold':v['failureThreshold']}
+    return {'mappings':mappings,'contract':service_contract,'backend_unavailable':outage}
+import inspect
+from fastapi import FastAPI, Body
+verification_app=FastAPI()
+
+async def verify_case(payload: dict=Body(...)):
+    result=_case(payload['case'])
+    if inspect.isawaitable(result):return await result
+    return result
+verify_case = verification_app.post('/_verify')(verify_case)
+
+SOLUTION exercise.py probe_yaml = '''
+livenessProbe:
+  httpGet:
+    path: /live
+    port: 8000
+  periodSeconds: 10
+  failureThreshold: 3
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 8000
+  periodSeconds: 5
+  failureThreshold: 2
+'''
+# Supplied minimal parser covers only the mappings in this task.
+import json
+supplied = {'livenessProbe': {'path': '/live', 'port': 8000, 'periodSeconds': 10, 'failureThreshold': 3}, 'readinessProbe': {'path': '/ready', 'port': 8000, 'periodSeconds': 5, 'failureThreshold': 2}}
+service_contract = 'Fictional order service: a live process returns a successful liveness status even during temporary required-backend unavailability. Readiness uses a failure status during that outage. HTTP statuses 200 through 399 count as success; other statuses count as failure. A liveness failure reaching its configured threshold can cause restart. A readiness failure reaching its threshold removes traffic eligibility without requiring restart. No endpoint implementation is required.\n'
+def _parse(text):
+    root={};stack=[(-1,root)]
+    for raw in text.splitlines():
+        if not raw.strip() or raw.lstrip().startswith('#'):continue
+        indent=len(raw)-len(raw.lstrip());key,val=raw.strip().split(':',1);val=val.strip()
+        while stack[-1][0]>=indent:stack.pop()
+        parent=stack[-1][1]
+        if not val:parent[key]={};stack.append((indent,parent[key]))
+        elif val=='{}':parent[key]={}
+        elif val.startswith('"') and val.endswith('"'):parent[key]=json.loads(val)
+        elif val.startswith("'") and val.endswith("'"):parent[key]=val[1:-1].replace("''","'")
+        else:parent[key]=int(val) if val.isdigit() else val
+    return root
+def _case(outage):
+    mappings=_parse(probe_yaml)
+    for key,v in supplied.items():
+        assert mappings[key]=={'httpGet':{'path':v['path'],'port':v['port']},'periodSeconds':v['periodSeconds'],'failureThreshold':v['failureThreshold']}
+    return {'mappings':mappings,'contract':service_contract,'backend_unavailable':outage}
+import inspect
+from fastapi import FastAPI, Body
+verification_app=FastAPI()
+
+async def verify_case(payload: dict=Body(...)):
+    result=_case(payload['case'])
+    if inspect.isawaitable(result):return await result
+    return result
+verify_case = verification_app.post('/_verify')(verify_case)
+
+TESTS [{"test_id": "test_1", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": false}}], "app": "verification_app", "expected": {"status": 200, "json": {"mappings": {"livenessProbe": {"httpGet": {"path": "/live", "port": 8000}, "periodSeconds": 10, "failureThreshold": 3}, "readinessProbe": {"httpGet": {"path": "/ready", "port": 8000}, "periodSeconds": 5, "failureThreshold": 2}}, "contract": "Fictional order service: a live process returns a successful liveness status even during temporary required-backend unavailability. Readiness uses a failure status during that outage. HTTP statuses 200 through 399 count as success; other statuses count as failure. A liveness failure reaching its configured threshold can cause restart. A readiness failure reaching its threshold removes traffic eligibility without requiring restart. No endpoint implementation is required.\n", "backend_unavailable": false}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}, {"test_id": "test_2", "kind": "http_equals", "spec": {"requests": [{"method": "POST", "path": "/_verify", "json": {"case": true}}], "app": "verification_app", "expected": {"status": 200, "json": {"mappings": {"livenessProbe": {"httpGet": {"path": "/live", "port": 8000}, "periodSeconds": 10, "failureThreshold": 3}, "readinessProbe": {"httpGet": {"path": "/ready", "port": 8000}, "periodSeconds": 5, "failureThreshold": 2}}, "contract": "Fictional order service: a live process returns a successful liveness status even during temporary required-backend unavailability. Readiness uses a failure status during that outage. HTTP statuses 200 through 399 count as success; other statuses count as failure. A liveness failure reaching its configured threshold can cause restart. A readiness failure reaching its threshold removes traffic eligibility without requiring restart. No endpoint implementation is required.\n", "backend_unavailable": true}}}, "visible": true, "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."}]
+tile_052.s08 recap
+{"type": "prose", "text": "Bound shutdown waiting, terminate during active work, and verify response completion plus shared-resource cleanup.", "role": "takeaway"}
+{"type": "prose", "text": "Separate liveness restart and readiness traffic contracts; temporary backend outages can affect readiness while alive; HTTP 200–399 counts as probe success.", "role": "takeaway"}
+{"type": "up_next", "title": "Next: tile_054 — Meaningful contract examples and operation metadata", "text": "Start with Meaningful contract examples and operation metadata."}

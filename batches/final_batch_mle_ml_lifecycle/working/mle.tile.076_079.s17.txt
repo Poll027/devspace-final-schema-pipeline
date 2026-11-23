@@ -1,0 +1,2783 @@
+{
+  "step_id": "mle.tile.076_079.s17",
+  "interaction": {
+    "type": "code_exercise",
+    "interaction_id": "ix.mle.tile.076_079.s17",
+    "difficulty": "core",
+    "grading_mode": "client",
+    "standalone": false,
+    "measures": [
+      {
+        "concept_id": "mle.pipeline_failure_recovery",
+        "capability": "identify_verified_recovery_boundary",
+        "fact_ids": [
+          "f1",
+          "f4"
+        ]
+      },
+      {
+        "concept_id": "mle.pipeline_failure_recovery",
+        "capability": "handle_only_declared_recoverable_failure",
+        "fact_ids": [
+          "f2",
+          "f9"
+        ]
+      },
+      {
+        "concept_id": "mle.pipeline_failure_recovery",
+        "capability": "preserve_required_gate_execution_and_failure",
+        "fact_ids": [
+          "f3",
+          "f6",
+          "f7"
+        ]
+      },
+      {
+        "concept_id": "mle.pipeline_failure_recovery",
+        "capability": "wire_and_verify_recovery_stage_configuration",
+        "fact_ids": [
+          "f5",
+          "f10"
+        ]
+      },
+      {
+        "concept_id": "mle.pipeline_failure_recovery",
+        "capability": "reconcile_partial_uploads_without_duplicate_effects",
+        "fact_ids": [
+          "f11",
+          "f12"
+        ]
+      }
+    ],
+    "anchors": [
+      "mle.pipeline_failure_recovery#practice",
+      "mle.pipeline_failure_recovery#assessment:identify_verified_recovery_boundary",
+      "mle.pipeline_failure_recovery#assessment:handle_only_declared_recoverable_failure",
+      "mle.pipeline_failure_recovery#assessment:preserve_required_gate_execution_and_failure",
+      "mle.pipeline_failure_recovery#assessment:wire_and_verify_recovery_stage_configuration",
+      "mle.pipeline_failure_recovery#assessment:reconcile_partial_uploads_without_duplicate_effects"
+    ],
+    "feedback": {
+      "correct": {
+        "message": "The required predicates and evidence agree with the declared contract."
+      },
+      "incorrect": {
+        "message": "Recheck the failed predicate or dependency against the declared contract; success must not be inferred from a name or submission alone."
+      },
+      "hints": [
+        "Separate declared configuration from the inputs and results actually recorded.",
+        "Check each required predicate before accepting the overall result."
+      ]
+    },
+    "public": {
+      "prompt": "Complete recovery_outputs and configured_build using the supplied candidate settings to reconcile every declared output and preserve explicit fatal downstream-gate dependencies. The supplied bounded storage adapter verifies existing exact-generation bytes, hashes and validation; creates only missing outputs with if_generation_match=0; and reloads/verifies after a 412 race without overwriting. result must contain cases (before/after generations, hashes, upload counts, validation count, retry/downstream status), config and runs. Verify A is unchanged, B is completed, a second call changes no generations/uploads but revalidates, unrelated failures and invalid existing outputs remain fatal, and later required gates still run or fail. The supplied exercise_case(case_id) entry point returns {case, all_evidence}; each declared valid, boundary and failure case is tested separately. This is a constrained policy-wiring exercise: the adapter and its case assertions are supplied, not learner-authored. Results are executions of a local in-process simulator, not evidence of hosted cloud runs. Do not change fixture inputs or scaffold code.",
+      "runtime": {
+        "kind": "python",
+        "version": "0.29.5",
+        "packages": [
+          "pyyaml"
+        ]
+      },
+      "workspace": {
+        "files": [
+          {
+            "path": "main.py",
+            "role": "editable",
+            "language": "python",
+            "content": "# Fictional, bounded in-process fixture exercise; no hosted Cloud Build, subprocess or real credential.\n# Only the policy assignments in the TODO section are learner work.\nenabled = True\ndisabled = False\nempty_policy = []\ncases = {'accepted': {'initial_outputs': ['A'], 'race_outputs': [], 'invalid_outputs': [], 'gate_ok': True, 'exception': 'RecoverableFailure'}, 'boundary_completed': {'initial_outputs': ['A', 'B'], 'race_outputs': [], 'invalid_outputs': [], 'gate_ok': True, 'exception': None}, 'race_412': {'initial_outputs': ['A'], 'race_outputs': ['B'], 'invalid_outputs': [], 'gate_ok': True, 'exception': 'RecoverableFailure'}, 'invalid_existing': {'initial_outputs': ['A'], 'race_outputs': [], 'invalid_outputs': ['A'], 'gate_ok': True, 'exception': 'RecoverableFailure'}, 'conflicting_content': {'initial_outputs': ['A'], 'race_outputs': [], 'invalid_outputs': [], 'conflicting_outputs': ['A'], 'gate_ok': True, 'exception': 'RecoverableFailure'}, 'rejected_gate': {'initial_outputs': ['A'], 'race_outputs': [], 'invalid_outputs': [], 'gate_ok': False, 'exception': 'RecoverableFailure'}, 'unrelated_failure': {'initial_outputs': ['A'], 'race_outputs': [], 'invalid_outputs': [], 'gate_ok': True, 'exception': 'ValueError'}}\ncontract = {'injection_point': 'after A upload before B', 'recoverable_exception': 'storage_sim.RecoverableFailure', 'precondition_exception': 'storage_sim.PreconditionFailed', 'outputs': {'A': {'artifact_id': 'A', 'uri': 'gs://fixture-artifacts/A.txt', 'generation': 1, 'sha256': '9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6', 'validation_ok': True}, 'B': {'artifact_id': 'B', 'uri': 'gs://fixture-artifacts/B.txt', 'generation': 1, 'sha256': '6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a', 'validation_ok': True}}, 'requirements': ['record and isolate failure', 'verify exact existing generation bytes/hash and validation', 'skip only verified completed upload', 'create missing output with if_generation_match=0', 'on 412 reload and verify, never overwrite', 'unrelated exceptions remain fatal', 'run retried stage and downstream required gates', 'second call preserves generations and upload counts but revalidates'], 'evidence_fields': ['initial_and_final_generations', 'hashes', 'validation_results', 'upload_counts', 'retry_status', 'downstream_status', 'resolved_inputs']}\ntrigger = {'id': 'fixture-artifact-trigger', 'topic': 'projects/fixture-project/topics/artifacts', 'bindings': {'_CASE': 'case_id', '_ARTIFACT': 'artifact_id'}, 'filters': {'event_type': 'artifact_ready'}, 'fixtures': [{'event_type': 'artifact_ready', 'case_id': 'accepted', 'artifact_id': 'A'}, {'event_type': 'artifact_ready', 'case_id': 'rejected_gate', 'artifact_id': 'A'}, {'event_type': 'unrelated', 'case_id': 'accepted', 'artifact_id': 'A'}]}\nfatal_build = {'steps': [{'id': 'recovery', 'name': 'python:3.11', 'args': ['python', 'learner.py', '${_CASE}'], 'waitFor': ['-']}, {'id': 'required_validation', 'name': 'python:3.11', 'args': ['python', 'learner.py', '${_CASE}'], 'waitFor': ['recovery']}, {'id': 'promotion', 'name': 'python:3.11', 'args': ['python', 'downstream_entry.py', '${_ARTIFACT}'], 'waitFor': ['required_validation']}], 'substitutions': {'_SNAPSHOT': 'valid', '_CASE': 'accepted', '_ARTIFACT': 'A'}, 'serviceAccount': 'projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com'}\nunwired_build = {'steps': [{'id': 'recovery', 'name': 'python:3.11', 'args': ['python', 'learner.py', '${_CASE}'], 'waitFor': ['-']}, {'id': 'required_validation', 'name': 'python:3.11', 'args': ['python', 'learner.py', '${_CASE}'], 'waitFor': []}, {'id': 'promotion', 'name': 'python:3.11', 'args': ['python', 'downstream_entry.py', '${_ARTIFACT}'], 'waitFor': []}], 'substitutions': {'_SNAPSHOT': 'valid', '_CASE': 'accepted', '_ARTIFACT': 'A'}, 'serviceAccount': 'projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com'}\ndeclared_outputs = ['A', 'B']\nartifact_records = {'A': {'artifact_id': 'A', 'uri': 'gs://fixture-artifacts/A.txt', 'generation': 1, 'sha256': '9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6', 'validation_ok': True}, 'B': {'artifact_id': 'B', 'uri': 'gs://fixture-artifacts/B.txt', 'generation': 1, 'sha256': '6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a', 'validation_ok': True}}\noutput_bytes = {'A': b'fictional fitted package A\\npreprocess: divide feature by 5\\nthreshold: 0.4\\n', 'B': b'fictional fitted package B\\npreprocess: divide feature by 5\\nthreshold: 0.5\\n'}\nadapter_source = '\\nimport copy, json, math, hashlib, io\\nimport yaml\\n\\ndef roundtrip(build):\\n    stream = io.StringIO()\\n    yaml.safe_dump(build, stream)\\n    stream.seek(0)\\n    return yaml.safe_load(stream)\\n\\ndef execute(config, trigger, event, actions):\\n    import re\\n    if \"branch_filter\" in trigger:\\n        if re.fullmatch(trigger[\"branch_filter\"], event.get(\"branch\", \"\")) is None:\\n            return {\"triggered\": False, \"steps\": []}\\n    else:\\n        if any(event.get(k) != v for k,v in trigger[\"filters\"].items()):\\n            return {\"triggered\": False, \"steps\": []}\\n    binding = dict(config.get(\"substitutions\", {}))\\n    binding.update({k:event[v] for k,v in trigger[\"bindings\"].items()})\\n    results=[]; statuses={}\\n    for step in config[\"steps\"]:\\n        args=[str(a) for a in step.get(\"args\", [])]\\n        for k,v in binding.items():\\n            args=[a.replace(\"${\"+k+\"}\",str(v)) for a in args]\\n        deps=[x for x in step[\"waitFor\"] if x!=\"-\"]\\n        record={\"id\":step[\"id\"],\"name\":step[\"name\"],\"resolved_args\":args,\"waitFor\":deps}\\n        if any(statuses.get(d)!=\"SUCCESS\" for d in deps):\\n            record.update(status=\"NOT_STARTED\",exit_code=None,evidence=None)\\n        else:\\n            if step.get(\"allowFailure\") or any(x!=0 for x in step.get(\"allowExitCodes\",[])):\\n                raise ValueError(\"required gate failure allowances are forbidden\")\\n            callback=actions.get(step[\"id\"])\\n            context=dict(binding);context[\"_RESOLVED_ARGS\"]=args\\n            result=callback(context) if callback else {\"ok\":True}\\n            record.update(status=\"SUCCESS\" if result[\"ok\"] else \"FAILURE\",exit_code=0 if result[\"ok\"] else 1,evidence=result)\\n        statuses[step[\"id\"]]=record[\"status\"];results.append(record)\\n    return {\"triggered\":True,\"bindings\":binding,\"steps\":results}\\n\\nclass RecoverableFailure(Exception):pass\\nclass PreconditionFailed(Exception):status=412\\nclass Blob:\\n    def __init__(self,name,state):self.name=name;self.state=state;self.generation=None\\n    def exists(self):return self.name in self.state[\"objects\"]\\n    def reload(self):self.generation=self.state[\"objects\"][self.name][\"generation\"]\\n    def download_as_bytes(self,if_generation_match):\\n        obj=self.state[\"objects\"][self.name]\\n        if obj[\"generation\"]!=if_generation_match:raise PreconditionFailed(\"generation changed\")\\n        return obj[\"bytes\"]\\n    def upload_from_filename(self,path,if_generation_match):\\n        assert if_generation_match==0\\n        if self.name in self.state[\"race\"]:\\n            self.state[\"objects\"][self.name]={\"generation\":1,\"bytes\":output_bytes[self.name]}\\n            self.state[\"race\"].remove(self.name)\\n            raise PreconditionFailed(\"race created object\")\\n        if self.exists():raise PreconditionFailed(\"object exists\")\\n        self.state[\"objects\"][self.name]={\"generation\":1,\"bytes\":output_bytes[self.name]}\\n        self.state[\"uploads\"][self.name]+=1\\n\\ndef recover(row):\\n    state={\"objects\":{},\"race\":list(row[\"race_outputs\"]),\"uploads\":{name:0 for name in declared_outputs},\"validations\":0}\\n    for name in row[\"initial_outputs\"]:\\n        state[\"objects\"][name]={\"generation\":1,\"bytes\":output_bytes[name] if name not in row.get(\"conflicting_outputs\",[]) else b\"conflicting content\"}\\n    before={k:v[\"generation\"] for k,v in state[\"objects\"].items()}\\n    failure=row[\"exception\"]\\n    if failure not in (None,\"RecoverableFailure\"):\\n        return {\"ok\":False,\"reason\":\"unrelated failure\",\"failure_recorded\":failure,\"before\":before}\\n    def verify(blob):\\n        blob.reload();data=blob.download_as_bytes(if_generation_match=blob.generation)\\n        state[\"validations\"]+=1\\n        if hashlib.sha256(data).hexdigest()!=artifact_records[blob.name][\"sha256\"]:raise ValueError(\"content conflict\")\\n        if blob.name in row[\"invalid_outputs\"] or not artifact_records[blob.name][\"validation_ok\"]:raise ValueError(\"validation failed\")\\n    try:\\n        for attempt in (1,2):\\n            for name in recovery_outputs:\\n                blob=Blob(name,state)\\n                if blob.exists():verify(blob)\\n                else:\\n                    try:blob.upload_from_filename(\"outputs/\"+name+\".txt\",if_generation_match=0)\\n                    except PreconditionFailed:verify(blob)\\n                    else:verify(blob)\\n            if attempt==1:\\n                after_first={k:v[\"generation\"] for k,v in state[\"objects\"].items()};counts_first=dict(state[\"uploads\"])\\n        after={k:v[\"generation\"] for k,v in state[\"objects\"].items()}\\n        assert after_first==after and counts_first==state[\"uploads\"]\\n        ok=set(recovery_outputs)==set(declared_outputs) and row[\"gate_ok\"]\\n        return {\"ok\":ok,\"reason\":None if ok else \"required gate rejected\",\"failure_recorded\":failure,\"before\":before,\"after\":after,\"hashes\":{k:hashlib.sha256(v[\"bytes\"]).hexdigest() for k,v in state[\"objects\"].items()},\"uploads\":state[\"uploads\"],\"validation_count\":state[\"validations\"],\"retry_status\":\"SUCCESS\",\"downstream_status\":\"SUCCESS\" if ok else \"FAILURE\",\"second_call_unchanged\":True}\\n    except ValueError as e:\\n        return {\"ok\":False,\"reason\":str(e),\"before\":before,\"uploads\":state[\"uploads\"],\"downstream_status\":\"NOT_STARTED\"}\\n\\ndef recovery_run():\\n    resolved=roundtrip(configured_build)\\n    evidence={k:recover(v) for k,v in cases.items()}\\n    def action(b):\\n        rec=recover(cases.get(b[\"_CASE\"],cases[\"unrelated_failure\"]))\\n        rec[\"ok\"]=rec[\"ok\"] or rec.get(\"reason\")==\"required gate rejected\"\\n        return rec\\n    def validation(b):\\n        row=cases.get(b[\"_CASE\"],cases[\"unrelated_failure\"])\\n        return {\"ok\":row[\"gate_ok\"],\"resolved_artifact\":b[\"_ARTIFACT\"],\"required_gate_executed\":True}\\n    runs=[execute(resolved,trigger,e,{\"recovery\":action,\"required_validation\":validation}) for e in trigger[\"fixtures\"]]\\n    assert evidence[\"accepted\"][\"ok\"] and evidence[\"boundary_completed\"][\"ok\"] and evidence[\"race_412\"][\"ok\"]\\n    for k in (\"invalid_existing\",\"conflicting_content\",\"rejected_gate\",\"unrelated_failure\"):assert not evidence[k][\"ok\"]\\n    return {\"cases\":evidence,\"config\":resolved,\"runs\":runs}\\n\\ndef exercise_case(case_id):\\n    all_evidence = recovery_run()\\n    return {\"case\":all_evidence[\"cases\"].get(case_id, {\"ok\":False,\"reason\":\"missing case\"}),\"all_evidence\":all_evidence}\\n'\nexec(adapter_source)\n\n# TODO: choose the complete contract and the explicit fatal dependency configuration.\nrecovery_outputs = empty_policy\nconfigured_build = unwired_build\n\n# Supplied execution and case assertions. result is graded as a complete evidence dictionary.\nresult = recovery_run()\n"
+          }
+        ],
+        "entry": "main.py",
+        "asset_mounts": []
+      },
+      "constraints": {
+        "allowed_syntax": [
+          "Learner-written imports for yaml, hashlib, the declared Cloud Storage client and the supplied fixture dependencies",
+          "def, function parameters, return and calls to supplied fixture helpers",
+          "Local assignments, string and numeric literals, dictionaries and lists",
+          "if/elif/else and for loops over declared outputs",
+          "try/except for the declared recoverable exception and declared client precondition exception",
+          "raise to preserve unrelated failures, content conflicts and validation failures",
+          "assert for fixture acceptance checks",
+          "with open(...) as file_handle",
+          "yaml.safe_dump(config, file_handle)",
+          "yaml.safe_load(file_handle)",
+          "Dictionary access and inspection of steps, name, args or script, id and waitFor",
+          "blob.exists(), blob.reload() and blob.generation",
+          "blob.download_as_bytes(if_generation_match=recorded_generation)",
+          "hashlib.sha256(data).hexdigest()",
+          "blob.upload_from_filename(path, if_generation_match=0)",
+          "Calls to supplied failure-recording, recovery-action, artifact-validation, trigger and execution-inspection helpers",
+          "A nonzero Python process exit for a rejected required gate"
+        ],
+        "blocked_syntax": []
+      }
+    },
+    "grading": {
+      "solution_files": [
+        {
+          "path": "main.py",
+          "content": "# Fictional, bounded in-process fixture exercise; no hosted Cloud Build, subprocess or real credential.\n# Only the policy assignments in the TODO section are learner work.\nenabled = True\ndisabled = False\nempty_policy = []\ncases = {'accepted': {'initial_outputs': ['A'], 'race_outputs': [], 'invalid_outputs': [], 'gate_ok': True, 'exception': 'RecoverableFailure'}, 'boundary_completed': {'initial_outputs': ['A', 'B'], 'race_outputs': [], 'invalid_outputs': [], 'gate_ok': True, 'exception': None}, 'race_412': {'initial_outputs': ['A'], 'race_outputs': ['B'], 'invalid_outputs': [], 'gate_ok': True, 'exception': 'RecoverableFailure'}, 'invalid_existing': {'initial_outputs': ['A'], 'race_outputs': [], 'invalid_outputs': ['A'], 'gate_ok': True, 'exception': 'RecoverableFailure'}, 'conflicting_content': {'initial_outputs': ['A'], 'race_outputs': [], 'invalid_outputs': [], 'conflicting_outputs': ['A'], 'gate_ok': True, 'exception': 'RecoverableFailure'}, 'rejected_gate': {'initial_outputs': ['A'], 'race_outputs': [], 'invalid_outputs': [], 'gate_ok': False, 'exception': 'RecoverableFailure'}, 'unrelated_failure': {'initial_outputs': ['A'], 'race_outputs': [], 'invalid_outputs': [], 'gate_ok': True, 'exception': 'ValueError'}}\ncontract = {'injection_point': 'after A upload before B', 'recoverable_exception': 'storage_sim.RecoverableFailure', 'precondition_exception': 'storage_sim.PreconditionFailed', 'outputs': {'A': {'artifact_id': 'A', 'uri': 'gs://fixture-artifacts/A.txt', 'generation': 1, 'sha256': '9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6', 'validation_ok': True}, 'B': {'artifact_id': 'B', 'uri': 'gs://fixture-artifacts/B.txt', 'generation': 1, 'sha256': '6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a', 'validation_ok': True}}, 'requirements': ['record and isolate failure', 'verify exact existing generation bytes/hash and validation', 'skip only verified completed upload', 'create missing output with if_generation_match=0', 'on 412 reload and verify, never overwrite', 'unrelated exceptions remain fatal', 'run retried stage and downstream required gates', 'second call preserves generations and upload counts but revalidates'], 'evidence_fields': ['initial_and_final_generations', 'hashes', 'validation_results', 'upload_counts', 'retry_status', 'downstream_status', 'resolved_inputs']}\ntrigger = {'id': 'fixture-artifact-trigger', 'topic': 'projects/fixture-project/topics/artifacts', 'bindings': {'_CASE': 'case_id', '_ARTIFACT': 'artifact_id'}, 'filters': {'event_type': 'artifact_ready'}, 'fixtures': [{'event_type': 'artifact_ready', 'case_id': 'accepted', 'artifact_id': 'A'}, {'event_type': 'artifact_ready', 'case_id': 'rejected_gate', 'artifact_id': 'A'}, {'event_type': 'unrelated', 'case_id': 'accepted', 'artifact_id': 'A'}]}\nfatal_build = {'steps': [{'id': 'recovery', 'name': 'python:3.11', 'args': ['python', 'learner.py', '${_CASE}'], 'waitFor': ['-']}, {'id': 'required_validation', 'name': 'python:3.11', 'args': ['python', 'learner.py', '${_CASE}'], 'waitFor': ['recovery']}, {'id': 'promotion', 'name': 'python:3.11', 'args': ['python', 'downstream_entry.py', '${_ARTIFACT}'], 'waitFor': ['required_validation']}], 'substitutions': {'_SNAPSHOT': 'valid', '_CASE': 'accepted', '_ARTIFACT': 'A'}, 'serviceAccount': 'projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com'}\nunwired_build = {'steps': [{'id': 'recovery', 'name': 'python:3.11', 'args': ['python', 'learner.py', '${_CASE}'], 'waitFor': ['-']}, {'id': 'required_validation', 'name': 'python:3.11', 'args': ['python', 'learner.py', '${_CASE}'], 'waitFor': []}, {'id': 'promotion', 'name': 'python:3.11', 'args': ['python', 'downstream_entry.py', '${_ARTIFACT}'], 'waitFor': []}], 'substitutions': {'_SNAPSHOT': 'valid', '_CASE': 'accepted', '_ARTIFACT': 'A'}, 'serviceAccount': 'projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com'}\ndeclared_outputs = ['A', 'B']\nartifact_records = {'A': {'artifact_id': 'A', 'uri': 'gs://fixture-artifacts/A.txt', 'generation': 1, 'sha256': '9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6', 'validation_ok': True}, 'B': {'artifact_id': 'B', 'uri': 'gs://fixture-artifacts/B.txt', 'generation': 1, 'sha256': '6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a', 'validation_ok': True}}\noutput_bytes = {'A': b'fictional fitted package A\\npreprocess: divide feature by 5\\nthreshold: 0.4\\n', 'B': b'fictional fitted package B\\npreprocess: divide feature by 5\\nthreshold: 0.5\\n'}\nadapter_source = '\\nimport copy, json, math, hashlib, io\\nimport yaml\\n\\ndef roundtrip(build):\\n    stream = io.StringIO()\\n    yaml.safe_dump(build, stream)\\n    stream.seek(0)\\n    return yaml.safe_load(stream)\\n\\ndef execute(config, trigger, event, actions):\\n    import re\\n    if \"branch_filter\" in trigger:\\n        if re.fullmatch(trigger[\"branch_filter\"], event.get(\"branch\", \"\")) is None:\\n            return {\"triggered\": False, \"steps\": []}\\n    else:\\n        if any(event.get(k) != v for k,v in trigger[\"filters\"].items()):\\n            return {\"triggered\": False, \"steps\": []}\\n    binding = dict(config.get(\"substitutions\", {}))\\n    binding.update({k:event[v] for k,v in trigger[\"bindings\"].items()})\\n    results=[]; statuses={}\\n    for step in config[\"steps\"]:\\n        args=[str(a) for a in step.get(\"args\", [])]\\n        for k,v in binding.items():\\n            args=[a.replace(\"${\"+k+\"}\",str(v)) for a in args]\\n        deps=[x for x in step[\"waitFor\"] if x!=\"-\"]\\n        record={\"id\":step[\"id\"],\"name\":step[\"name\"],\"resolved_args\":args,\"waitFor\":deps}\\n        if any(statuses.get(d)!=\"SUCCESS\" for d in deps):\\n            record.update(status=\"NOT_STARTED\",exit_code=None,evidence=None)\\n        else:\\n            if step.get(\"allowFailure\") or any(x!=0 for x in step.get(\"allowExitCodes\",[])):\\n                raise ValueError(\"required gate failure allowances are forbidden\")\\n            callback=actions.get(step[\"id\"])\\n            context=dict(binding);context[\"_RESOLVED_ARGS\"]=args\\n            result=callback(context) if callback else {\"ok\":True}\\n            record.update(status=\"SUCCESS\" if result[\"ok\"] else \"FAILURE\",exit_code=0 if result[\"ok\"] else 1,evidence=result)\\n        statuses[step[\"id\"]]=record[\"status\"];results.append(record)\\n    return {\"triggered\":True,\"bindings\":binding,\"steps\":results}\\n\\nclass RecoverableFailure(Exception):pass\\nclass PreconditionFailed(Exception):status=412\\nclass Blob:\\n    def __init__(self,name,state):self.name=name;self.state=state;self.generation=None\\n    def exists(self):return self.name in self.state[\"objects\"]\\n    def reload(self):self.generation=self.state[\"objects\"][self.name][\"generation\"]\\n    def download_as_bytes(self,if_generation_match):\\n        obj=self.state[\"objects\"][self.name]\\n        if obj[\"generation\"]!=if_generation_match:raise PreconditionFailed(\"generation changed\")\\n        return obj[\"bytes\"]\\n    def upload_from_filename(self,path,if_generation_match):\\n        assert if_generation_match==0\\n        if self.name in self.state[\"race\"]:\\n            self.state[\"objects\"][self.name]={\"generation\":1,\"bytes\":output_bytes[self.name]}\\n            self.state[\"race\"].remove(self.name)\\n            raise PreconditionFailed(\"race created object\")\\n        if self.exists():raise PreconditionFailed(\"object exists\")\\n        self.state[\"objects\"][self.name]={\"generation\":1,\"bytes\":output_bytes[self.name]}\\n        self.state[\"uploads\"][self.name]+=1\\n\\ndef recover(row):\\n    state={\"objects\":{},\"race\":list(row[\"race_outputs\"]),\"uploads\":{name:0 for name in declared_outputs},\"validations\":0}\\n    for name in row[\"initial_outputs\"]:\\n        state[\"objects\"][name]={\"generation\":1,\"bytes\":output_bytes[name] if name not in row.get(\"conflicting_outputs\",[]) else b\"conflicting content\"}\\n    before={k:v[\"generation\"] for k,v in state[\"objects\"].items()}\\n    failure=row[\"exception\"]\\n    if failure not in (None,\"RecoverableFailure\"):\\n        return {\"ok\":False,\"reason\":\"unrelated failure\",\"failure_recorded\":failure,\"before\":before}\\n    def verify(blob):\\n        blob.reload();data=blob.download_as_bytes(if_generation_match=blob.generation)\\n        state[\"validations\"]+=1\\n        if hashlib.sha256(data).hexdigest()!=artifact_records[blob.name][\"sha256\"]:raise ValueError(\"content conflict\")\\n        if blob.name in row[\"invalid_outputs\"] or not artifact_records[blob.name][\"validation_ok\"]:raise ValueError(\"validation failed\")\\n    try:\\n        for attempt in (1,2):\\n            for name in recovery_outputs:\\n                blob=Blob(name,state)\\n                if blob.exists():verify(blob)\\n                else:\\n                    try:blob.upload_from_filename(\"outputs/\"+name+\".txt\",if_generation_match=0)\\n                    except PreconditionFailed:verify(blob)\\n                    else:verify(blob)\\n            if attempt==1:\\n                after_first={k:v[\"generation\"] for k,v in state[\"objects\"].items()};counts_first=dict(state[\"uploads\"])\\n        after={k:v[\"generation\"] for k,v in state[\"objects\"].items()}\\n        assert after_first==after and counts_first==state[\"uploads\"]\\n        ok=set(recovery_outputs)==set(declared_outputs) and row[\"gate_ok\"]\\n        return {\"ok\":ok,\"reason\":None if ok else \"required gate rejected\",\"failure_recorded\":failure,\"before\":before,\"after\":after,\"hashes\":{k:hashlib.sha256(v[\"bytes\"]).hexdigest() for k,v in state[\"objects\"].items()},\"uploads\":state[\"uploads\"],\"validation_count\":state[\"validations\"],\"retry_status\":\"SUCCESS\",\"downstream_status\":\"SUCCESS\" if ok else \"FAILURE\",\"second_call_unchanged\":True}\\n    except ValueError as e:\\n        return {\"ok\":False,\"reason\":str(e),\"before\":before,\"uploads\":state[\"uploads\"],\"downstream_status\":\"NOT_STARTED\"}\\n\\ndef recovery_run():\\n    resolved=roundtrip(configured_build)\\n    evidence={k:recover(v) for k,v in cases.items()}\\n    def action(b):\\n        rec=recover(cases.get(b[\"_CASE\"],cases[\"unrelated_failure\"]))\\n        rec[\"ok\"]=rec[\"ok\"] or rec.get(\"reason\")==\"required gate rejected\"\\n        return rec\\n    def validation(b):\\n        row=cases.get(b[\"_CASE\"],cases[\"unrelated_failure\"])\\n        return {\"ok\":row[\"gate_ok\"],\"resolved_artifact\":b[\"_ARTIFACT\"],\"required_gate_executed\":True}\\n    runs=[execute(resolved,trigger,e,{\"recovery\":action,\"required_validation\":validation}) for e in trigger[\"fixtures\"]]\\n    assert evidence[\"accepted\"][\"ok\"] and evidence[\"boundary_completed\"][\"ok\"] and evidence[\"race_412\"][\"ok\"]\\n    for k in (\"invalid_existing\",\"conflicting_content\",\"rejected_gate\",\"unrelated_failure\"):assert not evidence[k][\"ok\"]\\n    return {\"cases\":evidence,\"config\":resolved,\"runs\":runs}\\n\\ndef exercise_case(case_id):\\n    all_evidence = recovery_run()\\n    return {\"case\":all_evidence[\"cases\"].get(case_id, {\"ok\":False,\"reason\":\"missing case\"}),\"all_evidence\":all_evidence}\\n'\nexec(adapter_source)\n\n# TODO: choose the complete contract and the explicit fatal dependency configuration.\nrecovery_outputs = declared_outputs\nconfigured_build = fatal_build\n\n# Supplied execution and case assertions. result is graded as a complete evidence dictionary.\nresult = recovery_run()\n"
+        }
+      ],
+      "tests": [
+        {
+          "test_id": "case_accepted",
+          "kind": "function_call",
+          "visible": true,
+          "spec": {
+            "function": "exercise_case",
+            "args": [
+              "accepted"
+            ],
+            "expected": {
+              "case": {
+                "ok": true,
+                "reason": null,
+                "failure_recorded": "RecoverableFailure",
+                "before": {
+                  "A": 1
+                },
+                "after": {
+                  "A": 1,
+                  "B": 1
+                },
+                "hashes": {
+                  "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                  "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                },
+                "uploads": {
+                  "A": 0,
+                  "B": 1
+                },
+                "validation_count": 4,
+                "retry_status": "SUCCESS",
+                "downstream_status": "SUCCESS",
+                "second_call_unchanged": true
+              },
+              "all_evidence": {
+                "cases": {
+                  "accepted": {
+                    "ok": true,
+                    "reason": null,
+                    "failure_recorded": "RecoverableFailure",
+                    "before": {
+                      "A": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 1
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "SUCCESS",
+                    "second_call_unchanged": true
+                  },
+                  "boundary_completed": {
+                    "ok": true,
+                    "reason": null,
+                    "failure_recorded": null,
+                    "before": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "SUCCESS",
+                    "second_call_unchanged": true
+                  },
+                  "race_412": {
+                    "ok": true,
+                    "reason": null,
+                    "failure_recorded": "RecoverableFailure",
+                    "before": {
+                      "A": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "SUCCESS",
+                    "second_call_unchanged": true
+                  },
+                  "invalid_existing": {
+                    "ok": false,
+                    "reason": "validation failed",
+                    "before": {
+                      "A": 1
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "downstream_status": "NOT_STARTED"
+                  },
+                  "conflicting_content": {
+                    "ok": false,
+                    "reason": "content conflict",
+                    "before": {
+                      "A": 1
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "downstream_status": "NOT_STARTED"
+                  },
+                  "rejected_gate": {
+                    "ok": false,
+                    "reason": "required gate rejected",
+                    "failure_recorded": "RecoverableFailure",
+                    "before": {
+                      "A": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 1
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "FAILURE",
+                    "second_call_unchanged": true
+                  },
+                  "unrelated_failure": {
+                    "ok": false,
+                    "reason": "unrelated failure",
+                    "failure_recorded": "ValueError",
+                    "before": {
+                      "A": 1
+                    }
+                  }
+                },
+                "config": {
+                  "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+                  "steps": [
+                    {
+                      "args": [
+                        "python",
+                        "learner.py",
+                        "${_CASE}"
+                      ],
+                      "id": "recovery",
+                      "name": "python:3.11",
+                      "waitFor": [
+                        "-"
+                      ]
+                    },
+                    {
+                      "args": [
+                        "python",
+                        "learner.py",
+                        "${_CASE}"
+                      ],
+                      "id": "required_validation",
+                      "name": "python:3.11",
+                      "waitFor": [
+                        "recovery"
+                      ]
+                    },
+                    {
+                      "args": [
+                        "python",
+                        "downstream_entry.py",
+                        "${_ARTIFACT}"
+                      ],
+                      "id": "promotion",
+                      "name": "python:3.11",
+                      "waitFor": [
+                        "required_validation"
+                      ]
+                    }
+                  ],
+                  "substitutions": {
+                    "_ARTIFACT": "A",
+                    "_CASE": "accepted",
+                    "_SNAPSHOT": "valid"
+                  }
+                },
+                "runs": [
+                  {
+                    "triggered": true,
+                    "bindings": {
+                      "_ARTIFACT": "A",
+                      "_CASE": "accepted",
+                      "_SNAPSHOT": "valid"
+                    },
+                    "steps": [
+                      {
+                        "id": "recovery",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "accepted"
+                        ],
+                        "waitFor": [],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true,
+                          "reason": null,
+                          "failure_recorded": "RecoverableFailure",
+                          "before": {
+                            "A": 1
+                          },
+                          "after": {
+                            "A": 1,
+                            "B": 1
+                          },
+                          "hashes": {
+                            "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                            "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                          },
+                          "uploads": {
+                            "A": 0,
+                            "B": 1
+                          },
+                          "validation_count": 4,
+                          "retry_status": "SUCCESS",
+                          "downstream_status": "SUCCESS",
+                          "second_call_unchanged": true
+                        }
+                      },
+                      {
+                        "id": "required_validation",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "accepted"
+                        ],
+                        "waitFor": [
+                          "recovery"
+                        ],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true,
+                          "resolved_artifact": "A",
+                          "required_gate_executed": true
+                        }
+                      },
+                      {
+                        "id": "promotion",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "downstream_entry.py",
+                          "A"
+                        ],
+                        "waitFor": [
+                          "required_validation"
+                        ],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "triggered": true,
+                    "bindings": {
+                      "_ARTIFACT": "A",
+                      "_CASE": "rejected_gate",
+                      "_SNAPSHOT": "valid"
+                    },
+                    "steps": [
+                      {
+                        "id": "recovery",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "rejected_gate"
+                        ],
+                        "waitFor": [],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true,
+                          "reason": "required gate rejected",
+                          "failure_recorded": "RecoverableFailure",
+                          "before": {
+                            "A": 1
+                          },
+                          "after": {
+                            "A": 1,
+                            "B": 1
+                          },
+                          "hashes": {
+                            "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                            "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                          },
+                          "uploads": {
+                            "A": 0,
+                            "B": 1
+                          },
+                          "validation_count": 4,
+                          "retry_status": "SUCCESS",
+                          "downstream_status": "FAILURE",
+                          "second_call_unchanged": true
+                        }
+                      },
+                      {
+                        "id": "required_validation",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "rejected_gate"
+                        ],
+                        "waitFor": [
+                          "recovery"
+                        ],
+                        "status": "FAILURE",
+                        "exit_code": 1,
+                        "evidence": {
+                          "ok": false,
+                          "resolved_artifact": "A",
+                          "required_gate_executed": true
+                        }
+                      },
+                      {
+                        "id": "promotion",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "downstream_entry.py",
+                          "A"
+                        ],
+                        "waitFor": [
+                          "required_validation"
+                        ],
+                        "status": "NOT_STARTED",
+                        "exit_code": null,
+                        "evidence": null
+                      }
+                    ]
+                  },
+                  {
+                    "triggered": false,
+                    "steps": []
+                  }
+                ]
+              }
+            }
+          },
+          "message_on_fail": "Use every required predicate and the explicit fatal configuration. Inspect the recorded evidence for the first case that differs."
+        },
+        {
+          "test_id": "case_boundary_completed",
+          "kind": "function_call",
+          "visible": true,
+          "spec": {
+            "function": "exercise_case",
+            "args": [
+              "boundary_completed"
+            ],
+            "expected": {
+              "case": {
+                "ok": true,
+                "reason": null,
+                "failure_recorded": null,
+                "before": {
+                  "A": 1,
+                  "B": 1
+                },
+                "after": {
+                  "A": 1,
+                  "B": 1
+                },
+                "hashes": {
+                  "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                  "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                },
+                "uploads": {
+                  "A": 0,
+                  "B": 0
+                },
+                "validation_count": 4,
+                "retry_status": "SUCCESS",
+                "downstream_status": "SUCCESS",
+                "second_call_unchanged": true
+              },
+              "all_evidence": {
+                "cases": {
+                  "accepted": {
+                    "ok": true,
+                    "reason": null,
+                    "failure_recorded": "RecoverableFailure",
+                    "before": {
+                      "A": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 1
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "SUCCESS",
+                    "second_call_unchanged": true
+                  },
+                  "boundary_completed": {
+                    "ok": true,
+                    "reason": null,
+                    "failure_recorded": null,
+                    "before": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "SUCCESS",
+                    "second_call_unchanged": true
+                  },
+                  "race_412": {
+                    "ok": true,
+                    "reason": null,
+                    "failure_recorded": "RecoverableFailure",
+                    "before": {
+                      "A": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "SUCCESS",
+                    "second_call_unchanged": true
+                  },
+                  "invalid_existing": {
+                    "ok": false,
+                    "reason": "validation failed",
+                    "before": {
+                      "A": 1
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "downstream_status": "NOT_STARTED"
+                  },
+                  "conflicting_content": {
+                    "ok": false,
+                    "reason": "content conflict",
+                    "before": {
+                      "A": 1
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "downstream_status": "NOT_STARTED"
+                  },
+                  "rejected_gate": {
+                    "ok": false,
+                    "reason": "required gate rejected",
+                    "failure_recorded": "RecoverableFailure",
+                    "before": {
+                      "A": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 1
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "FAILURE",
+                    "second_call_unchanged": true
+                  },
+                  "unrelated_failure": {
+                    "ok": false,
+                    "reason": "unrelated failure",
+                    "failure_recorded": "ValueError",
+                    "before": {
+                      "A": 1
+                    }
+                  }
+                },
+                "config": {
+                  "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+                  "steps": [
+                    {
+                      "args": [
+                        "python",
+                        "learner.py",
+                        "${_CASE}"
+                      ],
+                      "id": "recovery",
+                      "name": "python:3.11",
+                      "waitFor": [
+                        "-"
+                      ]
+                    },
+                    {
+                      "args": [
+                        "python",
+                        "learner.py",
+                        "${_CASE}"
+                      ],
+                      "id": "required_validation",
+                      "name": "python:3.11",
+                      "waitFor": [
+                        "recovery"
+                      ]
+                    },
+                    {
+                      "args": [
+                        "python",
+                        "downstream_entry.py",
+                        "${_ARTIFACT}"
+                      ],
+                      "id": "promotion",
+                      "name": "python:3.11",
+                      "waitFor": [
+                        "required_validation"
+                      ]
+                    }
+                  ],
+                  "substitutions": {
+                    "_ARTIFACT": "A",
+                    "_CASE": "accepted",
+                    "_SNAPSHOT": "valid"
+                  }
+                },
+                "runs": [
+                  {
+                    "triggered": true,
+                    "bindings": {
+                      "_ARTIFACT": "A",
+                      "_CASE": "accepted",
+                      "_SNAPSHOT": "valid"
+                    },
+                    "steps": [
+                      {
+                        "id": "recovery",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "accepted"
+                        ],
+                        "waitFor": [],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true,
+                          "reason": null,
+                          "failure_recorded": "RecoverableFailure",
+                          "before": {
+                            "A": 1
+                          },
+                          "after": {
+                            "A": 1,
+                            "B": 1
+                          },
+                          "hashes": {
+                            "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                            "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                          },
+                          "uploads": {
+                            "A": 0,
+                            "B": 1
+                          },
+                          "validation_count": 4,
+                          "retry_status": "SUCCESS",
+                          "downstream_status": "SUCCESS",
+                          "second_call_unchanged": true
+                        }
+                      },
+                      {
+                        "id": "required_validation",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "accepted"
+                        ],
+                        "waitFor": [
+                          "recovery"
+                        ],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true,
+                          "resolved_artifact": "A",
+                          "required_gate_executed": true
+                        }
+                      },
+                      {
+                        "id": "promotion",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "downstream_entry.py",
+                          "A"
+                        ],
+                        "waitFor": [
+                          "required_validation"
+                        ],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "triggered": true,
+                    "bindings": {
+                      "_ARTIFACT": "A",
+                      "_CASE": "rejected_gate",
+                      "_SNAPSHOT": "valid"
+                    },
+                    "steps": [
+                      {
+                        "id": "recovery",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "rejected_gate"
+                        ],
+                        "waitFor": [],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true,
+                          "reason": "required gate rejected",
+                          "failure_recorded": "RecoverableFailure",
+                          "before": {
+                            "A": 1
+                          },
+                          "after": {
+                            "A": 1,
+                            "B": 1
+                          },
+                          "hashes": {
+                            "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                            "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                          },
+                          "uploads": {
+                            "A": 0,
+                            "B": 1
+                          },
+                          "validation_count": 4,
+                          "retry_status": "SUCCESS",
+                          "downstream_status": "FAILURE",
+                          "second_call_unchanged": true
+                        }
+                      },
+                      {
+                        "id": "required_validation",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "rejected_gate"
+                        ],
+                        "waitFor": [
+                          "recovery"
+                        ],
+                        "status": "FAILURE",
+                        "exit_code": 1,
+                        "evidence": {
+                          "ok": false,
+                          "resolved_artifact": "A",
+                          "required_gate_executed": true
+                        }
+                      },
+                      {
+                        "id": "promotion",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "downstream_entry.py",
+                          "A"
+                        ],
+                        "waitFor": [
+                          "required_validation"
+                        ],
+                        "status": "NOT_STARTED",
+                        "exit_code": null,
+                        "evidence": null
+                      }
+                    ]
+                  },
+                  {
+                    "triggered": false,
+                    "steps": []
+                  }
+                ]
+              }
+            }
+          },
+          "message_on_fail": "Use every required predicate and the explicit fatal configuration. Inspect the recorded evidence for the first case that differs."
+        },
+        {
+          "test_id": "case_race_412",
+          "kind": "function_call",
+          "visible": true,
+          "spec": {
+            "function": "exercise_case",
+            "args": [
+              "race_412"
+            ],
+            "expected": {
+              "case": {
+                "ok": true,
+                "reason": null,
+                "failure_recorded": "RecoverableFailure",
+                "before": {
+                  "A": 1
+                },
+                "after": {
+                  "A": 1,
+                  "B": 1
+                },
+                "hashes": {
+                  "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                  "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                },
+                "uploads": {
+                  "A": 0,
+                  "B": 0
+                },
+                "validation_count": 4,
+                "retry_status": "SUCCESS",
+                "downstream_status": "SUCCESS",
+                "second_call_unchanged": true
+              },
+              "all_evidence": {
+                "cases": {
+                  "accepted": {
+                    "ok": true,
+                    "reason": null,
+                    "failure_recorded": "RecoverableFailure",
+                    "before": {
+                      "A": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 1
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "SUCCESS",
+                    "second_call_unchanged": true
+                  },
+                  "boundary_completed": {
+                    "ok": true,
+                    "reason": null,
+                    "failure_recorded": null,
+                    "before": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "SUCCESS",
+                    "second_call_unchanged": true
+                  },
+                  "race_412": {
+                    "ok": true,
+                    "reason": null,
+                    "failure_recorded": "RecoverableFailure",
+                    "before": {
+                      "A": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "SUCCESS",
+                    "second_call_unchanged": true
+                  },
+                  "invalid_existing": {
+                    "ok": false,
+                    "reason": "validation failed",
+                    "before": {
+                      "A": 1
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "downstream_status": "NOT_STARTED"
+                  },
+                  "conflicting_content": {
+                    "ok": false,
+                    "reason": "content conflict",
+                    "before": {
+                      "A": 1
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "downstream_status": "NOT_STARTED"
+                  },
+                  "rejected_gate": {
+                    "ok": false,
+                    "reason": "required gate rejected",
+                    "failure_recorded": "RecoverableFailure",
+                    "before": {
+                      "A": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 1
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "FAILURE",
+                    "second_call_unchanged": true
+                  },
+                  "unrelated_failure": {
+                    "ok": false,
+                    "reason": "unrelated failure",
+                    "failure_recorded": "ValueError",
+                    "before": {
+                      "A": 1
+                    }
+                  }
+                },
+                "config": {
+                  "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+                  "steps": [
+                    {
+                      "args": [
+                        "python",
+                        "learner.py",
+                        "${_CASE}"
+                      ],
+                      "id": "recovery",
+                      "name": "python:3.11",
+                      "waitFor": [
+                        "-"
+                      ]
+                    },
+                    {
+                      "args": [
+                        "python",
+                        "learner.py",
+                        "${_CASE}"
+                      ],
+                      "id": "required_validation",
+                      "name": "python:3.11",
+                      "waitFor": [
+                        "recovery"
+                      ]
+                    },
+                    {
+                      "args": [
+                        "python",
+                        "downstream_entry.py",
+                        "${_ARTIFACT}"
+                      ],
+                      "id": "promotion",
+                      "name": "python:3.11",
+                      "waitFor": [
+                        "required_validation"
+                      ]
+                    }
+                  ],
+                  "substitutions": {
+                    "_ARTIFACT": "A",
+                    "_CASE": "accepted",
+                    "_SNAPSHOT": "valid"
+                  }
+                },
+                "runs": [
+                  {
+                    "triggered": true,
+                    "bindings": {
+                      "_ARTIFACT": "A",
+                      "_CASE": "accepted",
+                      "_SNAPSHOT": "valid"
+                    },
+                    "steps": [
+                      {
+                        "id": "recovery",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "accepted"
+                        ],
+                        "waitFor": [],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true,
+                          "reason": null,
+                          "failure_recorded": "RecoverableFailure",
+                          "before": {
+                            "A": 1
+                          },
+                          "after": {
+                            "A": 1,
+                            "B": 1
+                          },
+                          "hashes": {
+                            "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                            "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                          },
+                          "uploads": {
+                            "A": 0,
+                            "B": 1
+                          },
+                          "validation_count": 4,
+                          "retry_status": "SUCCESS",
+                          "downstream_status": "SUCCESS",
+                          "second_call_unchanged": true
+                        }
+                      },
+                      {
+                        "id": "required_validation",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "accepted"
+                        ],
+                        "waitFor": [
+                          "recovery"
+                        ],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true,
+                          "resolved_artifact": "A",
+                          "required_gate_executed": true
+                        }
+                      },
+                      {
+                        "id": "promotion",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "downstream_entry.py",
+                          "A"
+                        ],
+                        "waitFor": [
+                          "required_validation"
+                        ],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "triggered": true,
+                    "bindings": {
+                      "_ARTIFACT": "A",
+                      "_CASE": "rejected_gate",
+                      "_SNAPSHOT": "valid"
+                    },
+                    "steps": [
+                      {
+                        "id": "recovery",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "rejected_gate"
+                        ],
+                        "waitFor": [],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true,
+                          "reason": "required gate rejected",
+                          "failure_recorded": "RecoverableFailure",
+                          "before": {
+                            "A": 1
+                          },
+                          "after": {
+                            "A": 1,
+                            "B": 1
+                          },
+                          "hashes": {
+                            "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                            "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                          },
+                          "uploads": {
+                            "A": 0,
+                            "B": 1
+                          },
+                          "validation_count": 4,
+                          "retry_status": "SUCCESS",
+                          "downstream_status": "FAILURE",
+                          "second_call_unchanged": true
+                        }
+                      },
+                      {
+                        "id": "required_validation",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "rejected_gate"
+                        ],
+                        "waitFor": [
+                          "recovery"
+                        ],
+                        "status": "FAILURE",
+                        "exit_code": 1,
+                        "evidence": {
+                          "ok": false,
+                          "resolved_artifact": "A",
+                          "required_gate_executed": true
+                        }
+                      },
+                      {
+                        "id": "promotion",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "downstream_entry.py",
+                          "A"
+                        ],
+                        "waitFor": [
+                          "required_validation"
+                        ],
+                        "status": "NOT_STARTED",
+                        "exit_code": null,
+                        "evidence": null
+                      }
+                    ]
+                  },
+                  {
+                    "triggered": false,
+                    "steps": []
+                  }
+                ]
+              }
+            }
+          },
+          "message_on_fail": "Use every required predicate and the explicit fatal configuration. Inspect the recorded evidence for the first case that differs."
+        },
+        {
+          "test_id": "case_invalid_existing",
+          "kind": "function_call",
+          "visible": true,
+          "spec": {
+            "function": "exercise_case",
+            "args": [
+              "invalid_existing"
+            ],
+            "expected": {
+              "case": {
+                "ok": false,
+                "reason": "validation failed",
+                "before": {
+                  "A": 1
+                },
+                "uploads": {
+                  "A": 0,
+                  "B": 0
+                },
+                "downstream_status": "NOT_STARTED"
+              },
+              "all_evidence": {
+                "cases": {
+                  "accepted": {
+                    "ok": true,
+                    "reason": null,
+                    "failure_recorded": "RecoverableFailure",
+                    "before": {
+                      "A": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 1
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "SUCCESS",
+                    "second_call_unchanged": true
+                  },
+                  "boundary_completed": {
+                    "ok": true,
+                    "reason": null,
+                    "failure_recorded": null,
+                    "before": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "SUCCESS",
+                    "second_call_unchanged": true
+                  },
+                  "race_412": {
+                    "ok": true,
+                    "reason": null,
+                    "failure_recorded": "RecoverableFailure",
+                    "before": {
+                      "A": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "SUCCESS",
+                    "second_call_unchanged": true
+                  },
+                  "invalid_existing": {
+                    "ok": false,
+                    "reason": "validation failed",
+                    "before": {
+                      "A": 1
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "downstream_status": "NOT_STARTED"
+                  },
+                  "conflicting_content": {
+                    "ok": false,
+                    "reason": "content conflict",
+                    "before": {
+                      "A": 1
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "downstream_status": "NOT_STARTED"
+                  },
+                  "rejected_gate": {
+                    "ok": false,
+                    "reason": "required gate rejected",
+                    "failure_recorded": "RecoverableFailure",
+                    "before": {
+                      "A": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 1
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "FAILURE",
+                    "second_call_unchanged": true
+                  },
+                  "unrelated_failure": {
+                    "ok": false,
+                    "reason": "unrelated failure",
+                    "failure_recorded": "ValueError",
+                    "before": {
+                      "A": 1
+                    }
+                  }
+                },
+                "config": {
+                  "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+                  "steps": [
+                    {
+                      "args": [
+                        "python",
+                        "learner.py",
+                        "${_CASE}"
+                      ],
+                      "id": "recovery",
+                      "name": "python:3.11",
+                      "waitFor": [
+                        "-"
+                      ]
+                    },
+                    {
+                      "args": [
+                        "python",
+                        "learner.py",
+                        "${_CASE}"
+                      ],
+                      "id": "required_validation",
+                      "name": "python:3.11",
+                      "waitFor": [
+                        "recovery"
+                      ]
+                    },
+                    {
+                      "args": [
+                        "python",
+                        "downstream_entry.py",
+                        "${_ARTIFACT}"
+                      ],
+                      "id": "promotion",
+                      "name": "python:3.11",
+                      "waitFor": [
+                        "required_validation"
+                      ]
+                    }
+                  ],
+                  "substitutions": {
+                    "_ARTIFACT": "A",
+                    "_CASE": "accepted",
+                    "_SNAPSHOT": "valid"
+                  }
+                },
+                "runs": [
+                  {
+                    "triggered": true,
+                    "bindings": {
+                      "_ARTIFACT": "A",
+                      "_CASE": "accepted",
+                      "_SNAPSHOT": "valid"
+                    },
+                    "steps": [
+                      {
+                        "id": "recovery",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "accepted"
+                        ],
+                        "waitFor": [],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true,
+                          "reason": null,
+                          "failure_recorded": "RecoverableFailure",
+                          "before": {
+                            "A": 1
+                          },
+                          "after": {
+                            "A": 1,
+                            "B": 1
+                          },
+                          "hashes": {
+                            "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                            "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                          },
+                          "uploads": {
+                            "A": 0,
+                            "B": 1
+                          },
+                          "validation_count": 4,
+                          "retry_status": "SUCCESS",
+                          "downstream_status": "SUCCESS",
+                          "second_call_unchanged": true
+                        }
+                      },
+                      {
+                        "id": "required_validation",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "accepted"
+                        ],
+                        "waitFor": [
+                          "recovery"
+                        ],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true,
+                          "resolved_artifact": "A",
+                          "required_gate_executed": true
+                        }
+                      },
+                      {
+                        "id": "promotion",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "downstream_entry.py",
+                          "A"
+                        ],
+                        "waitFor": [
+                          "required_validation"
+                        ],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "triggered": true,
+                    "bindings": {
+                      "_ARTIFACT": "A",
+                      "_CASE": "rejected_gate",
+                      "_SNAPSHOT": "valid"
+                    },
+                    "steps": [
+                      {
+                        "id": "recovery",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "rejected_gate"
+                        ],
+                        "waitFor": [],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true,
+                          "reason": "required gate rejected",
+                          "failure_recorded": "RecoverableFailure",
+                          "before": {
+                            "A": 1
+                          },
+                          "after": {
+                            "A": 1,
+                            "B": 1
+                          },
+                          "hashes": {
+                            "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                            "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                          },
+                          "uploads": {
+                            "A": 0,
+                            "B": 1
+                          },
+                          "validation_count": 4,
+                          "retry_status": "SUCCESS",
+                          "downstream_status": "FAILURE",
+                          "second_call_unchanged": true
+                        }
+                      },
+                      {
+                        "id": "required_validation",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "rejected_gate"
+                        ],
+                        "waitFor": [
+                          "recovery"
+                        ],
+                        "status": "FAILURE",
+                        "exit_code": 1,
+                        "evidence": {
+                          "ok": false,
+                          "resolved_artifact": "A",
+                          "required_gate_executed": true
+                        }
+                      },
+                      {
+                        "id": "promotion",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "downstream_entry.py",
+                          "A"
+                        ],
+                        "waitFor": [
+                          "required_validation"
+                        ],
+                        "status": "NOT_STARTED",
+                        "exit_code": null,
+                        "evidence": null
+                      }
+                    ]
+                  },
+                  {
+                    "triggered": false,
+                    "steps": []
+                  }
+                ]
+              }
+            }
+          },
+          "message_on_fail": "Use every required predicate and the explicit fatal configuration. Inspect the recorded evidence for the first case that differs."
+        },
+        {
+          "test_id": "case_conflicting_content",
+          "kind": "function_call",
+          "visible": true,
+          "spec": {
+            "function": "exercise_case",
+            "args": [
+              "conflicting_content"
+            ],
+            "expected": {
+              "case": {
+                "ok": false,
+                "reason": "content conflict",
+                "before": {
+                  "A": 1
+                },
+                "uploads": {
+                  "A": 0,
+                  "B": 0
+                },
+                "downstream_status": "NOT_STARTED"
+              },
+              "all_evidence": {
+                "cases": {
+                  "accepted": {
+                    "ok": true,
+                    "reason": null,
+                    "failure_recorded": "RecoverableFailure",
+                    "before": {
+                      "A": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 1
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "SUCCESS",
+                    "second_call_unchanged": true
+                  },
+                  "boundary_completed": {
+                    "ok": true,
+                    "reason": null,
+                    "failure_recorded": null,
+                    "before": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "SUCCESS",
+                    "second_call_unchanged": true
+                  },
+                  "race_412": {
+                    "ok": true,
+                    "reason": null,
+                    "failure_recorded": "RecoverableFailure",
+                    "before": {
+                      "A": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "SUCCESS",
+                    "second_call_unchanged": true
+                  },
+                  "invalid_existing": {
+                    "ok": false,
+                    "reason": "validation failed",
+                    "before": {
+                      "A": 1
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "downstream_status": "NOT_STARTED"
+                  },
+                  "conflicting_content": {
+                    "ok": false,
+                    "reason": "content conflict",
+                    "before": {
+                      "A": 1
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "downstream_status": "NOT_STARTED"
+                  },
+                  "rejected_gate": {
+                    "ok": false,
+                    "reason": "required gate rejected",
+                    "failure_recorded": "RecoverableFailure",
+                    "before": {
+                      "A": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 1
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "FAILURE",
+                    "second_call_unchanged": true
+                  },
+                  "unrelated_failure": {
+                    "ok": false,
+                    "reason": "unrelated failure",
+                    "failure_recorded": "ValueError",
+                    "before": {
+                      "A": 1
+                    }
+                  }
+                },
+                "config": {
+                  "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+                  "steps": [
+                    {
+                      "args": [
+                        "python",
+                        "learner.py",
+                        "${_CASE}"
+                      ],
+                      "id": "recovery",
+                      "name": "python:3.11",
+                      "waitFor": [
+                        "-"
+                      ]
+                    },
+                    {
+                      "args": [
+                        "python",
+                        "learner.py",
+                        "${_CASE}"
+                      ],
+                      "id": "required_validation",
+                      "name": "python:3.11",
+                      "waitFor": [
+                        "recovery"
+                      ]
+                    },
+                    {
+                      "args": [
+                        "python",
+                        "downstream_entry.py",
+                        "${_ARTIFACT}"
+                      ],
+                      "id": "promotion",
+                      "name": "python:3.11",
+                      "waitFor": [
+                        "required_validation"
+                      ]
+                    }
+                  ],
+                  "substitutions": {
+                    "_ARTIFACT": "A",
+                    "_CASE": "accepted",
+                    "_SNAPSHOT": "valid"
+                  }
+                },
+                "runs": [
+                  {
+                    "triggered": true,
+                    "bindings": {
+                      "_ARTIFACT": "A",
+                      "_CASE": "accepted",
+                      "_SNAPSHOT": "valid"
+                    },
+                    "steps": [
+                      {
+                        "id": "recovery",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "accepted"
+                        ],
+                        "waitFor": [],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true,
+                          "reason": null,
+                          "failure_recorded": "RecoverableFailure",
+                          "before": {
+                            "A": 1
+                          },
+                          "after": {
+                            "A": 1,
+                            "B": 1
+                          },
+                          "hashes": {
+                            "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                            "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                          },
+                          "uploads": {
+                            "A": 0,
+                            "B": 1
+                          },
+                          "validation_count": 4,
+                          "retry_status": "SUCCESS",
+                          "downstream_status": "SUCCESS",
+                          "second_call_unchanged": true
+                        }
+                      },
+                      {
+                        "id": "required_validation",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "accepted"
+                        ],
+                        "waitFor": [
+                          "recovery"
+                        ],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true,
+                          "resolved_artifact": "A",
+                          "required_gate_executed": true
+                        }
+                      },
+                      {
+                        "id": "promotion",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "downstream_entry.py",
+                          "A"
+                        ],
+                        "waitFor": [
+                          "required_validation"
+                        ],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "triggered": true,
+                    "bindings": {
+                      "_ARTIFACT": "A",
+                      "_CASE": "rejected_gate",
+                      "_SNAPSHOT": "valid"
+                    },
+                    "steps": [
+                      {
+                        "id": "recovery",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "rejected_gate"
+                        ],
+                        "waitFor": [],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true,
+                          "reason": "required gate rejected",
+                          "failure_recorded": "RecoverableFailure",
+                          "before": {
+                            "A": 1
+                          },
+                          "after": {
+                            "A": 1,
+                            "B": 1
+                          },
+                          "hashes": {
+                            "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                            "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                          },
+                          "uploads": {
+                            "A": 0,
+                            "B": 1
+                          },
+                          "validation_count": 4,
+                          "retry_status": "SUCCESS",
+                          "downstream_status": "FAILURE",
+                          "second_call_unchanged": true
+                        }
+                      },
+                      {
+                        "id": "required_validation",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "rejected_gate"
+                        ],
+                        "waitFor": [
+                          "recovery"
+                        ],
+                        "status": "FAILURE",
+                        "exit_code": 1,
+                        "evidence": {
+                          "ok": false,
+                          "resolved_artifact": "A",
+                          "required_gate_executed": true
+                        }
+                      },
+                      {
+                        "id": "promotion",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "downstream_entry.py",
+                          "A"
+                        ],
+                        "waitFor": [
+                          "required_validation"
+                        ],
+                        "status": "NOT_STARTED",
+                        "exit_code": null,
+                        "evidence": null
+                      }
+                    ]
+                  },
+                  {
+                    "triggered": false,
+                    "steps": []
+                  }
+                ]
+              }
+            }
+          },
+          "message_on_fail": "Use every required predicate and the explicit fatal configuration. Inspect the recorded evidence for the first case that differs."
+        },
+        {
+          "test_id": "case_rejected_gate",
+          "kind": "function_call",
+          "visible": true,
+          "spec": {
+            "function": "exercise_case",
+            "args": [
+              "rejected_gate"
+            ],
+            "expected": {
+              "case": {
+                "ok": false,
+                "reason": "required gate rejected",
+                "failure_recorded": "RecoverableFailure",
+                "before": {
+                  "A": 1
+                },
+                "after": {
+                  "A": 1,
+                  "B": 1
+                },
+                "hashes": {
+                  "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                  "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                },
+                "uploads": {
+                  "A": 0,
+                  "B": 1
+                },
+                "validation_count": 4,
+                "retry_status": "SUCCESS",
+                "downstream_status": "FAILURE",
+                "second_call_unchanged": true
+              },
+              "all_evidence": {
+                "cases": {
+                  "accepted": {
+                    "ok": true,
+                    "reason": null,
+                    "failure_recorded": "RecoverableFailure",
+                    "before": {
+                      "A": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 1
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "SUCCESS",
+                    "second_call_unchanged": true
+                  },
+                  "boundary_completed": {
+                    "ok": true,
+                    "reason": null,
+                    "failure_recorded": null,
+                    "before": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "SUCCESS",
+                    "second_call_unchanged": true
+                  },
+                  "race_412": {
+                    "ok": true,
+                    "reason": null,
+                    "failure_recorded": "RecoverableFailure",
+                    "before": {
+                      "A": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "SUCCESS",
+                    "second_call_unchanged": true
+                  },
+                  "invalid_existing": {
+                    "ok": false,
+                    "reason": "validation failed",
+                    "before": {
+                      "A": 1
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "downstream_status": "NOT_STARTED"
+                  },
+                  "conflicting_content": {
+                    "ok": false,
+                    "reason": "content conflict",
+                    "before": {
+                      "A": 1
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "downstream_status": "NOT_STARTED"
+                  },
+                  "rejected_gate": {
+                    "ok": false,
+                    "reason": "required gate rejected",
+                    "failure_recorded": "RecoverableFailure",
+                    "before": {
+                      "A": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 1
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "FAILURE",
+                    "second_call_unchanged": true
+                  },
+                  "unrelated_failure": {
+                    "ok": false,
+                    "reason": "unrelated failure",
+                    "failure_recorded": "ValueError",
+                    "before": {
+                      "A": 1
+                    }
+                  }
+                },
+                "config": {
+                  "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+                  "steps": [
+                    {
+                      "args": [
+                        "python",
+                        "learner.py",
+                        "${_CASE}"
+                      ],
+                      "id": "recovery",
+                      "name": "python:3.11",
+                      "waitFor": [
+                        "-"
+                      ]
+                    },
+                    {
+                      "args": [
+                        "python",
+                        "learner.py",
+                        "${_CASE}"
+                      ],
+                      "id": "required_validation",
+                      "name": "python:3.11",
+                      "waitFor": [
+                        "recovery"
+                      ]
+                    },
+                    {
+                      "args": [
+                        "python",
+                        "downstream_entry.py",
+                        "${_ARTIFACT}"
+                      ],
+                      "id": "promotion",
+                      "name": "python:3.11",
+                      "waitFor": [
+                        "required_validation"
+                      ]
+                    }
+                  ],
+                  "substitutions": {
+                    "_ARTIFACT": "A",
+                    "_CASE": "accepted",
+                    "_SNAPSHOT": "valid"
+                  }
+                },
+                "runs": [
+                  {
+                    "triggered": true,
+                    "bindings": {
+                      "_ARTIFACT": "A",
+                      "_CASE": "accepted",
+                      "_SNAPSHOT": "valid"
+                    },
+                    "steps": [
+                      {
+                        "id": "recovery",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "accepted"
+                        ],
+                        "waitFor": [],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true,
+                          "reason": null,
+                          "failure_recorded": "RecoverableFailure",
+                          "before": {
+                            "A": 1
+                          },
+                          "after": {
+                            "A": 1,
+                            "B": 1
+                          },
+                          "hashes": {
+                            "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                            "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                          },
+                          "uploads": {
+                            "A": 0,
+                            "B": 1
+                          },
+                          "validation_count": 4,
+                          "retry_status": "SUCCESS",
+                          "downstream_status": "SUCCESS",
+                          "second_call_unchanged": true
+                        }
+                      },
+                      {
+                        "id": "required_validation",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "accepted"
+                        ],
+                        "waitFor": [
+                          "recovery"
+                        ],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true,
+                          "resolved_artifact": "A",
+                          "required_gate_executed": true
+                        }
+                      },
+                      {
+                        "id": "promotion",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "downstream_entry.py",
+                          "A"
+                        ],
+                        "waitFor": [
+                          "required_validation"
+                        ],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "triggered": true,
+                    "bindings": {
+                      "_ARTIFACT": "A",
+                      "_CASE": "rejected_gate",
+                      "_SNAPSHOT": "valid"
+                    },
+                    "steps": [
+                      {
+                        "id": "recovery",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "rejected_gate"
+                        ],
+                        "waitFor": [],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true,
+                          "reason": "required gate rejected",
+                          "failure_recorded": "RecoverableFailure",
+                          "before": {
+                            "A": 1
+                          },
+                          "after": {
+                            "A": 1,
+                            "B": 1
+                          },
+                          "hashes": {
+                            "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                            "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                          },
+                          "uploads": {
+                            "A": 0,
+                            "B": 1
+                          },
+                          "validation_count": 4,
+                          "retry_status": "SUCCESS",
+                          "downstream_status": "FAILURE",
+                          "second_call_unchanged": true
+                        }
+                      },
+                      {
+                        "id": "required_validation",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "rejected_gate"
+                        ],
+                        "waitFor": [
+                          "recovery"
+                        ],
+                        "status": "FAILURE",
+                        "exit_code": 1,
+                        "evidence": {
+                          "ok": false,
+                          "resolved_artifact": "A",
+                          "required_gate_executed": true
+                        }
+                      },
+                      {
+                        "id": "promotion",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "downstream_entry.py",
+                          "A"
+                        ],
+                        "waitFor": [
+                          "required_validation"
+                        ],
+                        "status": "NOT_STARTED",
+                        "exit_code": null,
+                        "evidence": null
+                      }
+                    ]
+                  },
+                  {
+                    "triggered": false,
+                    "steps": []
+                  }
+                ]
+              }
+            }
+          },
+          "message_on_fail": "Use every required predicate and the explicit fatal configuration. Inspect the recorded evidence for the first case that differs."
+        },
+        {
+          "test_id": "case_unrelated_failure",
+          "kind": "function_call",
+          "visible": true,
+          "spec": {
+            "function": "exercise_case",
+            "args": [
+              "unrelated_failure"
+            ],
+            "expected": {
+              "case": {
+                "ok": false,
+                "reason": "unrelated failure",
+                "failure_recorded": "ValueError",
+                "before": {
+                  "A": 1
+                }
+              },
+              "all_evidence": {
+                "cases": {
+                  "accepted": {
+                    "ok": true,
+                    "reason": null,
+                    "failure_recorded": "RecoverableFailure",
+                    "before": {
+                      "A": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 1
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "SUCCESS",
+                    "second_call_unchanged": true
+                  },
+                  "boundary_completed": {
+                    "ok": true,
+                    "reason": null,
+                    "failure_recorded": null,
+                    "before": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "SUCCESS",
+                    "second_call_unchanged": true
+                  },
+                  "race_412": {
+                    "ok": true,
+                    "reason": null,
+                    "failure_recorded": "RecoverableFailure",
+                    "before": {
+                      "A": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "SUCCESS",
+                    "second_call_unchanged": true
+                  },
+                  "invalid_existing": {
+                    "ok": false,
+                    "reason": "validation failed",
+                    "before": {
+                      "A": 1
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "downstream_status": "NOT_STARTED"
+                  },
+                  "conflicting_content": {
+                    "ok": false,
+                    "reason": "content conflict",
+                    "before": {
+                      "A": 1
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 0
+                    },
+                    "downstream_status": "NOT_STARTED"
+                  },
+                  "rejected_gate": {
+                    "ok": false,
+                    "reason": "required gate rejected",
+                    "failure_recorded": "RecoverableFailure",
+                    "before": {
+                      "A": 1
+                    },
+                    "after": {
+                      "A": 1,
+                      "B": 1
+                    },
+                    "hashes": {
+                      "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                      "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                    },
+                    "uploads": {
+                      "A": 0,
+                      "B": 1
+                    },
+                    "validation_count": 4,
+                    "retry_status": "SUCCESS",
+                    "downstream_status": "FAILURE",
+                    "second_call_unchanged": true
+                  },
+                  "unrelated_failure": {
+                    "ok": false,
+                    "reason": "unrelated failure",
+                    "failure_recorded": "ValueError",
+                    "before": {
+                      "A": 1
+                    }
+                  }
+                },
+                "config": {
+                  "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+                  "steps": [
+                    {
+                      "args": [
+                        "python",
+                        "learner.py",
+                        "${_CASE}"
+                      ],
+                      "id": "recovery",
+                      "name": "python:3.11",
+                      "waitFor": [
+                        "-"
+                      ]
+                    },
+                    {
+                      "args": [
+                        "python",
+                        "learner.py",
+                        "${_CASE}"
+                      ],
+                      "id": "required_validation",
+                      "name": "python:3.11",
+                      "waitFor": [
+                        "recovery"
+                      ]
+                    },
+                    {
+                      "args": [
+                        "python",
+                        "downstream_entry.py",
+                        "${_ARTIFACT}"
+                      ],
+                      "id": "promotion",
+                      "name": "python:3.11",
+                      "waitFor": [
+                        "required_validation"
+                      ]
+                    }
+                  ],
+                  "substitutions": {
+                    "_ARTIFACT": "A",
+                    "_CASE": "accepted",
+                    "_SNAPSHOT": "valid"
+                  }
+                },
+                "runs": [
+                  {
+                    "triggered": true,
+                    "bindings": {
+                      "_ARTIFACT": "A",
+                      "_CASE": "accepted",
+                      "_SNAPSHOT": "valid"
+                    },
+                    "steps": [
+                      {
+                        "id": "recovery",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "accepted"
+                        ],
+                        "waitFor": [],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true,
+                          "reason": null,
+                          "failure_recorded": "RecoverableFailure",
+                          "before": {
+                            "A": 1
+                          },
+                          "after": {
+                            "A": 1,
+                            "B": 1
+                          },
+                          "hashes": {
+                            "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                            "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                          },
+                          "uploads": {
+                            "A": 0,
+                            "B": 1
+                          },
+                          "validation_count": 4,
+                          "retry_status": "SUCCESS",
+                          "downstream_status": "SUCCESS",
+                          "second_call_unchanged": true
+                        }
+                      },
+                      {
+                        "id": "required_validation",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "accepted"
+                        ],
+                        "waitFor": [
+                          "recovery"
+                        ],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true,
+                          "resolved_artifact": "A",
+                          "required_gate_executed": true
+                        }
+                      },
+                      {
+                        "id": "promotion",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "downstream_entry.py",
+                          "A"
+                        ],
+                        "waitFor": [
+                          "required_validation"
+                        ],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "triggered": true,
+                    "bindings": {
+                      "_ARTIFACT": "A",
+                      "_CASE": "rejected_gate",
+                      "_SNAPSHOT": "valid"
+                    },
+                    "steps": [
+                      {
+                        "id": "recovery",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "rejected_gate"
+                        ],
+                        "waitFor": [],
+                        "status": "SUCCESS",
+                        "exit_code": 0,
+                        "evidence": {
+                          "ok": true,
+                          "reason": "required gate rejected",
+                          "failure_recorded": "RecoverableFailure",
+                          "before": {
+                            "A": 1
+                          },
+                          "after": {
+                            "A": 1,
+                            "B": 1
+                          },
+                          "hashes": {
+                            "A": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                            "B": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a"
+                          },
+                          "uploads": {
+                            "A": 0,
+                            "B": 1
+                          },
+                          "validation_count": 4,
+                          "retry_status": "SUCCESS",
+                          "downstream_status": "FAILURE",
+                          "second_call_unchanged": true
+                        }
+                      },
+                      {
+                        "id": "required_validation",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "learner.py",
+                          "rejected_gate"
+                        ],
+                        "waitFor": [
+                          "recovery"
+                        ],
+                        "status": "FAILURE",
+                        "exit_code": 1,
+                        "evidence": {
+                          "ok": false,
+                          "resolved_artifact": "A",
+                          "required_gate_executed": true
+                        }
+                      },
+                      {
+                        "id": "promotion",
+                        "name": "python:3.11",
+                        "resolved_args": [
+                          "python",
+                          "downstream_entry.py",
+                          "A"
+                        ],
+                        "waitFor": [
+                          "required_validation"
+                        ],
+                        "status": "NOT_STARTED",
+                        "exit_code": null,
+                        "evidence": null
+                      }
+                    ]
+                  },
+                  {
+                    "triggered": false,
+                    "steps": []
+                  }
+                ]
+              }
+            }
+          },
+          "message_on_fail": "Use every required predicate and the explicit fatal configuration. Inspect the recorded evidence for the first case that differs."
+        }
+      ]
+    }
+  }
+}

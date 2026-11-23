@@ -1,0 +1,278 @@
+PROMPT Sandbox note: this exercise uses a supplied bounded NumPy fixture simulator, not a running scikit-learn implementation. It reproduces only the declared fixture behavior for training-fitted state and transformation assertions. In the supplied workflow, replace only `learner_operation = None` with a binding of `learner_operation` to `supplied_operation` (without calling it). The helper implements `FixtureEncoder(handle_unknown=policy, sparse_output=False)`. Leave the inputs, helper and verification scaffolding unchanged. This is a scaffolded operation-binding task; the remaining implementation is supplied. The completed workflow must meet the following output contract: Implement encode(training, cases, policy). Fit FixtureEncoder(handle_unknown=policy, sparse_output=False) on supplied category rows (harness converts JSON missing to np.nan). Return {categories, width, outputs}; outputs is one array or the string "ValueError" per case in input order. Assert categories_ remains unchanged with missing-aware comparison and every successful output keeps fitted width. Verify known indicators by the stored mapping; absent categories, including missing absent during fit, follow error/ignore; missing present during fitting activates its learned indicator. Assert each case against the supplied independent policy predicate.
+SOLUTION
+# Supplied inputs and operation; do not edit.
+if True:
+    FIXTURES = {'X_train': [['north'], ['south']], 'X_train_missing': [['north'], ['south'], [None]], 'feature_name': 'zone', 'cases': {'north': [['north']], 'east': [['east']], 'None': [[None]]}, 'unknown_policies': ['error', 'ignore'], 'missing_marker': 'Replace JSON null with np.nan when constructing the supplied arrays.'}
+if True:
+
+    def supplied_operation(FixtureEncoder, policy):
+        return FixtureEncoder(handle_unknown=policy, sparse_output=False)
+
+learner_operation = supplied_operation
+
+# Stop before loading the workflow while the learner hook is incomplete.
+if learner_operation is None:
+    raise NotImplementedError("Complete learner_operation before running the workflow")
+
+# Supplied workflow and verification scaffolding; do not edit.
+if True:
+    import numpy as np
+    if True:
+
+        def supplied_categories(rows):
+            return np.array([[np.nan if v is None else v for v in row] for row in rows], dtype=object)
+    if True:
+
+        def supplied_mapping_matches(before, after):
+            return all((a == b or (a != a and b != b) for a, b in zip(before, after))) and len(before) == len(after)
+    if True:
+
+        def supplied_known(categories, value):
+            return [i for i, c in enumerate(categories) if c == value or (value is None and c != c)]
+    if True:
+
+        def supplied_expected_error(categories, case, policy):
+            return policy == 'error' and (not supplied_known(categories, case[0][0]))
+    if True:
+
+        def supplied_policy_matches(categories, case, policy, actual):
+            expected = np.zeros((1, len(categories)))
+            known = supplied_known(categories, case[0][0])
+            if known:
+                expected[0, known[0]] = 1
+            return np.array_equal(expected, actual)
+    import numpy as np
+    # Bounded NumPy fixture simulator, not the scikit-learn implementation.
+    class FixtureEncoder:
+        def __init__(self, handle_unknown, sparse_output):
+            if handle_unknown not in ('ignore', 'error') or sparse_output:
+                raise ValueError('This supplied simulator supports dense error/ignore output only')
+            self.handle_unknown = handle_unknown
+        def fit(self, training):
+            categories = sorted(set(v for v in training[:, 0] if v == v))
+            if any(v != v for v in training[:, 0]):
+                categories.append(np.nan)
+            self.categories_ = [np.array(categories, dtype=object)]
+            return self
+        def transform(self, values):
+            categories = self.categories_[0]
+            output = np.zeros((values.shape[0], len(categories)))
+            for row, value in enumerate(values[:, 0]):
+                matches = [i for i, c in enumerate(categories)
+                           if c == value or (c != c and value != value)]
+                if matches:
+                    output[row, matches[0]] = 1
+                elif self.handle_unknown == 'error':
+                    raise ValueError('Unknown category')
+            return output
+
+    def encode(training, cases, policy):
+        X_train = supplied_categories(training)
+        encoder = learner_operation(FixtureEncoder, policy)
+        encoder.fit(X_train)
+        categories = encoder.categories_[0].copy()
+        width = len(categories)
+        outputs = []
+        for case in cases:
+            try:
+                transformed = encoder.transform(supplied_categories(case))
+                assert transformed.shape[1] == width
+                assert supplied_mapping_matches(categories, encoder.categories_[0])
+                assert supplied_policy_matches(categories, case, policy, transformed)
+                outputs.append(transformed)
+            except ValueError:
+                assert supplied_expected_error(categories, case, policy)
+                outputs.append('ValueError')
+        return {'categories': categories, 'width': width, 'outputs': outputs}
+
+TESTS
+[
+  {
+    "test_id": "case_1",
+    "kind": "function_call",
+    "spec": {
+      "function": "encode",
+      "args": [
+        [
+          [
+            "north"
+          ],
+          [
+            "south"
+          ]
+        ],
+        [
+          [
+            [
+              "north"
+            ]
+          ],
+          [
+            [
+              "east"
+            ]
+          ],
+          [
+            [
+              null
+            ]
+          ]
+        ],
+        "ignore"
+      ],
+      "expected": {
+        "categories": [
+          "north",
+          "south"
+        ],
+        "width": 2,
+        "outputs": [
+          [
+            [
+              1,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0
+            ]
+          ]
+        ]
+      }
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  },
+  {
+    "test_id": "case_2",
+    "kind": "function_call",
+    "spec": {
+      "function": "encode",
+      "args": [
+        [
+          [
+            "north"
+          ],
+          [
+            "south"
+          ]
+        ],
+        [
+          [
+            [
+              "north"
+            ]
+          ],
+          [
+            [
+              "east"
+            ]
+          ],
+          [
+            [
+              null
+            ]
+          ]
+        ],
+        "error"
+      ],
+      "expected": {
+        "categories": [
+          "north",
+          "south"
+        ],
+        "width": 2,
+        "outputs": [
+          [
+            [
+              1,
+              0
+            ]
+          ],
+          "ValueError",
+          "ValueError"
+        ]
+      }
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  },
+  {
+    "test_id": "case_3",
+    "kind": "function_call",
+    "spec": {
+      "function": "encode",
+      "args": [
+        [
+          [
+            "north"
+          ],
+          [
+            "south"
+          ],
+          [
+            null
+          ]
+        ],
+        [
+          [
+            [
+              "north"
+            ]
+          ],
+          [
+            [
+              "east"
+            ]
+          ],
+          [
+            [
+              null
+            ]
+          ]
+        ],
+        "ignore"
+      ],
+      "expected": {
+        "categories": [
+          "north",
+          "south",
+          null
+        ],
+        "width": 3,
+        "outputs": [
+          [
+            [
+              1,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              1
+            ]
+          ]
+        ]
+      }
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  }
+]
+CONSTRAINTS
+{"allowed_syntax": ["import numpy as np", "from sklearn.preprocessing import OneHotEncoder", "def", "return", "variable assignment", "function calls and keyword arguments", "string, numeric and Boolean literals", "lists and nested lists", "dictionaries", "indexing", "for loops", "if statements", "try/except ValueError", "assert predicate", "equality comparisons", "not", "len()", "np.nan", "np.isnan()", "np.array_equal()", "np.all()", "OneHotEncoder(handle_unknown=..., sparse_output=False)", "encoder.fit()", "encoder.transform()", "encoder.categories_", "array.copy()", "array.tolist()", "array.shape"], "blocked_syntax": ["Pipeline", "make_pipeline()", "ColumnTransformer", "model.fit()", "model.predict()", "pytest fixtures and decorators", "unittest.TestCase", "mlflow.start_run()", "joblib.dump()"]}

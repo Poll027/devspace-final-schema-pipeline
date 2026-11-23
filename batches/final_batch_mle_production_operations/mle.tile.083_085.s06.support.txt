@@ -1,0 +1,30 @@
+import csv, json, datetime
+import numpy as np
+SCHEMAS = {'predictions': {'prediction_id': 'string', 'prediction_timestamp': 'datetime', 'prediction': 'string', 'cohort_id': 'string', 'eligible': 'boolean'}, 'labels': {'prediction_id': 'string', 'label_timestamp': 'datetime', 'label': 'string', 'loss': 'number'}}
+def load(name):
+    with open(name+'.csv') as f:
+        data=list(csv.DictReader(f))
+    for r in data:
+        for k,t in SCHEMAS[name].items():
+            v=r[k]
+            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)
+    return data
+def column(data,key):
+    return np.asarray([r[key] for r in data])
+def emit(value):
+    return value
+
+def mature(pred,label,policy):
+    cutoff=datetime.datetime.fromisoformat(policy['analysis_time'].replace('Z','+00:00'))
+    available=datetime.datetime.fromisoformat(policy['label_available_through'].replace('Z','+00:00'))
+    pt=datetime.datetime.fromisoformat(pred['prediction_timestamp'].replace('Z','+00:00'))
+    lt=datetime.datetime.fromisoformat(label['label_timestamp'].replace('Z','+00:00'))
+    return lt<=available and lt<=cutoff and (cutoff-pt).total_seconds()>=policy['minimum_age_hours']*3600
+
+
+policy = {'cohort': 'fixed_100', 'analysis_time': '2026-01-04T00:00:00Z', 'minimum_age_hours': 24, 'label_available_through': '2026-01-04T00:00:00Z', 'duplicate_policy': 'reject repeated prediction or label ID before dictionary construction', 'unmatched_policy': 'exclude and record', 'outside_cohort_policy': 'exclude and record', 'ddof': 0}
+
+def illustrative_cohort():
+    predictions=[{'prediction_id':'illustrative.'+str(i),'prediction_timestamp':'2026-01-02T10:00:00Z','prediction':'on_time','cohort_id':policy['cohort'],'eligible':True} for i in range(illustrative_eligible_count)]
+    labels=[{'prediction_id':'illustrative.'+str(i),'label_timestamp':'2026-01-03T10:00:00Z','label':'late' if i<6 else 'on_time','loss':1.0 if i<6 else 0.0} for i in range(illustrative_matched_count)]
+    return predictions,labels

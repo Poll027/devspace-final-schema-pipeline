@@ -1,0 +1,102 @@
+
+mle.tile.068_071.s01 Load-test a prediction endpoint against tail-latency and sustainable-throughput objectives
+Measure a capacity envelope from client outcomes, tail latency, completed work and backlog at each declared load.
+Exercise the endpoint with the declared arrival/concurrency profile and bounded duration, and record client-visible outcomes and response times rather than only attempted request count.
+Treat a load point as acceptable only if it meets the predeclared client-visible success and tail-latency requirements, as well as the required completed throughput.
+Retain failures and timeouts separately so latency measured only for completed responses is not misrepresented as the experience of every attempted request.
+Estimate client-visible success probability as successful eligible attempts divided by all eligible attempts in the defined measurement window, counting failed attempts in the denominator.
+Compute the declared tail-latency percentile with np.percentile(completed_latency_values, declared_percentile), retaining its convention, sample count and time unit.
+Measure successful throughput as completed successful requests divided by elapsed measurement time, and compare it with the offered load rather than equating arrivals with completed work.
+VISUAL {"type": "data_table", "asset_ref": {"asset_id": "ds.serving_attempts"}, "caption": "Authored offline attempts include multiple experiment settings. Select the declared valid-traffic load population before calculating capacity; retain errors and timeouts.", "lineage": {"concept_ids": ["mle.prediction_load_test"], "teaching_block_ids": ["mle.prediction_load_test#tb1", "mle.prediction_load_test#tb2", "mle.prediction_load_test#tb3"], "fact_ids": ["mle.prediction_load_test#f1", "mle.prediction_load_test#f2", "mle.prediction_load_test#f3", "mle.pred
+VISUAL {"type": "data_table", "asset_ref": {"asset_id": "ds.backlog"}, "caption": "Authored unfinished-work observations for the same fixed load settings; inspect change across the measurement window.", "lineage": {"concept_ids": ["mle.prediction_load_test"], "teaching_block_ids": ["mle.prediction_load_test#tb1", "mle.prediction_load_test#tb2", "mle.prediction_load_test#tb3"], "fact_ids": ["mle.prediction_load_test#f1", "mle.prediction_load_test#f2", "mle.prediction_load_test#f3", "mle.prediction_load_test#f4", "mle.prediction_load_test#f5", "mle.pred
+
+mle.tile.068_071.s02 Measure valid-traffic load outcomes
+Run valid and malformed HTTP JSON fixtures with assertions, keeping intentional malformed tests outside the valid-traffic capacity measurement.
+At every fixed offered load, use the stated valid payload mix, warm-up and fixed measurement duration, counting successful completions, HTTP errors, timeouts and other failed attempts separately.
+Compute failed-request fraction from all failed attempts divided by all valid-traffic attempts; timeouts remain failures.
+Inspect backlog growth and unfinished work throughout the window; accept only stable-backlog loads meeting the predeclared tail-latency and error limits, and report the highest measured successful throughput or no feasible measured envelope.
+Use docker run --name NAME -p HOST_PORT:CONTAINER_PORT --env KEY=VALUE IMAGE to start the referenced image with the declared port and nonsecret runtime settings.
+Inspect the named container with docker container inspect NAME to check its image identity and State fields.
+
+mle.tile.068_071.s03 Inspect load-test logs and HTTP responses
+Use docker container logs NAME to inspect its captured standard output and error for initialization or execution failures.
+Send a JSON request body as encoded bytes in urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST"), then read the response through urlopen with a stated timeout.
+Serialize structured request/response values with json.dumps; decode JSON with json.loads before inspecting fields.
+Use np.mean(numeric_values) for the arithmetic mean of the selected numeric observations.
+Use np.std(numeric_values, ddof=0): divide squared deviations by N, then take the square root. Use ddof=1 only when the declared calculation requires N−1.
+Assert the declared valid, boundary and failure predicates. In ordinary non-optimized execution, a false assertion raises AssertionError.
+
+mle.tile.068_071.s04 Compare completed throughput with backlog
+Inspect the registered valid-traffic attempts alongside unfinished work. Keep HTTP errors, timeouts and other failures separate, but include all valid attempts in success and failed-fraction denominators. Calculate successful completions per measurement time, not arrivals per time. Percentiles describe completed-response samples with declared units and convention, not timed-out responses. Accept only stable-backlog points meeting all declared latency, error and throughput objectives, or report no feasible measured envelope. Intentional malformed fixtures stay outside this capacity population.
+Arrivals are not completed work. A low latency for completed responses cannot hide timeouts, and a growing backlog is not a stable acceptable load point.
+
+mle.tile.068_071.s07 Choose inference batching under latency constraints
+Batch waiting belongs in full request latency. Match each response to its request and setting first.
+Serialize structured request/response values with json.dumps; decode JSON with json.loads before inspecting fields.
+Match each successful JSON response to its request identity and batching setting before computing its end-to-end duration from the trace.
+Use response-completion minus request-start time in one declared unit, including batch waiting time in the latency interpretation.
+Calculate the required tail percentile with np.percentile(latencies, declared_percentile), keeping the convention and successful-response sample count explicit.
+Choose only a batching limit meeting the stated latency objective, comparing the same trace/population interpretation.
+Use np.mean(numeric_values) for the arithmetic mean of the selected numeric observations.
+Use np.std(numeric_values, ddof=0): divide squared deviations by N, then take the square root. Use ddof=1 only when the declared calculation requires N−1.
+VISUAL {"type": "diagram", "diagram_kind": "sequence", "title": "End-to-end batching latency includes waiting", "nodes": [{"id": "n0", "label": "Decode successful response; match request_id and batching_setting"}, {"id": "n1", "label": "request_start_seconds"}, {"id": "n2", "label": "batch_wait_end_seconds: waiting ends"}, {"id": "n3", "label": "response_complete_seconds: full duration ends"}, {"id": "n4", "label": "Matched successful population \u2192 declared percentile, mean and spread"}, {"id": "n5", "label": "Compare same population; choose only 
+VISUAL {"type": "diagram", "diagram_kind": "sequence", "title": "One matched request: full start-to-response interval", "nodes": [{"id": "n0", "label": "order_1 / limit_2"}, {"id": "n1", "label": "Start: 1.0 seconds"}, {"id": "n2", "label": "Batch wait ends: 1.4 seconds"}, {"id": "n3", "label": "Response completes: 1.6 seconds"}], "edges": [{"from": "n0", "to": "n1", "directed": true}, {"from": "n1", "to": "n2", "directed": true}, {"from": "n2", "to": "n3", "directed": true}], "alt_text": "order_1 / limit_2 \u2192 Start: 1.0 seconds \u2192 Batch wait 
+VISUAL {"type": "data_table", "asset_ref": {"asset_id": "ds.batching_trace"}, "caption": "Authored trace: exclude failed and unmatched responses; the full start-to-response interval includes batch waiting.", "lineage": {"concept_ids": ["mle.inference_batching_decision"], "teaching_block_ids": ["mle.inference_batching_decision#tb1", "mle.inference_batching_decision#tb2", "mle.inference_batching_decision#tb3", "mle.inference_batching_decision#tb4"], "fact_ids": ["mle.inference_batching_decision#f2", "mle.inference_batching_decision#f3", "mle.inference_b
+VISUAL "wait = batch_wait_end_seconds - request_start_seconds\npost_wait = response_complete_seconds - batch_wait_end_seconds\nend_to_end = response_complete_seconds - request_start_seconds\n# Compute summaries over matched successful decoded responses only.\ntail = np.percentile(latencies, declared_percentile)\nmean = np.mean(latencies)\nspread = np.std(latencies, ddof=0)"
+
+mle.tile.068_071.s08 Match batching responses and full request latency
+For each registered trace row, decode the successful response and match its request identity and batching setting before calculating duration. Measure request start through response completion, including the waiting interval. Compute the declared percentile, mean and spread over matched successful responses, retaining units, convention and sample count. Compare settings using that same population interpretation and choose only a measured limit meeting the objective. A shorter execution interval cannot compensate for a full request interval that misses the latency limit.
+
+mle.tile.068_071.s09 Include batch waiting in latency
+Batch waiting belongs in the stated end-to-end latency. A faster execution interval alone does not make a batching limit acceptable under the full request objective.
+
+mle.tile.068_071.s12 Configure bounded prediction-worker concurrency on an existing runtime
+A worker limit in YAML is intent. Inspect whether running workers honor it during the bounded load.
+A Compose YAML document declares services by name; use indented mappings for service fields and lists or mappings in the forms required by the Compose specification.
+Set a service’s image to its immutable artifact reference, its ports to HOST:CONTAINER mappings, and its environment to the declared nonsecret key/value settings.
+Use docker compose -f CONFIG_PATH config to parse, resolve and validate the authored YAML before applying it; check its resolved fields against the intended runtime contract.
+Apply the declared local Compose deployment with docker compose -f CONFIG_PATH up -d and inspect the resulting containers.
+Set the existing runtime’s worker-limit setting in the YAML, validate its parsed value and run the referenced image under that bound.
+Inspect running worker processes with docker container top NAME during the load fixture and compare the observed count with the configured limit to detect oversubscription.
+VISUAL {"type": "side_by_side", "left": {"type": "code_walkthrough", "language": "python", "code": "# Approved changed configuration (intent, not process evidence)\nconfig = {'services': {'prediction': {'image': 'fixture.local/orders@sha256:29371dd36fb111803c6fe996426f342680170dec59168e1e52139cdb4fbfaf83', 'environment': {'MODE': 'fixture', 'WORKER_LIMIT': '2'}, 'ports': ['8080:8080'], 'secrets': ['credential']}}, 'secrets': {'credential': {'environment': 'ORDER_FIXTURE_CREDENTIAL'}}}", "reveal": "all", "lineage": {"concept_ids": ["mle.serving_worker_
+VISUAL {"type": "data_table", "asset_ref": {"asset_id": "ds.worker_resources"}, "caption": "Authored CPU/memory observations: align interval_id with the process evidence.", "lineage": {"concept_ids": ["mle.serving_worker_concurrency"], "teaching_block_ids": ["mle.serving_worker_concurrency#tb1", "mle.serving_worker_concurrency#tb2", "mle.serving_worker_concurrency#tb3"], "fact_ids": ["mle.serving_worker_concurrency#f1", "mle.serving_worker_concurrency#f2", "mle.serving_worker_concurrency#f3", "mle.serving_worker_concurrency#f4", "mle.serving_worker_co
+VISUAL "import json, yaml\nwith open(\"runtime_contract.json\") as source:\n    runtime = json.load(source)\nservice = config[\"services\"][runtime[\"SERVICE\"]]\nservice[\"environment\"][runtime[\"worker_limit_key\"]] = str(runtime[\"approved_worker_limit\"])\nwith open(runtime[\"CONFIG_PATH\"], \"w\") as target:\n    yaml.safe_dump(config, target)\nwith open(runtime[\"CONFIG_PATH\"]) as source:\n    reloaded = yaml.safe_load(source)\nassert int(reloaded[\"services\"][runtime[\"SERVICE\"]][\"environment\"][runtime[\"worker_limit_key\"]]) == runtime[\"approved_worker_limit\"]\n# Resolve with compose config; apply and compare observed workers with this bound."
+
+mle.tile.068_071.s13 Reload worker bounds and inspect resources
+Inspect concurrent CPU/memory usage during the same fixture to support the bound check rather than assuming the configuration was honored.
+With the declared PyYAML dependency, import yaml; write a mapping/list configuration with yaml.safe_dump(config, file_handle), reload it with yaml.safe_load(file_handle), and inspect the required resolved fields before submitting it to the existing runtime. Safe loading supports standard YAML tags, not arbitrary Python object constructors.
+Edit the existing worker bound, safely reload it and inspect the Compose-resolved value before applying the referenced image. During the authorized load interval, inspect prediction-worker processes and compare their count with the configured limit. Record CPU and memory in that same interval. A parsed bound is intent; excess observed workers are oversubscription even when configuration validation succeeds. Keep authored settings, reloaded settings and actual process evidence distinct.
+Configuration is intent, not proof of the running process count. Worker-count evidence and concurrent resource measurements must refer to the same bounded fixture.
+
+mle.tile.068_071.s16 Configure replica scaling to right-size serving capacity under a service objective
+More replicas are not automatically better. Compare client outcomes at equal load under explicit capacity bounds.
+For a fixed Compose scaling fixture, declare deploy.replicas or use docker compose up -d --scale SERVICE=COUNT, then inspect the actual replica count.
+For SageMaker Application Auto Scaling, register the supplied endpoint variant as a scalable target with explicit MinCapacity and MaxCapacity bounds.
+A target-tracking scaling policy specifies a metric, target value and scale-in/scale-out cooldowns; apply only the supported supplied policy to the existing scalable target.
+Compare scale settings at the same declared load and select capacity that meets observed success, p99 latency and throughput requirements not merely more replicas.
+Estimate client-visible success probability as successful eligible attempts divided by all eligible attempts in the defined measurement window, counting failed attempts in the denominator.
+Compute the declared tail-latency percentile with np.percentile(completed_latency_values, declared_percentile), retaining its convention, sample count and time unit.
+VISUAL {"type": "before_after", "before": {"type": "diagram", "diagram_kind": "sequence", "title": "Before bounded scaling", "nodes": [{"id": "n0", "label": "Original replica and lifecycle settings"}, {"id": "n1", "label": "Record container count and identities"}, {"id": "n2", "label": "Inspect authorized instance status and identity"}], "edges": [{"from": "n0", "to": "n1", "directed": true}, {"from": "n1", "to": "n2", "directed": true}], "alt_text": "Original replica and lifecycle settings \u2192 Record container count and identities \u2192 Inspect a
+VISUAL {"type": "data_table", "asset_ref": {"asset_id": "ds.replica_states"}, "caption": "Authored original, changed and restored phases: compare intended replicas, actual container identities and instance state.", "lineage": {"concept_ids": ["mle.serving_replica_scaling"], "teaching_block_ids": ["mle.serving_replica_scaling#tb1", "mle.serving_replica_scaling#tb2", "mle.serving_replica_scaling#tb3"], "fact_ids": ["mle.serving_replica_scaling#f1", "mle.serving_replica_scaling#f2", "mle.serving_replica_scaling#f3", "mle.serving_replica_scaling#f4", "mle
+
+mle.tile.068_071.s17 Verify replica policy and completed throughput
+Measure successful throughput as completed successful requests divided by elapsed measurement time, and compare it with the offered load rather than equating arrivals with completed work.
+Edit the existing runtime’s YAML replica policy from the demand/capacity evidence, then parse and inspect the resolved replica bounds before applying it.
+Inspect running containers before and after the bounded demand change and compare the observed count and identities with the intended replica policy.
+Restore the nonproduction runtime’s original replica and lifecycle settings after the bounded scaling check.
+Use np.mean(numeric_values) for the arithmetic mean of the selected numeric observations.
+Use np.std(numeric_values, ddof=0): divide squared deviations by N, then take the square root. Use ddof=1 only when the declared calculation requires N−1.
+
+mle.tile.068_071.s18 Compare intended replicas with runtime evidence
+Use gcloud compute instances describe INSTANCE --zone=ZONE to inspect the instance status and identity before and after the authorized lifecycle action.
+With the declared PyYAML dependency, import yaml; write a mapping/list configuration with yaml.safe_dump(config, file_handle), reload it with yaml.safe_load(file_handle), and inspect the required resolved fields before submitting it to the existing runtime. Safe loading supports standard YAML tags, not arbitrary Python object constructors.
+For the fixed fixture, declare the permitted replica count and compare intended versus observed container identities before and after the bounded demand change. A supplied SageMaker target instead retains explicit capacity bounds, metric target and cooldowns. Compare success, tail latency and successful throughput at the same load and sample conventions. Safely inspect the changed YAML before application; inspect runtime identity and lifecycle state afterward. Restore the original nonproduction replica and lifecycle settings.
+More replicas alone do not establish an acceptable setting.
+More replicas are not guaranteed to satisfy the task. Intended and observed counts differ in kind, and completed throughput must not be replaced with offered load.
+
+mle.tile.068_071.s21 Carry these rules forward
+Arrivals are not completions; timeouts and growing backlog cannot be hidden by low completed-response latency.
+Include batch waiting in full request latency; fast execution alone does not meet the objective.
+Configuration is intent. Compare observed workers and same-interval resource evidence with the declared bound.
+More replicas are not guaranteed to pass; distinguish intended counts, observed counts and completed throughput.
+VISUAL {"type": "up_next", "title": "Roll back a serving release to a previous approved registry artifact"}

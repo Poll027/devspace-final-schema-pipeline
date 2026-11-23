@@ -1,0 +1,95 @@
+import json
+import time
+import numpy as np
+import csv
+with open("serving_attempts.csv") as handle:
+    raw_rows = list(csv.DictReader(handle))
+attempts = [{"request_id": r["request_id"], "request_start_seconds": float(r["request_start_seconds"]) if r["request_start_seconds"] else None, "response_complete_seconds": float(r["response_complete_seconds"]) if r["response_complete_seconds"] else None, "http_status": int(r["http_status"]) if r["http_status"] else None, "valid_prediction": r["valid_prediction"].lower() == "true", "handler_start_seconds": float(r["handler_start_seconds"]) if r["handler_start_seconds"] else None, "handler_complete_seconds": float(r["handler_complete_seconds"]) if r["handler_complete_seconds"] else None, "handler_status": int(r["handler_status"]) if r["handler_status"] else None, "outcome": r["outcome"]} for r in raw_rows if r["experiment"] == "probe"]
+deadline_seconds = 2.0
+window_start = 0.0
+window_seconds = 300
+summary_time = 301.0
+error_classification = 'Every attempt not HTTP 200 with a valid prediction received within two seconds'
+units = 'seconds'
+telemetry = []
+current_attempt = None
+clock_phase = 0
+def timestamp():
+    global clock_phase
+    result = current_attempt["handler_start_seconds"] if clock_phase == 0 else current_attempt["handler_complete_seconds"]
+    clock_phase += 1
+    return result
+def supplied_predict(payload):
+    if current_attempt["handler_status"] != 200:
+        raise ValueError("supplied handled prediction error")
+    return {"predictions": model.predict(preprocessing_pipeline.transform(payload["features"])), "version": version}
+def record_telemetry(start, finish, status):
+    telemetry.append({"request_id": current_attempt["request_id"], "timestamp": start, "duration": finish - start, "status": status})
+def run_supplied_probe(handler):
+    global current_attempt, clock_phase
+    for attempt in attempts:
+        if attempt["handler_start_seconds"] is not None:
+            current_attempt = attempt
+            clock_phase = 0
+            handler(json.dumps({"features": [[1.0, 2.0]]}))
+    return attempts
+
+FEATURE_NAMES = ("feature_1", "feature_2")
+class FrozenPreprocessor:
+    def transform(self, values):
+        return [[float(x) for x in row] for row in values]
+class FrozenModel:
+    def predict(self, values):
+        return [row[0] + 2.0 * row[1] for row in values]
+preprocessing_pipeline = FrozenPreprocessor()
+model = FrozenModel()
+
+version = 'A'
+def instrumented_handler(body):
+    start = timestamp()
+    status = 200
+    try:
+        payload = json.loads(body)
+        response = supplied_predict(payload)
+        encoded = json.dumps(response)
+    except ValueError:
+        status = 500
+        encoded = json.dumps({"error": "prediction failure"})
+    finally:
+        finish = timestamp()
+        record_telemetry(start, finish, status)
+    return encoded
+
+def accept_http_only(attempt):
+    return attempt["http_status"] == 200
+def accept_valid_deadline(attempt):
+    return attempt["http_status"] == 200 and attempt["valid_prediction"] and attempt["response_complete_seconds"] is not None and attempt["response_complete_seconds"] - attempt["request_start_seconds"] <= deadline_seconds
+handler_denominator = sum(a["handler_start_seconds"] is not None for a in attempts)
+def report_probe(mean_stat, std_stat, available, denominator):
+    external = run_supplied_probe(instrumented_handler)
+    successes = 0
+    absent = []
+    external_failures = {}
+    for attempt in external:
+        if available(attempt):
+            successes = successes + 1
+        else:
+            outcome = attempt["outcome"]
+            if outcome not in external_failures:
+                external_failures[outcome] = 0
+            external_failures[outcome] = external_failures[outcome] + 1
+        if attempt["handler_start_seconds"] is None:
+            absent.append({"request_id": attempt["request_id"], "outcome": attempt["outcome"]})
+    status_counts = {}
+    handler_errors = 0
+    numeric_values = []
+    for record in telemetry:
+        status = record["status"]
+        if status not in status_counts:
+            status_counts[status] = 0
+        status_counts[status] = status_counts[status] + 1
+        if status != 200:
+            handler_errors = handler_errors + 1
+        numeric_values.append(record["duration"])
+    report = {"window": [window_start, window_start + window_seconds], "summary_time": summary_time, "attempted": len(external), "successful": successes, "availability": successes / denominator, "error_fraction": (len(external) - successes) / denominator, "error_classification": error_classification, "handler_status_counts": status_counts, "handler_errors": handler_errors, "handler_mean": mean_stat(numeric_values), "handler_std": std_stat(numeric_values), "handler_count": len(telemetry), "units": units, "external_failures": external_failures, "absent_handler_records": absent, "telemetry": telemetry}
+    return report

@@ -1,0 +1,61 @@
+import csv
+import json
+def supplied_rows(path):
+    with open(path) as f:
+        raw = list(csv.DictReader(f))
+
+    def convert(v):
+        if v == '':
+            return None
+        if v.lower() == 'true':
+            return True
+        if v.lower() == 'false':
+            return False
+        try:
+            return float(v) if '.' in v or 'e' in v.lower() else int(v)
+        except ValueError:
+            return v
+    return [{k: convert(v) for k, v in r.items()} for r in raw]
+search_trials = supplied_rows('search_trials.csv')
+execution_contract = supplied_rows('execution_contract.csv')
+p0 = 0.8
+p1 = 0.2
+cfp = 1
+cfn = 5
+bound = 0.3
+configs = [json.loads(r['configuration_json']) for r in search_trials]
+def supplied_trial(configuration):
+    return next((r for r in search_trials if json.loads(r['configuration_json']) == configuration))
+override_budget = execution_contract[0]['override_search_budget']
+def search(configurations, p0, p1, cfp, cfn, bound, budget=3):
+    records = []
+    selected = None
+    best = None
+    for configuration in configurations[:budget]:
+        r = supplied_trial(configuration)
+        FP = r['FP']
+        TN = r['TN']
+        FN = r['FN']
+        TP = r['TP']
+        if FP + TN == 0:
+            FPR = None
+        else:
+            FPR = FP / (FP + TN)
+        if FN + TP == 0:
+            FNR = None
+        else:
+            FNR = FN / (FN + TP)
+        if FPR == None or FNR == None:
+            cost = None
+        else:
+            cost = p0 * FPR * cfp + p1 * FNR * cfn
+        eligible = cost != None and cost <= bound and r['operating_requirements_met']
+        records.append({'configuration': configuration, 'cohort_id': r['cohort_id'], 'TP': TP, 'FP': FP, 'FN': FN, 'TN': TN, 'FPR': FPR, 'FNR': FNR, 'expected_cost': cost, 'eligible': eligible})
+        if eligible:
+            if best == None or cost < best:
+                best = cost
+                selected = configuration
+    return {'resolved_budget': budget, 'completed_trials': len(records), 'records': records, 'selected_configuration': selected}
+resolved_budget = override_budget
+result = search(configs, p0, p1, cfp, cfn, bound, budget=resolved_budget)
+default_result = search(configs, p0, p1, cfp, cfn, bound)

@@ -1,0 +1,362 @@
+{
+  "type": "live_code",
+  "objective": "Write a learner-defined Python test function, with learner-written imports, that uses reusable valid, boundary and malformed fixtures to exercise the supplied packaged prediction function. Assert row count, feature/target correspondence and output shape before numerical comparisons with explicit tolerances, and test the declared exception path. Safely write and reload the supplied Cloud Build configuration, connect the test entry point to its assigned stage, and verify accepted and deliberately regressed runs through the configured repository commit trigger and branch filter.",
+  "success": "The accepted fixtures pass all structural and numerical checks, and contract-prohibited inputs produce the declared exception. The reloaded configuration has the required execution image, command, step IDs and waitFor dependencies without failure allowances. A deliberate behavior regression produces an unsuccessful test-stage exit in an actual triggered run, and dependent later stages do not execute.",
+  "live_code": {
+    "required_skill": "Author reusable fixture-based assertions against a fitted prediction package and connect their executable entry point to an existing fatal test stage.",
+    "allowed_syntax": [
+      "import numpy as np",
+      "import yaml",
+      "imports for the supplied prediction package",
+      "def",
+      "function calls",
+      "return",
+      "variable assignment",
+      "numeric and string literals",
+      "lists and dictionaries",
+      "for",
+      "if",
+      "assert",
+      "try",
+      "except",
+      "else",
+      "raise",
+      "AssertionError",
+      "the supplied contract's exception type",
+      "np.array",
+      "array indexing",
+      "array.shape",
+      "len",
+      "comparison and Boolean operators",
+      "np.testing.assert_allclose with explicit rtol and atol",
+      "with open",
+      "yaml.safe_dump",
+      "yaml.safe_load",
+      "if __name__ == \"__main__\""
+    ],
+    "blocked_syntax": [],
+    "starter_state_intent": "Provide the supplied packaged prediction callable, its declared contract, fixture inputs and expected outputs using only the supplied example's existing names, the declared NumPy and PyYAML dependencies, and an existing authorized Cloud Build configuration and repository trigger. Leave the test function, imports, assertions and assigned-stage wiring for the learner to implement.",
+    "observable_success": "Execution demonstrates structure checks before numerical comparisons, explicit tolerances, and assertions for valid, boundary and failure cases. Configuration inspection after safe reloading confirms the required resolved fields. Actual triggered stage results show an accepted run succeeding and an injected regression failing the test stage with dependent stages unexecuted."
+  }
+}
+[
+  {
+    "fact_ids": [
+      "f1",
+      "f2"
+    ],
+    "capability": "detect_packaged_prediction_structure_regressions"
+  },
+  {
+    "fact_ids": [
+      "f3"
+    ],
+    "capability": "detect_numerical_regressions_with_explicit_tolerances"
+  },
+  {
+    "fact_ids": [
+      "f4",
+      "f5"
+    ],
+    "capability": "assert_valid_boundary_and_failure_behavior"
+  },
+  {
+    "fact_ids": [
+      "f6",
+      "f7",
+      "f8",
+      "f9"
+    ],
+    "capability": "verify_behavior_test_failures_stop_dependent_stages"
+  },
+  {
+    "fact_ids": [
+      "f10"
+    ],
+    "capability": "safely_round_trip_and_inspect_test_stage_configuration"
+  }
+]
+
+FILE cloudbuild.yaml
+{
+  "steps": [
+    {
+      "id": "behavior_tests",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "learner.py",
+        "${_CASE}"
+      ],
+      "waitFor": [
+        "-"
+      ]
+    },
+    {
+      "id": "release_gate",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "downstream_entry.py",
+        "${_ARTIFACT}"
+      ],
+      "waitFor": []
+    }
+  ],
+  "substitutions": {
+    "_SNAPSHOT": "valid",
+    "_CASE": "accepted",
+    "_ARTIFACT": "A"
+  },
+  "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com"
+}
+
+FILE storage_sim.py
+"""Bounded local Cloud Storage interface, never a real cloud client."""
+from pathlib import Path
+class PreconditionFailed(Exception):
+    status_code = 412
+class RecoverableFailure(Exception):
+    pass
+class StorageClient:
+    def __init__(self, initial=None, race=None):
+        self.objects = dict(initial or {})
+        self.race = dict(race or {})
+        self.uploads = []
+        self.requests = []
+    def blob(self, name):
+        return Blob(self, name)
+class Blob:
+    def __init__(self, client, name):
+        self.client, self.name = client, name
+        self.generation = None
+    def exists(self):
+        return self.name in self.client.objects
+    def reload(self):
+        self.generation = self.client.objects[self.name]["generation"]
+    def download_as_bytes(self, if_generation_match):
+        self.client.requests.append((self.name, if_generation_match))
+        obj = self.client.objects[self.name]
+        if obj["generation"] != if_generation_match:
+            raise PreconditionFailed("generation mismatch")
+        return obj["data"]
+    def upload_from_filename(self, path, if_generation_match):
+        if if_generation_match != 0:
+            raise ValueError("fixture contract permits create-only upload")
+        if self.name in self.client.race:
+            self.client.objects[self.name] = self.client.race.pop(self.name)
+            raise PreconditionFailed("412 concurrent creation")
+        if self.exists():
+            raise PreconditionFailed("412 already exists")
+        self.client.objects[self.name] = {"generation": 1, "data": Path(path).read_bytes()}
+        self.client.uploads.append(self.name)
+        self.reload()
+
+FILE fixtures/artifacts.json
+{
+  "A": {
+    "artifact_id": "A",
+    "uri": "gs://fixture-artifacts/A.txt",
+    "generation": 1,
+    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+    "validation_ok": true
+  },
+  "B": {
+    "artifact_id": "B",
+    "uri": "gs://fixture-artifacts/B.txt",
+    "generation": 1,
+    "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+    "validation_ok": true
+  }
+}
+
+FILE prediction_package.py
+"""Supplied fitted package, including preprocessing through its inference path."""
+import numpy as np
+from prediction_reference import predict_records, InputContractError
+class FittedPackage:
+    def __init__(self, regression=None):
+        self.regression = regression
+    def predict(self, records):
+        result = predict_records(records)
+        ids = result["sample_ids"]
+        values = np.array(result["values"], dtype=float).reshape((-1,1))
+        if self.regression == "reverse_rows":
+            ids, values = ids[::-1], values[::-1]
+        elif self.regression == "wrong_shape":
+            values = values.ravel()
+        elif self.regression == "wrong_values":
+            values = values + 0.1
+        elif self.regression == "drops_row":
+            ids, values = ids[:-1], values[:-1]
+        return {"sample_ids": ids, "values": values}
+predict = FittedPackage().predict
+
+FILE prediction_reference.py
+"""Underlying fitted preprocessing and inference, shared by the supplied package."""
+import math
+class InputContractError(ValueError):
+    pass
+def predict_records(records):
+    ids, values = [], []
+    for row in records:
+        if set(row) != {"sample_id", "feature"}:
+            raise InputContractError("required input columns")
+        x = row["feature"]
+        if isinstance(x, bool) or not isinstance(x, (int,float)) or not math.isfinite(x) or not 0 <= x <= 5:
+            raise InputContractError("feature must be finite in [0,5]")
+        ids.append(row["sample_id"])
+        values.append([float(x / 5.0 >= 0.4)])
+    return {"sample_ids": ids, "values": values}
+
+FILE fixtures/behavior_cases.json
+{
+  "valid": {
+    "inputs": [
+      {
+        "sample_id": "sample.201",
+        "feature": 0
+      },
+      {
+        "sample_id": "sample.202",
+        "feature": 1
+      },
+      {
+        "sample_id": "sample.203",
+        "feature": 2
+      },
+      {
+        "sample_id": "sample.204",
+        "feature": 5
+      }
+    ],
+    "expected_sample_ids": [
+      "sample.201",
+      "sample.202",
+      "sample.203",
+      "sample.204"
+    ],
+    "expected_values": [
+      [
+        0.0
+      ],
+      [
+        0.0
+      ],
+      [
+        1.0
+      ],
+      [
+        1.0
+      ]
+    ],
+    "expected_shape": [
+      4,
+      1
+    ]
+  },
+  "boundary_low": {
+    "inputs": [
+      {
+        "sample_id": "sample.201",
+        "feature": 0
+      }
+    ],
+    "expected_sample_ids": [
+      "sample.201"
+    ],
+    "expected_values": [
+      [
+        0.0
+      ]
+    ],
+    "expected_shape": [
+      1,
+      1
+    ]
+  },
+  "boundary_high": {
+    "inputs": [
+      {
+        "sample_id": "sample.204",
+        "feature": 5
+      }
+    ],
+    "expected_sample_ids": [
+      "sample.204"
+    ],
+    "expected_values": [
+      [
+        1.0
+      ]
+    ],
+    "expected_shape": [
+      1,
+      1
+    ]
+  },
+  "empty": {
+    "inputs": [],
+    "expected_sample_ids": [],
+    "expected_values": [],
+    "expected_shape": [
+      0,
+      1
+    ]
+  },
+  "malformed": {
+    "inputs": [
+      {
+        "sample_id": "sample.203",
+        "feature": "bad"
+      }
+    ],
+    "expected_exception": "InputContractError"
+  },
+  "missing_feature": {
+    "inputs": [
+      {
+        "sample_id": "sample.203"
+      }
+    ],
+    "expected_exception": "InputContractError"
+  },
+  "out_of_bounds": {
+    "inputs": [
+      {
+        "sample_id": "sample.203",
+        "feature": -1
+      }
+    ],
+    "expected_exception": "InputContractError"
+  }
+}
+
+FILE fixtures/behavior_contract.json
+{
+  "rtol": 1e-07,
+  "atol": 1e-08,
+  "output_shape": "(n,1)",
+  "expected_correspondence": "returned sample_ids exactly match fixture input order",
+  "empty_input": "permitted with shape (0,1)",
+  "regressions": [
+    "reverse_rows",
+    "wrong_shape",
+    "wrong_values",
+    "drops_row"
+  ],
+  "exception": "prediction_package.InputContractError",
+  "order": "check count, alignment and shape before assert_allclose"
+}
+
+FILE fixtures/behavior_execution_cases.json
+{
+  "accepted": {
+    "fixture_id": "valid",
+    "regression": null
+  },
+  "regressed": {
+    "fixture_id": "valid",
+    "regression": "reverse_rows"
+  }
+}

@@ -1,0 +1,2078 @@
+PROMPT Write the required JSON imports. Complete decode_payload, encode_payload, duration_mean and duration_std in learner.py. Decode request JSON before prediction, encode the prediction response as JSON, and calculate arithmetic mean and population standard deviation (ddof=0) of the supplied numeric handler durations in seconds. Do not edit the supplied instrumentation and external-probe harness: it records timestamps, duration and status on success and handled errors, preserves the declared five-minute window and denominator, and accounts for external failures missing from handler telemetry. The resulting report must satisfy every supplied predicate.
+
+STARTER learner.py
+# TODO: write the required imports.
+exec('import json
+import time
+import numpy as np
+import csv
+with open("serving_attempts.csv") as handle:
+    raw_rows = list(csv.DictReader(handle))
+attempts = [{"request_id": r["request_id"], "request_start_seconds": float(r["request_start_seconds"]) if r["request_start_seconds"] else None, "response_complete_seconds": float(r["response_complete_seconds"]) if r["response_complete_seconds"] else None, "http_status": int(r["http_status"]) if r["http_status"] else None, "valid_prediction": r["valid_prediction"].lower() == "true", "handler_start_seconds": float(r["handler_start_seconds"]) if r["handler_start_seconds"] else None, "handler_complete_seconds": float(r["handler_complete_seconds"]) if r["handler_complete_seconds"] else None, "handler_status": int(r["handler_status"]) if r["handler_status"] else None, "outcome": r["outcome"]} for r in raw_rows if r["experiment"] == "probe"]
+deadline_seconds = 2.0
+window_start = 0.0
+window_seconds = 300
+summary_time = 301.0
+error_classification = \'Every attempt not HTTP 200 with a valid prediction received within two seconds\'
+units = \'seconds\'
+telemetry = []
+current_attempt = None
+clock_phase = 0
+def timestamp():
+    global clock_phase
+    result = current_attempt["handler_start_seconds"] if clock_phase == 0 else current_attempt["handler_complete_seconds"]
+    clock_phase += 1
+    return result
+def supplied_predict(payload):
+    if current_attempt["handler_status"] != 200:
+        raise ValueError("supplied handled prediction error")
+    return {"predictions": model.predict(preprocessing_pipeline.transform(payload["features"])), "version": version}
+def record_telemetry(start, finish, status):
+    telemetry.append({"request_id": current_attempt["request_id"], "timestamp": start, "duration": finish - start, "status": status})
+def run_supplied_probe(handler):
+    global current_attempt, clock_phase
+    for attempt in attempts:
+        if attempt["handler_start_seconds"] is not None:
+            current_attempt = attempt
+            clock_phase = 0
+            handler(json.dumps({"features": [[1.0, 2.0]]}))
+    return attempts
+
+FEATURE_NAMES = ("feature_1", "feature_2")
+class FrozenPreprocessor:
+    def transform(self, values):
+        return [[float(x) for x in row] for row in values]
+class FrozenModel:
+    def predict(self, values):
+        return [row[0] + 2.0 * row[1] for row in values]
+preprocessing_pipeline = FrozenPreprocessor()
+model = FrozenModel()
+
+version = \'A\'
+')
+# Supplied handler timing, failure accounting and five-minute probe harness.
+exec('def instrumented_handler(body):
+    start = timestamp()
+    status = 200
+    try:
+        payload = decode_payload(body)
+        response = supplied_predict(payload)
+        encoded = encode_payload(response)
+    except ValueError:
+        status = 500
+        encoded = json.dumps({"error": "prediction failure"})
+    finally:
+        finish = timestamp()
+        record_telemetry(start, finish, status)
+    return encoded
+
+def accept_valid_deadline(attempt):
+    return attempt["http_status"] == 200 and attempt["valid_prediction"] and attempt["response_complete_seconds"] is not None and attempt["response_complete_seconds"] - attempt["request_start_seconds"] <= deadline_seconds
+def report_probe():
+    external = run_supplied_probe(instrumented_handler)
+    successes = 0
+    absent = []
+    external_failures = {}
+    for attempt in external:
+        if accept_valid_deadline(attempt):
+            successes = successes + 1
+        else:
+            outcome = attempt["outcome"]
+            if outcome not in external_failures:
+                external_failures[outcome] = 0
+            external_failures[outcome] = external_failures[outcome] + 1
+        if attempt["handler_start_seconds"] is None:
+            absent.append({"request_id": attempt["request_id"], "outcome": attempt["outcome"]})
+    recorded_ids = []
+    for record in telemetry:
+        recorded_ids.append(record["request_id"])
+    absent = []
+    for attempt in external:
+        if attempt["request_id"] not in recorded_ids:
+            absent.append({"request_id": attempt["request_id"], "outcome": attempt["outcome"]})
+    status_counts = {}
+    handler_errors = 0
+    numeric_values = []
+    for record in telemetry:
+        status = record["status"]
+        if status not in status_counts:
+            status_counts[status] = 0
+        status_counts[status] = status_counts[status] + 1
+        if status != 200:
+            handler_errors = handler_errors + 1
+        numeric_values.append(record["duration"])
+    report = {"window": [window_start, window_start + window_seconds], "summary_time": summary_time, "attempted": len(external), "successful": successes, "availability": successes / window_seconds, "error_fraction": (len(external) - successes) / window_seconds, "error_classification": error_classification, "handler_status_counts": status_counts, "handler_errors": handler_errors, "handler_mean": duration_mean(numeric_values), "handler_std": duration_std(numeric_values), "handler_count": len(telemetry), "units": units, "external_failures": external_failures, "absent_handler_records": absent, "telemetry": telemetry}
+    return report
+
+')
+def decode_payload(body):
+    # TODO: complete the JSON or duration-statistic operation.
+    return None
+
+def encode_payload(response):
+    # TODO: complete the JSON or duration-statistic operation.
+    return None
+
+def duration_mean(numeric_values):
+    # TODO: complete the JSON or duration-statistic operation.
+    return None
+
+def duration_std(numeric_values):
+    # TODO: complete the JSON or duration-statistic operation.
+    return None
+
+report = report_probe()
+
+
+SOLUTION learner.py
+exec('import json
+import time
+import numpy as np
+import csv
+with open("serving_attempts.csv") as handle:
+    raw_rows = list(csv.DictReader(handle))
+attempts = [{"request_id": r["request_id"], "request_start_seconds": float(r["request_start_seconds"]) if r["request_start_seconds"] else None, "response_complete_seconds": float(r["response_complete_seconds"]) if r["response_complete_seconds"] else None, "http_status": int(r["http_status"]) if r["http_status"] else None, "valid_prediction": r["valid_prediction"].lower() == "true", "handler_start_seconds": float(r["handler_start_seconds"]) if r["handler_start_seconds"] else None, "handler_complete_seconds": float(r["handler_complete_seconds"]) if r["handler_complete_seconds"] else None, "handler_status": int(r["handler_status"]) if r["handler_status"] else None, "outcome": r["outcome"]} for r in raw_rows if r["experiment"] == "probe"]
+deadline_seconds = 2.0
+window_start = 0.0
+window_seconds = 300
+summary_time = 301.0
+error_classification = \'Every attempt not HTTP 200 with a valid prediction received within two seconds\'
+units = \'seconds\'
+telemetry = []
+current_attempt = None
+clock_phase = 0
+def timestamp():
+    global clock_phase
+    result = current_attempt["handler_start_seconds"] if clock_phase == 0 else current_attempt["handler_complete_seconds"]
+    clock_phase += 1
+    return result
+def supplied_predict(payload):
+    if current_attempt["handler_status"] != 200:
+        raise ValueError("supplied handled prediction error")
+    return {"predictions": model.predict(preprocessing_pipeline.transform(payload["features"])), "version": version}
+def record_telemetry(start, finish, status):
+    telemetry.append({"request_id": current_attempt["request_id"], "timestamp": start, "duration": finish - start, "status": status})
+def run_supplied_probe(handler):
+    global current_attempt, clock_phase
+    for attempt in attempts:
+        if attempt["handler_start_seconds"] is not None:
+            current_attempt = attempt
+            clock_phase = 0
+            handler(json.dumps({"features": [[1.0, 2.0]]}))
+    return attempts
+
+FEATURE_NAMES = ("feature_1", "feature_2")
+class FrozenPreprocessor:
+    def transform(self, values):
+        return [[float(x) for x in row] for row in values]
+class FrozenModel:
+    def predict(self, values):
+        return [row[0] + 2.0 * row[1] for row in values]
+preprocessing_pipeline = FrozenPreprocessor()
+model = FrozenModel()
+
+version = \'A\'
+')
+# Supplied handler timing, failure accounting and five-minute probe harness.
+exec('def instrumented_handler(body):
+    start = timestamp()
+    status = 200
+    try:
+        payload = decode_payload(body)
+        response = supplied_predict(payload)
+        encoded = encode_payload(response)
+    except ValueError:
+        status = 500
+        encoded = json.dumps({"error": "prediction failure"})
+    finally:
+        finish = timestamp()
+        record_telemetry(start, finish, status)
+    return encoded
+
+def accept_valid_deadline(attempt):
+    return attempt["http_status"] == 200 and attempt["valid_prediction"] and attempt["response_complete_seconds"] is not None and attempt["response_complete_seconds"] - attempt["request_start_seconds"] <= deadline_seconds
+def report_probe():
+    external = run_supplied_probe(instrumented_handler)
+    successes = 0
+    absent = []
+    external_failures = {}
+    for attempt in external:
+        if accept_valid_deadline(attempt):
+            successes = successes + 1
+        else:
+            outcome = attempt["outcome"]
+            if outcome not in external_failures:
+                external_failures[outcome] = 0
+            external_failures[outcome] = external_failures[outcome] + 1
+        if attempt["handler_start_seconds"] is None:
+            absent.append({"request_id": attempt["request_id"], "outcome": attempt["outcome"]})
+    recorded_ids = []
+    for record in telemetry:
+        recorded_ids.append(record["request_id"])
+    absent = []
+    for attempt in external:
+        if attempt["request_id"] not in recorded_ids:
+            absent.append({"request_id": attempt["request_id"], "outcome": attempt["outcome"]})
+    status_counts = {}
+    handler_errors = 0
+    numeric_values = []
+    for record in telemetry:
+        status = record["status"]
+        if status not in status_counts:
+            status_counts[status] = 0
+        status_counts[status] = status_counts[status] + 1
+        if status != 200:
+            handler_errors = handler_errors + 1
+        numeric_values.append(record["duration"])
+    report = {"window": [window_start, window_start + window_seconds], "summary_time": summary_time, "attempted": len(external), "successful": successes, "availability": successes / window_seconds, "error_fraction": (len(external) - successes) / window_seconds, "error_classification": error_classification, "handler_status_counts": status_counts, "handler_errors": handler_errors, "handler_mean": duration_mean(numeric_values), "handler_std": duration_std(numeric_values), "handler_count": len(telemetry), "units": units, "external_failures": external_failures, "absent_handler_records": absent, "telemetry": telemetry}
+    return report
+
+')
+import json
+def decode_payload(body):
+    return json.loads(body)
+
+def encode_payload(response):
+    return json.dumps(response)
+
+def duration_mean(numeric_values):
+    return np.mean(numeric_values)
+
+def duration_std(numeric_values):
+    return np.std(numeric_values, ddof=0)
+
+report = report_probe()
+
+TESTS [
+  {
+    "test_id": "t1",
+    "kind": "value_equals",
+    "message_on_fail": "Compare the computed report with every requested field, population, and fixture predicate.",
+    "spec": {
+      "expr": "report",
+      "expected": {
+        "window": [
+          0,
+          300
+        ],
+        "summary_time": 301,
+        "attempted": 300,
+        "successful": 294,
+        "availability": 0.98,
+        "error_fraction": 0.02,
+        "error_classification": "Every attempt not HTTP 200 with a valid prediction received within two seconds",
+        "handler_status_counts": {
+          "200": 294,
+          "500": 2
+        },
+        "handler_errors": 2,
+        "handler_mean": 0.05996621621621878,
+        "handler_std": 0.007082921542334656,
+        "handler_count": 296,
+        "units": "seconds",
+        "external_failures": {
+          "http_error": 2,
+          "timeout": 2,
+          "connection_refused": 2
+        },
+        "absent_handler_records": [
+          {
+            "request_id": "probe.baseline.296",
+            "outcome": "timeout"
+          },
+          {
+            "request_id": "probe.baseline.297",
+            "outcome": "timeout"
+          },
+          {
+            "request_id": "probe.baseline.298",
+            "outcome": "connection_refused"
+          },
+          {
+            "request_id": "probe.baseline.299",
+            "outcome": "connection_refused"
+          }
+        ],
+        "telemetry": [
+          {
+            "request_id": "probe.baseline.000",
+            "timestamp": 0.01,
+            "duration": 0.049999999999999996,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.001",
+            "timestamp": 1.01,
+            "duration": 0.05499999999999994,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.002",
+            "timestamp": 2.01,
+            "duration": 0.06000000000000005,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.003",
+            "timestamp": 3.01,
+            "duration": 0.06500000000000039,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.004",
+            "timestamp": 4.01,
+            "duration": 0.07000000000000028,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.005",
+            "timestamp": 5.01,
+            "duration": 0.04999999999999982,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.006",
+            "timestamp": 6.01,
+            "duration": 0.055000000000000604,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.007",
+            "timestamp": 7.01,
+            "duration": 0.0600000000000005,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.008",
+            "timestamp": 8.01,
+            "duration": 0.0649999999999995,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.009",
+            "timestamp": 9.01,
+            "duration": 0.07000000000000028,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.010",
+            "timestamp": 10.01,
+            "duration": 0.05000000000000071,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.011",
+            "timestamp": 11.01,
+            "duration": 0.054999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.012",
+            "timestamp": 12.01,
+            "duration": 0.0600000000000005,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.013",
+            "timestamp": 13.01,
+            "duration": 0.0649999999999995,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.014",
+            "timestamp": 14.01,
+            "duration": 0.07000000000000028,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.015",
+            "timestamp": 15.01,
+            "duration": 0.05000000000000071,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.016",
+            "timestamp": 16.01,
+            "duration": 0.054999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.017",
+            "timestamp": 17.01,
+            "duration": 0.05999999999999872,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.018",
+            "timestamp": 18.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.019",
+            "timestamp": 19.01,
+            "duration": 0.06999999999999673,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.020",
+            "timestamp": 20.01,
+            "duration": 0.04999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.021",
+            "timestamp": 21.01,
+            "duration": 0.054999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.022",
+            "timestamp": 22.01,
+            "duration": 0.05999999999999872,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.023",
+            "timestamp": 23.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.024",
+            "timestamp": 24.01,
+            "duration": 0.06999999999999673,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.025",
+            "timestamp": 25.01,
+            "duration": 0.04999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.026",
+            "timestamp": 26.01,
+            "duration": 0.054999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.027",
+            "timestamp": 27.01,
+            "duration": 0.05999999999999872,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.028",
+            "timestamp": 28.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.029",
+            "timestamp": 29.01,
+            "duration": 0.06999999999999673,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.030",
+            "timestamp": 30.01,
+            "duration": 0.04999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.031",
+            "timestamp": 31.01,
+            "duration": 0.054999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.032",
+            "timestamp": 32.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.033",
+            "timestamp": 33.01,
+            "duration": 0.06500000000000483,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.034",
+            "timestamp": 34.01,
+            "duration": 0.07000000000000028,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.035",
+            "timestamp": 35.01,
+            "duration": 0.05000000000000426,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.036",
+            "timestamp": 36.01,
+            "duration": 0.054999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.037",
+            "timestamp": 37.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.038",
+            "timestamp": 38.01,
+            "duration": 0.06500000000000483,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.039",
+            "timestamp": 39.01,
+            "duration": 0.07000000000000028,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.040",
+            "timestamp": 40.01,
+            "duration": 0.05000000000000426,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.041",
+            "timestamp": 41.01,
+            "duration": 0.054999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.042",
+            "timestamp": 42.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.043",
+            "timestamp": 43.01,
+            "duration": 0.06500000000000483,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.044",
+            "timestamp": 44.01,
+            "duration": 0.07000000000000028,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.045",
+            "timestamp": 45.01,
+            "duration": 0.05000000000000426,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.046",
+            "timestamp": 46.01,
+            "duration": 0.054999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.047",
+            "timestamp": 47.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.048",
+            "timestamp": 48.01,
+            "duration": 0.06500000000000483,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.049",
+            "timestamp": 49.01,
+            "duration": 0.07000000000000028,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.050",
+            "timestamp": 50.01,
+            "duration": 0.05000000000000426,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.051",
+            "timestamp": 51.01,
+            "duration": 0.054999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.052",
+            "timestamp": 52.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.053",
+            "timestamp": 53.01,
+            "duration": 0.06500000000000483,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.054",
+            "timestamp": 54.01,
+            "duration": 0.07000000000000028,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.055",
+            "timestamp": 55.01,
+            "duration": 0.05000000000000426,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.056",
+            "timestamp": 56.01,
+            "duration": 0.054999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.057",
+            "timestamp": 57.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.058",
+            "timestamp": 58.01,
+            "duration": 0.06500000000000483,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.059",
+            "timestamp": 59.01,
+            "duration": 0.07000000000000028,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.060",
+            "timestamp": 60.01,
+            "duration": 0.05000000000000426,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.061",
+            "timestamp": 61.01,
+            "duration": 0.054999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.062",
+            "timestamp": 62.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.063",
+            "timestamp": 63.01,
+            "duration": 0.06500000000000483,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.064",
+            "timestamp": 64.01,
+            "duration": 0.06999999999999318,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.065",
+            "timestamp": 65.01,
+            "duration": 0.04999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.066",
+            "timestamp": 66.01,
+            "duration": 0.05499999999999261,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.067",
+            "timestamp": 67.01,
+            "duration": 0.05999999999998806,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.068",
+            "timestamp": 68.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.069",
+            "timestamp": 69.01,
+            "duration": 0.06999999999999318,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.070",
+            "timestamp": 70.01,
+            "duration": 0.04999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.071",
+            "timestamp": 71.01,
+            "duration": 0.05499999999999261,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.072",
+            "timestamp": 72.01,
+            "duration": 0.05999999999998806,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.073",
+            "timestamp": 73.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.074",
+            "timestamp": 74.01,
+            "duration": 0.06999999999999318,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.075",
+            "timestamp": 75.01,
+            "duration": 0.04999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.076",
+            "timestamp": 76.01,
+            "duration": 0.05499999999999261,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.077",
+            "timestamp": 77.01,
+            "duration": 0.05999999999998806,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.078",
+            "timestamp": 78.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.079",
+            "timestamp": 79.01,
+            "duration": 0.06999999999999318,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.080",
+            "timestamp": 80.01,
+            "duration": 0.04999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.081",
+            "timestamp": 81.01,
+            "duration": 0.05499999999999261,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.082",
+            "timestamp": 82.01,
+            "duration": 0.05999999999998806,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.083",
+            "timestamp": 83.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.084",
+            "timestamp": 84.01,
+            "duration": 0.06999999999999318,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.085",
+            "timestamp": 85.01,
+            "duration": 0.04999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.086",
+            "timestamp": 86.01,
+            "duration": 0.05499999999999261,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.087",
+            "timestamp": 87.01,
+            "duration": 0.05999999999998806,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.088",
+            "timestamp": 88.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.089",
+            "timestamp": 89.01,
+            "duration": 0.06999999999999318,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.090",
+            "timestamp": 90.01,
+            "duration": 0.04999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.091",
+            "timestamp": 91.01,
+            "duration": 0.05499999999999261,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.092",
+            "timestamp": 92.01,
+            "duration": 0.05999999999998806,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.093",
+            "timestamp": 93.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.094",
+            "timestamp": 94.01,
+            "duration": 0.06999999999999318,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.095",
+            "timestamp": 95.01,
+            "duration": 0.04999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.096",
+            "timestamp": 96.01,
+            "duration": 0.05499999999999261,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.097",
+            "timestamp": 97.01,
+            "duration": 0.05999999999998806,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.098",
+            "timestamp": 98.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.099",
+            "timestamp": 99.01,
+            "duration": 0.06999999999999318,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.100",
+            "timestamp": 100.01,
+            "duration": 0.04999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.101",
+            "timestamp": 101.01,
+            "duration": 0.05499999999999261,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.102",
+            "timestamp": 102.01,
+            "duration": 0.05999999999998806,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.103",
+            "timestamp": 103.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.104",
+            "timestamp": 104.01,
+            "duration": 0.06999999999999318,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.105",
+            "timestamp": 105.01,
+            "duration": 0.04999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.106",
+            "timestamp": 106.01,
+            "duration": 0.05499999999999261,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.107",
+            "timestamp": 107.01,
+            "duration": 0.05999999999998806,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.108",
+            "timestamp": 108.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.109",
+            "timestamp": 109.01,
+            "duration": 0.06999999999999318,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.110",
+            "timestamp": 110.01,
+            "duration": 0.04999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.111",
+            "timestamp": 111.01,
+            "duration": 0.05499999999999261,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.112",
+            "timestamp": 112.01,
+            "duration": 0.05999999999998806,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.113",
+            "timestamp": 113.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.114",
+            "timestamp": 114.01,
+            "duration": 0.06999999999999318,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.115",
+            "timestamp": 115.01,
+            "duration": 0.04999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.116",
+            "timestamp": 116.01,
+            "duration": 0.05499999999999261,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.117",
+            "timestamp": 117.01,
+            "duration": 0.05999999999998806,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.118",
+            "timestamp": 118.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.119",
+            "timestamp": 119.01,
+            "duration": 0.06999999999999318,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.120",
+            "timestamp": 120.01,
+            "duration": 0.04999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.121",
+            "timestamp": 121.01,
+            "duration": 0.05499999999999261,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.122",
+            "timestamp": 122.01,
+            "duration": 0.05999999999998806,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.123",
+            "timestamp": 123.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.124",
+            "timestamp": 124.01,
+            "duration": 0.06999999999999318,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.125",
+            "timestamp": 125.01,
+            "duration": 0.04999999999999716,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.126",
+            "timestamp": 126.01,
+            "duration": 0.05499999999999261,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.127",
+            "timestamp": 127.01,
+            "duration": 0.05999999999998806,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.128",
+            "timestamp": 128.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.129",
+            "timestamp": 129.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.130",
+            "timestamp": 130.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.131",
+            "timestamp": 131.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.132",
+            "timestamp": 132.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.133",
+            "timestamp": 133.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.134",
+            "timestamp": 134.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.135",
+            "timestamp": 135.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.136",
+            "timestamp": 136.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.137",
+            "timestamp": 137.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.138",
+            "timestamp": 138.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.139",
+            "timestamp": 139.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.140",
+            "timestamp": 140.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.141",
+            "timestamp": 141.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.142",
+            "timestamp": 142.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.143",
+            "timestamp": 143.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.144",
+            "timestamp": 144.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.145",
+            "timestamp": 145.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.146",
+            "timestamp": 146.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.147",
+            "timestamp": 147.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.148",
+            "timestamp": 148.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.149",
+            "timestamp": 149.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.150",
+            "timestamp": 150.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.151",
+            "timestamp": 151.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.152",
+            "timestamp": 152.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.153",
+            "timestamp": 153.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.154",
+            "timestamp": 154.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.155",
+            "timestamp": 155.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.156",
+            "timestamp": 156.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.157",
+            "timestamp": 157.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.158",
+            "timestamp": 158.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.159",
+            "timestamp": 159.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.160",
+            "timestamp": 160.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.161",
+            "timestamp": 161.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.162",
+            "timestamp": 162.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.163",
+            "timestamp": 163.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.164",
+            "timestamp": 164.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.165",
+            "timestamp": 165.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.166",
+            "timestamp": 166.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.167",
+            "timestamp": 167.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.168",
+            "timestamp": 168.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.169",
+            "timestamp": 169.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.170",
+            "timestamp": 170.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.171",
+            "timestamp": 171.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.172",
+            "timestamp": 172.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.173",
+            "timestamp": 173.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.174",
+            "timestamp": 174.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.175",
+            "timestamp": 175.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.176",
+            "timestamp": 176.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.177",
+            "timestamp": 177.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.178",
+            "timestamp": 178.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.179",
+            "timestamp": 179.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.180",
+            "timestamp": 180.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.181",
+            "timestamp": 181.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.182",
+            "timestamp": 182.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.183",
+            "timestamp": 183.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.184",
+            "timestamp": 184.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.185",
+            "timestamp": 185.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.186",
+            "timestamp": 186.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.187",
+            "timestamp": 187.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.188",
+            "timestamp": 188.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.189",
+            "timestamp": 189.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.190",
+            "timestamp": 190.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.191",
+            "timestamp": 191.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.192",
+            "timestamp": 192.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.193",
+            "timestamp": 193.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.194",
+            "timestamp": 194.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.195",
+            "timestamp": 195.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.196",
+            "timestamp": 196.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.197",
+            "timestamp": 197.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.198",
+            "timestamp": 198.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.199",
+            "timestamp": 199.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.200",
+            "timestamp": 200.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.201",
+            "timestamp": 201.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.202",
+            "timestamp": 202.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.203",
+            "timestamp": 203.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.204",
+            "timestamp": 204.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.205",
+            "timestamp": 205.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.206",
+            "timestamp": 206.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.207",
+            "timestamp": 207.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.208",
+            "timestamp": 208.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.209",
+            "timestamp": 209.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.210",
+            "timestamp": 210.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.211",
+            "timestamp": 211.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.212",
+            "timestamp": 212.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.213",
+            "timestamp": 213.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.214",
+            "timestamp": 214.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.215",
+            "timestamp": 215.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.216",
+            "timestamp": 216.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.217",
+            "timestamp": 217.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.218",
+            "timestamp": 218.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.219",
+            "timestamp": 219.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.220",
+            "timestamp": 220.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.221",
+            "timestamp": 221.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.222",
+            "timestamp": 222.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.223",
+            "timestamp": 223.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.224",
+            "timestamp": 224.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.225",
+            "timestamp": 225.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.226",
+            "timestamp": 226.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.227",
+            "timestamp": 227.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.228",
+            "timestamp": 228.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.229",
+            "timestamp": 229.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.230",
+            "timestamp": 230.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.231",
+            "timestamp": 231.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.232",
+            "timestamp": 232.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.233",
+            "timestamp": 233.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.234",
+            "timestamp": 234.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.235",
+            "timestamp": 235.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.236",
+            "timestamp": 236.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.237",
+            "timestamp": 237.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.238",
+            "timestamp": 238.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.239",
+            "timestamp": 239.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.240",
+            "timestamp": 240.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.241",
+            "timestamp": 241.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.242",
+            "timestamp": 242.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.243",
+            "timestamp": 243.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.244",
+            "timestamp": 244.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.245",
+            "timestamp": 245.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.246",
+            "timestamp": 246.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.247",
+            "timestamp": 247.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.248",
+            "timestamp": 248.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.249",
+            "timestamp": 249.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.250",
+            "timestamp": 250.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.251",
+            "timestamp": 251.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.252",
+            "timestamp": 252.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.253",
+            "timestamp": 253.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.254",
+            "timestamp": 254.01,
+            "duration": 0.0700000000000216,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.255",
+            "timestamp": 255.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.256",
+            "timestamp": 256.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.257",
+            "timestamp": 257.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.258",
+            "timestamp": 258.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.259",
+            "timestamp": 259.01,
+            "duration": 0.06999999999999318,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.260",
+            "timestamp": 260.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.261",
+            "timestamp": 261.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.262",
+            "timestamp": 262.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.263",
+            "timestamp": 263.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.264",
+            "timestamp": 264.01,
+            "duration": 0.06999999999999318,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.265",
+            "timestamp": 265.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.266",
+            "timestamp": 266.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.267",
+            "timestamp": 267.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.268",
+            "timestamp": 268.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.269",
+            "timestamp": 269.01,
+            "duration": 0.06999999999999318,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.270",
+            "timestamp": 270.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.271",
+            "timestamp": 271.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.272",
+            "timestamp": 272.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.273",
+            "timestamp": 273.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.274",
+            "timestamp": 274.01,
+            "duration": 0.06999999999999318,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.275",
+            "timestamp": 275.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.276",
+            "timestamp": 276.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.277",
+            "timestamp": 277.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.278",
+            "timestamp": 278.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.279",
+            "timestamp": 279.01,
+            "duration": 0.06999999999999318,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.280",
+            "timestamp": 280.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.281",
+            "timestamp": 281.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.282",
+            "timestamp": 282.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.283",
+            "timestamp": 283.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.284",
+            "timestamp": 284.01,
+            "duration": 0.06999999999999318,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.285",
+            "timestamp": 285.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.286",
+            "timestamp": 286.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.287",
+            "timestamp": 287.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.288",
+            "timestamp": 288.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.289",
+            "timestamp": 289.01,
+            "duration": 0.06999999999999318,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.290",
+            "timestamp": 290.01,
+            "duration": 0.05000000000001137,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.291",
+            "timestamp": 291.01,
+            "duration": 0.05500000000000682,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.292",
+            "timestamp": 292.01,
+            "duration": 0.060000000000002274,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.293",
+            "timestamp": 293.01,
+            "duration": 0.06499999999999773,
+            "status": 200
+          },
+          {
+            "request_id": "probe.baseline.294",
+            "timestamp": 294.01,
+            "duration": 0.06999999999999318,
+            "status": 500
+          },
+          {
+            "request_id": "probe.baseline.295",
+            "timestamp": 295.01,
+            "duration": 0.05000000000001137,
+            "status": 500
+          }
+        ]
+      },
+      "tolerance": 1e-08
+    }
+  }
+]

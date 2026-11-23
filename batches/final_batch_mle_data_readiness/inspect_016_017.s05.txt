@@ -1,0 +1,226 @@
+PROMPT In the supplied workflow, replace only `learner_operation = None` with a binding of `learner_operation` to `supplied_operation` (without calling it). The helper implements `supplied_select(training, FIXTURES['permitted_features'])`. Leave the inputs, helper and verification scaffolding unchanged. This is a scaffolded operation-binding task; the remaining implementation is supplied. The completed workflow must meet the following output contract: Implement workflow(training, held_out) with the supplied trace interfaces. Select only the permitted decision-time fields for both partitions, fit preprocessing only on selected training rows, transform held-out without refitting and pass only selected fields to the predictor. Use the same supplied boundary assertions on the corrected trace and the leaked workflow; assert the former passes and the latter fails. Return {fit_rows, transformed, predictions}; transformed is the selected held-out rows.
+SOLUTION
+# Supplied inputs and operation; do not edit.
+FIXTURES = {'training': [{'order_key': '0012', 'distance': 2, 'zone': 'north', 'eventual_arrival': '2025-01-01T09:45:00'}, {'order_key': '0013', 'distance': 4, 'zone': 'south', 'eventual_arrival': '2025-01-01T10:20:00'}, {'order_key': '0014', 'distance': 6, 'zone': 'north', 'eventual_arrival': '2025-01-01T11:31:00'}], 'held_out': [{'order_key': '0015', 'distance': 0, 'zone': 'south', 'eventual_arrival': '2025-01-01T12:30:00'}, {'order_key': '0016', 'distance': 100, 'zone': 'north', 'eventual_arrival': '2025-01-01T13:50:00'}, {'order_key': '0017', 'distance': 4, 'zone': 'south', 'eventual_arrival': '2025-01-01T14:10:00'}], 'permitted_features': ['distance', 'zone'], 'future_field': 'eventual_arrival', 'prediction_time': 'acceptance', 'failure_fit_rows': [{'order_key': '0012', 'distance': 2, 'zone': 'north', 'eventual_arrival': '2025-01-01T09:45:00'}, {'order_key': '0013', 'distance': 4, 'zone': 'south', 'eventual_arrival': '2025-01-01T10:20:00'}, {'order_key': '0014', 'distance': 6, 'zone': 'north', 'eventual_arrival': '2025-01-01T11:31:00'}, {'order_key': '0015', 'distance': 0, 'zone': 'south', 'eventual_arrival': '2025-01-01T12:30:00'}, {'order_key': '0016', 'distance': 100, 'zone': 'north', 'eventual_arrival': '2025-01-01T13:50:00'}, {'order_key': '0017', 'distance': 4, 'zone': 'south', 'eventual_arrival': '2025-01-01T14:10:00'}], 'failure_features': ['distance', 'zone', 'eventual_arrival']}
+if True:
+
+    def supplied_operation(FIXTURES, supplied_select, training):
+        return supplied_select(training, FIXTURES['permitted_features'])
+
+learner_operation = supplied_operation
+
+# Supplied workflow and verification scaffolding; do not edit.
+if True:
+
+    class TracePreprocessor:
+
+        def __init__(self):
+            self.fit_rows = []
+            self.transform_rows = []
+
+        def fit(self, rows):
+            self.fit_rows = [dict(r) for r in rows]
+            return self
+
+        def transform(self, rows):
+            self.transform_rows.append([dict(r) for r in rows])
+            return rows
+
+    class TracePredictor:
+
+        def __init__(self):
+            self.input_rows = []
+
+        def predict(self, rows):
+            self.input_rows.append([dict(r) for r in rows])
+            return [0 for _ in rows]
+    if True:
+
+        def supplied_select(rows, features):
+            return [{key: row[key] for key in features} for row in rows]
+    if True:
+
+        def supplied_boundary_assertions(preprocessor, predictor, training, held_out):
+            assert preprocessor.fit_rows == training
+            assert preprocessor.transform_rows[-1] == held_out
+            for row in predictor.input_rows[-1]:
+                assert set(row) == set(FIXTURES['permitted_features'])
+            return True
+    if True:
+
+        def supplied_leaked_fails(training, held_out):
+            prep = TracePreprocessor()
+            pred = TracePredictor()
+            prep.fit(training + held_out)
+            pred.predict(prep.transform(held_out))
+            try:
+                supplied_boundary_assertions(prep, pred, learner_operation(FIXTURES, supplied_select, training), supplied_select(held_out, FIXTURES['permitted_features']))
+            except AssertionError:
+                return True
+            return False
+
+    def workflow(training, held_out):
+        train_inputs = supplied_select(training, FIXTURES['permitted_features'])
+        held_inputs = supplied_select(held_out, FIXTURES['permitted_features'])
+        prep = TracePreprocessor()
+        predictor = TracePredictor()
+        prep.fit(train_inputs)
+        transformed = prep.transform(held_inputs)
+        predictions = predictor.predict(transformed)
+        assert supplied_boundary_assertions(prep, predictor, train_inputs, held_inputs)
+        assert supplied_leaked_fails(training, held_out)
+        return {'fit_rows': prep.fit_rows, 'transformed': transformed, 'predictions': predictions}
+
+TESTS
+[
+  {
+    "test_id": "case_1",
+    "kind": "function_call",
+    "spec": {
+      "function": "workflow",
+      "args": [
+        [
+          {
+            "order_key": "0012",
+            "distance": 2,
+            "zone": "north",
+            "eventual_arrival": "2025-01-01T09:45:00"
+          },
+          {
+            "order_key": "0013",
+            "distance": 4,
+            "zone": "south",
+            "eventual_arrival": "2025-01-01T10:20:00"
+          },
+          {
+            "order_key": "0014",
+            "distance": 6,
+            "zone": "north",
+            "eventual_arrival": "2025-01-01T11:31:00"
+          }
+        ],
+        [
+          {
+            "order_key": "0015",
+            "distance": 0,
+            "zone": "south",
+            "eventual_arrival": "2025-01-01T12:30:00"
+          },
+          {
+            "order_key": "0016",
+            "distance": 100,
+            "zone": "north",
+            "eventual_arrival": "2025-01-01T13:50:00"
+          },
+          {
+            "order_key": "0017",
+            "distance": 4,
+            "zone": "south",
+            "eventual_arrival": "2025-01-01T14:10:00"
+          }
+        ]
+      ],
+      "expected": {
+        "fit_rows": [
+          {
+            "distance": 2,
+            "zone": "north"
+          },
+          {
+            "distance": 4,
+            "zone": "south"
+          },
+          {
+            "distance": 6,
+            "zone": "north"
+          }
+        ],
+        "transformed": [
+          {
+            "distance": 0,
+            "zone": "south"
+          },
+          {
+            "distance": 100,
+            "zone": "north"
+          },
+          {
+            "distance": 4,
+            "zone": "south"
+          }
+        ],
+        "predictions": [
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  },
+  {
+    "test_id": "case_2",
+    "kind": "function_call",
+    "spec": {
+      "function": "workflow",
+      "args": [
+        [
+          {
+            "order_key": "0012",
+            "distance": 2,
+            "zone": "north",
+            "eventual_arrival": "2025-01-01T09:45:00"
+          },
+          {
+            "order_key": "0013",
+            "distance": 4,
+            "zone": "south",
+            "eventual_arrival": "2025-01-01T10:20:00"
+          },
+          {
+            "order_key": "0014",
+            "distance": 6,
+            "zone": "north",
+            "eventual_arrival": "2025-01-01T11:31:00"
+          }
+        ],
+        [
+          {
+            "order_key": "0015",
+            "distance": 0,
+            "zone": "south",
+            "eventual_arrival": "2025-01-01T12:30:00"
+          }
+        ]
+      ],
+      "expected": {
+        "fit_rows": [
+          {
+            "distance": 2,
+            "zone": "north"
+          },
+          {
+            "distance": 4,
+            "zone": "south"
+          },
+          {
+            "distance": 6,
+            "zone": "north"
+          }
+        ],
+        "transformed": [
+          {
+            "distance": 0,
+            "zone": "south"
+          }
+        ],
+        "predictions": [
+          0
+        ]
+      }
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  }
+]
+CONSTRAINTS
+{"allowed_syntax": ["import statements for the required fixture and preprocessing dependencies", "def with parameters", "return statements", "variable assignment", "calls to supplied fixture and workflow interfaces", "array or table indexing and column selection", "list and tuple literals", "comparison operators", "boolean operators", "assert predicate statements", "training-only preprocessing fit calls", "training-only preprocessing fit_transform calls", "held-out preprocessing transform calls"], "blocked_syntax": ["new estimator construction or learner-authored estimator training", "GridSearchCV(...)", "RandomizedSearchCV(...)", "mlflow.start_run(...)", "torch.nn.Module subclass definitions", "optimizer.step()", "deployment or prediction-service client construction"]}

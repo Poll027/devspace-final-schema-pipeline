@@ -1,0 +1,975 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "python_fastapi_backend_developer",
+  "tile_id": "tile_042",
+  "toc_location": {
+    "region_id": "region_verification",
+    "terrain_id": "terrain_request_controls"
+  },
+  "title": "Preventing unsafe outbound requests and SSRF",
+  "summary": "",
+  "concept_ids": [
+    "security.safe_outbound_requests"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_python_fastapi_backend_developer",
+    "toc_freeze_hash": "96d245a8da4552263398bda220dd1f88774cc30045abdf029e8d40064881cb7e",
+    "glossary_bundle_hashes": {
+      "security.safe_outbound_requests": "277b59f6a4ba0f9e750ff1454ed3ce6fe548e3ed04368a428e45cd570a8d074b"
+    },
+    "scenario_registry_hash": "29f9d7b7be7d9e0858e82988aea40ba028377717f8de8844e2cbe4d3f079a05b"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core"
+    ],
+    "block_types": [
+      "diagram",
+      "prose",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "code_exercise"
+    ],
+    "runtimes": [
+      "python_asgi"
+    ],
+    "asset_ids": []
+  },
+  "pacing": {
+    "estimated_minutes": 4.3
+  },
+  "steps": [
+    {
+      "step_id": "tile_042.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "security.safe_outbound_requests"
+      ],
+      "title": "Declare the boundary: Preventing unsafe outbound requests and SSRF",
+      "eyebrow": "Explainer",
+      "lineage": {
+        "concept_ids": [
+          "security.safe_outbound_requests"
+        ],
+        "teaching_block_ids": [
+          "security.safe_outbound_requests#tb1",
+          "security.safe_outbound_requests#tb2",
+          "security.safe_outbound_requests#tb3"
+        ],
+        "fact_ids": [
+          "security.safe_outbound_requests#f1",
+          "security.safe_outbound_requests#f2",
+          "security.safe_outbound_requests#f3",
+          "security.safe_outbound_requests#f4"
+        ],
+        "anchors": [
+          "security.safe_outbound_requests#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "For known destinations, map untrusted provider input to an allowed destination instead of accepting an arbitrary outbound URL.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "security.safe_outbound_requests"
+            ],
+            "teaching_block_ids": [
+              "security.safe_outbound_requests#tb1",
+              "security.safe_outbound_requests#tb2"
+            ],
+            "fact_ids": [
+              "security.safe_outbound_requests#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For public-only access, reject private, loopback, link-local and other non-public addresses, including IPv6 equivalents.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "security.safe_outbound_requests"
+            ],
+            "teaching_block_ids": [
+              "security.safe_outbound_requests#tb3"
+            ],
+            "fact_ids": [
+              "security.safe_outbound_requests#f2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Validate the resolved address actually used for the connection. Checking a hostname earlier is insufficient against a DNS rebinding gap.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "security.safe_outbound_requests"
+            ],
+            "teaching_block_ids": [
+              "security.safe_outbound_requests#tb3"
+            ],
+            "fact_ids": [
+              "security.safe_outbound_requests#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Disable automatic redirects or enforce the same destination checks on every redirect target. An allowed starting URL can redirect somewhere forbidden.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "security.safe_outbound_requests"
+            ],
+            "teaching_block_ids": [
+              "security.safe_outbound_requests#tb3"
+            ],
+            "fact_ids": [
+              "security.safe_outbound_requests#f4"
+            ]
+          }
+        },
+        {
+          "type": "diagram",
+          "diagram_kind": "network",
+          "title": "Outbound destination trust boundary",
+          "nodes": [
+            {
+              "id": "input",
+              "label": "Requested provider"
+            },
+            {
+              "id": "map",
+              "label": "Allowlist: catalog → https://catalog.example/lookup; shipping → https://shipping.example/lookup"
+            },
+            {
+              "id": "address",
+              "label": "Validate resolved address actually used"
+            },
+            {
+              "id": "deny",
+              "label": "Reject private, loopback, link-local and other non-public IPv4/IPv6"
+            },
+            {
+              "id": "redirect",
+              "label": "Redirect target: same checks or disable automatic redirects"
+            },
+            {
+              "id": "public",
+              "label": "Public-only connection boundary"
+            }
+          ],
+          "edges": [
+            {
+              "from": "input",
+              "to": "map",
+              "label": "reject arbitrary destinations",
+              "directed": true
+            },
+            {
+              "from": "map",
+              "to": "address",
+              "label": "not just earlier hostname check",
+              "directed": true
+            },
+            {
+              "from": "address",
+              "to": "deny",
+              "label": "non-public",
+              "directed": true
+            },
+            {
+              "from": "address",
+              "to": "public",
+              "label": "policy permits",
+              "directed": true
+            },
+            {
+              "from": "public",
+              "to": "redirect",
+              "label": "redirect response",
+              "directed": true
+            },
+            {
+              "from": "redirect",
+              "to": "map",
+              "label": "reapply destination checks",
+              "directed": true
+            }
+          ],
+          "layout": "auto",
+          "alt_text": "Outbound destination trust boundary: Requested provider; Allowlist: catalog → https://catalog.example/lookup; shipping → https://shipping.example/lookup; Validate resolved address actually used; Reject private, loopback, link-local and other non-public IPv4/IPv6; Redirect target: same checks or disable automatic redirects; Public-only connection boundary",
+          "lineage": {
+            "concept_ids": [
+              "security.safe_outbound_requests"
+            ],
+            "teaching_block_ids": [
+              "security.safe_outbound_requests#tb1",
+              "security.safe_outbound_requests#tb2",
+              "security.safe_outbound_requests#tb3"
+            ],
+            "fact_ids": [
+              "security.safe_outbound_requests#f1",
+              "security.safe_outbound_requests#f2",
+              "security.safe_outbound_requests#f3",
+              "security.safe_outbound_requests#f4"
+            ],
+            "anchors": [
+              "security.safe_outbound_requests#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_042.s02",
+      "type": "explainer",
+      "concept_ids": [
+        "security.safe_outbound_requests"
+      ],
+      "title": "Trace the contract",
+      "eyebrow": "Explainer",
+      "lineage": {
+        "concept_ids": [
+          "security.safe_outbound_requests"
+        ],
+        "teaching_block_ids": [
+          "security.safe_outbound_requests#tb4",
+          "security.safe_outbound_requests#tb5"
+        ],
+        "fact_ids": [
+          "security.safe_outbound_requests#f1",
+          "security.safe_outbound_requests#f2",
+          "security.safe_outbound_requests#f3",
+          "security.safe_outbound_requests#f4"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Trace three boundaries, not just one hostname: requested provider, address actually connected to, and redirect target. Map known providers to allowed destinations. Reject non-public IPv4 and IPv6 addresses for public-only access, and validate the resolved address used by the connection. Disable redirects or check each target. A permitted-looking hostname alone leaves the connected-address and redirect boundaries unverified.",
+          "role": "mental_model",
+          "lineage": {
+            "concept_ids": [
+              "security.safe_outbound_requests"
+            ],
+            "teaching_block_ids": [
+              "security.safe_outbound_requests#tb4",
+              "security.safe_outbound_requests#tb5"
+            ],
+            "fact_ids": [
+              "security.safe_outbound_requests#f1",
+              "security.safe_outbound_requests#f2",
+              "security.safe_outbound_requests#f3",
+              "security.safe_outbound_requests#f4"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_042.s03",
+      "type": "check",
+      "concept_ids": [
+        "security.safe_outbound_requests"
+      ],
+      "title": "Check the boundary: Preventing unsafe outbound requests and SSRF",
+      "eyebrow": "Check",
+      "lineage": {
+        "concept_ids": [
+          "security.safe_outbound_requests"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "security.safe_outbound_requests#f2"
+        ],
+        "anchors": [
+          "security.safe_outbound_requests#assessment:identify_non_public_address_boundary_violations"
+        ]
+      },
+      "lede": "Use the supplied order-service scenario to reason about this contract.",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_042.s03",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "security.safe_outbound_requests",
+            "fact_ids": [
+              "f2"
+            ],
+            "capability": "identify_non_public_address_boundary_violations"
+          }
+        ],
+        "anchors": [
+          "security.safe_outbound_requests#assessment:identify_non_public_address_boundary_violations"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "The policy excludes private, loopback, link-local and other non-public addresses."
+          },
+          "incorrect": {
+            "message": "Recheck the stated boundary and distinguish the separate obligations rather than assuming one implies the other."
+          },
+          "hints": [
+            "Separate the stated requirement from a nearby but different boundary."
+          ],
+          "remediation_step_id": "tile_042.r01"
+        },
+        "public": {
+          "prompt": "An outbound policy permits only public services. What must it do with a destination resolving to a private, loopback or link-local address, including IPv6 equivalents?",
+          "options": [
+            {
+              "option_id": "option_1",
+              "text": "Reject it under the public-address boundary."
+            },
+            {
+              "option_id": "option_2",
+              "text": "Allow it whenever the destination hostname looks public."
+            },
+            {
+              "option_id": "option_3",
+              "text": "Reject those IPv4 destinations but permit equivalent IPv6 destinations."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "option_1"
+          ],
+          "option_feedback": {
+            "option_1": {
+              "message": "The policy excludes private, loopback, link-local and other non-public addresses."
+            },
+            "option_2": {
+              "message": "A hostname appearance does not make a resolved non-public address acceptable."
+            },
+            "option_3": {
+              "message": "The non-public boundary includes IPv6 equivalents."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_042.s04",
+      "type": "check",
+      "concept_ids": [
+        "security.safe_outbound_requests"
+      ],
+      "title": "Check the boundary: Preventing unsafe outbound requests and SSRF",
+      "eyebrow": "Check",
+      "lineage": {
+        "concept_ids": [
+          "security.safe_outbound_requests"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "security.safe_outbound_requests#f3"
+        ],
+        "anchors": [
+          "security.safe_outbound_requests#assessment:identify_dns_rebinding_validation_gaps"
+        ]
+      },
+      "lede": "Use the supplied order-service scenario to reason about this contract.",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_042.s04",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "security.safe_outbound_requests",
+            "fact_ids": [
+              "f3"
+            ],
+            "capability": "identify_dns_rebinding_validation_gaps"
+          },
+          {
+            "concept_id": "security.safe_outbound_requests",
+            "fact_ids": [
+              "f4"
+            ],
+            "capability": "identify_redirect_destination_policy_bypasses"
+          }
+        ],
+        "anchors": [
+          "security.safe_outbound_requests#assessment:identify_dns_rebinding_validation_gaps",
+          "security.safe_outbound_requests#assessment:identify_redirect_destination_policy_bypasses"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Checking the connected address closes the resolution gap; disabling redirects or checking every target preserves the destination policy across redirects."
+          },
+          "incorrect": {
+            "message": "Trusting later resolution omits validation of the connected address, and checking only the initial URL omits the redirect-target boundary. Connected-address validation does not cover redirect targets; automatic redirects must be disabled or every target must undergo the same destination checks."
+          },
+          "hints": [
+            "Separate the stated requirement from a nearby but different boundary."
+          ]
+        },
+        "public": {
+          "prompt": "Resolution can change after an earlier hostname check, and an approved URL can redirect. Which policy closes both gaps?",
+          "options": [
+            {
+              "option_id": "option_2",
+              "text": "Trust later resolution and check only the initial URL"
+            },
+            {
+              "option_id": "option_3",
+              "text": "Validate the connected address but follow redirects without checking their targets."
+            },
+            {
+              "option_id": "option_1",
+              "text": "Validate the resolved address actually used for connection, and disable automatic redirects or apply the same destination checks to every redirect target."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "option_1"
+          ],
+          "option_feedback": {
+            "option_2": {
+              "message": "Trusting later resolution omits validation of the connected address, and checking only the initial URL omits the redirect-target boundary."
+            },
+            "option_3": {
+              "message": "Connected-address validation does not cover redirect targets; automatic redirects must be disabled or every target must undergo the same destination checks."
+            },
+            "option_1": {
+              "message": "Checking the connected address closes the resolution gap; disabling redirects or checking every target preserves the destination policy across redirects."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_042.s05",
+      "type": "hands_on",
+      "concept_ids": [
+        "security.safe_outbound_requests"
+      ],
+      "title": "Apply the contract: Preventing unsafe outbound requests and SSRF",
+      "eyebrow": "Hands On",
+      "lineage": {
+        "concept_ids": [
+          "security.safe_outbound_requests"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "security.safe_outbound_requests#f1",
+          "security.safe_outbound_requests#f4"
+        ],
+        "anchors": [
+          "security.safe_outbound_requests#practice",
+          "security.safe_outbound_requests#assessment:identify_arbitrary_destination_selection",
+          "security.safe_outbound_requests#assessment:identify_redirect_destination_policy_bypasses"
+        ]
+      },
+      "lede": "Complete the supplied workspace within its stated contract.",
+      "interaction": {
+        "type": "code_exercise",
+        "interaction_id": "ix.tile_042.s05",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "security.safe_outbound_requests",
+            "fact_ids": [
+              "f1"
+            ],
+            "capability": "identify_arbitrary_destination_selection"
+          }
+        ],
+        "anchors": [
+          "security.safe_outbound_requests#practice",
+          "security.safe_outbound_requests#assessment:identify_arbitrary_destination_selection"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "You applied the declared boundary and preserved its required behavior."
+          },
+          "incorrect": {
+            "message": "Recheck the stated boundary and distinguish the separate obligations rather than assuming one implies the other."
+          },
+          "hints": [
+            "Compare each declaration with its input or lifecycle boundary.",
+            "Trace what happens on the alternative input or exit, not only the successful path."
+          ]
+        },
+        "public": {
+          "prompt": "Complete destination_for_provider. Return the configured dictionary destination only for known provider keys; raise ValueError for every other input, including arbitrary URL strings. No network is contacted. This task implements destination selection only, not connected-address validation or redirect enforcement.",
+          "runtime": {
+            "kind": "python_asgi",
+            "version": "0.29.5"
+          },
+          "workspace": {
+            "entry": "exercise.py",
+            "files": [
+              {
+                "path": "exercise.py",
+                "role": "editable",
+                "language": "python",
+                "content": "allowed_destinations = {\n    'catalog': 'https://catalog.example/lookup',\n    'shipping': 'https://shipping.example/lookup',\n}\ndef destination_for_provider(provider: str) -> str:\n    # TODO: return only a configured destination; reject unknown keys.\n    raise NotImplementedError\ndef _case(provider):\n    try: return {'destination':destination_for_provider(provider)}\n    except ValueError: return {'rejected':provider}\nimport inspect\nfrom fastapi import FastAPI, Body\nverification_app=FastAPI()\n\nasync def verify_case(payload: dict=Body(...)):\n    result=_case(payload['case'])\n    if inspect.isawaitable(result):return await result\n    return result\nverify_case = verification_app.post('/_verify')(verify_case)\n"
+              }
+            ],
+            "asset_mounts": []
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "def",
+              "str parameter and return annotations",
+              "string literals",
+              "dictionary literals",
+              "dictionary key lookup",
+              "if",
+              "not in",
+              "return",
+              "raise ValueError"
+            ],
+            "blocked_syntax": [
+              "TestClient",
+              "app.dependency_overrides",
+              "Header",
+              "Cookie",
+              "app.exception_handler"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "exercise.py",
+              "content": "allowed_destinations = {\n    'catalog': 'https://catalog.example/lookup',\n    'shipping': 'https://shipping.example/lookup',\n}\ndef destination_for_provider(provider: str) -> str:\n    if provider not in allowed_destinations:\n        raise ValueError('unknown provider')\n    return allowed_destinations[provider]\ndef _case(provider):\n    try: return {'destination':destination_for_provider(provider)}\n    except ValueError: return {'rejected':provider}\nimport inspect\nfrom fastapi import FastAPI, Body\nverification_app=FastAPI()\n\nasync def verify_case(payload: dict=Body(...)):\n    result=_case(payload['case'])\n    if inspect.isawaitable(result):return await result\n    return result\nverify_case = verification_app.post('/_verify')(verify_case)\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "test_1",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/_verify",
+                    "json": {
+                      "case": "catalog"
+                    }
+                  }
+                ],
+                "app": "verification_app",
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "destination": "https://catalog.example/lookup"
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+            },
+            {
+              "test_id": "test_2",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/_verify",
+                    "json": {
+                      "case": "shipping"
+                    }
+                  }
+                ],
+                "app": "verification_app",
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "destination": "https://shipping.example/lookup"
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+            },
+            {
+              "test_id": "test_3",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/_verify",
+                    "json": {
+                      "case": "unknown"
+                    }
+                  }
+                ],
+                "app": "verification_app",
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "rejected": "unknown"
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+            },
+            {
+              "test_id": "test_4",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/_verify",
+                    "json": {
+                      "case": "https://arbitrary.example/lookup"
+                    }
+                  }
+                ],
+                "app": "verification_app",
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "rejected": "https://arbitrary.example/lookup"
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+            },
+            {
+              "test_id": "test_5",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/_verify",
+                    "json": {
+                      "case": ""
+                    }
+                  }
+                ],
+                "app": "verification_app",
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "rejected": ""
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+            },
+            {
+              "test_id": "test_6",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/_verify",
+                    "json": {
+                      "case": "CATALOG"
+                    }
+                  }
+                ],
+                "app": "verification_app",
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "rejected": "CATALOG"
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "pyodide",
+            "runtime_version": "0.29.5",
+            "solution_sha256": "c98e2b8dae82eeb03acec24e514ed260eaf1a92a0ae6c20d3afd8016e4eb19f8",
+            "tests_passed": 6
+          },
+          "hidden_checks": []
+        }
+      }
+    },
+    {
+      "step_id": "tile_042.s06",
+      "type": "recap",
+      "concept_ids": [
+        "security.safe_outbound_requests"
+      ],
+      "title": "Keep these distinctions",
+      "eyebrow": "Recap",
+      "lineage": {
+        "concept_ids": [
+          "security.safe_outbound_requests"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Allowlist destinations; reject non-public IPv4/IPv6; validate connected addresses; disable or recheck redirects.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "security.safe_outbound_requests"
+            ],
+            "teaching_block_ids": [
+              "security.safe_outbound_requests#tb1",
+              "security.safe_outbound_requests#tb2",
+              "security.safe_outbound_requests#tb3",
+              "security.safe_outbound_requests#tb4",
+              "security.safe_outbound_requests#tb5"
+            ],
+            "fact_ids": [
+              "security.safe_outbound_requests#f1",
+              "security.safe_outbound_requests#f2",
+              "security.safe_outbound_requests#f3",
+              "security.safe_outbound_requests#f4"
+            ]
+          }
+        },
+        {
+          "type": "up_next",
+          "title": "Next: tile_043 — Bounded form and multipart file inputs",
+          "text": "Start with Bounded form and multipart file inputs."
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "tile_042.r01",
+      "type": "remediation",
+      "concept_ids": [
+        "security.safe_outbound_requests"
+      ],
+      "title": "Try the contrast: Preventing unsafe outbound requests and SSRF",
+      "eyebrow": "Review",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "For public-only access, reject private, loopback, link-local and other non-public addresses, including IPv6 equivalents.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "security.safe_outbound_requests"
+            ],
+            "teaching_block_ids": [
+              "security.safe_outbound_requests#tb3",
+              "security.safe_outbound_requests#tb4"
+            ],
+            "fact_ids": [
+              "security.safe_outbound_requests#f2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For public-only outbound access, a loopback address is forbidden even in IPv6 form; changing address family does not change that boundary.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "security.safe_outbound_requests"
+            ],
+            "teaching_block_ids": [
+              "security.safe_outbound_requests#tb3",
+              "security.safe_outbound_requests#tb4"
+            ],
+            "fact_ids": [
+              "security.safe_outbound_requests#f2"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "security.safe_outbound_requests"
+        ],
+        "teaching_block_ids": [
+          "security.safe_outbound_requests#tb3",
+          "security.safe_outbound_requests#tb4"
+        ],
+        "fact_ids": [
+          "security.safe_outbound_requests#f2"
+        ]
+      }
+    },
+    {
+      "step_id": "tile_042.r02",
+      "type": "remediation",
+      "concept_ids": [
+        "security.safe_outbound_requests"
+      ],
+      "title": "Try the contrast: Preventing unsafe outbound requests and SSRF",
+      "eyebrow": "Review",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Validate the resolved address actually used for the connection. Checking a hostname earlier is insufficient against a DNS rebinding gap.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "security.safe_outbound_requests"
+            ],
+            "teaching_block_ids": [
+              "security.safe_outbound_requests#tb3",
+              "security.safe_outbound_requests#tb4",
+              "security.safe_outbound_requests#tb5"
+            ],
+            "fact_ids": [
+              "security.safe_outbound_requests#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For the provider lookup, an earlier hostname check differs from validating the resolved address actually used for the connection.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "security.safe_outbound_requests"
+            ],
+            "teaching_block_ids": [
+              "security.safe_outbound_requests#tb3",
+              "security.safe_outbound_requests#tb4",
+              "security.safe_outbound_requests#tb5"
+            ],
+            "fact_ids": [
+              "security.safe_outbound_requests#f3"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "security.safe_outbound_requests"
+        ],
+        "teaching_block_ids": [
+          "security.safe_outbound_requests#tb3",
+          "security.safe_outbound_requests#tb4",
+          "security.safe_outbound_requests#tb5"
+        ],
+        "fact_ids": [
+          "security.safe_outbound_requests#f3"
+        ]
+      }
+    },
+    {
+      "step_id": "tile_042.r03",
+      "type": "remediation",
+      "concept_ids": [
+        "security.safe_outbound_requests"
+      ],
+      "title": "Try the contrast: Preventing unsafe outbound requests and SSRF",
+      "eyebrow": "Review",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "For known destinations, map untrusted provider input to an allowed destination instead of accepting an arbitrary outbound URL.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "security.safe_outbound_requests"
+            ],
+            "teaching_block_ids": [
+              "security.safe_outbound_requests#tb2",
+              "security.safe_outbound_requests#tb4"
+            ],
+            "fact_ids": [
+              "security.safe_outbound_requests#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Disable automatic redirects or enforce the same destination checks on every redirect target. An allowed starting URL can redirect somewhere forbidden.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "security.safe_outbound_requests"
+            ],
+            "teaching_block_ids": [
+              "security.safe_outbound_requests#tb3",
+              "security.safe_outbound_requests#tb4",
+              "security.safe_outbound_requests#tb5"
+            ],
+            "fact_ids": [
+              "security.safe_outbound_requests#f4"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A configured provider destination is allowed as a starting point, but a redirect from it must still satisfy the destination policy or be disabled.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "security.safe_outbound_requests"
+            ],
+            "teaching_block_ids": [
+              "security.safe_outbound_requests#tb2",
+              "security.safe_outbound_requests#tb3",
+              "security.safe_outbound_requests#tb4",
+              "security.safe_outbound_requests#tb5"
+            ],
+            "fact_ids": [
+              "security.safe_outbound_requests#f1",
+              "security.safe_outbound_requests#f4"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "security.safe_outbound_requests"
+        ],
+        "teaching_block_ids": [
+          "security.safe_outbound_requests#tb2",
+          "security.safe_outbound_requests#tb3",
+          "security.safe_outbound_requests#tb4",
+          "security.safe_outbound_requests#tb5"
+        ],
+        "fact_ids": [
+          "security.safe_outbound_requests#f1",
+          "security.safe_outbound_requests#f4"
+        ]
+      }
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "tile_043"
+  },
+  "content_hash": "2eb7dadf19a06db860d9c71439c8990a40b14bfe73d665f5b69aa98de037b2f1"
+}

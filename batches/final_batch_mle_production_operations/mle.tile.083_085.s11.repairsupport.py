@@ -1,0 +1,58 @@
+import csv, json, datetime
+import numpy as np
+SCHEMAS = {'alert_observations': {'window_id': 'string', 'numeric_values': 'number'}}
+def load(name):
+    with open(name+'.csv') as f:
+        data=list(csv.DictReader(f))
+    for r in data:
+        for k,t in SCHEMAS[name].items():
+            v=r[k]
+            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)
+    return data
+def column(data,key):
+    return np.asarray([r[key] for r in data])
+def emit(value):
+    return value
+def replay(config,data):
+    windows={}
+    for r in data: windows.setdefault(r['window_id'],[]).append(r['numeric_values'])
+    return [{'window':k,'owner':config['owner'],'response':config['response']} for k,v in windows.items() if k!='baseline' and np.mean(v)>config['threshold']]
+policy = {'indicator': 'window_mean', 'baseline_window': 'baseline', 'window_rule': 'mean(window)>mean(baseline)+4', 'ddof': 0, 'owner': 'order_oncall', 'response': 'investigate_window', 'expected_replays': {'normal': False, 'boundary': False, 'breached': True}}
+def baseline_values(data):
+    return np.asarray([r['numeric_values'] for r in data if r['window_id']==policy['baseline_window']])
+
+
+# Supplied orchestration; operations are selected by the learner.
+import yaml
+supplied_safe_dump = yaml.safe_dump
+supplied_safe_load = yaml.safe_load
+
+#TAIL
+
+dump_operation = supplied_safe_dump
+load_operation = supplied_safe_load
+import yaml
+policy = {'indicator': 'window_mean', 'baseline_window': 'baseline', 'window_rule': 'mean(window)>mean(baseline)+4', 'ddof': 0, 'owner': 'order_oncall', 'response': 'investigate_window', 'expected_replays': {'normal': False, 'boundary': False, 'breached': True}}
+data = load('alert_observations')
+margin = 4
+baseline = baseline_values(data)
+mean = np.mean(baseline)
+std = np.std(baseline, ddof=0)
+threshold = mean + margin
+config = {'indicator': policy['indicator'], 'baseline_window': policy['baseline_window'], 'window_rule': policy['window_rule'], 'threshold': threshold, 'owner': policy['owner'], 'response': policy['response'], 'ddof': policy['ddof']}
+config['threshold'] = float(config['threshold'])
+file_handle = open('alert.yaml', 'w')
+dump_operation(config, file_handle)
+file_handle.close()
+file_handle = open('alert.yaml')
+loaded = load_operation(file_handle)
+file_handle.close()
+assert (threshold - 1 > threshold) == False
+assert (threshold > threshold) == False
+assert (threshold + 1 > threshold) == True
+assert loaded == config
+assert loaded['indicator'] == policy['indicator'] and loaded['baseline_window'] == policy['baseline_window'] and (loaded['window_rule'] == policy['window_rule'])
+assert loaded['threshold'] == threshold and loaded['owner'] == policy['owner'] and (loaded['response'] == policy['response']) and (loaded['ddof'] == policy['ddof'])
+records = replay(loaded, data)
+assert records == [{'window': 'breached', 'owner': policy['owner'], 'response': policy['response']}]
+report = {'mean': mean, 'std': std, 'config': loaded, 'records': records}

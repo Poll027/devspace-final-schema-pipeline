@@ -1,0 +1,113 @@
+{
+  "concept_id": "sqlalchemy.redundant_queries",
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "The situation",
+      "content": "Listing several parent entities can hide extra database round trips when their relationships are accessed individually. Inspect emitted SQL rather than counting only explicit selects in the handler.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "definition",
+      "title": "The rule and its boundary",
+      "content": "Lazy relationship access can emit additional SELECT statements; iterating parent entities and loading each parent's relationship separately can produce an N+1 query pattern.",
+      "fact_ids": [
+        "f1"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "How to use the rule",
+      "content": "Add selectinload(Entity.relationship_attribute) through statement.options(...) to fetch a collection relationship for the selected parents with an additional batched query rather than one query per parent. joinedload(...) is an alternative eager-loading strategy using a join; when loading a collection this way, apply Result.unique() as required to deduplicate parent entities. Compare emitted SQL before and after the loading change with engine echo=True logging enabled, confirming both reduced relationship queries and unchanged returned entity data.",
+      "fact_ids": [
+        "f2",
+        "f3",
+        "f4"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "example",
+      "title": "Reason through an example",
+      "content": "Compare lazy relationship access for each parent with statement.options(selectinload(Entity.relationship_attribute)). The latter fetches the collection for selected parents using an additional batched query instead of one query per parent. joinedload is an alternative using a join; collection loading requires Result.unique() to deduplicate parents. Enable engine echo=True and compare before/after SQL alongside unchanged returned entity data. Reducing relationship queries should not silently change the result.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "misconception",
+      "title": "Keep this distinction",
+      "content": "One explicit parent query does not prove one database round trip. Lazy relationship navigation can add SELECT statements.",
+      "fact_ids": [
+        "f1"
+      ]
+    }
+  ],
+  "visual_anchor": {
+    "type": "comparison",
+    "purpose": "Place the original and revised listing statements beside their emitted SQL: repeated per-parent relationship SELECTs versus batched collection retrieval, with unchanged parent and collection data visible alongside."
+  },
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Update one parent-entity listing statement with selectinload(Entity.relationship_attribute) so its collection relationship is loaded in batches, then compare SQL and returned entity data before and after.",
+    "success": "The listing uses statement.options(selectinload(Entity.relationship_attribute)); echo logging confirms fewer relationship SELECTs, and the returned parents and their collection contents remain unchanged.",
+    "live_code": {
+      "required_skill": "Apply a collection loader option to an existing listing statement and verify its effect using emitted SQL and returned entity data.",
+      "allowed_syntax": [
+        "from sqlalchemy.orm import selectinload",
+        "select(Entity)",
+        "statement.options(selectinload(Entity.relationship_attribute))",
+        "await session.execute(statement)",
+        "result.scalars().all()",
+        "entity.relationship_attribute",
+        "for entity in entities:",
+        "echo=True"
+      ],
+      "blocked_syntax": [
+        "begin_nested()",
+        "SAVEPOINT",
+        "ROLLBACK TO SAVEPOINT"
+      ],
+      "starter_state_intent": "Provide the existing Entity mapping, collection relationship_attribute, and bounded listing statement, with SQL logging enabled and a recorded per-parent relationship-query baseline. Supply expected parent and collection data for comparison; learners only change the loading option and execute the listing.",
+      "observable_success": "Execution loads the selected parents and their collections without one relationship SELECT per parent. SQL evidence shows batched collection retrieval, and comparison with the supplied baseline confirms identical parent identities and collection contents."
+    }
+  },
+  "required_facts": [
+    {
+      "id": "f1",
+      "statement": "Lazy relationship access can emit additional SELECT statements; iterating parent entities and loading each parent's relationship separately can produce an N+1 query pattern.",
+      "source_refs": [
+        "sqlalchemy_20_tutorial#https://docs.sqlalchemy.org/en/20/tutorial/orm_related_objects.html#loader-strategies"
+      ]
+    },
+    {
+      "id": "f2",
+      "statement": "Add selectinload(Entity.relationship_attribute) through statement.options(...) to fetch a collection relationship for the selected parents with an additional batched query rather than one query per parent.",
+      "source_refs": [
+        "sqlalchemy_20_tutorial#https://docs.sqlalchemy.org/en/20/tutorial/orm_related_objects.html#selectin-load"
+      ]
+    },
+    {
+      "id": "f3",
+      "statement": "joinedload(...) is an alternative eager-loading strategy using a join; when loading a collection this way, apply Result.unique() as required to deduplicate parent entities.",
+      "source_refs": [
+        "sqlalchemy_20_tutorial#https://docs.sqlalchemy.org/en/20/tutorial/orm_related_objects.html#joined-load"
+      ]
+    },
+    {
+      "id": "f4",
+      "statement": "Compare emitted SQL before and after the loading change with engine echo=True logging enabled, confirming both reduced relationship queries and unchanged returned entity data.",
+      "source_refs": [
+        "sqlalchemy_20_tutorial#https://docs.sqlalchemy.org/en/20/tutorial/orm_related_objects.html#loader-strategies",
+        "sqlalchemy_20_tutorial#https://docs.sqlalchemy.org/en/20/tutorial/dbapi_transactions.html#working-with-transactions-and-the-dbapi"
+      ]
+    }
+  ]
+}

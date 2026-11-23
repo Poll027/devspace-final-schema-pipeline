@@ -1,0 +1,570 @@
+
+mle.tile.052_055.s01 explainer Leave notebook state behind
+Move the order-training task into a saved script. Its entry point runs directly, while ordinary imports must not launch training.
+Guard the executable call with if __name__ == "__main__":. Define explicit training parameters and resolve defaults and keyword overrides before training. Decode the declared configuration with json.load, then map its fields to those arguments.
+Run python training_script.py and compare recorded settings and outputs with the supplied notebook behavior. A caller can use subprocess.run(["python", script_path], check=True), which raises on a nonzero exit. Save structured records with json.dump(record, handle); recover their values with json.load(handle). JSON text itself is not a dictionary.
+import json
+from fixture_workflow import supplied_workflow
+
+def train(dataset_path='training_orders.csv', threshold=40.0):
+    result = supplied_workflow(dataset_path=dataset_path, threshold=threshold)
+    for parameter_name, resolved_value in result['resolved_parameters'].items():
+        print(f"{parameter_name}={resolved_value}")
+    print(f"validation_accuracy={result['validation_accuracy']}")
+    return result
+
+# Direct execution runs the calls; ordinary import does not.
+if __name__ == '__main__':
+    default_result = train()
+    with open('configuration.json', encoding='utf-8') as handle:
+        configuration = json.load(handle)
+    override_result = train(**configuration)
+python training_script.py > capture.log 2>&1
+cat capture.log
+git add training_script.py
+git commit -m "Save explicit training entry point"
+git rev-parse --verify HEAD
+
+mle.tile.052_055.s02 explainer Inspect and commit
+Call the entry function with defaults, then explicit keyword overrides. Keep task state in parameters or local values, not notebook globals. Emit resolved parameters and validation results with f-strings, such as f"{parameter_name}={resolved_value}". Save the repository script, stage it with git add SCRIPT_PATH, commit with git commit and retain the resulting revision.
+From a clean shell, run python training_script.py > capture.log 2>&1. Inspect the captured resolved parameters and result.
+
+mle.tile.052_055.s03 explainer Two calls, one explicit contract
+For the supplied order workflow, compare a default call with a keyword override. Map decoded JSON to the same arguments; round-trip the configuration. Guard direct execution, save and commit the script, and retain its revision. Run a clean subprocess with checked exit status and capture both output streams. Compare resolved parameters and validation output with notebook behavior: starting successfully does not prove forgotten notebook globals were removed.
+Decode JSON before treating it as a dictionary. Do not rely on notebook globals or print defaults in place of resolved keyword overrides.
+
+mle.tile.052_055.s04 video Watch the entry-point walkthrough
+{'type': 'media_group', 'segment_ids': ['seg_mle.ml_training_script_sugvnHA7ElY_0_298'], 'segments': [{'segment_id': 'seg_mle.ml_training_script_sugvnHA7ElY_0_298', 'video_id': 'sugvnHA7ElY', 'youtube_url': 'https://www.youtube.com/watch?v=sugvnHA7ElY', 'review_url': 'https://www.youtube.com/watch?v=sugvnHA7ElY&t=0s', 'start_seconds': 0, 'end_seconds': 298, 'label': 'Guard a Python entry point so importing the module does not call it', 'summary': 'Python assigns __name__ the value "__main__" when a file runs directly. When another file imports that module, __name__ instead identifies the imported module. The demonstration first leaves diagnostic output at module level, where it executes during import. It then moves that output into a main function and calls the function behind if __name__ == "__main__":. Direct execution calls main; importing the module does not. The guard controls the entry-point call, not every statement in the file.', 'fact_ids': ['f1'], 'transcript_ref': 'sugvnHA7ElY:0-298'}], 'group_title': 'Make direct execution explicit with an entry-point guard', 'bridge': {'before': 'Watch how direct execution and importing assign different values to __name__. The creator calls the entry function a “main method”; here, it is a Python function.', 'after': 'The clip covers the guard only. The text supplies training parameters, defaults, keyword overrides, local state, JSON loading and saving, notebook comparisons, checked subprocess execution, f-string reporting, repository commits, and clean-shell output capture.'}, 'default_mode': 'video'}
+
+mle.tile.052_055.s05 check Check: explicit, saved training execution
+{
+  "prompt": "The saved training_script.py reproduces the notebook behavior. Which action completes the taught repository provenance requirement?",
+  "selection": "single",
+  "shuffle": true,
+  "options": [
+    {
+      "option_id": "o1",
+      "text": "Stage training_script.py, commit it, and retain the resulting revision."
+    },
+    {
+      "option_id": "o2",
+      "text": "Save training_script.py but leave it untracked."
+    },
+    {
+      "option_id": "o3",
+      "text": "Stage training_script.py without committing it."
+    }
+  ]
+}
+KEY {
+  "correct_option_ids": [
+    "o1"
+  ],
+  "option_feedback": {
+    "o1": {
+      "message": "Staging and committing the saved script provides the retained revision."
+    },
+    "o2": {
+      "message": "A saved untracked file is not the required committed entry point."
+    },
+    "o3": {
+      "message": "Staging alone does not produce the required retained commit revision."
+    }
+  }
+}
+FEEDBACK {"correct": {"message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."}, "incorrect": {"message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."}, "hints": ["Separate saving, staging, and recording a commit."], "remediation_step_id": "mle.tile.052_055.r01"}
+
+mle.tile.052_055.s06 hands_on Practice: explicit, saved training execution
+{
+  "prompt": "Review independent code and captured-output excerpts for the fictional order-training script. Judge only the named requirement in each item. supplied_workflow is the supplied notebook workflow; config is parsed from the declared configuration. The displayed run values were computed from the registered training data.\nClassify every excerpt as meeting or violating the named check. A fragment need not demonstrate unrelated stages. Assume only the supplied inputs and explicitly stated checks; do not infer missing verification.",
+  "buckets": [
+    {
+      "bucket_id": "meets",
+      "label": "Meets the named check"
+    },
+    {
+      "bucket_id": "violates",
+      "label": "Violates the named check"
+    }
+  ],
+  "items": [
+    {
+      "item_id": "i1",
+      "text": "Import isolation: ```\nif __name__ == \"__main__\":\n    main()\n# ordinary import defines functions but does not call main\n```"
+    },
+    {
+      "item_id": "i2",
+      "text": "Import isolation: ```\ndef main():\n    train()\nmain()  # unconditional at module scope\n```"
+    },
+    {
+      "item_id": "i3",
+      "text": "Explicit state and reporting: ```\ndef train(dataset_path=\"training_orders.csv\", threshold=40.0):\n    result = supplied_workflow(dataset_path=dataset_path, threshold=threshold)\n    print(f\"dataset_path={dataset_path} threshold={threshold} validation_accuracy={result['validation_accuracy']}\")\n    return result\n# guarded entry code:\ndefault_run = train()\nconfigured_run = train(dataset_path=config[\"dataset_path\"], threshold=config[\"threshold\"])\n```\nComputed captured values:\n```\ndataset_path=training_orders.csv threshold=40.0 validation_accuracy=0.9375\ndataset_path=training_orders.csv threshold=50.0 validation_accuracy=0.9375\n```"
+    },
+    {
+      "item_id": "i4",
+      "text": "JSON round-trip: ```\nwith open(\"configuration.json\") as handle:\n    config = json.load(handle)\nwith open(\"run_record.json\", \"w\") as handle:\n    json.dump({\"default\": default_record, \"configured\": configured_record}, handle)\nwith open(\"run_record.json\") as handle:\n    restored = json.load(handle)\n```"
+    },
+    {
+      "item_id": "i5",
+      "text": "Clean process and retained revision: ```\ngit add training_script.py\ngit commit -m \"Save training entry point\"\ngit rev-parse --verify HEAD > training_revision.txt\npython training_script.py > capture.log 2>&1\n# inspect both captured parameter/result records against notebook expectations\nsubprocess.run([\"python\", script_path], check=True)\n```"
+    },
+    {
+      "item_id": "i6",
+      "text": "Clean-process verification: ```\n# rerun a notebook cell using its previously defined global dataset\n# do not execute training_script.py or inspect capture.log\n```"
+    }
+  ]
+}
+KEY {
+  "assignments": {
+    "i1": "meets",
+    "i2": "violates",
+    "i3": "meets",
+    "i4": "meets",
+    "i5": "meets",
+    "i6": "violates"
+  },
+  "item_feedback": {
+    "i1": {
+      "message": "The guarded executable call runs on direct execution, not ordinary import."
+    },
+    "i2": {
+      "message": "The unconditional call launches training on import."
+    },
+    "i3": {
+      "message": "The explicit default and configured calls report resolved state and corresponding results; neither relies on notebook globals."
+    },
+    "i4": {
+      "message": "The record is written and then parsed back as structured values."
+    },
+    "i5": {
+      "message": "The script is committed, clean-shell output is captured and inspected, and the checked caller raises for unsuccessful execution."
+    },
+    "i6": {
+      "message": "Notebook state does not demonstrate successful execution of the saved entry point from a clean process."
+    }
+  }
+}
+FEEDBACK {"correct": {"message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."}, "incorrect": {"message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."}, "hints": ["For each fragment, identify the execution or serialization boundary it actually verifies."], "remediation_step_id": "mle.tile.052_055.r02"}
+
+mle.tile.052_055.s07 explainer A name can stay while bytes change
+The dataset path can survive an overwrite. Reproduction needs the recorded generation and verified content identity, not merely a name called latest.
+A mutable object name can point to overwritten contents. Object Versioning retains noncurrent versions for explicit selection. Retrieve the Google Cloud Storage snapshot with bucket.blob(object_name, generation=recorded_generation).download_to_filename(local_path), not the current object. Confirm that object/version exists with the authorized client before recording it as available.
+Compute hashlib.sha256(data_bytes).hexdigest() from actual bytes and compare it with the expected content identity. Keep object name, generation and observed digest together in the local snapshot record. Upload to the version-enabled bucket with bucket.blob(object_name).upload_from_filename(local_path), then inspect and record the created generation.
+import hashlib, json
+from pathlib import Path
+from google.cloud import storage
+with open('snapshot_fixture.json', encoding='utf-8') as handle:
+    supplied = json.load(handle)
+bucket = storage.Client().bucket(supplied['bucket_name'])
+with open(supplied['local_path'], 'rb') as handle:
+    original_digest = hashlib.sha256(handle.read()).hexdigest()
+blob = bucket.blob(supplied['object_name'])
+blob.upload_from_filename(supplied['local_path'])
+record = {'object_name': supplied['object_name'],
+          'generation': blob.generation, 'digest': original_digest}
+selected = bucket.blob(record['object_name'], generation=record['generation'])
+assert selected.exists()
+with open(supplied['record_path'], 'w', encoding='utf-8') as handle:
+    json.dump(record, handle)
+Path(supplied['download_path']).parent.mkdir(parents=True, exist_ok=True)
+selected.download_to_filename(supplied['download_path'])
+with open(supplied['download_path'], 'rb') as handle:
+    retrieved_digest = hashlib.sha256(handle.read()).hexdigest()
+assert retrieved_digest == record['digest']
+# Authorized overwrite test: change only mutable latest, then select original again.
+bucket.blob(record['object_name']).upload_from_filename('changed_latest.csv')
+selected.download_to_filename(supplied['download_path'])
+with open(supplied['download_path'], 'rb') as handle:
+    after_digest = hashlib.sha256(handle.read()).hexdigest()
+assert after_digest == record['digest']
+
+mle.tile.052_055.s08 explainer Verify across an overwrite
+Read the local dataset in binary mode with open(path, "rb") and update SHA-256 from those bytes before recording upload identity. In the test bucket, overwrite only mutable latest; download the original recorded generation again and compare its digest with the original snapshot digest.
+
+mle.tile.052_055.s09 explainer Follow the same snapshot twice
+Upload the supplied order dataset and record its created generation and local-byte digest. Explicitly select that generation, confirm it exists, download it and compare its bytes with the expected digest. Change only mutable latest in the authorized overwrite fixture; retrieve the original generation again and verify the digest still matches. Keep the object name, generation and digest together: object family, selected version and checked content are distinct.
+Check downloaded content rather than assuming the version-qualified request returned expected bytes. Compare the local pre-upload digest with the later download digest. Keep the generation even when original and latest share a name. This verifies the recorded fixture; it does not make mutable names intrinsically safe for reproduction.
+
+mle.tile.052_055.s10 explainer A path is not identity
+A mutable name is not immutable data identity. A recorded digest alone does not prove the downloaded bytes belong to the intended snapshot.
+
+mle.tile.052_055.s11 check Check: recorded order snapshot identity
+{
+  "prompt": "The authorized test bucket retains versions, but the mutable latest object has been overwritten. Which retrieval verifies that training still uses the recorded snapshot?",
+  "selection": "single",
+  "shuffle": true,
+  "options": [
+    {
+      "option_id": "o1",
+      "text": "Select the recorded generation, download it, and compare a digest computed from the downloaded bytes with the original recorded digest."
+    },
+    {
+      "option_id": "o2",
+      "text": "Download the current object by name and accept it because the name is unchanged."
+    },
+    {
+      "option_id": "o3",
+      "text": "Select the recorded generation but declare its content verified without inspecting the downloaded bytes."
+    }
+  ]
+}
+KEY {
+  "correct_option_ids": [
+    "o1"
+  ],
+  "option_feedback": {
+    "o1": {
+      "message": "Generation selection fixes the snapshot identity; the observed digest checks its bytes."
+    },
+    "o2": {
+      "message": "An unchanged mutable name can resolve to overwritten content."
+    },
+    "o3": {
+      "message": "The taught content check compares an observed digest with the original record, not just the generation label."
+    }
+  }
+}
+FEEDBACK {"correct": {"message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."}, "incorrect": {"message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."}, "hints": ["Distinguish a location from a version and a content check."], "remediation_step_id": "mle.tile.052_055.r03"}
+
+mle.tile.052_055.s12 hands_on Practice: recorded order snapshot identity
+{
+  "prompt": "Inspect snapshot-record and retrieval excerpts. record is the saved object-name, generation and original-byte digest; bucket is the authorized version-enabled test bucket. Each item concerns only its stated snapshot check.\nClassify every excerpt as meeting or violating the named check. A fragment need not demonstrate unrelated stages. Assume only the supplied inputs and explicitly stated checks; do not infer missing verification.",
+  "buckets": [
+    {
+      "bucket_id": "meets",
+      "label": "Meets the named check"
+    },
+    {
+      "bucket_id": "violates",
+      "label": "Violates the named check"
+    }
+  ],
+  "items": [
+    {
+      "item_id": "i1",
+      "text": "Upload and availability: ```\nwith open(local_path, \"rb\") as handle:\n    original_hash = hashlib.sha256(handle.read()).hexdigest()\nblob = bucket.blob(object_name)\nblob.upload_from_filename(local_path)\ncreated_generation = blob.generation\nselected = bucket.blob(object_name, generation=created_generation)\nif not selected.exists():\n    raise ValueError(\"Unavailable snapshot\")\nrecord = {\"object_name\": object_name, \"generation\": created_generation, \"expected_hash\": original_hash}\n# save record locally\n```"
+    },
+    {
+      "item_id": "i2",
+      "text": "Recorded-generation download: ```\nselected = bucket.blob(record[\"object_name\"], generation=record[\"generation\"])\nselected.download_to_filename(download_path)\nwith open(download_path, \"rb\") as handle:\n    observed = hashlib.sha256(handle.read()).hexdigest()\nif observed != record[\"expected_hash\"]:\n    raise ValueError(\"Changed bytes\")\n```"
+    },
+    {
+      "item_id": "i3",
+      "text": "Overwrite check: ```\nbucket.blob(record[\"object_name\"]).upload_from_filename(\"changed_latest.csv\")\nbucket.blob(record[\"object_name\"], generation=record[\"generation\"]).download_to_filename(download_path)\nwith open(download_path, \"rb\") as handle:\n    after_hash = hashlib.sha256(handle.read()).hexdigest()\nassert after_hash == record[\"expected_hash\"]\n```\nRegistered-fixture digest comparison: {\"recorded_generation\": 1, \"original_digest\": \"d67e606cd75127f615b2ba02dfcc22f853460dcb774c3073bb47fa66ce83a21e\", \"selected_original_after_overwrite_digest\": \"d67e606cd75127f615b2ba02dfcc22f853460dcb774c3073bb47fa66ce83a21e\", \"current_latest_digest\": \"558a0933009e25a876447ff34245b6c0707744c0ad329c539eab30e649a95024\"}"
+    },
+    {
+      "item_id": "i4",
+      "text": "Overwrite check: ```\nbucket.blob(record[\"object_name\"]).download_to_filename(download_path)\n# accept because the object name equals record[\"object_name\"]\n```"
+    },
+    {
+      "item_id": "i5",
+      "text": "Availability: ```\nrecord[\"generation\"] = requested_generation\nrecord[\"available\"] = True\n# no existence check with the authorized client\n```"
+    }
+  ]
+}
+KEY {
+  "assignments": {
+    "i1": "meets",
+    "i2": "meets",
+    "i3": "meets",
+    "i4": "violates",
+    "i5": "violates"
+  },
+  "item_feedback": {
+    "i1": {
+      "message": "The original bytes determine the digest; the uploaded generation is confirmed before being recorded as available."
+    },
+    "i2": {
+      "message": "Both explicit generation retrieval and digest verification preserve the recorded snapshot."
+    },
+    "i3": {
+      "message": "The selected original version still has the original digest despite different current bytes."
+    },
+    "i4": {
+      "message": "This resolves latest and never verifies the original bytes."
+    },
+    "i5": {
+      "message": "The record cannot declare a supplied generation available without confirming it exists."
+    }
+  }
+}
+FEEDBACK {"correct": {"message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."}, "incorrect": {"message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."}, "hints": ["Track which generation each download resolves and when availability is confirmed."], "remediation_step_id": "mle.tile.052_055.r04"}
+
+mle.tile.052_055.s13 explainer Record the environment that ran
+Capture the actual execution environment. Remembered dependencies and typed commit labels are not independent evidence of the Python runtime and repository revision used.
+Read the actual repository revision with git rev-parse --verify HEAD. Collect installed pins with python -m pip freeze; its package==version entries can be installed with pip install -r. Use imported runtime/environment facilities to capture execution context alongside the recorded runtime identity, revision and dependencies.
+Import json. Write the manifest dictionary with json.dump and read it back with json.load, using explicit with open handles in "w" and "r" modes with encoding="utf-8". Compare parsed revision, dependency mapping and runtime identity with independently inspected values. Reject a mismatch.
+Import sys and record sys.version and sys.executable: actual interpreter details belong alongside the supplied runtime identity.
+import json, subprocess, sys
+revision = subprocess.run(['git', 'rev-parse', '--verify', 'HEAD'],
+                          check=True, capture_output=True, text=True).stdout.strip()
+freeze = subprocess.run([sys.executable, '-m', 'pip', 'freeze'],
+                        check=True, capture_output=True, text=True).stdout
+pins = dict(line.split('==', 1) for line in freeze.splitlines() if '==' in line)
+# Symbolic runtime_identity and manifest_path bind the supplied contract.
+# Retain runtime_identity alongside observed fields.
+manifest = {'revision': revision, 'dependencies': pins,
+            'runtime_identity': runtime_identity,
+            'sys_version': sys.version, 'sys_executable': sys.executable}
+with open(manifest_path, 'w', encoding='utf-8') as handle:
+    json.dump(manifest, handle)
+with open(manifest_path, 'r', encoding='utf-8') as handle:
+    parsed = json.load(handle)
+# independent_observations comes from fresh repository/runtime inspection.
+for field in manifest:
+    assert parsed[field] == independent_observations[field]
+
+mle.tile.052_055.s14 explainer Compare the parsed record, not memory
+Inspect HEAD and pip freeze, and capture sys.version, sys.executable and the supplied runtime identity. Save the dictionary to the text manifest and parse it back. Compare parsed revision, dependency mapping and runtime identity with independent observations. If the record differs from HEAD, reject the match; do not change observations to fit it. Install pinned dependencies with pip install -r where needed. Retain the saved manifest and verified context for reproduction.
+Verification concerns the file a later run will read, not just the dictionary before serialization. Compare parsed dependencies with freeze output, revision with HEAD, and Python/runtime fields with the actual process. Interpreter path and version complement the environment identity; neither substitutes for it. Resolve mismatches instead of declaring an inaccurate record verified.
+
+mle.tile.052_055.s15 explainer Writing is not verification
+Manifest creation alone is not verification. Runtime details and dependency pins must be observed; a mismatched parsed record is not accurate.
+
+mle.tile.052_055.s16 check Check: observed environment identity
+{
+  "prompt": "A parsed environment manifest disagrees with a fresh repository HEAD observation. Which verification behavior is defensible?",
+  "selection": "single",
+  "shuffle": true,
+  "options": [
+    {
+      "option_id": "o1",
+      "text": "Reject the manifest mismatch while keeping the independent observation unchanged."
+    },
+    {
+      "option_id": "o2",
+      "text": "Replace the freshly observed HEAD with the manifest revision and accept it."
+    },
+    {
+      "option_id": "o3",
+      "text": "Accept it because the file parses as JSON."
+    }
+  ]
+}
+KEY {
+  "correct_option_ids": [
+    "o1"
+  ],
+  "option_feedback": {
+    "o1": {
+      "message": "Verification compares parsed fields to independent observations and rejects disagreement."
+    },
+    "o2": {
+      "message": "Changing the independent observation to match the manifest destroys the required comparison."
+    },
+    "o3": {
+      "message": "JSON parsing does not show that recorded revision, dependencies or runtime match the environment."
+    }
+  }
+}
+FEEDBACK {"correct": {"message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."}, "incorrect": {"message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."}, "hints": ["A record being readable is different from a record being accurate."], "remediation_step_id": "mle.tile.052_055.r05"}
+
+mle.tile.052_055.s17 hands_on Practice: observed environment identity
+{
+  "prompt": "Inspect environment collection and verification code. repository, runtime_identity and manifest_path are supplied fixture inputs. Independent observations below are fresh values from the actual repository and current interpreter, not typed replacement identities.\nClassify every excerpt as meeting or violating the named check. A fragment need not demonstrate unrelated stages. Assume only the supplied inputs and explicitly stated checks; do not infer missing verification.\nFor this fixture, every nonempty freeze-output line is a pinned `package==version` entry.",
+  "buckets": [
+    {
+      "bucket_id": "meets",
+      "label": "Meets the named check"
+    },
+    {
+      "bucket_id": "violates",
+      "label": "Violates the named check"
+    }
+  ],
+  "items": [
+    {
+      "item_id": "i1",
+      "text": "Repository and dependency observations: ```\nrevision = subprocess.run([\"git\", \"rev-parse\", \"--verify\", \"HEAD\"], cwd=repository, check=True, capture_output=True, text=True).stdout.strip()\nfreeze = subprocess.run([sys.executable, \"-m\", \"pip\", \"freeze\"], check=True, capture_output=True, text=True).stdout\ndependencies = {}\nfor line in freeze.splitlines():\n    package, version = line.split(\"==\", 1)\n    dependencies[package] = version\n```"
+    },
+    {
+      "item_id": "i2",
+      "text": "Runtime capture: ```\nmanifest = {\"revision\": revision, \"dependencies\": dependencies, \"runtime_identity\": runtime_identity, \"python_version\": sys.version, \"python_executable\": sys.executable}\n```"
+    },
+    {
+      "item_id": "i3",
+      "text": "Text JSON round-trip: ```\nwith open(manifest_path, \"w\", encoding=\"utf-8\") as handle:\n    json.dump(manifest, handle)\nwith open(manifest_path, \"r\", encoding=\"utf-8\") as handle:\n    parsed = json.load(handle)\n```"
+    },
+    {
+      "item_id": "i4",
+      "text": "Independent verification: ```\n# observed is freshly recollected, independently of parsed\nfor field in [\"revision\", \"dependencies\", \"runtime_identity\", \"python_version\", \"python_executable\"]:\n    if parsed[field] != observed[field]:\n        raise ValueError(\"Manifest mismatch\")\n```"
+    },
+    {
+      "item_id": "i5",
+      "text": "Mismatch handling: ```\nif parsed[\"dependencies\"] != observed[\"dependencies\"]:\n    observed[\"dependencies\"] = parsed[\"dependencies\"]\n# return success\n```"
+    }
+  ]
+}
+KEY {
+  "assignments": {
+    "i1": "meets",
+    "i2": "meets",
+    "i3": "meets",
+    "i4": "meets",
+    "i5": "violates"
+  },
+  "item_feedback": {
+    "i1": {
+      "message": "The revision and package pins are collected from the supplied repository and current interpreter."
+    },
+    "i2": {
+      "message": "The observed context includes the supplied runtime identity and actual Python details."
+    },
+    "i3": {
+      "message": "Explicit UTF-8 text handles serialize and recover the manifest fields."
+    },
+    "i4": {
+      "message": "Matching fields are accepted, while a changed revision, dependency mapping or runtime field is rejected."
+    },
+    "i5": {
+      "message": "It edits the independent evidence instead of rejecting the recorded mismatch."
+    }
+  }
+}
+FEEDBACK {"correct": {"message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."}, "incorrect": {"message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."}, "hints": ["Ask whether each value was observed independently or copied from the record being checked."], "remediation_step_id": "mle.tile.052_055.r06"}
+
+mle.tile.052_055.s18 explainer Resolve the recorded experiment
+Resolve recorded code, data, environment and settings first. Today’s working tree and current dataset can describe another experiment despite a familiar run name.
+Retrieve the recorded revision, snapshot, environment and resolved settings. Check out the recorded local commit and verify HEAD rather than running a changed tree. Download the recorded dataset generation and verify its identity; do not resolve mutable latest.
+Use the recorded Python/dependency environment and install pinned requirements where needed. Give the execution function defaults and explicit keyword overrides, passing resolved run state through parameters. Run the script in a clean subprocess from the recorded working directory, check exit status and capture output.
+import json, os, subprocess
+# Outline: run_record fields below bind the verified recorded execution context.
+
+def execute_recorded(run_record, settings=None, **keyword_overrides):
+    resolved = dict(run_record['settings'] if settings is None else settings)
+    resolved.update(keyword_overrides)
+    # First retrieve the record, checkout its commit and verify HEAD.
+    # Verify the recorded dataset generation and use the pinned environment.
+    # Resolve relative paths after navigating the recorded directories.
+    os.chdir(run_record['working_directory'])
+    with open(run_record['configuration_path'], 'w', encoding='utf-8') as handle:
+        json.dump(resolved, handle)
+    completed = subprocess.run(
+        [run_record['python_executable'], run_record['script_path']],
+        check=True, capture_output=True, text=True)
+    # The script reads configuration mapped from resolved parameters.
+    # Inspect captured parameters and outcome against the record/tolerance.
+    return {'resolved': resolved, 'returncode': completed.returncode,
+            'stdout': completed.stdout, 'stderr': completed.stderr}
+git checkout RECORDED_COMMIT
+git rev-parse --verify HEAD
+cd RECORDED_WORKING_DIRECTORY
+python -m pip install -r RECORDED_REQUIREMENTS
+python RECORDED_SCRIPT > capture.log 2>&1
+cat capture.log
+
+mle.tile.052_055.s19 explainer Resolve paths from the right directory
+Navigate the referenced repository and artifact directories before resolving relative script, dataset and configuration paths. Redirect with > capture.log 2>&1 and inspect the file. A pipe sends one command’s output to another command’s input; it is not this two-stream capture.
+
+mle.tile.052_055.s20 explainer Rerun the recorded order task
+Resolve the recorded commit, generation and pinned environment. Verify HEAD and downloaded snapshot identity. Pass resolved defaults and overrides through execution-function parameters. Navigate recorded directories before resolving relative paths. Launch a clean subprocess with captured output and checked exit status, then inspect the result. In the failure fixture, distinguish changed latest or a different working directory from the recorded context. A pipe connects commands; redirection saves the declared streams.
+Also compare captured resolved parameters with the run record. Successful exit alone can hide a wrong dataset or default. Relative paths depend on the actual working directory, so navigate explicitly before invoking the script. Recorded code and environment govern the implementation; the verified snapshot governs inputs. Check these separately rather than relying on memory of a notebook session.
+
+mle.tile.052_055.s21 explainer Familiar names can hide a different run
+A familiar script filename is not reproduction identity. Changed code, mutable data or unresolved paths can change the experiment.
+
+mle.tile.052_055.s22 check Check: the recorded order experiment
+{
+  "prompt": "A rerun reports a matching score, but HEAD is a different commit from the recorded experiment. Should it be accepted as reproduction?",
+  "selection": "single",
+  "shuffle": true,
+  "options": [
+    {
+      "option_id": "o1",
+      "text": "No: verify the recorded commit, snapshot, environment, resolved settings and process execution before accepting the outcome under the declared tolerances."
+    },
+    {
+      "option_id": "o2",
+      "text": "Yes: the score proves the recorded revision was used."
+    },
+    {
+      "option_id": "o3",
+      "text": "Yes: code identity is irrelevant when the process exits successfully."
+    }
+  ]
+}
+KEY {
+  "correct_option_ids": [
+    "o1"
+  ],
+  "option_feedback": {
+    "o1": {
+      "message": "A matching outcome alone does not establish the recorded execution context."
+    },
+    "o2": {
+      "message": "Different code can produce a matching score; HEAD must independently match the recorded revision."
+    },
+    "o3": {
+      "message": "A successful exit does not replace verification of the recorded commit and other inputs."
+    }
+  }
+}
+FEEDBACK {"correct": {"message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."}, "incorrect": {"message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."}, "hints": ["Separate execution-context identity from outcome agreement."], "remediation_step_id": "mle.tile.052_055.r07"}
+
+mle.tile.052_055.s23 hands_on Practice: the recorded order experiment
+{
+  "prompt": "Review rerun fragments for an already recorded experiment. record contains its exact revision, snapshot, environment, working directory, settings, outcome and tolerances; no new experiment selection is authorized.\nClassify every excerpt as meeting or violating the named check. A fragment need not demonstrate unrelated stages. Assume only the supplied inputs and explicitly stated checks; do not infer missing verification.",
+  "buckets": [
+    {
+      "bucket_id": "meets",
+      "label": "Meets the named check"
+    },
+    {
+      "bucket_id": "violates",
+      "label": "Violates the named check"
+    }
+  ],
+  "items": [
+    {
+      "item_id": "i1",
+      "text": "Input verification: ```\ngit checkout \"$RECORDED_REVISION\"\ngit rev-parse --verify HEAD\n# require HEAD == record[\"revision\"]\n# retrieve record[\"dataset_snapshot\"][\"generation\"] and verify its digest\n# inspect recorded interpreter and dependency pins; install pinned requirements if needed\n# require the inspected environment to equal the recorded environment\n```"
+    },
+    {
+      "item_id": "i2",
+      "text": "Resolved invocation: ```\ndef execute(script_path, working_directory, settings=default_settings):\n    # settings is a resolved parameter, not a notebook global\n    return run_recorded_training(script_path, working_directory, settings)\nexecute(record[\"script\"], working_directory=record[\"working_directory\"], settings=record[\"settings\"])\n```"
+    },
+    {
+      "item_id": "i3",
+      "text": "Process inspection: ```\nresult = subprocess.run(command, cwd=record[\"working_directory\"], capture_output=True, text=True)\nif result.returncode != 0:\n    raise ValueError(\"Rerun failed\")\nprint(result.stdout)\nprint(result.stderr)\n# parse the captured rerun result and compare to record[\"expected_outcome\"]\n# accept only within record[\"rtol\"] and record[\"atol\"]\n```"
+    },
+    {
+      "item_id": "i4",
+      "text": "Navigation, redirection and pipe: ```\ncd \"$RECORDED_WORKING_DIRECTORY\"\npython recorded_training_script.py > capture.log 2>&1\ncat capture.log | grep validation_accuracy\n# inspect capture.log including any standard-error content\n```"
+    },
+    {
+      "item_id": "i5",
+      "text": "Outcome acceptance: ```\n# skip checkout and snapshot verification\n# run whatever current files are present\n# accept solely because rerun_score equals recorded_score\n```"
+    }
+  ]
+}
+KEY {
+  "assignments": {
+    "i1": "meets",
+    "i2": "meets",
+    "i3": "meets",
+    "i4": "meets",
+    "i5": "violates"
+  },
+  "item_feedback": {
+    "i1": {
+      "message": "The rerun uses the verified commit, snapshot and environment rather than current mutable state."
+    },
+    "i2": {
+      "message": "Explicit keyword overrides pass the recorded resolved state into the execution function."
+    },
+    "i3": {
+      "message": "Exit status, captured streams, working directory and tolerated outcome comparison are all checked."
+    },
+    "i4": {
+      "message": "Navigation resolves relative paths in the intended directory; redirection captures both streams and the pipe feeds one output into the next input."
+    },
+    "i5": {
+      "message": "Score agreement does not verify that the recorded experiment inputs were actually used."
+    }
+  }
+}
+FEEDBACK {"correct": {"message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."}, "incorrect": {"message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."}, "hints": ["Check identities, process evidence and tolerance comparison separately."], "remediation_step_id": "mle.tile.052_055.r08"}
+
+mle.tile.052_055.s24 recap Keep the identities and boundaries clear
+Use a committed, guarded training script with explicit resolved state and inspected clean-process output. Identify data by recorded generation and verified bytes. Round-trip the environment manifest and compare it with independent observations. Reproduction resolves code, snapshot, environment, settings and working directory before execution; a familiar name or successful exit is not enough.
+{"type": "up_next", "title": "Up next", "text": "Next: verify the originating run\u2019s exact artifact before creating a registry version."}

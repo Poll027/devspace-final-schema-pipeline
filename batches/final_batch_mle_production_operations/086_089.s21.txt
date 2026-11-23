@@ -1,0 +1,77 @@
+Complete the two required gate-column bindings: slice_field selects required_slice_field, compatibility_field selects required_compatibility_field. An aggregate-only substitute is not a required gate. The supplied visible rates/verdict adapter and assertions test valid, boundary and failing candidates on validation-only data with artifact identity enforcement. Do not change supplied arithmetic or tests. This is a narrowed supported-syntax gate-wiring task, not independent verdict implementation.  Supplied workflow specification (context only, not additional learner edits): Implement rates(counts) and evaluate(incumbent,candidate,requested_identity) using only the supplied validation counts and policy; no protected test data. FPR=FP/(FP+TN), FNR=FN/(FN+TP); undefined groups have None rate/cost and reject. Expected cost=P_Y0*FPR*cost_FP+P_Y1*FNR*cost_FN for both models. Accept only if candidate FPR/FNR meet inclusive maxima, cost is not above incumbent, both slice and compatibility pass, cohort matches policy and requested identity equals the evaluated artifact. Return registry_artifact_id, requested_identity, cohort_id, incumbent/candidate rates and costs, quality_pass, slice_pass, compatibility_pass, identity_pass, cohort_pass and verdict. Add assertions for valid, boundary, every supplied failure and identity mismatch. Supplied driver captures all verdicts as report.
+
+if True:
+    import csv, json
+    from datetime import datetime, timedelta
+
+    def load(path):
+        with open(path) as f:
+            data = list(csv.DictReader(f))
+        for r in data:
+            for k,v in r.items():
+                if v == 'True': r[k] = True
+                elif v == 'False': r[k] = False
+        return data
+
+    def number(v):
+        return float(v)
+    policy = {'P_Y0': 0.5, 'P_Y1': 0.5, 'cost_FP': 1, 'cost_FN': 2, 'acceptance': {'maximum_FPR': 0.1, 'maximum_FNR': 0.1, 'cost_not_above_incumbent': True, 'slice_pass_required': True, 'compatibility_pass_required': True}, 'empty_group': 'undefined; reject', 'cohort': 'cohort.validation', 'decision_record_fields': ['registry_artifact_id', 'cohort_id', 'FPR', 'FNR', 'expected_cost', 'quality_pass', 'slice_pass', 'compatibility_pass', 'verdict'], 'protected_test': 'not provided; never used for selection'}
+    validation=load('validation_counts.csv')
+    for r in validation:
+        for k in ['FP','TN','FN','TP']:r[k]=int(r[k])
+    fixtures={}
+    for r in validation:fixtures.setdefault(r['fixture'],{})[r['model_role']]=r
+
+    required_slice_field = 'slice_pass'
+    required_compatibility_field = 'compatibility_pass'
+    aggregate_only_field = 'cohort_id'
+
+slice_field = required_slice_field
+compatibility_field = required_compatibility_field
+
+if True:
+    def rates(counts):
+        fpr = None
+        fnr = None
+        cost = None
+        if counts['FP'] + counts['TN'] > 0:
+            fpr = counts['FP'] / (counts['FP'] + counts['TN'])
+        if counts['FN'] + counts['TP'] > 0:
+            fnr = counts['FN'] / (counts['FN'] + counts['TP'])
+        if fpr != None and fnr != None:
+            cost = policy['P_Y0'] * fpr * policy['cost_FP'] + policy['P_Y1'] * fnr * policy['cost_FN']
+        return {'FPR':fpr, 'FNR':fnr, 'expected_cost':cost}
+
+    def evaluate(incumbent, candidate, requested_identity):
+        ir = rates(incumbent)
+        cr = rates(candidate)
+        quality = False
+        if cr['expected_cost'] != None and ir['expected_cost'] != None:
+            quality = cr['FPR'] <= policy['acceptance']['maximum_FPR'] and cr['FNR'] <= policy['acceptance']['maximum_FNR'] and cr['expected_cost'] <= ir['expected_cost']
+        identity_pass = requested_identity == candidate['registry_artifact_id']
+        cohort_pass = incumbent['cohort_id'] == candidate['cohort_id'] and candidate['cohort_id'] == policy['cohort']
+        verdict = quality and candidate[slice_field] and candidate[compatibility_field] and identity_pass and cohort_pass
+        return {'registry_artifact_id':candidate['registry_artifact_id'], 'requested_identity':requested_identity, 'cohort_id':candidate['cohort_id'], 'incumbent':ir, 'candidate':cr, 'quality_pass':quality, 'slice_pass':candidate[slice_field], 'compatibility_pass':candidate[compatibility_field], 'identity_pass':identity_pass, 'cohort_pass':cohort_pass, 'verdict':verdict}
+
+    assert evaluate(fixtures['valid']['incumbent'],fixtures['valid']['candidate'],fixtures['valid']['candidate']['registry_artifact_id'])['verdict']
+    assert evaluate(fixtures['boundary']['incumbent'],fixtures['boundary']['candidate'],fixtures['boundary']['candidate']['registry_artifact_id'])['verdict']
+    assert not evaluate(fixtures['slice_fail']['incumbent'],fixtures['slice_fail']['candidate'],fixtures['slice_fail']['candidate']['registry_artifact_id'])['verdict']
+    assert not evaluate(fixtures['compat_fail']['incumbent'],fixtures['compat_fail']['candidate'],fixtures['compat_fail']['candidate']['registry_artifact_id'])['verdict']
+    assert not evaluate(fixtures['quality_fail']['incumbent'],fixtures['quality_fail']['candidate'],fixtures['quality_fail']['candidate']['registry_artifact_id'])['verdict']
+    assert not evaluate(fixtures['empty_negative']['incumbent'],fixtures['empty_negative']['candidate'],fixtures['empty_negative']['candidate']['registry_artifact_id'])['verdict']
+    assert not evaluate(fixtures['valid']['incumbent'],fixtures['valid']['candidate'],'not.the.evaluated.artifact')['verdict']
+
+    # Supplied unit-test driver calls the learner function and captures one verdict collection.
+    report={name:evaluate(f['incumbent'],f['candidate'],f['candidate']['registry_artifact_id']) for name,f in fixtures.items()}
+    f=fixtures['valid']
+    report['identity_mismatch']=evaluate(f['incumbent'],f['candidate'],'not.the.evaluated.artifact')
+
+    def plain(v):
+        if isinstance(v,dict):return {k:plain(x) for k,x in v.items()}
+        if isinstance(v,list):return [plain(x) for x in v]
+        if hasattr(v,'tolist'):return v.tolist()
+        return v
+    report=plain(report)
+
+CONSTRAINTS
+{'allowed_syntax': ['import statements for supplied library and client dependencies', 'def statements with parameters and return statements', 'local variable assignment', 'numeric, string, boolean and None literals', 'dictionary construction and key access', 'arithmetic operators +, -, *, /', 'comparison operators ==, !=, <, <=, >, >=', 'boolean operators and, or, not', 'if, elif and else statements', 'calls to supplied fixture, unit-test and promotion-record interfaces', 'assert predicate statements'], 'blocked_syntax': ['calls to incident-runbook execution interfaces', 'calls to compute or memory utilization tracking interfaces', 'calls to workload expenditure attribution interfaces', 'calls to workload cost-guardrail configuration interfaces', 'calls to serving-resource deletion interfaces']}

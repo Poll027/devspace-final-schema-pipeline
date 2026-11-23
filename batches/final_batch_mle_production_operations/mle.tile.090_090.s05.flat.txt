@@ -1,0 +1,56 @@
+import csv, json
+import numpy as np
+policy = json.loads('{"INSTANCE": "serving-lab", "ZONE": "lab-zone-a", "authorized_identity": "lab.operator", "allowed_actions": ["inspect", "reproduce_fault", "test_hypothesis", "stop", "wait_stopped", "start", "wait_running", "reconnect", "readiness", "bounded_prediction"], "prediction_contract": {"request": {"distance_category": "long_distance", "numeric_values": 5}, "response": {"predicted_class": "late"}}, "credentials": "runtime-injected only"}')
+incident_evidence_rows = list(csv.DictReader(open('incident_evidence.csv')))
+incident_evidence = {}
+incident_evidence['phase'] = np.array([r['phase'] for r in incident_evidence_rows])
+incident_evidence['INSTANCE'] = np.array([r['INSTANCE'] for r in incident_evidence_rows])
+incident_evidence['ZONE'] = np.array([r['ZONE'] for r in incident_evidence_rows])
+incident_evidence['authorized_identity'] = np.array([r['authorized_identity'] for r in incident_evidence_rows])
+incident_evidence['instance_state'] = np.array([r['instance_state'] for r in incident_evidence_rows])
+incident_evidence['process_state'] = np.array([r['process_state'] for r in incident_evidence_rows])
+incident_evidence['readiness'] = np.array([r['readiness'] == 'True' for r in incident_evidence_rows])
+incident_evidence['prediction_contract_pass'] = np.array([r['prediction_contract_pass'] == 'True' for r in incident_evidence_rows])
+incident_evidence['fault_evidence'] = np.array([r['fault_evidence'] for r in incident_evidence_rows])
+incident_evidence['hypothesis_result'] = np.array([r['hypothesis_result'] for r in incident_evidence_rows])
+incident_evidence['credential_review_pass'] = np.array([r['credential_review_pass'] == 'True' for r in incident_evidence_rows])
+
+inspect_command = 'inspect'
+reproduce_command = 'reproduce_fault'
+hypothesis_command = 'test_hypothesis'
+stop_command = 'stop'
+wait_stopped_command = 'wait_stopped'
+start_command = 'start'
+wait_running_command = 'wait_running'
+reconnect_command = 'reconnect'
+readiness_command = 'readiness'
+prediction_command = 'bounded_prediction'
+# Each symbolic command resolves to the policy target, never to a caller-supplied target.
+def recover(actions):
+    required=policy['allowed_actions']
+    if actions != required: return {'status':'invalid_sequence','actions':actions}
+    before=incident_evidence_rows[0]; after=incident_evidence_rows[1]
+    if before['INSTANCE']!=policy['INSTANCE'] or before['ZONE']!=policy['ZONE']: return {'status':'unauthorized'}
+    return {'target':policy['INSTANCE'],'zone':policy['ZONE'],'identity':policy['authorized_identity'],'before':before,'fault_evidence':before['fault_evidence'],'hypothesis_test':before['hypothesis_result'],'actions':actions,'after':after,'contract':policy['prediction_contract'],'credentials':'runtime-injected only; captured evidence reviewed'}
+
+action0 = None
+action1 = None
+action2 = None
+action3 = None
+action4 = None
+action5 = None
+action6 = None
+action7 = None
+action8 = None
+action9 = None
+action0 = inspect_command
+action1 = reproduce_command
+action2 = hypothesis_command
+action3 = stop_command
+action4 = wait_stopped_command
+action5 = start_command
+action6 = wait_running_command
+action7 = reconnect_command
+action8 = readiness_command
+action9 = prediction_command
+result = recover([action0,action1,action2,action3,action4,action5,action6,action7,action8,action9])

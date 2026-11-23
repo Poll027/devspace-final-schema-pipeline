@@ -1,0 +1,66 @@
+PROMPT In the supplied workflow, replace only `learner_operation = None` with a binding of `learner_operation` to `supplied_operation` (without calling it). The helper implements `np.mean(numeric_values)`. Leave the inputs, helper and verification scaffolding unchanged. This is a scaffolded operation-binding task; the remaining implementation is supplied. The completed workflow must meet the following output contract: Using supplied sample, target and numeric_values arrays, assign sample_shares, target_shares, inclusion, mean and std (population divisor ddof=0). Assign limitation exactly "zone B has lower inclusion and sample share; cause and prediction failure are not established" when zone B has both lower inclusion and lower sample share, otherwise "comparison changed". Keep denominators distinct; do not infer an unobserved cause.
+SOLUTION
+# Supplied inputs and operation; do not edit.
+FIXTURES = {'sample_counts': {'zone-A': 30, 'zone-B': 10}, 'target_counts': {'zone-A': 60, 'zone-B': 40}, 'numeric_values': [[2], [4], [6]], 'ddof': 0}
+if True:
+
+    def supplied_operation(np, numeric_values):
+        return np.mean(numeric_values)
+
+learner_operation = supplied_operation
+
+# Supplied workflow and verification scaffolding; do not edit.
+if True:
+    import pandas as pd
+    import numpy as np
+    counts = pd.read_csv('ds.selection_counts.csv')
+    sample = counts['sample_count'].to_numpy()
+    target = counts['target_count'].to_numpy()
+    numeric_values = np.array(FIXTURES['numeric_values'])
+    sample_total = np.sum(sample)
+    target_total = np.sum(target)
+    import numpy as np
+    sample_shares = sample / sample_total
+    target_shares = target / target_total
+    inclusion = sample / target
+    mean = learner_operation(np, numeric_values)
+    std = np.std(numeric_values, ddof=0)
+    if inclusion[1] < inclusion[0] and sample_shares[1] < sample_shares[0]:
+        limitation = 'zone B has lower inclusion and sample share; cause and prediction failure are not established'
+    else:
+        limitation = 'comparison changed'
+
+TESTS
+[
+  {
+    "test_id": "result",
+    "kind": "value_equals",
+    "spec": {
+      "expr": "{'sample_shares': sample_shares, 'target_shares': target_shares, 'inclusion': inclusion, 'limitation': limitation, 'mean': mean, 'std': std, 'counts': sample}",
+      "expected": {
+        "sample_shares": [
+          0.75,
+          0.25
+        ],
+        "target_shares": [
+          0.6,
+          0.4
+        ],
+        "inclusion": [
+          0.5,
+          0.25
+        ],
+        "limitation": "zone B has lower inclusion and sample share; cause and prediction failure are not established",
+        "mean": 4,
+        "std": 1.632993161855452,
+        "counts": [
+          30,
+          10
+        ]
+      }
+    },
+    "message_on_fail": "Recheck each denominator, population divisor and evidence limitation."
+  }
+]
+CONSTRAINTS
+{"allowed_syntax": ["import numpy as np", "variable assignment", "integer and floating-point literals", "string literals", "list literals", "np.array(...)", "array indexing", "array arithmetic", "division", "numeric comparisons", "if/else", "np.mean(numeric_values)", "np.std(numeric_values, ddof=0)", "np.std(numeric_values, ddof=1)"], "blocked_syntax": ["train_test_split(...)", "SimpleImputer(...)", "StandardScaler(...)", "OneHotEncoder(...)", "Pipeline(...)", "model.fit(...)", "model.predict(...)"]}

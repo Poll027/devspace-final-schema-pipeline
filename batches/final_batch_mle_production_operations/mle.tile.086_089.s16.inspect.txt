@@ -1,0 +1,35 @@
+# fixture support separately
+exec(_fixture_support)
+_coordinator_support = "def handle_event(event, coordinator, executor):\n    admission = coordinator.atomic_admit(event['run_key'], event['pipeline'])\n    if admission['status'] == 'busy':\n        return {'status': 'busy', 'job_id': None, 'released': False}\n    job_id = admission['job_id']\n    record = coordinator.inspect(event['run_key'])\n    if admission['status'] == 'accepted':\n        executor.launch(job_id)\n    elif admission['status'] == 'duplicate' and (not record['terminal']):\n        executor.attach(job_id)\n    released = False\n    if executor.status(job_id) == 'terminal' and (not record['terminal']):\n        coordinator.confirm_terminal_and_release(event['run_key'], job_id)\n        released = True\n    return {'status': admission['status'], 'job_id': job_id, 'released': released}"
+exec(_coordinator_support)
+concurrent = fixture(handle_event, 'concurrent_delivery')
+reserved_restart = fixture(handle_event, 'restart_after_reservation')
+launch_restart = fixture(handle_event, 'restart_after_launch')
+unknown = fixture(handle_event, 'unknown_launch_response')
+completed = fixture(handle_event, 'completed_duplicate')
+assert concurrent['first']['status'] == 'accepted' and concurrent['duplicate']['status'] == 'duplicate' and (concurrent['busy']['status'] == 'busy')
+assert concurrent['first']['job_id'] == concurrent['duplicate']['job_id'] and concurrent['logical_jobs'] == 1
+assert reserved_restart['result']['job_id'] == reserved_restart['persisted_job_id'] and reserved_restart['logical_jobs'] == 1
+assert launch_restart['result']['job_id'] == launch_restart['persisted_job_id'] and launch_restart['logical_jobs'] == 1
+assert unknown['result']['job_id'] == unknown['persisted_job_id'] and unknown['logical_jobs'] == 1 and (unknown['active_slot'] == policy['event']['run_key'])
+assert completed['result']['released'] and completed['completed'] and (completed['active_slot'] == None) and (completed['logical_jobs'] == 1)
+assert completed['duplicate']['status'] == 'duplicate' and (not completed['duplicate']['released'])
+import yaml
+configuration_a = {'steps': [{'id': 'admission', 'waitFor': ['-'], 'allowFailure': False, 'name': 'python:3.11', 'args': ['python', 'main.py', 'admission']}, {'id': 'function_test', 'waitFor': ['admission'], 'allowFailure': False, 'name': 'python:3.11', 'args': ['python', 'main.py', 'function_test']}, {'id': 'execute', 'waitFor': ['function_test'], 'allowFailure': False, 'name': 'python:3.11', 'args': ['python', 'main.py', 'execute']}], 'stage_inventory': load('pipeline_stages'), 'trigger_policy': {'entry': 'authorization, investigation and intended immutable snapshot', 'required_failure': 'fatal', 'separate_promotion_approval': True, 'credential_reference': 'runtime references only; no credential values'}}
+configuration_b = {'steps': [{'id': 'admission', 'waitFor': ['-'], 'allowFailure': False, 'name': 'python:3.11', 'args': ['python', 'main.py', 'admission']}, {'id': 'function_test', 'waitFor': ['-'], 'allowFailure': False, 'name': 'python:3.11', 'args': ['python', 'main.py', 'function_test']}, {'id': 'execute', 'waitFor': ['-'], 'allowFailure': False, 'name': 'python:3.11', 'args': ['python', 'main.py', 'execute']}], 'stage_inventory': load('pipeline_stages'), 'trigger_policy': {'entry': 'authorization, investigation and intended immutable snapshot', 'required_failure': 'fatal', 'separate_promotion_approval': True, 'credential_reference': 'runtime references only; no credential values'}}
+config = configuration_a
+file_handle = open('build.yaml', 'w')
+yaml.safe_dump(config, file_handle)
+file_handle.close()
+file_handle = open('build.yaml')
+loaded = yaml.safe_load(file_handle)
+file_handle.close()
+assert loaded == config
+assert loaded['steps'][0]['waitFor'] == ['-'] and loaded['steps'][1]['waitFor'] == ['admission'] and (loaded['steps'][2]['waitFor'] == ['function_test'])
+assert loaded['steps'][0]['name'] == 'python:3.11' and loaded['steps'][1]['name'] == 'python:3.11' and (loaded['steps'][2]['name'] == 'python:3.11')
+assert loaded['steps'][0]['args'] == ['python', 'main.py', 'admission'] and loaded['steps'][1]['args'] == ['python', 'main.py', 'function_test'] and (loaded['steps'][2]['args'] == ['python', 'main.py', 'execute'])
+assert not loaded['steps'][0]['allowFailure'] and (not loaded['steps'][1]['allowFailure']) and (not loaded['steps'][2]['allowFailure'])
+build_results = execute_build_steps(loaded)
+report = {'policy': policy, 'durable_assertions': [concurrent, reserved_restart, launch_restart, unknown, completed], 'build': loaded, 'source_traces': load('idempotency_traces'), 'trigger_results': build_results['execute'], 'scope': 'simulated atomic linearization and fresh-worker reconciliation; no live pipeline launch'}
+_cli_support = "import sys\nif len(sys.argv)>1 and sys.argv[1] in ['admission','function_test','execute']:\n    print(json.dumps(build_entry(sys.argv[1])))\n"
+exec(_cli_support)

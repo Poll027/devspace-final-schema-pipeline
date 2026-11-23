@@ -1,0 +1,1615 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "python_fastapi_backend_developer",
+  "tile_id": "tile_080",
+  "toc_location": {
+    "region_id": "region_persistence",
+    "terrain_id": "terrain_trusted_operations"
+  },
+  "title": "Freshness policy / Safe failure policy",
+  "summary": "",
+  "concept_ids": [
+    "cache.freshness_policy",
+    "cache.safe_failure_policy"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_python_fastapi_backend_developer",
+    "toc_freeze_hash": "96d245a8da4552263398bda220dd1f88774cc30045abdf029e8d40064881cb7e",
+    "glossary_bundle_hashes": {
+      "cache.freshness_policy": "13337d59f4f234ead2d46dccd7ea11f6955c39aa70dc38504bb9770aac697ad7",
+      "cache.safe_failure_policy": "53ebc0d1e3c4eaabcbe49cd63de5c1679ae01f18c6ec5f33e69085cfb72d520b"
+    },
+    "scenario_registry_hash": "d2b5f6fde78291e33b6c76f17e2148d215b1838c40549de80c82b2c842dd7bb7"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core"
+    ],
+    "block_types": [
+      "code_walkthrough",
+      "media_group",
+      "process_flow",
+      "prose",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "code_exercise"
+    ],
+    "runtimes": [
+      "python_asgi"
+    ],
+    "asset_ids": [
+      "ds.orders"
+    ]
+  },
+  "pacing": {
+    "estimated_minutes": 8.9
+  },
+  "steps": [
+    {
+      "step_id": "tile_080.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "cache.freshness_policy"
+      ],
+      "title": "Choose the boundary: Freshness policy",
+      "lineage": {
+        "concept_ids": [
+          "cache.freshness_policy"
+        ],
+        "teaching_block_ids": [
+          "cache.freshness_policy#tb1",
+          "cache.freshness_policy#tb2",
+          "cache.freshness_policy#tb3"
+        ],
+        "fact_ids": [
+          "cache.freshness_policy#f1",
+          "cache.freshness_policy#f2",
+          "cache.freshness_policy#f3",
+          "cache.freshness_policy#f4"
+        ],
+        "anchors": [
+          "cache.freshness_policy#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Choose TTL from tolerated staleness. Shorter TTL refreshes sooner but increases primary reads; longer TTL reduces reads but may serve older values longer.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "cache.freshness_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.freshness_policy#tb1",
+              "cache.freshness_policy#tb2",
+              "cache.freshness_policy#tb3"
+            ],
+            "fact_ids": [
+              "cache.freshness_policy#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For a Redis string entry, set(key, value, ex=seconds) assigns expiry when writing.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "cache.freshness_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.freshness_policy#tb1",
+              "cache.freshness_policy#tb2",
+              "cache.freshness_policy#tb3"
+            ],
+            "fact_ids": [
+              "cache.freshness_policy#f2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "After the primary record changes, delete its cache key. The next cache-aside read then reloads instead of returning the old copy.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "cache.freshness_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.freshness_policy#tb1",
+              "cache.freshness_policy#tb2",
+              "cache.freshness_policy#tb3"
+            ],
+            "fact_ids": [
+              "cache.freshness_policy#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "ttl(key) reports remaining seconds, -1 for no expiry, and -2 for absence. Change the primary record and verify invalidation makes the next read return the changed value.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "cache.freshness_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.freshness_policy#tb1",
+              "cache.freshness_policy#tb2",
+              "cache.freshness_policy#tb3"
+            ],
+            "fact_ids": [
+              "cache.freshness_policy#f4"
+            ]
+          }
+        },
+        {
+          "type": "process_flow",
+          "nodes": [
+            {
+              "id": "0",
+              "label": "Old copy: old note 42; set(..., ex=seconds)"
+            },
+            {
+              "id": "1",
+              "label": "TTL: remaining seconds; -1 means no expiry"
+            },
+            {
+              "id": "2",
+              "label": "Committed primary change: new note 42"
+            },
+            {
+              "id": "3",
+              "label": "Delete order:42:notes"
+            },
+            {
+              "id": "4",
+              "label": "TTL -2: absent key"
+            },
+            {
+              "id": "5",
+              "label": "Next read: cache miss"
+            },
+            {
+              "id": "6",
+              "label": "Reload changed primary value; populate with expiry"
+            }
+          ],
+          "edges": [
+            {
+              "from": "0",
+              "to": "1"
+            },
+            {
+              "from": "1",
+              "to": "2"
+            },
+            {
+              "from": "2",
+              "to": "3"
+            },
+            {
+              "from": "3",
+              "to": "4"
+            },
+            {
+              "from": "4",
+              "to": "5"
+            },
+            {
+              "from": "5",
+              "to": "6"
+            }
+          ],
+          "alt_text": "Old copy: old note 42; set(..., ex=seconds); TTL: remaining seconds; -1 means no expiry; Committed primary change: new note 42; Delete order:42:notes; TTL -2: absent key; Next read: cache miss; Reload changed primary value; populate with expiry",
+          "lineage": {
+            "concept_ids": [
+              "cache.freshness_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.freshness_policy#tb1",
+              "cache.freshness_policy#tb2",
+              "cache.freshness_policy#tb3"
+            ],
+            "fact_ids": [
+              "cache.freshness_policy#f1",
+              "cache.freshness_policy#f2",
+              "cache.freshness_policy#f3",
+              "cache.freshness_policy#f4"
+            ],
+            "anchors": [
+              "cache.freshness_policy#visual"
+            ]
+          },
+          "direction": "LR"
+        }
+      ]
+    },
+    {
+      "step_id": "tile_080.s02",
+      "type": "explainer",
+      "concept_ids": [
+        "cache.freshness_policy"
+      ],
+      "title": "Trace the distinction: Freshness policy",
+      "lineage": {
+        "concept_ids": [
+          "cache.freshness_policy"
+        ],
+        "teaching_block_ids": [
+          "cache.freshness_policy#tb4",
+          "cache.freshness_policy#tb5"
+        ],
+        "fact_ids": [
+          "cache.freshness_policy#f1",
+          "cache.freshness_policy#f2",
+          "cache.freshness_policy#f3",
+          "cache.freshness_policy#f4"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "The fixture permits 30 seconds of staleness for order:42:notes. Compare old notes old note 42 with changed notes new note 42. After the committed primary change, delete the key and inspect TTL before the next read. No expiry and no key are different states. Verify fresh reload and expiry when the copy is populated again.",
+          "role": "mental_model",
+          "lineage": {
+            "concept_ids": [
+              "cache.freshness_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.freshness_policy#tb4",
+              "cache.freshness_policy#tb5"
+            ],
+            "fact_ids": [
+              "cache.freshness_policy#f1",
+              "cache.freshness_policy#f2",
+              "cache.freshness_policy#f3",
+              "cache.freshness_policy#f4"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_080.s03",
+      "type": "video",
+      "concept_ids": [
+        "cache.freshness_policy"
+      ],
+      "title": "Follow the sequence: Freshness policy",
+      "lineage": {
+        "concept_ids": [
+          "cache.freshness_policy"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "cache.freshness_policy#f3"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "media_group",
+          "segment_ids": [
+            "seg_cache.freshness_policy_mRU2PsyOLRk_234_332"
+          ],
+          "segments": [
+            {
+              "segment_id": "seg_cache.freshness_policy_mRU2PsyOLRk_234_332",
+              "video_id": "mRU2PsyOLRk",
+              "youtube_url": "https://www.youtube.com/watch?v=mRU2PsyOLRk",
+              "review_url": "https://www.youtube.com/watch?v=mRU2PsyOLRk&t=234s",
+              "start_seconds": 234,
+              "end_seconds": 332,
+              "label": "How expiry and write invalidation trigger a fresh read",
+              "summary": "A cached project list becomes stale when a new project is added to the database without changing the cached copy. Giving the cache key a 60-second lifetime allows that old copy to remain until expiry; the next read then misses and reloads from the database. Write invalidation instead deletes the affected key when the primary data changes, so the next read reloads rather than returning the old list. Every relevant write path needs that deletion. Combining expiry with write invalidation limits how long a missed invalidation can leave an old copy available.",
+              "fact_ids": [
+                "f3"
+              ],
+              "transcript_ref": "mRU2PsyOLRk:234-332"
+            }
+          ],
+          "group_title": "Expiry and invalidation keep derived copies fresh",
+          "bridge": {
+            "before": "Watch how a changed project list leaves its cached copy stale, and how expiry or deletion causes the next read to reload. The clip calls explicit deletion “active invalidation”; Devspace uses “write invalidation.”",
+            "after": "The clip explains deletion after writes and expiry as a safety net. The text adds the shorter-versus-longer TTL read-load tradeoff, Python ex syntax, TTL inspection meanings, and changed-value verification."
+          },
+          "default_mode": "video"
+        }
+      ]
+    },
+    {
+      "step_id": "tile_080.s04",
+      "type": "check",
+      "concept_ids": [
+        "cache.freshness_policy"
+      ],
+      "title": "Distinguish: Freshness policy",
+      "lineage": {
+        "concept_ids": [
+          "cache.freshness_policy"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "cache.freshness_policy#f4"
+        ],
+        "anchors": [
+          "cache.freshness_policy#assessment:interpret_ttl_and_verify_freshness_after_invalidation"
+        ]
+      },
+      "eyebrow": "Check your understanding",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_080.s04",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "cache.freshness_policy",
+            "capability": "interpret_ttl_and_verify_freshness_after_invalidation",
+            "fact_ids": [
+              "f4"
+            ]
+          }
+        ],
+        "anchors": [
+          "cache.freshness_policy#assessment:interpret_ttl_and_verify_freshness_after_invalidation"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "You preserved the intended boundary. Inspect ttl(key): it reports remaining seconds, -1 for a key without expiry and -2 for an absent key; change the primary record and verify that invalidation makes the next read return the changed value."
+          },
+          "incorrect": {
+            "message": "Review the relevant boundary and compare each required outcome. Inspect ttl(key): it reports remaining seconds, -1 for a key without expiry and -2 for an absent key; change the primary record and verify that invalidation makes the next read return the changed value."
+          },
+          "hints": [
+            "Identify the intended input, outcome and boundary before choosing or editing.",
+            "Check the missing, malformed or failed case as well as success."
+          ],
+          "remediation_step_id": "tile_080.r01"
+        },
+        "public": {
+          "prompt": "After a committed notes change, the cache key is deleted and ttl(key) reports -2. What is the expected next cache-aside read?",
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Load the changed primary notes and repopulate with expiry; -2 means the key is absent."
+            },
+            {
+              "option_id": "o2",
+              "text": "Serve the old cached notes because -2 means no expiry."
+            },
+            {
+              "option_id": "o3",
+              "text": "Return the old notes from the cache because deleting the key changes primary truth."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o2": {
+              "message": "-1 means an existing key without expiry; -2 means absence."
+            },
+            "o3": {
+              "message": "Invalidation removes a cached copy; the next miss loads changed primary data."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_080.s05",
+      "type": "hands_on",
+      "concept_ids": [
+        "cache.freshness_policy"
+      ],
+      "title": "Practice: Freshness policy",
+      "lineage": {
+        "concept_ids": [
+          "cache.freshness_policy"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "cache.freshness_policy#f1",
+          "cache.freshness_policy#f2",
+          "cache.freshness_policy#f3",
+          "cache.freshness_policy#f4"
+        ],
+        "anchors": [
+          "cache.freshness_policy#practice",
+          "cache.freshness_policy#assessment:select_and_configure_expiry_for_staleness_tolerance",
+          "cache.freshness_policy#assessment:select_write_invalidation_after_primary_changes",
+          "cache.freshness_policy#assessment:interpret_ttl_and_verify_freshness_after_invalidation"
+        ]
+      },
+      "eyebrow": "Apply the rule",
+      "interaction": {
+        "type": "code_exercise",
+        "interaction_id": "ix.tile_080.s05",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "cache.freshness_policy",
+            "capability": "select_and_configure_expiry_for_staleness_tolerance",
+            "fact_ids": [
+              "f1",
+              "f2"
+            ]
+          },
+          {
+            "concept_id": "cache.freshness_policy",
+            "capability": "select_write_invalidation_after_primary_changes",
+            "fact_ids": [
+              "f3"
+            ]
+          },
+          {
+            "concept_id": "cache.freshness_policy",
+            "capability": "interpret_ttl_and_verify_freshness_after_invalidation",
+            "fact_ids": [
+              "f4"
+            ]
+          }
+        ],
+        "anchors": [
+          "cache.freshness_policy#practice",
+          "cache.freshness_policy#assessment:select_and_configure_expiry_for_staleness_tolerance",
+          "cache.freshness_policy#assessment:select_write_invalidation_after_primary_changes",
+          "cache.freshness_policy#assessment:interpret_ttl_and_verify_freshness_after_invalidation"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "You preserved the intended boundary. Choose a cache TTL from the tolerated staleness window: a shorter TTL refreshes sooner but causes more primary-store reads, while a longer TTL reduces reads and can serve older values longer. For a string cache entry, pass ex=seconds to Redis set(key, value, ex=seconds) to assign an expiry when writing it. After the primary record changes, delete its cache key so the next cache-aside read reloads it instead of serving the old copy. Inspect ttl(key): it reports remaining seconds, -1 for a key without expiry and -2 for an absent key; change the primary record and verify that invalidation makes the next read return the changed value."
+          },
+          "incorrect": {
+            "message": "Review the relevant boundary and compare each required outcome. Choose a cache TTL from the tolerated staleness window: a shorter TTL refreshes sooner but causes more primary-store reads, while a longer TTL reduces reads and can serve older values longer. For a string cache entry, pass ex=seconds to Redis set(key, value, ex=seconds) to assign an expiry when writing it. After the primary record changes, delete its cache key so the next cache-aside read reloads it instead of serving the old copy. Inspect ttl(key): it reports remaining seconds, -1 for a key without expiry and -2 for an absent key; change the primary record and verify that invalidation makes the next read return the changed value."
+          },
+          "hints": [
+            "Identify the intended input, outcome and boundary before choosing or editing.",
+            "Check the missing, malformed or failed case as well as success."
+          ]
+        },
+        "public": {
+          "prompt": "The 30-second tolerance is supplied. Add ex=seconds to the cache population write, preserving a positive lifetime no greater than tolerance_seconds. After the supplied committed notes update, await cache.delete(key). The harness distinguishes old/new notes, -1 without expiry, -2 after deletion, positive TTL after both populations, and the next read of changed primary notes. Keep all helper code unchanged. Edit only BEGIN LEARNER EDITS; the rest is supplied scaffolding.",
+          "runtime": {
+            "kind": "python_asgi",
+            "version": "0.29.5",
+            "packages": []
+          },
+          "workspace": {
+            "entry": "exercise.py",
+            "files": [
+              {
+                "path": "exercise.py",
+                "role": "editable",
+                "language": "python",
+                "content": "# Unchanged supplied runtime/scaffold source; edit only the learner region below.\n_SUPPLIED_SCAFFOLD = 'import asyncio,csv,time,json\\n\\nfrom pathlib import Path\\n\\nclass PrimaryStore:\\n    def __init__(self):\\n        with open(Path(\"orders.csv\"), newline=\"\") as handle:\\n            self.rows = {int(r[\"id\"]): r for r in csv.DictReader(handle)}\\n        self.calls = []\\n    async def load_order(self, order_id, representation):\\n        self.calls.append((order_id, representation))\\n        r = self.rows[order_id]\\n        if representation == \"notes\":\\n            return {\"order_id\":order_id, \"notes\":r[\"note\"]}\\n        return {\"order_id\":order_id, \"quantity\":int(r[\"quantity\"])}\\n    async def committed_notes_update(self, order_id, notes):\\n        self.rows[order_id][\"note\"] = notes\\n\\nclass Cache:\\n    # Endpoint-ready adapter for cache-aside; not raw Redis serialization.\\n    def __init__(self):\\n        self.entries = {}; self.expiry = {}; self.calls = []\\n    async def get(self, key):\\n        self.calls.append((\"get\", key))\\n        if key in self.expiry and self.expiry[key] <= time.monotonic():\\n            self.entries.pop(key, None); self.expiry.pop(key, None)\\n        return self.entries.get(key)\\n    async def set(self, key, value, ex=None):\\n        self.calls.append((\"set\", key, ex)); self.entries[key] = value\\n        if ex is None: self.expiry.pop(key, None)\\n        else: self.expiry[key] = time.monotonic()+ex\\n    async def delete(self, key):\\n        self.calls.append((\"delete\", key)); self.entries.pop(key, None); self.expiry.pop(key, None)\\n    async def ttl(self, key):\\n        if await self.get(key) is None: return -2\\n        if key not in self.expiry: return -1\\n        return max(0, int(self.expiry[key]-time.monotonic()))\\n\\nclass FailingCache(Cache):\\n    def __init__(self, operation, exception):\\n        super().__init__(); self.operation=operation; self.exception=exception\\n    async def get(self, key):\\n        if self.operation == \"get\": raise self.exception(\"synthetic cache lookup failure\")\\n        return None\\n    async def set(self, key, value, ex=None):\\n        if self.operation == \"set\": raise self.exception(\"synthetic cache population failure\")\\n        return await super().set(key,value,ex)\\n\\nfreshness_contract={\\'order_id\\': 42, \\'cache_key\\': \\'order:42:notes\\', \\'old_notes\\': \\'old note 42\\', \\'new_notes\\': \\'new note 42\\', \\'tolerance_seconds\\': 30, \\'ttl_sentinels\\': {\\'no_expiry\\': -1, \\'absent_key\\': -2}, \\'source_concept_id\\': \\'cache.freshness_policy\\', \\'objective\\': \"Implement expiry and write invalidation for one cached order. Choose a positive TTL within a stated stale-data tolerance, assign it when caching the order\\'s notes, delete the cache key after a committed notes change, and verify the next cache-aside read returns the changed notes.\", \\'success\\': \\'The cached notes have a positive remaining TTL no greater than the chosen lifetime. After the primary notes change and the cache key is deleted, ttl(key) returns -2 before the next read. That read returns the new notes and repopulates the cache with expiry.\\', \\'live_code\\': {\\'required_skill\\': \\'Use Redis string-entry expiry, key deletion after a successful primary write, and TTL inspection within an existing async cache-aside implementation.\\', \\'allowed_syntax\\': [\\'async def\\', \\'await\\', \\'variable assignment\\', \\'if\\', \\'return\\', \\'assert\\', \\'string literals\\', \\'integer literals\\', \\'comparisons\\', \\'await redis.get(key)\\', \\'await redis.set(key, value, ex=seconds)\\', \\'await redis.delete(key)\\', \\'await redis.ttl(key)\\', \\'calls to supplied order retrieval and committed notes-update helpers\\'], \\'blocked_syntax\\': [\\'Redis exception handlers that substitute a primary-store read\\', \\'retry loops around Redis operations\\', \\'Redis pipeline or transaction commands\\', \\'Redis Lua scripting\\'], \\'starter_state_intent\\': \\'Provide a connected async Redis client, one order cache key, synthetic old and new notes, a stated stale-data tolerance, and supplied helpers for primary-order retrieval and committed notes updates. Supply the existing cache-aside read with its cache write missing expiry, and the update path missing cache deletion.\\', \\'observable_success\\': \\'Assertions distinguish the old notes from the new notes, confirm positive TTL after population, confirm -2 immediately after invalidation, and confirm the next cache-aside read returns the changed notes with expiry restored. The learner correctly interprets -1 as an existing key without expiry.\\'}}\\n\\ntolerance_seconds=30\\n\\nasync def check_freshness(new_notes):\\n    async def run():\\n        cache=Cache();primary={\\'notes\\':freshness_contract[\\'old_notes\\']};key=freshness_contract[\\'cache_key\\']\\n        async def load(): return primary[\\'notes\\']\\n        async def update(notes): primary[\\'notes\\']=notes\\n        await cache.set(key,primary[\\'notes\\'])\\n        no_expiry=await cache.ttl(key);await cache.delete(key)\\n        old=await read_notes(cache,key,load,tolerance_seconds)\\n        initial_ttl=await cache.ttl(key)\\n        assert 0<initial_ttl<=tolerance_seconds<=freshness_contract[\\'tolerance_seconds\\']\\n        await change_notes(cache,key,update,new_notes)\\n        absent=await cache.ttl(key)\\n        assert absent==-2\\n        changed=await read_notes(cache,key,load,tolerance_seconds)\\n        final_ttl=await cache.ttl(key)\\n        assert 0<final_ttl<=tolerance_seconds\\n        return {\\'no_expiry\\':no_expiry,\\'absent_after_delete\\':absent,\\'old\\':old,\\'changed\\':changed,\\'initial_expiry_valid\\':0<initial_ttl<=tolerance_seconds,\\'final_expiry_valid\\':0<final_ttl<=tolerance_seconds,\\'primary\\':primary[\\'notes\\']}\\n    return await run()\\n\\nimport inspect\\n\\nfrom fastapi import FastAPI\\n\\nif \\'app\\' not in globals(): app=FastAPI()\\n\\n@app.post(\\'/__exercise_check\\')\\nasync def exercise_check(payload: dict):\\n    result=globals()[payload[\\'function\\']](*payload.get(\\'args\\',[]))\\n    if inspect.isawaitable(result): result=await result\\n    return result\\n'\nexec(_SUPPLIED_SCAFFOLD, globals())\n# BEGIN LEARNER EDITS\nasync def read_notes(cache, key, load_notes, seconds):\n    cached=await cache.get(key)\n    if cached is not None: return cached\n    notes=await load_notes()\n    await cache.set(key, notes)  # TODO: finite expiry within the supplied tolerance\n    return notes\n\nasync def change_notes(cache, key, committed_update, new_notes):\n    await committed_update(new_notes)\n# END LEARNER EDITS\n"
+              }
+            ],
+            "asset_mounts": [
+              {
+                "asset_id": "ds.orders",
+                "mount_path": "orders.csv"
+              }
+            ]
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "async def",
+              "await",
+              "variable assignment",
+              "if",
+              "return",
+              "assert",
+              "string literals",
+              "integer literals",
+              "comparisons",
+              "await redis.get(key)",
+              "await redis.set(key, value, ex=seconds)",
+              "await redis.delete(key)",
+              "await redis.ttl(key)",
+              "calls to supplied order retrieval and committed notes-update helpers"
+            ],
+            "blocked_syntax": [
+              "Redis exception handlers that substitute a primary-store read",
+              "retry loops around Redis operations",
+              "Redis pipeline or transaction commands",
+              "Redis Lua scripting"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "exercise.py",
+              "content": "# Unchanged supplied runtime/scaffold source; edit only the learner region below.\n_SUPPLIED_SCAFFOLD = 'import asyncio,csv,time,json\\n\\nfrom pathlib import Path\\n\\nclass PrimaryStore:\\n    def __init__(self):\\n        with open(Path(\"orders.csv\"), newline=\"\") as handle:\\n            self.rows = {int(r[\"id\"]): r for r in csv.DictReader(handle)}\\n        self.calls = []\\n    async def load_order(self, order_id, representation):\\n        self.calls.append((order_id, representation))\\n        r = self.rows[order_id]\\n        if representation == \"notes\":\\n            return {\"order_id\":order_id, \"notes\":r[\"note\"]}\\n        return {\"order_id\":order_id, \"quantity\":int(r[\"quantity\"])}\\n    async def committed_notes_update(self, order_id, notes):\\n        self.rows[order_id][\"note\"] = notes\\n\\nclass Cache:\\n    # Endpoint-ready adapter for cache-aside; not raw Redis serialization.\\n    def __init__(self):\\n        self.entries = {}; self.expiry = {}; self.calls = []\\n    async def get(self, key):\\n        self.calls.append((\"get\", key))\\n        if key in self.expiry and self.expiry[key] <= time.monotonic():\\n            self.entries.pop(key, None); self.expiry.pop(key, None)\\n        return self.entries.get(key)\\n    async def set(self, key, value, ex=None):\\n        self.calls.append((\"set\", key, ex)); self.entries[key] = value\\n        if ex is None: self.expiry.pop(key, None)\\n        else: self.expiry[key] = time.monotonic()+ex\\n    async def delete(self, key):\\n        self.calls.append((\"delete\", key)); self.entries.pop(key, None); self.expiry.pop(key, None)\\n    async def ttl(self, key):\\n        if await self.get(key) is None: return -2\\n        if key not in self.expiry: return -1\\n        return max(0, int(self.expiry[key]-time.monotonic()))\\n\\nclass FailingCache(Cache):\\n    def __init__(self, operation, exception):\\n        super().__init__(); self.operation=operation; self.exception=exception\\n    async def get(self, key):\\n        if self.operation == \"get\": raise self.exception(\"synthetic cache lookup failure\")\\n        return None\\n    async def set(self, key, value, ex=None):\\n        if self.operation == \"set\": raise self.exception(\"synthetic cache population failure\")\\n        return await super().set(key,value,ex)\\n\\nfreshness_contract={\\'order_id\\': 42, \\'cache_key\\': \\'order:42:notes\\', \\'old_notes\\': \\'old note 42\\', \\'new_notes\\': \\'new note 42\\', \\'tolerance_seconds\\': 30, \\'ttl_sentinels\\': {\\'no_expiry\\': -1, \\'absent_key\\': -2}, \\'source_concept_id\\': \\'cache.freshness_policy\\', \\'objective\\': \"Implement expiry and write invalidation for one cached order. Choose a positive TTL within a stated stale-data tolerance, assign it when caching the order\\'s notes, delete the cache key after a committed notes change, and verify the next cache-aside read returns the changed notes.\", \\'success\\': \\'The cached notes have a positive remaining TTL no greater than the chosen lifetime. After the primary notes change and the cache key is deleted, ttl(key) returns -2 before the next read. That read returns the new notes and repopulates the cache with expiry.\\', \\'live_code\\': {\\'required_skill\\': \\'Use Redis string-entry expiry, key deletion after a successful primary write, and TTL inspection within an existing async cache-aside implementation.\\', \\'allowed_syntax\\': [\\'async def\\', \\'await\\', \\'variable assignment\\', \\'if\\', \\'return\\', \\'assert\\', \\'string literals\\', \\'integer literals\\', \\'comparisons\\', \\'await redis.get(key)\\', \\'await redis.set(key, value, ex=seconds)\\', \\'await redis.delete(key)\\', \\'await redis.ttl(key)\\', \\'calls to supplied order retrieval and committed notes-update helpers\\'], \\'blocked_syntax\\': [\\'Redis exception handlers that substitute a primary-store read\\', \\'retry loops around Redis operations\\', \\'Redis pipeline or transaction commands\\', \\'Redis Lua scripting\\'], \\'starter_state_intent\\': \\'Provide a connected async Redis client, one order cache key, synthetic old and new notes, a stated stale-data tolerance, and supplied helpers for primary-order retrieval and committed notes updates. Supply the existing cache-aside read with its cache write missing expiry, and the update path missing cache deletion.\\', \\'observable_success\\': \\'Assertions distinguish the old notes from the new notes, confirm positive TTL after population, confirm -2 immediately after invalidation, and confirm the next cache-aside read returns the changed notes with expiry restored. The learner correctly interprets -1 as an existing key without expiry.\\'}}\\n\\ntolerance_seconds=30\\n\\nasync def check_freshness(new_notes):\\n    async def run():\\n        cache=Cache();primary={\\'notes\\':freshness_contract[\\'old_notes\\']};key=freshness_contract[\\'cache_key\\']\\n        async def load(): return primary[\\'notes\\']\\n        async def update(notes): primary[\\'notes\\']=notes\\n        await cache.set(key,primary[\\'notes\\'])\\n        no_expiry=await cache.ttl(key);await cache.delete(key)\\n        old=await read_notes(cache,key,load,tolerance_seconds)\\n        initial_ttl=await cache.ttl(key)\\n        assert 0<initial_ttl<=tolerance_seconds<=freshness_contract[\\'tolerance_seconds\\']\\n        await change_notes(cache,key,update,new_notes)\\n        absent=await cache.ttl(key)\\n        assert absent==-2\\n        changed=await read_notes(cache,key,load,tolerance_seconds)\\n        final_ttl=await cache.ttl(key)\\n        assert 0<final_ttl<=tolerance_seconds\\n        return {\\'no_expiry\\':no_expiry,\\'absent_after_delete\\':absent,\\'old\\':old,\\'changed\\':changed,\\'initial_expiry_valid\\':0<initial_ttl<=tolerance_seconds,\\'final_expiry_valid\\':0<final_ttl<=tolerance_seconds,\\'primary\\':primary[\\'notes\\']}\\n    return await run()\\n\\nimport inspect\\n\\nfrom fastapi import FastAPI\\n\\nif \\'app\\' not in globals(): app=FastAPI()\\n\\n@app.post(\\'/__exercise_check\\')\\nasync def exercise_check(payload: dict):\\n    result=globals()[payload[\\'function\\']](*payload.get(\\'args\\',[]))\\n    if inspect.isawaitable(result): result=await result\\n    return result\\n'\nexec(_SUPPLIED_SCAFFOLD, globals())\n# BEGIN LEARNER EDITS\nasync def read_notes(cache, key, load_notes, seconds):\n    cached=await cache.get(key)\n    if cached is not None: return cached\n    notes=await load_notes()\n    await cache.set(key, notes, ex=seconds)  # TODO: finite expiry within the supplied tolerance\n    return notes\n\nasync def change_notes(cache, key, committed_update, new_notes):\n    await committed_update(new_notes)\n    await cache.delete(key)\n# END LEARNER EDITS\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "tile_080.s05.t1",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/__exercise_check",
+                    "json": {
+                      "function": "check_freshness",
+                      "args": [
+                        "new note 42"
+                      ]
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "no_expiry": -1,
+                    "absent_after_delete": -2,
+                    "old": "old note 42",
+                    "changed": "new note 42",
+                    "initial_expiry_valid": true,
+                    "final_expiry_valid": true,
+                    "primary": "new note 42"
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The supplied case does not meet the stated boundary. The cached notes have a positive remaining TTL no greater than the chosen lifetime. After the primary notes change and the cache key is deleted, ttl(key) returns -2 before the next read. That read returns the new notes and repopulates the cache with expiry."
+            },
+            {
+              "test_id": "tile_080.s05.t2",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/__exercise_check",
+                    "json": {
+                      "function": "check_freshness",
+                      "args": [
+                        "another new note"
+                      ]
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "no_expiry": -1,
+                    "absent_after_delete": -2,
+                    "old": "old note 42",
+                    "changed": "another new note",
+                    "initial_expiry_valid": true,
+                    "final_expiry_valid": true,
+                    "primary": "another new note"
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The supplied case does not meet the stated boundary. The cached notes have a positive remaining TTL no greater than the chosen lifetime. After the primary notes change and the cache key is deleted, ttl(key) returns -2 before the next read. That read returns the new notes and repopulates the cache with expiry."
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "pyodide",
+            "runtime_version": "0.29.5",
+            "solution_sha256": "7dadfc45de4edb1a24a10bcc57425aa4cf3a32e1e85f93690e5b958fa89f76ea",
+            "tests_passed": 2
+          },
+          "hidden_checks": []
+        }
+      }
+    },
+    {
+      "step_id": "tile_080.s06",
+      "type": "explainer",
+      "concept_ids": [
+        "cache.safe_failure_policy"
+      ],
+      "title": "Choose the boundary: Safe failure policy",
+      "lineage": {
+        "concept_ids": [
+          "cache.safe_failure_policy"
+        ],
+        "teaching_block_ids": [
+          "cache.safe_failure_policy#tb1",
+          "cache.safe_failure_policy#tb2",
+          "cache.safe_failure_policy#tb3"
+        ],
+        "fact_ids": [
+          "cache.safe_failure_policy#f1",
+          "cache.safe_failure_policy#f2",
+          "cache.safe_failure_policy#f3",
+          "cache.safe_failure_policy#f4"
+        ],
+        "anchors": [
+          "cache.safe_failure_policy#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Catch Redis connection and timeout exceptions at the cache boundary, then apply the declared outage policy rather than letting the incidental exception decide.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "cache.safe_failure_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.safe_failure_policy#tb1",
+              "cache.safe_failure_policy#tb2",
+              "cache.safe_failure_policy#tb3"
+            ],
+            "fact_ids": [
+              "cache.safe_failure_policy#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "With an acceleration-only cache and available primary store, load and return primary data on the miss path even if cache reading or writing fails.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "cache.safe_failure_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.safe_failure_policy#tb1",
+              "cache.safe_failure_policy#tb2",
+              "cache.safe_failure_policy#tb3"
+            ],
+            "fact_ids": [
+              "cache.safe_failure_policy#f2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Set finite socket_connect_timeout and socket_timeout on the Redis client to bound connection and response waits.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "cache.safe_failure_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.safe_failure_policy#tb1",
+              "cache.safe_failure_policy#tb2",
+              "cache.safe_failure_policy#tb3"
+            ],
+            "fact_ids": [
+              "cache.safe_failure_policy#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Use a controlled failing cache dependency to verify the primary result or declared failure outcome. Cache failure alone does not establish lost primary data.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "cache.safe_failure_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.safe_failure_policy#tb1",
+              "cache.safe_failure_policy#tb2",
+              "cache.safe_failure_policy#tb3"
+            ],
+            "fact_ids": [
+              "cache.safe_failure_policy#f4"
+            ]
+          }
+        },
+        {
+          "type": "code_walkthrough",
+          "language": "python",
+          "code": "from redis.asyncio import Redis\nfrom redis.exceptions import ConnectionError, TimeoutError\n\n# finite_connect_seconds and finite_response_seconds are finite service settings.\nredis = Redis(socket_connect_timeout=finite_connect_seconds,\n              socket_timeout=finite_response_seconds)\n\nasync def safe_read(cache, key, load, seconds):\n    try:\n        cached = await cache.get(key)\n    except (ConnectionError, TimeoutError):\n        cached = None\n    if cached is not None:\n        return cached\n    value = await load()\n    try:\n        await cache.set(key, value, ex=seconds)\n    except (ConnectionError, TimeoutError):\n        pass\n    return value\n\n# Supplied controlled substitute and registered primary result:\nfor operation in contract[\"failure_operations\"]:\n    for exception in (ConnectionError, TimeoutError):\n        cache = FailingCache(operation, exception)\n        assert await safe_read(cache, key, load, seconds) == contract[\"primary_value\"]",
+          "annotations": [
+            {
+              "start_line": 9,
+              "end_line": 12,
+              "text": "Lookup exception boundary."
+            },
+            {
+              "start_line": 15,
+              "end_line": 20,
+              "text": "Primary loading stays outside cache catches; population failure does not discard the available value."
+            },
+            {
+              "start_line": 22,
+              "end_line": 26,
+              "text": "Controlled lookup and population failures verify the acceleration-only policy."
+            }
+          ],
+          "lineage": {
+            "concept_ids": [
+              "cache.safe_failure_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.safe_failure_policy#tb1",
+              "cache.safe_failure_policy#tb2",
+              "cache.safe_failure_policy#tb3"
+            ],
+            "fact_ids": [
+              "cache.safe_failure_policy#f1",
+              "cache.safe_failure_policy#f2",
+              "cache.safe_failure_policy#f3",
+              "cache.safe_failure_policy#f4"
+            ],
+            "anchors": [
+              "cache.safe_failure_policy#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_080.s07",
+      "type": "explainer",
+      "concept_ids": [
+        "cache.safe_failure_policy"
+      ],
+      "title": "Trace the distinction: Safe failure policy",
+      "lineage": {
+        "concept_ids": [
+          "cache.safe_failure_policy"
+        ],
+        "teaching_block_ids": [
+          "cache.safe_failure_policy#tb4",
+          "cache.safe_failure_policy#tb5"
+        ],
+        "fact_ids": [
+          "cache.safe_failure_policy#f1",
+          "cache.safe_failure_policy#f2",
+          "cache.safe_failure_policy#f3",
+          "cache.safe_failure_policy#f4"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Test both lookup and population failure with controlled Redis connection and timeout exceptions. The fixture’s cache is acceleration only: available primary data still returns. Keep exception handling around cache operations, not the primary loader. Finite waits bound the cache failure; they do not promise every primary store is available.",
+          "role": "mental_model",
+          "lineage": {
+            "concept_ids": [
+              "cache.safe_failure_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.safe_failure_policy#tb4",
+              "cache.safe_failure_policy#tb5"
+            ],
+            "fact_ids": [
+              "cache.safe_failure_policy#f1",
+              "cache.safe_failure_policy#f2",
+              "cache.safe_failure_policy#f3",
+              "cache.safe_failure_policy#f4"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_080.s08",
+      "type": "check",
+      "concept_ids": [
+        "cache.safe_failure_policy"
+      ],
+      "title": "Distinguish: Safe failure policy",
+      "lineage": {
+        "concept_ids": [
+          "cache.safe_failure_policy"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "cache.safe_failure_policy#f1",
+          "cache.safe_failure_policy#f2",
+          "cache.safe_failure_policy#f4"
+        ],
+        "anchors": [
+          "cache.safe_failure_policy#assessment:determine_whether_cache_failure_changes_authoritative_outcomes"
+        ]
+      },
+      "eyebrow": "Check your understanding",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_080.s08",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "cache.safe_failure_policy",
+            "capability": "determine_whether_cache_failure_changes_authoritative_outcomes",
+            "fact_ids": [
+              "f1",
+              "f2",
+              "f4"
+            ]
+          }
+        ],
+        "anchors": [
+          "cache.safe_failure_policy#assessment:determine_whether_cache_failure_changes_authoritative_outcomes"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "You preserved the intended boundary. Catch Redis connection and timeout exceptions at the cache boundary so the application can apply its declared cache-outage policy rather than letting an incidental cache exception choose the outcome. When the cache is only an acceleration layer and the primary store is available, the miss path can load and return the primary-store value without a successful cache read or write. Verify the policy with a controlled failing cache dependency, asserting the primary-store result or the declared failure outcome rather than assuming that a cache outage is equivalent to lost primary data."
+          },
+          "incorrect": {
+            "message": "Review the relevant boundary and compare each required outcome. Catch Redis connection and timeout exceptions at the cache boundary so the application can apply its declared cache-outage policy rather than letting an incidental cache exception choose the outcome. When the cache is only an acceleration layer and the primary store is available, the miss path can load and return the primary-store value without a successful cache read or write. Verify the policy with a controlled failing cache dependency, asserting the primary-store result or the declared failure outcome rather than assuming that a cache outage is equivalent to lost primary data."
+          },
+          "hints": [
+            "Identify the intended input, outcome and boundary before choosing or editing.",
+            "Check the missing, malformed or failed case as well as success."
+          ],
+          "remediation_step_id": "tile_080.r03"
+        },
+        "public": {
+          "prompt": "The cache is acceleration-only and primary data is available. A Redis population write raises ConnectionError or TimeoutError after a miss. What outcome follows the declared policy?",
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Return the available primary-store value while handling the cache connection/timeout failure at the cache boundary."
+            },
+            {
+              "option_id": "o2",
+              "text": "Discard the available primary value because the cache write failed."
+            },
+            {
+              "option_id": "o3",
+              "text": "Mask all primary-store errors inside the same Redis exception handler."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o2": {
+              "message": "An incidental acceleration-layer failure should not discard the authoritative value under this policy."
+            },
+            "o3": {
+              "message": "Exception handling belongs at the cache operations, not around unrelated primary failures."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_080.s09",
+      "type": "hands_on",
+      "concept_ids": [
+        "cache.safe_failure_policy"
+      ],
+      "title": "Practice: Safe failure policy",
+      "lineage": {
+        "concept_ids": [
+          "cache.safe_failure_policy"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "cache.safe_failure_policy#f3"
+        ],
+        "anchors": [
+          "cache.safe_failure_policy#practice",
+          "cache.safe_failure_policy#assessment:identify_finite_cache_connection_and_response_waits"
+        ]
+      },
+      "eyebrow": "Apply the rule",
+      "interaction": {
+        "type": "code_exercise",
+        "interaction_id": "ix.tile_080.s09",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "cache.safe_failure_policy",
+            "capability": "identify_finite_cache_connection_and_response_waits",
+            "fact_ids": [
+              "f3"
+            ]
+          }
+        ],
+        "anchors": [
+          "cache.safe_failure_policy#practice",
+          "cache.safe_failure_policy#assessment:identify_finite_cache_connection_and_response_waits"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "You preserved the intended boundary. Configure finite socket_connect_timeout and socket_timeout values on the Redis client so a failed cache does not cause unbounded connection or response waits."
+          },
+          "incorrect": {
+            "message": "Set both socket_connect_timeout and socket_timeout to finite values. In safe_read, catch ConnectionError and TimeoutError around cache.get; treat those failures as a miss and return a hit when present. Call load_primary outside the cache exception handlers. Catch the same two exception classes separately around cache.set(key, value, ex=seconds), then return the loaded primary value even if population fails. Do not retry or suppress primary-store failures."
+          },
+          "hints": [
+            "Identify the intended input, outcome and boundary before choosing or editing.",
+            "Check the missing, malformed or failed case as well as success."
+          ]
+        },
+        "public": {
+          "prompt": "Configure configured_cache = Redis(socket_connect_timeout=1, socket_timeout=1). Complete safe_read with separate ConnectionError/TimeoutError boundaries around get and set(ex=seconds); load_primary stays outside those boundaries. Return a hit, or the primary value even if lookup/population fails. Do not retry or hide primary failures. Supplied controlled Redis API adapters model these operations without a network connection; tests inspect finite settings and both exception classes at each cache boundary. Edit only BEGIN LEARNER EDITS; the rest is supplied scaffolding.",
+          "runtime": {
+            "kind": "python_asgi",
+            "version": "0.29.5",
+            "packages": []
+          },
+          "workspace": {
+            "entry": "exercise.py",
+            "files": [
+              {
+                "path": "exercise.py",
+                "role": "editable",
+                "language": "python",
+                "content": "# Unchanged supplied runtime/scaffold source; edit only the learner region below.\n_SUPPLIED_SCAFFOLD = 'import asyncio,time,math\\n\\nclass ConnectionError(Exception): pass\\n\\nclass TimeoutError(Exception): pass\\n\\nclass Redis:\\n    def __init__(self,*,socket_connect_timeout=None,socket_timeout=None):\\n        self.settings={\\'socket_connect_timeout\\':socket_connect_timeout,\\'socket_timeout\\':socket_timeout}\\n\\nclass Cache:\\n    # Endpoint-ready adapter for cache-aside; not raw Redis serialization.\\n    def __init__(self):\\n        self.entries = {}; self.expiry = {}; self.calls = []\\n    async def get(self, key):\\n        self.calls.append((\"get\", key))\\n        if key in self.expiry and self.expiry[key] <= time.monotonic():\\n            self.entries.pop(key, None); self.expiry.pop(key, None)\\n        return self.entries.get(key)\\n    async def set(self, key, value, ex=None):\\n        self.calls.append((\"set\", key, ex)); self.entries[key] = value\\n        if ex is None: self.expiry.pop(key, None)\\n        else: self.expiry[key] = time.monotonic()+ex\\n    async def delete(self, key):\\n        self.calls.append((\"delete\", key)); self.entries.pop(key, None); self.expiry.pop(key, None)\\n    async def ttl(self, key):\\n        if await self.get(key) is None: return -2\\n        if key not in self.expiry: return -1\\n        return max(0, int(self.expiry[key]-time.monotonic()))\\n\\nclass FailingCache(Cache):\\n    def __init__(self, operation, exception):\\n        super().__init__(); self.operation=operation; self.exception=exception\\n    async def get(self, key):\\n        if self.operation == \"get\": raise self.exception(\"synthetic cache lookup failure\")\\n        return None\\n    async def set(self, key, value, ex=None):\\n        if self.operation == \"set\": raise self.exception(\"synthetic cache population failure\")\\n        return await super().set(key,value,ex)\\n\\nasync def check_safe(operation,exception_name,value):\\n    async def run():\\n        settings=configured_cache.settings\\n        assert all(isinstance(v,(int,float)) and math.isfinite(v) and v>0 for v in settings.values())\\n        exception=ConnectionError if exception_name==\\'ConnectionError\\' else TimeoutError\\n        cache=FailingCache(operation,exception)\\n        async def load(): return value\\n        result=await safe_read(cache,\\'synthetic-key\\',load,30)\\n        assert result==value\\n        async def unavailable(): raise RuntimeError(\\'synthetic primary failure\\')\\n        propagated=False\\n        try: await safe_read(Cache(),\\'synthetic-key\\',unavailable,30)\\n        except RuntimeError: propagated=True\\n        assert propagated\\n        return {\\'result\\':result,\\'timeouts\\':settings,\\'primary_failure_propagated\\':propagated,\\'operation\\':operation,\\'exception\\':exception_name}\\n    return await run()\\n\\nimport inspect\\n\\nfrom fastapi import FastAPI\\n\\nif \\'app\\' not in globals(): app=FastAPI()\\n\\n@app.post(\\'/__exercise_check\\')\\nasync def exercise_check(payload: dict):\\n    result=globals()[payload[\\'function\\']](*payload.get(\\'args\\',[]))\\n    if inspect.isawaitable(result): result=await result\\n    return result\\n'\nexec(_SUPPLIED_SCAFFOLD, globals())\n# BEGIN LEARNER EDITS\nasync def safe_read(cache, key, load_primary, seconds):\n    # TODO: separate lookup/population exception boundaries; preserve primary return.\n    raise NotImplementedError\n\nconfigured_cache = Redis()\n# END LEARNER EDITS\n"
+              }
+            ],
+            "asset_mounts": []
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "import statements",
+              "def and async def",
+              "function parameters and return statements",
+              "await",
+              "if statements and is not None",
+              "try and except",
+              "redis.exceptions.ConnectionError",
+              "redis.exceptions.TimeoutError",
+              "variable assignment",
+              "string, numeric and None literals",
+              "function and method calls",
+              "Redis client construction with socket_connect_timeout and socket_timeout",
+              "Redis get and set with a finite expiry",
+              "class definitions and methods for a controlled cache substitute",
+              "raise",
+              "assert",
+              "FastAPI dependency_overrides"
+            ],
+            "blocked_syntax": [
+              "automatic retry loops around failed cache operations",
+              "database test-state reset fixtures",
+              "authorization permission checks",
+              "custom handlers for unexpected application exceptions"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "exercise.py",
+              "content": "# Unchanged supplied runtime/scaffold source; edit only the learner region below.\n_SUPPLIED_SCAFFOLD = 'import asyncio,time,math\\n\\nclass ConnectionError(Exception): pass\\n\\nclass TimeoutError(Exception): pass\\n\\nclass Redis:\\n    def __init__(self,*,socket_connect_timeout=None,socket_timeout=None):\\n        self.settings={\\'socket_connect_timeout\\':socket_connect_timeout,\\'socket_timeout\\':socket_timeout}\\n\\nclass Cache:\\n    # Endpoint-ready adapter for cache-aside; not raw Redis serialization.\\n    def __init__(self):\\n        self.entries = {}; self.expiry = {}; self.calls = []\\n    async def get(self, key):\\n        self.calls.append((\"get\", key))\\n        if key in self.expiry and self.expiry[key] <= time.monotonic():\\n            self.entries.pop(key, None); self.expiry.pop(key, None)\\n        return self.entries.get(key)\\n    async def set(self, key, value, ex=None):\\n        self.calls.append((\"set\", key, ex)); self.entries[key] = value\\n        if ex is None: self.expiry.pop(key, None)\\n        else: self.expiry[key] = time.monotonic()+ex\\n    async def delete(self, key):\\n        self.calls.append((\"delete\", key)); self.entries.pop(key, None); self.expiry.pop(key, None)\\n    async def ttl(self, key):\\n        if await self.get(key) is None: return -2\\n        if key not in self.expiry: return -1\\n        return max(0, int(self.expiry[key]-time.monotonic()))\\n\\nclass FailingCache(Cache):\\n    def __init__(self, operation, exception):\\n        super().__init__(); self.operation=operation; self.exception=exception\\n    async def get(self, key):\\n        if self.operation == \"get\": raise self.exception(\"synthetic cache lookup failure\")\\n        return None\\n    async def set(self, key, value, ex=None):\\n        if self.operation == \"set\": raise self.exception(\"synthetic cache population failure\")\\n        return await super().set(key,value,ex)\\n\\nasync def check_safe(operation,exception_name,value):\\n    async def run():\\n        settings=configured_cache.settings\\n        assert all(isinstance(v,(int,float)) and math.isfinite(v) and v>0 for v in settings.values())\\n        exception=ConnectionError if exception_name==\\'ConnectionError\\' else TimeoutError\\n        cache=FailingCache(operation,exception)\\n        async def load(): return value\\n        result=await safe_read(cache,\\'synthetic-key\\',load,30)\\n        assert result==value\\n        async def unavailable(): raise RuntimeError(\\'synthetic primary failure\\')\\n        propagated=False\\n        try: await safe_read(Cache(),\\'synthetic-key\\',unavailable,30)\\n        except RuntimeError: propagated=True\\n        assert propagated\\n        return {\\'result\\':result,\\'timeouts\\':settings,\\'primary_failure_propagated\\':propagated,\\'operation\\':operation,\\'exception\\':exception_name}\\n    return await run()\\n\\nimport inspect\\n\\nfrom fastapi import FastAPI\\n\\nif \\'app\\' not in globals(): app=FastAPI()\\n\\n@app.post(\\'/__exercise_check\\')\\nasync def exercise_check(payload: dict):\\n    result=globals()[payload[\\'function\\']](*payload.get(\\'args\\',[]))\\n    if inspect.isawaitable(result): result=await result\\n    return result\\n'\nexec(_SUPPLIED_SCAFFOLD, globals())\n# BEGIN LEARNER EDITS\nconfigured_cache = Redis(socket_connect_timeout=1, socket_timeout=1)\n\nasync def safe_read(cache, key, load_primary, seconds):\n    try:\n        value = await cache.get(key)\n    except (ConnectionError, TimeoutError):\n        value = None\n    if value is not None:\n        return value\n    value = await load_primary()\n    try:\n        await cache.set(key, value, ex=seconds)\n    except (ConnectionError, TimeoutError):\n        pass\n    return value\n# END LEARNER EDITS\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "tile_080.s09.t1",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/__exercise_check",
+                    "json": {
+                      "function": "check_safe",
+                      "args": [
+                        "get",
+                        "ConnectionError",
+                        {
+                          "order_id": 42,
+                          "notes": "old note 42"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "result": {
+                      "order_id": 42,
+                      "notes": "old note 42"
+                    },
+                    "timeouts": {
+                      "socket_connect_timeout": 1,
+                      "socket_timeout": 1
+                    },
+                    "primary_failure_propagated": true,
+                    "operation": "get",
+                    "exception": "ConnectionError"
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The supplied case does not meet the stated boundary. The read returns the primary-store value when cache lookup fails and when cache population fails after a miss. Controlled connection and timeout failures do not escape the cache boundary, and both Redis socket timeout settings are finite."
+            },
+            {
+              "test_id": "tile_080.s09.t2",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/__exercise_check",
+                    "json": {
+                      "function": "check_safe",
+                      "args": [
+                        "get",
+                        "TimeoutError",
+                        {
+                          "order_id": 42,
+                          "notes": "old note 42"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "result": {
+                      "order_id": 42,
+                      "notes": "old note 42"
+                    },
+                    "timeouts": {
+                      "socket_connect_timeout": 1,
+                      "socket_timeout": 1
+                    },
+                    "primary_failure_propagated": true,
+                    "operation": "get",
+                    "exception": "TimeoutError"
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The supplied case does not meet the stated boundary. The read returns the primary-store value when cache lookup fails and when cache population fails after a miss. Controlled connection and timeout failures do not escape the cache boundary, and both Redis socket timeout settings are finite."
+            },
+            {
+              "test_id": "tile_080.s09.t3",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/__exercise_check",
+                    "json": {
+                      "function": "check_safe",
+                      "args": [
+                        "set",
+                        "ConnectionError",
+                        {
+                          "order_id": 42,
+                          "notes": "old note 42"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "result": {
+                      "order_id": 42,
+                      "notes": "old note 42"
+                    },
+                    "timeouts": {
+                      "socket_connect_timeout": 1,
+                      "socket_timeout": 1
+                    },
+                    "primary_failure_propagated": true,
+                    "operation": "set",
+                    "exception": "ConnectionError"
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The supplied case does not meet the stated boundary. The read returns the primary-store value when cache lookup fails and when cache population fails after a miss. Controlled connection and timeout failures do not escape the cache boundary, and both Redis socket timeout settings are finite."
+            },
+            {
+              "test_id": "tile_080.s09.t4",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/__exercise_check",
+                    "json": {
+                      "function": "check_safe",
+                      "args": [
+                        "set",
+                        "TimeoutError",
+                        {
+                          "order_id": 42,
+                          "notes": "old note 42"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "result": {
+                      "order_id": 42,
+                      "notes": "old note 42"
+                    },
+                    "timeouts": {
+                      "socket_connect_timeout": 1,
+                      "socket_timeout": 1
+                    },
+                    "primary_failure_propagated": true,
+                    "operation": "set",
+                    "exception": "TimeoutError"
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The supplied case does not meet the stated boundary. The read returns the primary-store value when cache lookup fails and when cache population fails after a miss. Controlled connection and timeout failures do not escape the cache boundary, and both Redis socket timeout settings are finite."
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "pyodide",
+            "runtime_version": "0.29.5",
+            "solution_sha256": "2b05630ff0ee5cf2a33822fa70fe94fc371bc93f0864648cba8c73b88359d625",
+            "tests_passed": 4
+          },
+          "hidden_checks": []
+        }
+      }
+    },
+    {
+      "step_id": "tile_080.s10",
+      "type": "recap",
+      "concept_ids": [
+        "cache.freshness_policy",
+        "cache.safe_failure_policy"
+      ],
+      "title": "Keep the boundaries clear",
+      "lineage": {
+        "concept_ids": [
+          "cache.freshness_policy",
+          "cache.safe_failure_policy"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Contrast a key without expiry with an absent key. Invalidation removes the stale copy so the next read reloads.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "cache.freshness_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.freshness_policy#tb2",
+              "cache.freshness_policy#tb3",
+              "cache.freshness_policy#tb4",
+              "cache.freshness_policy#tb5"
+            ],
+            "fact_ids": [
+              "cache.freshness_policy#f1",
+              "cache.freshness_policy#f2",
+              "cache.freshness_policy#f3",
+              "cache.freshness_policy#f4"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Contrast unavailable acceleration with unavailable primary data. Apply the declared policy without masking a primary failure.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "cache.safe_failure_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.safe_failure_policy#tb2",
+              "cache.safe_failure_policy#tb3",
+              "cache.safe_failure_policy#tb4",
+              "cache.safe_failure_policy#tb5"
+            ],
+            "fact_ids": [
+              "cache.safe_failure_policy#f1",
+              "cache.safe_failure_policy#f2",
+              "cache.safe_failure_policy#f3",
+              "cache.safe_failure_policy#f4"
+            ]
+          }
+        },
+        {
+          "type": "up_next",
+          "title": "Service release and rollback workflow with build, release and run separation",
+          "text": "Next: tile_082."
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "tile_080.r01",
+      "type": "remediation",
+      "concept_ids": [
+        "cache.freshness_policy"
+      ],
+      "title": "Try again: interpret ttl and verify freshness after invalidation",
+      "lineage": {
+        "concept_ids": [
+          "cache.freshness_policy"
+        ],
+        "teaching_block_ids": [
+          "cache.freshness_policy#tb3",
+          "cache.freshness_policy#tb4",
+          "cache.freshness_policy#tb5"
+        ],
+        "fact_ids": [
+          "cache.freshness_policy#f4"
+        ],
+        "anchors": [
+          "cache.freshness_policy#assessment:interpret_ttl_and_verify_freshness_after_invalidation"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "ttl(key) reports remaining seconds, -1 for no expiry, and -2 for absence. Change the primary record and verify invalidation makes the next read return the changed value.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "cache.freshness_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.freshness_policy#tb3",
+              "cache.freshness_policy#tb4",
+              "cache.freshness_policy#tb5"
+            ],
+            "fact_ids": [
+              "cache.freshness_policy#f4"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Contrast a key without expiry with an absent key. Invalidation removes the stale copy so the next read reloads.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "cache.freshness_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.freshness_policy#tb2",
+              "cache.freshness_policy#tb3",
+              "cache.freshness_policy#tb4",
+              "cache.freshness_policy#tb5"
+            ],
+            "fact_ids": [
+              "cache.freshness_policy#f1",
+              "cache.freshness_policy#f2",
+              "cache.freshness_policy#f3",
+              "cache.freshness_policy#f4"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_080.r02",
+      "type": "remediation",
+      "concept_ids": [
+        "cache.freshness_policy"
+      ],
+      "title": "Try again: select and configure expiry for staleness tolerance",
+      "lineage": {
+        "concept_ids": [
+          "cache.freshness_policy"
+        ],
+        "teaching_block_ids": [
+          "cache.freshness_policy#tb2",
+          "cache.freshness_policy#tb3",
+          "cache.freshness_policy#tb4",
+          "cache.freshness_policy#tb5"
+        ],
+        "fact_ids": [
+          "cache.freshness_policy#f1",
+          "cache.freshness_policy#f2",
+          "cache.freshness_policy#f3",
+          "cache.freshness_policy#f4"
+        ],
+        "anchors": [
+          "cache.freshness_policy#practice",
+          "cache.freshness_policy#assessment:select_and_configure_expiry_for_staleness_tolerance",
+          "cache.freshness_policy#assessment:select_write_invalidation_after_primary_changes",
+          "cache.freshness_policy#assessment:interpret_ttl_and_verify_freshness_after_invalidation"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Choose TTL from tolerated staleness. Shorter TTL refreshes sooner but increases primary reads; longer TTL reduces reads but may serve older values longer.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "cache.freshness_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.freshness_policy#tb2",
+              "cache.freshness_policy#tb4"
+            ],
+            "fact_ids": [
+              "cache.freshness_policy#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For a Redis string entry, set(key, value, ex=seconds) assigns expiry when writing.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "cache.freshness_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.freshness_policy#tb3",
+              "cache.freshness_policy#tb4"
+            ],
+            "fact_ids": [
+              "cache.freshness_policy#f2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "After the primary record changes, delete its cache key. The next cache-aside read then reloads instead of returning the old copy.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "cache.freshness_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.freshness_policy#tb3",
+              "cache.freshness_policy#tb4",
+              "cache.freshness_policy#tb5"
+            ],
+            "fact_ids": [
+              "cache.freshness_policy#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "ttl(key) reports remaining seconds, -1 for no expiry, and -2 for absence. Change the primary record and verify invalidation makes the next read return the changed value.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "cache.freshness_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.freshness_policy#tb3",
+              "cache.freshness_policy#tb4",
+              "cache.freshness_policy#tb5"
+            ],
+            "fact_ids": [
+              "cache.freshness_policy#f4"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Contrast a key without expiry with an absent key. Invalidation removes the stale copy so the next read reloads.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "cache.freshness_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.freshness_policy#tb2",
+              "cache.freshness_policy#tb3",
+              "cache.freshness_policy#tb4",
+              "cache.freshness_policy#tb5"
+            ],
+            "fact_ids": [
+              "cache.freshness_policy#f1",
+              "cache.freshness_policy#f2",
+              "cache.freshness_policy#f3",
+              "cache.freshness_policy#f4"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_080.r03",
+      "type": "remediation",
+      "concept_ids": [
+        "cache.safe_failure_policy"
+      ],
+      "title": "Try again: determine whether cache failure changes authoritative outcomes",
+      "lineage": {
+        "concept_ids": [
+          "cache.safe_failure_policy"
+        ],
+        "teaching_block_ids": [
+          "cache.safe_failure_policy#tb2",
+          "cache.safe_failure_policy#tb3",
+          "cache.safe_failure_policy#tb4",
+          "cache.safe_failure_policy#tb5"
+        ],
+        "fact_ids": [
+          "cache.safe_failure_policy#f1",
+          "cache.safe_failure_policy#f2",
+          "cache.safe_failure_policy#f4"
+        ],
+        "anchors": [
+          "cache.safe_failure_policy#assessment:determine_whether_cache_failure_changes_authoritative_outcomes"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Catch Redis connection and timeout exceptions at the cache boundary, then apply the declared outage policy rather than letting the incidental exception decide.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "cache.safe_failure_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.safe_failure_policy#tb2",
+              "cache.safe_failure_policy#tb4",
+              "cache.safe_failure_policy#tb5"
+            ],
+            "fact_ids": [
+              "cache.safe_failure_policy#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "With an acceleration-only cache and available primary store, load and return primary data on the miss path even if cache reading or writing fails.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "cache.safe_failure_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.safe_failure_policy#tb3",
+              "cache.safe_failure_policy#tb4",
+              "cache.safe_failure_policy#tb5"
+            ],
+            "fact_ids": [
+              "cache.safe_failure_policy#f2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Use a controlled failing cache dependency to verify the primary result or declared failure outcome. Cache failure alone does not establish lost primary data.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "cache.safe_failure_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.safe_failure_policy#tb3",
+              "cache.safe_failure_policy#tb4"
+            ],
+            "fact_ids": [
+              "cache.safe_failure_policy#f4"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Contrast unavailable acceleration with unavailable primary data. Apply the declared policy without masking a primary failure.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "cache.safe_failure_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.safe_failure_policy#tb2",
+              "cache.safe_failure_policy#tb3",
+              "cache.safe_failure_policy#tb4",
+              "cache.safe_failure_policy#tb5"
+            ],
+            "fact_ids": [
+              "cache.safe_failure_policy#f1",
+              "cache.safe_failure_policy#f2",
+              "cache.safe_failure_policy#f3",
+              "cache.safe_failure_policy#f4"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_080.r04",
+      "type": "remediation",
+      "concept_ids": [
+        "cache.safe_failure_policy"
+      ],
+      "title": "Try again: identify finite cache connection and response waits",
+      "lineage": {
+        "concept_ids": [
+          "cache.safe_failure_policy"
+        ],
+        "teaching_block_ids": [
+          "cache.safe_failure_policy#tb3",
+          "cache.safe_failure_policy#tb4",
+          "cache.safe_failure_policy#tb5"
+        ],
+        "fact_ids": [
+          "cache.safe_failure_policy#f3"
+        ],
+        "anchors": [
+          "cache.safe_failure_policy#practice",
+          "cache.safe_failure_policy#assessment:identify_finite_cache_connection_and_response_waits"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Set finite socket_connect_timeout and socket_timeout on the Redis client to bound connection and response waits.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "cache.safe_failure_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.safe_failure_policy#tb3",
+              "cache.safe_failure_policy#tb4",
+              "cache.safe_failure_policy#tb5"
+            ],
+            "fact_ids": [
+              "cache.safe_failure_policy#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Contrast unavailable acceleration with unavailable primary data. Apply the declared policy without masking a primary failure.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "cache.safe_failure_policy"
+            ],
+            "teaching_block_ids": [
+              "cache.safe_failure_policy#tb2",
+              "cache.safe_failure_policy#tb3",
+              "cache.safe_failure_policy#tb4",
+              "cache.safe_failure_policy#tb5"
+            ],
+            "fact_ids": [
+              "cache.safe_failure_policy#f1",
+              "cache.safe_failure_policy#f2",
+              "cache.safe_failure_policy#f3",
+              "cache.safe_failure_policy#f4"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "tile_082"
+  },
+  "content_hash": "4b3f3d36ac838183d653cb437c2562bc01d2e72bfe5ea87cd8625b84e3b521eb"
+}

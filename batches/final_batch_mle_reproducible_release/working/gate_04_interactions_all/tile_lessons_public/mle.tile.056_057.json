@@ -1,0 +1,1666 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "machine_learning_engineer",
+  "tile_id": "mle.tile.056_057",
+  "toc_location": {
+    "region_id": "mle.region.reproducible_release",
+    "terrain_id": "mle.terrain.training_lineage"
+  },
+  "title": "Prepare a Traceable Model Release Artifact",
+  "summary": "",
+  "concept_ids": [
+    "mle.model_version_registration",
+    "mle.model_preprocessing_package"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_machine_learning_engineer",
+    "toc_freeze_hash": "f38fc7a62df329118a32053d1557dcc9a74ada7a9c52269ee9a0c50d28a67a36",
+    "glossary_bundle_hashes": {
+      "mle.model_version_registration": "72ea9a73a1fc1881da648f4255584d841dff564100f37e0ee73c79de5a8dccc9",
+      "mle.model_preprocessing_package": "111ccdb26d65ca4d7b9b4f847f5e9295b5cad55ad5237a90e2b0f7972644fc1a"
+    },
+    "scenario_registry_hash": "528e3276db2918de5d4db5a755d761e405c781dd86f4af31c8e9224e8fdb86c1"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core"
+    ],
+    "block_types": [
+      "code_walkthrough",
+      "prose",
+      "side_by_side",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "classify"
+    ],
+    "runtimes": [],
+    "asset_ids": []
+  },
+  "pacing": {
+    "estimated_minutes": 9.7
+  },
+  "steps": [
+    {
+      "step_id": "mle.tile.056_057.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.model_version_registration"
+      ],
+      "title": "Verify the artifact before registration",
+      "eyebrow": "Understand",
+      "lineage": {
+        "concept_ids": [
+          "mle.model_version_registration"
+        ],
+        "teaching_block_ids": [
+          "mle.model_version_registration#tb1",
+          "mle.model_version_registration#tb2",
+          "mle.model_version_registration#tb3"
+        ],
+        "fact_ids": [
+          "mle.model_version_registration#f1",
+          "mle.model_version_registration#f2",
+          "mle.model_version_registration#f3",
+          "mle.model_version_registration#f4",
+          "mle.model_version_registration#f5",
+          "mle.model_version_registration#f6"
+        ],
+        "anchors": [
+          "mle.model_version_registration#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "A registry version should link to verified run bytes. Resolve the stored generation and compare its content hash before creating the version.",
+          "role": "intro",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_version_registration"
+            ],
+            "teaching_block_ids": [
+              "mle.model_version_registration#tb1"
+            ],
+            "fact_ids": [],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Resolve the originating run’s artifact record, expected hash and immutable object version. Download with bucket.blob(key, generation=recorded_generation).download_to_filename(path), not the current key. Compute SHA-256 over downloaded bytes; a mismatch must stop registration.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_version_registration"
+            ],
+            "teaching_block_ids": [
+              "mle.model_version_registration#tb2"
+            ],
+            "fact_ids": [
+              "mle.model_version_registration#f1",
+              "mle.model_version_registration#f2",
+              "mle.model_version_registration#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Require the supplied registered model name to exist; for a new name, use client.create_registered_model(name). Call client.create_model_version(name=name, source=version_qualified_source, run_id=run_id) and retain the returned numeric version. Keep exact generation and hash with set_model_version_tag. Retrieve get_model_version(name, version) and its originating run, then compare their recorded identities.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_version_registration"
+            ],
+            "teaching_block_ids": [
+              "mle.model_version_registration#tb3"
+            ],
+            "fact_ids": [
+              "mle.model_version_registration#f4",
+              "mle.model_version_registration#f5",
+              "mle.model_version_registration#f6"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "code_walkthrough",
+          "language": "python",
+          "code": "# Originating run artifact record: {'run_id': 'run.order.B', 'bucket_name': 'authorized-fixture', 'key': 'models/B/latest.json', 'generation': 1, 'expected_hash': 'cb182766714027c89ef572c9cf1c437b88b0cea465e51eeeec10a184cf8ae8c2', 'version_qualified_source': 'gs://authorized-fixture/models/B/latest.json#1', 'model_name': 'B', 'new_name_model': 'baseline', 'local_path': 'downloads/B.json'}\nimport hashlib, json\nfrom google.cloud import storage\nfrom mlflow import MlflowClient\nwith open(\"run_artifact_record.json\") as handle:\n    record = json.load(handle)\nstorage_client = storage.Client()\nbucket = storage_client.bucket(record[\"bucket_name\"])\nselected = bucket.blob(record[\"key\"], generation=record[\"generation\"])\nselected.download_to_filename(record[\"local_path\"])\nwith open(record[\"local_path\"], \"rb\") as handle:\n    observed_hash = hashlib.sha256(handle.read()).hexdigest()\nif observed_hash != record[\"expected_hash\"]:\n    raise ValueError(\"Hash mismatch: do not create a registry version\")\nclient = MlflowClient()\n# Require the supplied name to exist; only on the new-name path:\n# client.create_registered_model(name)\ncreated = client.create_model_version(name=record[\"model_name\"],\n    source=record[\"version_qualified_source\"], run_id=record[\"run_id\"])\nversion = created.version\nclient.set_model_version_tag(record[\"model_name\"], version,\n    \"generation\", str(record[\"generation\"]))\nclient.set_model_version_tag(record[\"model_name\"], version,\n    \"sha256\", observed_hash)\nretrieved = client.get_model_version(record[\"model_name\"], version)\norigin = client.get_run(retrieved.run_id)\n# Compare retrieved generation/hash/run/source with record.\n# After authorized latest overwrite, retrieve the recorded generation\n# again and compare its byte hash; return one keyed registration verdict.\n",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_version_registration"
+            ],
+            "teaching_block_ids": [
+              "mle.model_version_registration#tb1",
+              "mle.model_version_registration#tb2",
+              "mle.model_version_registration#tb3"
+            ],
+            "fact_ids": [
+              "mle.model_version_registration#f1",
+              "mle.model_version_registration#f2",
+              "mle.model_version_registration#f3",
+              "mle.model_version_registration#f4",
+              "mle.model_version_registration#f5",
+              "mle.model_version_registration#f6"
+            ],
+            "anchors": [
+              "mle.model_version_registration#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.056_057.s02",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.model_version_registration"
+      ],
+      "title": "An overwrite is not approval",
+      "eyebrow": "Understand",
+      "lineage": {
+        "concept_ids": [
+          "mle.model_version_registration"
+        ],
+        "teaching_block_ids": [
+          "mle.model_version_registration#tb4",
+          "mle.model_version_registration#tb5",
+          "mle.model_version_registration#tb6"
+        ],
+        "fact_ids": [
+          "mle.model_version_registration#f1",
+          "mle.model_version_registration#f2",
+          "mle.model_version_registration#f3",
+          "mle.model_version_registration#f4",
+          "mle.model_version_registration#f5",
+          "mle.model_version_registration#f6",
+          "mle.model_version_registration#f7",
+          "mle.model_version_registration#f8",
+          "mle.model_version_registration#f9"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Only in the authorized test bucket, overwrite latest and retrieve the registered generation again. Verify its bytes against the registered hash and return one keyed registration verdict. An overwrite is not a new approved registry version. Import from mlflow import MlflowClient and construct MlflowClient() for version creation, retrieval and tagging.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_version_registration"
+            ],
+            "teaching_block_ids": [
+              "mle.model_version_registration#tb4"
+            ],
+            "fact_ids": [
+              "mle.model_version_registration#f7",
+              "mle.model_version_registration#f8",
+              "mle.model_version_registration#f9"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For the order run, explicitly retrieve its recorded generation even when latest now differs. Verify the hash before creating a numeric version with a version-qualified source and run link. Use the supplied model name; create a new name only on the declared new-name path. Retain generation/hash tags, retrieve the version and linked run, and compare identities. After an authorized test overwrite, retrieve and verify that same registered generation again. Return one verdict binding run, version and artifact, not a claim that overwriting latest approved a replacement.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_version_registration"
+            ],
+            "teaching_block_ids": [
+              "mle.model_version_registration#tb5"
+            ],
+            "fact_ids": [
+              "mle.model_version_registration#f1",
+              "mle.model_version_registration#f2",
+              "mle.model_version_registration#f3",
+              "mle.model_version_registration#f4",
+              "mle.model_version_registration#f5",
+              "mle.model_version_registration#f6",
+              "mle.model_version_registration#f7",
+              "mle.model_version_registration#f8",
+              "mle.model_version_registration#f9"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A numeric registry version does not verify an unresolved mutable source. Verify generation and bytes, and distinguish overwriting an object from approving a registry version.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_version_registration"
+            ],
+            "teaching_block_ids": [
+              "mle.model_version_registration#tb6"
+            ],
+            "fact_ids": [
+              "mle.model_version_registration#f1",
+              "mle.model_version_registration#f2",
+              "mle.model_version_registration#f3",
+              "mle.model_version_registration#f5",
+              "mle.model_version_registration#f8"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.056_057.s03",
+      "type": "check",
+      "concept_ids": [
+        "mle.model_version_registration"
+      ],
+      "title": "Check the run-to-registry artifact link",
+      "eyebrow": "Quick check",
+      "lineage": {
+        "concept_ids": [
+          "mle.model_version_registration"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.model_version_registration#f7",
+          "mle.model_version_registration#f8"
+        ],
+        "anchors": [
+          "mle.model_version_registration#assessment:verify_registered_content_survives_mutable_key_overwrite"
+        ]
+      },
+      "lede": "The downloaded artifact hash differs from the originating run’s expected hash. Should a registry version be created?",
+      "interaction": {
+        "interaction_id": "ix.mle.tile.056_057.s03",
+        "type": "choice",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.model_version_registration",
+            "fact_ids": [
+              "f7",
+              "f8"
+            ],
+            "capability": "verify_registered_content_survives_mutable_key_overwrite"
+          }
+        ],
+        "anchors": [
+          "mle.model_version_registration#assessment:verify_registered_content_survives_mutable_key_overwrite"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Correct: the judgement follows the stated criterion and the supplied evidence."
+          },
+          "incorrect": {
+            "message": "Recheck the stated criterion against the supplied evidence. Register and verify an artifact’s immutable object version, hash and originating run."
+          },
+          "hints": [
+            "Trace the originating run through generation, byte digest and numeric registry version.",
+            "Ask what an overwrite can change and what the pinned record still identifies."
+          ],
+          "remediation_step_id": "mle.tile.056_057.r01"
+        },
+        "public": {
+          "prompt": "After latest is overwritten, how do you verify the existing registered version?",
+          "selection": "single",
+          "shuffle": true,
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Retrieve its version-qualified generation and verify the bytes against its registered hash."
+            },
+            {
+              "option_id": "o2",
+              "text": "Resolve latest and treat its new bytes as the existing approved version."
+            },
+            {
+              "option_id": "o3",
+              "text": "Create a new approved version automatically just because latest changed."
+            },
+            {
+              "option_id": "o4",
+              "text": "Check only that the model name is still B."
+            }
+          ]
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "The registered generation and hash identify the original bytes independently of latest."
+            },
+            "o2": {
+              "message": "A mutable overwrite does not redefine the pinned approved registry version."
+            },
+            "o3": {
+              "message": "The overwrite is not itself a new verified registration verdict."
+            },
+            "o4": {
+              "message": "The name alone does not verify the exact artifact generation and contents."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.056_057.s04",
+      "type": "hands_on",
+      "concept_ids": [
+        "mle.model_version_registration"
+      ],
+      "title": "Review the run-to-registry artifact link",
+      "eyebrow": "Review evidence",
+      "lineage": {
+        "concept_ids": [
+          "mle.model_version_registration"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.model_version_registration#f1",
+          "mle.model_version_registration#f2",
+          "mle.model_version_registration#f3",
+          "mle.model_version_registration#f4",
+          "mle.model_version_registration#f5",
+          "mle.model_version_registration#f6",
+          "mle.model_version_registration#f7",
+          "mle.model_version_registration#f8",
+          "mle.model_version_registration#f9"
+        ],
+        "anchors": [
+          "mle.model_version_registration#practice",
+          "mle.model_version_registration#assessment:resolve_and_verify_exact_run_artifact",
+          "mle.model_version_registration#assessment:create_registry_version_with_pinned_artifact_identity",
+          "mle.model_version_registration#assessment:retrieve_registry_version_and_verify_originating_run",
+          "mle.model_version_registration#assessment:verify_registered_content_survives_mutable_key_overwrite"
+        ]
+      },
+      "lede": "The downloaded artifact hash differs from the originating run’s expected hash. Should a registry version be created?",
+      "interaction": {
+        "interaction_id": "ix.mle.tile.056_057.s04",
+        "type": "classify",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.model_version_registration",
+            "fact_ids": [
+              "f1",
+              "f2",
+              "f3"
+            ],
+            "capability": "resolve_and_verify_exact_run_artifact"
+          },
+          {
+            "concept_id": "mle.model_version_registration",
+            "fact_ids": [
+              "f4",
+              "f5",
+              "f9"
+            ],
+            "capability": "create_registry_version_with_pinned_artifact_identity"
+          },
+          {
+            "concept_id": "mle.model_version_registration",
+            "fact_ids": [
+              "f6"
+            ],
+            "capability": "retrieve_registry_version_and_verify_originating_run"
+          },
+          {
+            "concept_id": "mle.model_version_registration",
+            "fact_ids": [
+              "f7",
+              "f8"
+            ],
+            "capability": "verify_registered_content_survives_mutable_key_overwrite"
+          }
+        ],
+        "anchors": [
+          "mle.model_version_registration#practice",
+          "mle.model_version_registration#assessment:resolve_and_verify_exact_run_artifact",
+          "mle.model_version_registration#assessment:create_registry_version_with_pinned_artifact_identity",
+          "mle.model_version_registration#assessment:retrieve_registry_version_and_verify_originating_run",
+          "mle.model_version_registration#assessment:verify_registered_content_survives_mutable_key_overwrite"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Correct: the judgement follows the stated criterion and the supplied evidence."
+          },
+          "incorrect": {
+            "message": "Recheck the stated criterion against the supplied evidence. Register and verify an artifact’s immutable object version, hash and originating run."
+          },
+          "hints": [
+            "Trace the originating run through generation, byte digest and numeric registry version.",
+            "Ask what an overwrite can change and what the pinned record still identifies."
+          ],
+          "remediation_step_id": "mle.tile.056_057.r02"
+        },
+        "public": {
+          "prompt": "Judge each independent registry excerpt against its named criterion. All overwrites are authorized test-bucket operations; the originating artifact record is {\"run_id\": \"run.order.B\", \"bucket_name\": \"authorized-fixture\", \"key\": \"models/B/latest.json\", \"generation\": 1, \"expected_hash\": \"cb182766714027c89ef572c9cf1c437b88b0cea465e51eeeec10a184cf8ae8c2\", \"version_qualified_source\": \"gs://authorized-fixture/models/B/latest.json#1\", \"model_name\": \"B\", \"new_name_model\": \"baseline\", \"local_path\": \"downloads/B.json\"}.",
+          "buckets": [
+            {
+              "bucket_id": "meets",
+              "label": "Meets the named criterion"
+            },
+            {
+              "bucket_id": "violates",
+              "label": "Violates the named criterion"
+            }
+          ],
+          "items": [
+            {
+              "item_id": "i1",
+              "text": "Criterion: exact run artifact and mismatch rejection before version creation.\n```\nfrom mlflow import MlflowClient\nclient = MlflowClient()\nrun = client.get_run(record[\"run_id\"])\nassert run_artifact_identity(run) == record\nblob = bucket.blob(record[\"key\"], generation=record[\"generation\"])\nblob.download_to_filename(record[\"local_path\"])\nwith open(record[\"local_path\"], \"rb\") as handle:\n    observed_hash = hashlib.sha256(handle.read()).hexdigest()\nif observed_hash != record[\"expected_hash\"]:\n    return {\"registered\": False}\n# Only matching bytes can continue to the version-creation branch.\n# run_artifact_identity is the supplied run-record reader.\n```"
+            },
+            {
+              "item_id": "i2",
+              "text": "Criterion: create and retrieve a pinned version linked to its originating run. Matching-hash branch only.\n```\nclient.get_registered_model(record[\"model_name\"])\nversion = client.create_model_version(name=record[\"model_name\"], source=record[\"version_qualified_source\"], run_id=record[\"run_id\"])\nclient.set_model_version_tag(record[\"model_name\"], version.version, \"generation\", str(record[\"generation\"]))\nclient.set_model_version_tag(record[\"model_name\"], version.version, \"sha256\", observed_hash)\nretrieved = client.get_model_version(record[\"model_name\"], version.version)\nassert retrieved.source == record[\"version_qualified_source\"]\nassert retrieved.run_id == record[\"run_id\"]\nassert retrieved.tags[\"generation\"] == str(record[\"generation\"])\nassert retrieved.tags[\"sha256\"] == record[\"expected_hash\"]\nassert run_artifact_identity(client.get_run(retrieved.run_id)) == record\n# For a supplied new name, create_registered_model(name) precedes version creation.\n```"
+            },
+            {
+              "item_id": "i3",
+              "text": "Criterion: registered contents survive latest overwrite.\n```\nbucket.blob(record[\"key\"]).upload_from_filename(\"replacement_artifact.json\")\nbucket.blob(record[\"key\"], generation=int(retrieved.tags[\"generation\"])).download_to_filename(record[\"local_path\"])\nwith open(record[\"local_path\"], \"rb\") as handle:\n    stable = hashlib.sha256(handle.read()).hexdigest() == retrieved.tags[\"sha256\"]\nreturn {\"registered\": stable, \"version\": retrieved.version, \"run_id\": retrieved.run_id}\n```"
+            },
+            {
+              "item_id": "i4",
+              "text": "Criterion: reject the mismatch fixture before creation.\n```\nif observed_hash != record[\"expected_hash\"]:\n    version = client.create_model_version(name=record[\"model_name\"], source=record[\"version_qualified_source\"], run_id=record[\"run_id\"])\n    return {\"registered\": False}\n```"
+            }
+          ]
+        },
+        "grading": {
+          "assignments": {
+            "i1": "meets",
+            "i2": "meets",
+            "i3": "meets",
+            "i4": "violates"
+          },
+          "item_feedback": {
+            "i1": {
+              "message": "The originating run and exact generation are resolved, actual bytes are hashed and mismatch returns before any version creation."
+            },
+            "i2": {
+              "message": "The model exists before creation, the numeric version is retained, tags pin identity and retrieval verifies source, tags and linked run."
+            },
+            "i3": {
+              "message": "The registered generation is re-downloaded and byte-verified after overwrite, with one keyed verdict."
+            },
+            "i4": {
+              "message": "Returning false after version creation is too late; mismatched bytes must create no registry version."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.056_057.s05",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.model_preprocessing_package"
+      ],
+      "title": "Package the fitted representation",
+      "eyebrow": "Understand",
+      "lineage": {
+        "concept_ids": [
+          "mle.model_preprocessing_package"
+        ],
+        "teaching_block_ids": [
+          "mle.model_preprocessing_package#tb1"
+        ],
+        "fact_ids": [],
+        "anchors": [
+          "mle.model_preprocessing_package#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Keep the fitted model and fitted preprocessor together. Loading weights alone or refitting preprocessing may run successfully without reproducing the intended predictions.",
+          "role": "intro",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_preprocessing_package"
+            ],
+            "teaching_block_ids": [
+              "mle.model_preprocessing_package#tb1"
+            ],
+            "fact_ids": [],
+            "anchors": []
+          }
+        },
+        {
+          "type": "side_by_side",
+          "left_label": "Before saving: fixed inputs",
+          "right_label": "Container reload: same inputs",
+          "left": {
+            "type": "code_walkthrough",
+            "language": "python",
+            "code": "# Supplied package settings: {'model_identity': 'B', 'registry_version': 1, 'package_path': 'package/B/version_1.pkl', 'compatible_python_image': 'python:3.12-slim', 'image_tag': 'order-fixture:version-1', 'container_name': 'order-fixture', 'rtol': 1e-07, 'atol': 1e-09}\n# Before saving: use the fitted training state on the fixed fixture.\nwith open(\"package_contract.json\") as handle:\n    contract = json.load(handle)\nfixed_inputs = contract[\"fixed_inputs\"]\npre_save_predictions = model.predict(preprocessor.transform(fixed_inputs))\npre_save_parameters = preprocessor.mean_\n# Persist both objects with pickle.dump(..., protocol=5) at\n# contract[\"package_path\"], using an explicit binary handle.\n",
+            "lineage": {
+              "concept_ids": [
+                "mle.model_preprocessing_package"
+              ],
+              "teaching_block_ids": [],
+              "fact_ids": [],
+              "anchors": [
+                "mle.model_preprocessing_package#visual"
+              ]
+            }
+          },
+          "right": {
+            "type": "code_walkthrough",
+            "language": "python",
+            "code": "# Inside the compatible pinned container: load only trusted, verified state.\nwith open(contract[\"package_path\"], \"rb\") as handle:\n    package = pickle.load(handle)\nreloaded_predictions = package[\"model\"].predict(\n    package[\"preprocessor\"].transform(fixed_inputs))\nassert np.allclose(pre_save_predictions, reloaded_predictions,\n    rtol=contract[\"rtol\"], atol=contract[\"atol\"])\nassert np.allclose(pre_save_parameters, package[\"preprocessor\"].mean_,\n    rtol=contract[\"rtol\"], atol=contract[\"atol\"])\n# Compare recorded immutable image identity with container inspect.\n# Inspect state and logs; check declared valid, boundary and failure cases.\n",
+            "lineage": {
+              "concept_ids": [
+                "mle.model_preprocessing_package"
+              ],
+              "teaching_block_ids": [],
+              "fact_ids": [],
+              "anchors": [
+                "mle.model_preprocessing_package#visual"
+              ]
+            }
+          },
+          "takeaway": "Compare predictions under declared tolerances and check fitted preprocessing separately; inspect immutable image identity, state and logs.",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_preprocessing_package"
+            ],
+            "teaching_block_ids": [
+              "mle.model_preprocessing_package#tb1"
+            ],
+            "fact_ids": [],
+            "anchors": [
+              "mle.model_preprocessing_package#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.056_057.s06",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.model_preprocessing_package"
+      ],
+      "title": "Persist trusted fitted state",
+      "eyebrow": "Understand",
+      "lineage": {
+        "concept_ids": [
+          "mle.model_preprocessing_package"
+        ],
+        "teaching_block_ids": [
+          "mle.model_preprocessing_package#tb2"
+        ],
+        "fact_ids": [
+          "mle.model_preprocessing_package#f1",
+          "mle.model_preprocessing_package#f2",
+          "mle.model_preprocessing_package#f3"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Import pickle. At the recorded version-tied package path, use a binary \"wb\" handle and pickle.dump({\"model\": model, \"preprocessor\": preprocessor}, handle, protocol=5). Reload only a trusted, verified package in the compatible pinned inference environment: open \"rb\", call pickle.load(handle), and retrieve both dictionary keys. Untrusted pickle loading is unsafe and can execute arbitrary code. In the Dockerfile, use FROM with the compatible Python image, WORKDIR /app, COPY requirements.txt ./ and RUN pip install --no-cache-dir -r requirements.txt. COPY the declared package and serving source from the build context into their /app paths.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_preprocessing_package"
+            ],
+            "teaching_block_ids": [
+              "mle.model_preprocessing_package#tb2"
+            ],
+            "fact_ids": [
+              "mle.model_preprocessing_package#f1",
+              "mle.model_preprocessing_package#f2",
+              "mle.model_preprocessing_package#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Use a JSON-array CMD containing the declared serving command and argument, replacing placeholders so it loads this package.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_preprocessing_package"
+            ],
+            "teaching_block_ids": [
+              "mle.model_preprocessing_package#tb2"
+            ],
+            "fact_ids": [
+              "mle.model_preprocessing_package#f1",
+              "mle.model_preprocessing_package#f2",
+              "mle.model_preprocessing_package#f3"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.056_057.s07",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.model_preprocessing_package"
+      ],
+      "title": "Build and start the recorded image",
+      "eyebrow": "Understand",
+      "lineage": {
+        "concept_ids": [
+          "mle.model_preprocessing_package"
+        ],
+        "teaching_block_ids": [
+          "mle.model_preprocessing_package#tb3",
+          "mle.model_preprocessing_package#tb4"
+        ],
+        "fact_ids": [
+          "mle.model_preprocessing_package#f4",
+          "mle.model_preprocessing_package#f5",
+          "mle.model_preprocessing_package#f6",
+          "mle.model_preprocessing_package#f7",
+          "mle.model_preprocessing_package#f8",
+          "mle.model_preprocessing_package#f9"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Use docker build -t IMAGE:TAG CONTEXT. Include the Dockerfile (or select it with -f) and all COPY sources; .dockerignore must not exclude required files. Record immutable image identity as well as tag. Prediction applies fitted training preprocessing before the model, without refitting. Start with docker run --name NAME -p HOST_PORT:CONTAINER_PORT --env KEY=VALUE IMAGE using declared ports and nonsecret settings.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_preprocessing_package"
+            ],
+            "teaching_block_ids": [
+              "mle.model_preprocessing_package#tb3"
+            ],
+            "fact_ids": [
+              "mle.model_preprocessing_package#f4",
+              "mle.model_preprocessing_package#f5",
+              "mle.model_preprocessing_package#f6"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Use docker container inspect NAME to check image identity and State. Read captured standard output and error with docker container logs NAME for initialization or execution failures. Secrets must not appear in Dockerfile ARG or ENV: they persist in the image or metadata.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_preprocessing_package"
+            ],
+            "teaching_block_ids": [
+              "mle.model_preprocessing_package#tb4"
+            ],
+            "fact_ids": [
+              "mle.model_preprocessing_package#f7",
+              "mle.model_preprocessing_package#f8",
+              "mle.model_preprocessing_package#f9"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.056_057.s08",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.model_preprocessing_package"
+      ],
+      "title": "Keep secrets out of the package configuration",
+      "eyebrow": "Understand",
+      "lineage": {
+        "concept_ids": [
+          "mle.model_preprocessing_package"
+        ],
+        "teaching_block_ids": [
+          "mle.model_preprocessing_package#tb5",
+          "mle.model_preprocessing_package#tb6"
+        ],
+        "fact_ids": [
+          "mle.model_preprocessing_package#f10",
+          "mle.model_preprocessing_package#f11",
+          "mle.model_preprocessing_package#f12",
+          "mle.model_preprocessing_package#f13",
+          "mle.model_preprocessing_package#f14"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Supply sensitive values through the runtime secret mechanism, not literal Compose values. Save and reload fitted state with explicit binary handles; write and read the pinned dependency manifest with text handles. Record pinned inference versions in requirements and install that manifest in the serving image.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_preprocessing_package"
+            ],
+            "teaching_block_ids": [
+              "mle.model_preprocessing_package#tb5"
+            ],
+            "fact_ids": [
+              "mle.model_preprocessing_package#f10",
+              "mle.model_preprocessing_package#f11",
+              "mle.model_preprocessing_package#f12"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "On the same fixed inputs, assert pre-save and container-reloaded predictions agree under declared tolerances. Separately check preserved fitted preprocessing parameters. Add assert predicate checks for declared valid, boundary and failure cases; a false predicate raises AssertionError in ordinary non-optimized execution.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_preprocessing_package"
+            ],
+            "teaching_block_ids": [
+              "mle.model_preprocessing_package#tb6"
+            ],
+            "fact_ids": [
+              "mle.model_preprocessing_package#f13",
+              "mle.model_preprocessing_package#f14"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.056_057.s09",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.model_preprocessing_package"
+      ],
+      "title": "Check the whole package boundary",
+      "eyebrow": "Understand",
+      "lineage": {
+        "concept_ids": [
+          "mle.model_preprocessing_package"
+        ],
+        "teaching_block_ids": [
+          "mle.model_preprocessing_package#tb7",
+          "mle.model_preprocessing_package#tb8"
+        ],
+        "fact_ids": [
+          "mle.model_preprocessing_package#f1",
+          "mle.model_preprocessing_package#f10",
+          "mle.model_preprocessing_package#f11",
+          "mle.model_preprocessing_package#f12",
+          "mle.model_preprocessing_package#f13",
+          "mle.model_preprocessing_package#f14",
+          "mle.model_preprocessing_package#f2",
+          "mle.model_preprocessing_package#f3",
+          "mle.model_preprocessing_package#f4",
+          "mle.model_preprocessing_package#f5",
+          "mle.model_preprocessing_package#f6",
+          "mle.model_preprocessing_package#f7",
+          "mle.model_preprocessing_package#f8",
+          "mle.model_preprocessing_package#f9"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Persist trusted fitted model/preprocessor state with binary handles at the version-tied path. Keep pinned inference requirements in a text manifest. Include package, requirements and serving source in the Docker context, build it, and record immutable image identity. Start with declared ports and nonsecret settings; inspect identity, state and logs. Compare pre-save and container-reloaded predictions on fixed orders under explicit tolerances, separately checking preprocessing parameters. Reject untrusted pickle artifacts and supply credentials through the runtime mechanism, not Dockerfile or Compose literals.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_preprocessing_package"
+            ],
+            "teaching_block_ids": [
+              "mle.model_preprocessing_package#tb7"
+            ],
+            "fact_ids": [
+              "mle.model_preprocessing_package#f1",
+              "mle.model_preprocessing_package#f2",
+              "mle.model_preprocessing_package#f3",
+              "mle.model_preprocessing_package#f4",
+              "mle.model_preprocessing_package#f5",
+              "mle.model_preprocessing_package#f6",
+              "mle.model_preprocessing_package#f7",
+              "mle.model_preprocessing_package#f8",
+              "mle.model_preprocessing_package#f9",
+              "mle.model_preprocessing_package#f10",
+              "mle.model_preprocessing_package#f11",
+              "mle.model_preprocessing_package#f12",
+              "mle.model_preprocessing_package#f13",
+              "mle.model_preprocessing_package#f14"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Packaging does not permit inference-time refitting or embedded credentials. A tag alone does not verify image identity. Pickle needs trusted, verified provenance and a compatible pinned environment.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_preprocessing_package"
+            ],
+            "teaching_block_ids": [
+              "mle.model_preprocessing_package#tb8"
+            ],
+            "fact_ids": [
+              "mle.model_preprocessing_package#f2",
+              "mle.model_preprocessing_package#f4",
+              "mle.model_preprocessing_package#f5",
+              "mle.model_preprocessing_package#f9",
+              "mle.model_preprocessing_package#f10"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.056_057.s10",
+      "type": "check",
+      "concept_ids": [
+        "mle.model_preprocessing_package"
+      ],
+      "title": "Check the fitted prediction package",
+      "eyebrow": "Quick check",
+      "lineage": {
+        "concept_ids": [
+          "mle.model_preprocessing_package"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.model_preprocessing_package#f10",
+          "mle.model_preprocessing_package#f9"
+        ],
+        "anchors": [
+          "mle.model_preprocessing_package#assessment:keep_sensitive_values_out_of_image_and_configuration_literals"
+        ]
+      },
+      "lede": "The container reloads the model but refits preprocessing on prediction inputs. Does this preserve the package contract?",
+      "interaction": {
+        "interaction_id": "ix.mle.tile.056_057.s10",
+        "type": "choice",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.model_preprocessing_package",
+            "fact_ids": [
+              "f9",
+              "f10"
+            ],
+            "capability": "keep_sensitive_values_out_of_image_and_configuration_literals"
+          }
+        ],
+        "anchors": [
+          "mle.model_preprocessing_package#assessment:keep_sensitive_values_out_of_image_and_configuration_literals"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Correct: the judgement follows the stated criterion and the supplied evidence."
+          },
+          "incorrect": {
+            "message": "Recheck the stated criterion against the supplied evidence. Package fitted preprocessing and model state with dependencies and verify container-reloaded predictions."
+          },
+          "hints": [
+            "Trace fitted state from the trusted package into the serving prediction path.",
+            "Separate image tags from immutable identities, and runtime secrets from image/configuration literals."
+          ],
+          "remediation_step_id": "mle.tile.056_057.r03"
+        },
+        "public": {
+          "prompt": "A proposed package embeds credentials in image instructions and Compose. Which correction respects the secret policy?\n```\nARG TRAINING_TOKEN=<literal credential>\nENV TRAINING_TOKEN=${TRAINING_TOKEN}\n```",
+          "selection": "single",
+          "shuffle": true,
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Remove those secret-bearing image and Compose literals; use the authorized runtime secret mechanism."
+            },
+            {
+              "option_id": "o2",
+              "text": "Keep only ENV because it does not persist sensitive values."
+            },
+            {
+              "option_id": "o3",
+              "text": "Move the same literal credential entirely into Compose."
+            },
+            {
+              "option_id": "o4",
+              "text": "Keep ARG and remove ENV, assuming the secret cannot persist."
+            }
+          ]
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "Sensitive values belong in the runtime secret mechanism, not image instructions or Compose literals."
+            },
+            "o2": {
+              "message": "Secret-bearing ENV instructions persist in the final image or its metadata."
+            },
+            "o3": {
+              "message": "A literal sensitive value in Compose still violates the stated runtime-secret policy."
+            },
+            "o4": {
+              "message": "Secrets must not be embedded in Dockerfile ARG either."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.056_057.s11",
+      "type": "hands_on",
+      "concept_ids": [
+        "mle.model_preprocessing_package"
+      ],
+      "title": "Review the fitted prediction package",
+      "eyebrow": "Review evidence",
+      "lineage": {
+        "concept_ids": [
+          "mle.model_preprocessing_package"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.model_preprocessing_package#f1",
+          "mle.model_preprocessing_package#f11",
+          "mle.model_preprocessing_package#f12",
+          "mle.model_preprocessing_package#f13",
+          "mle.model_preprocessing_package#f14",
+          "mle.model_preprocessing_package#f2",
+          "mle.model_preprocessing_package#f3",
+          "mle.model_preprocessing_package#f4",
+          "mle.model_preprocessing_package#f5",
+          "mle.model_preprocessing_package#f6",
+          "mle.model_preprocessing_package#f7",
+          "mle.model_preprocessing_package#f8"
+        ],
+        "anchors": [
+          "mle.model_preprocessing_package#practice",
+          "mle.model_preprocessing_package#assessment:persist_and_reload_a_trusted_versioned_package_with_pinned_dependencies",
+          "mle.model_preprocessing_package#assessment:build_run_and_inspect_the_referenced_package_image",
+          "mle.model_preprocessing_package#assessment:verify_prediction_agreement_and_preserved_fitted_preprocessing"
+        ]
+      },
+      "lede": "The container reloads the model but refits preprocessing on prediction inputs. Does this preserve the package contract?",
+      "interaction": {
+        "interaction_id": "ix.mle.tile.056_057.s11",
+        "type": "classify",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.model_preprocessing_package",
+            "fact_ids": [
+              "f1",
+              "f2",
+              "f11",
+              "f12"
+            ],
+            "capability": "persist_and_reload_a_trusted_versioned_package_with_pinned_dependencies"
+          },
+          {
+            "concept_id": "mle.model_preprocessing_package",
+            "fact_ids": [
+              "f3",
+              "f4",
+              "f6",
+              "f7",
+              "f8"
+            ],
+            "capability": "build_run_and_inspect_the_referenced_package_image"
+          },
+          {
+            "concept_id": "mle.model_preprocessing_package",
+            "fact_ids": [
+              "f5",
+              "f13",
+              "f14"
+            ],
+            "capability": "verify_prediction_agreement_and_preserved_fitted_preprocessing"
+          }
+        ],
+        "anchors": [
+          "mle.model_preprocessing_package#practice",
+          "mle.model_preprocessing_package#assessment:persist_and_reload_a_trusted_versioned_package_with_pinned_dependencies",
+          "mle.model_preprocessing_package#assessment:build_run_and_inspect_the_referenced_package_image",
+          "mle.model_preprocessing_package#assessment:verify_prediction_agreement_and_preserved_fitted_preprocessing"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Correct: the judgement follows the stated criterion and the supplied evidence."
+          },
+          "incorrect": {
+            "message": "Recheck the stated criterion against the supplied evidence. Package fitted preprocessing and model state with dependencies and verify container-reloaded predictions."
+          },
+          "hints": [
+            "Trace fitted state from the trusted package into the serving prediction path.",
+            "Separate image tags from immutable identities, and runtime secrets from image/configuration literals."
+          ],
+          "remediation_step_id": "mle.tile.056_057.r04"
+        },
+        "public": {
+          "prompt": "Judge each independent package excerpt against its named reproducibility criterion. The package is trusted and verified unless the excerpt explicitly says otherwise. Declared package settings: {\"model_identity\": \"B\", \"registry_version\": 1, \"package_path\": \"package/B/version_1.pkl\", \"manifest_path\": \"requirements.txt\", \"serving_source\": \"serve_fixture.py\", \"serving_command\": [\"python\", \"serve_fixture.py\"], \"compatible_python_image\": \"python:3.12-slim\", \"image_tag\": \"order-fixture:version-1\", \"container_name\": \"order-fixture\", \"host_port\": 8080, \"container_port\": 8080, \"nonsecret_settings\": {\"FIXTURE_MODE\": \"fixed-orders\"}, \"secret_policy\": \"Use authorized runtime secret mounts only; no literal credentials in Dockerfile or Compose.\", \"fixed_inputs\": [[5.0], [40.0], [80.0]], \"pre_save_predictions\": [0, 1, 1], \"expected_preprocessor_mean\": 42.5, \"rtol\": 1e-07, \"atol\": 1e-09, \"failure_cases\": [\"changed preprocessing mean\", \"flipped prediction\", \"untrusted artifact: reject before pickle.load\", \"deliberately false predicate raises AssertionError without -O\"]}. Inspection statements are hypothetical evidence for judgement, not a claim that Docker ran here.",
+          "buckets": [
+            {
+              "bucket_id": "meets",
+              "label": "Meets the named criterion"
+            },
+            {
+              "bucket_id": "violates",
+              "label": "Violates the named criterion"
+            }
+          ],
+          "items": [
+            {
+              "item_id": "i1",
+              "text": "Criterion: preserve fitted objects and round-trip a pinned manifest.\n```\nimport pickle\nwith open(package_path, \"wb\") as handle:\n    pickle.dump({\"model\": model, \"preprocessor\": preprocessor}, handle, protocol=5)\nwith open(manifest_path, \"w\", encoding=\"utf-8\") as handle:\n    handle.write(pinned_requirements)\nwith open(manifest_path, \"r\", encoding=\"utf-8\") as handle:\n    assert handle.read() == pinned_requirements\nwith open(package_path, \"rb\") as handle:\n    package = pickle.load(handle)\n# package_path is tied to the recorded version; environment matches the pins.\n```"
+            },
+            {
+              "item_id": "i2",
+              "text": "Criterion: image build, referenced container identity, state and logs.\n```\nFROM python:3.12-slim\nWORKDIR /app\nCOPY requirements.txt ./\nRUN pip install --no-cache-dir -r requirements.txt\nCOPY package/B/version_1.pkl /app/package/B/version_1.pkl\nCOPY package_contract.json /app/package_contract.json\nCOPY fixture_workflow.py /app/fixture_workflow.py\nCOPY serve_fixture.py /app/serve_fixture.py\nCMD [\"python\", \"serve_fixture.py\"]\n```\n```\ndocker build -t order-fixture:version-1 .\n# Context contains Dockerfile and every COPY source; .dockerignore excludes none.\n# Retain the resulting immutable image ID as recorded_image_id.\ndocker run --name order-fixture -p 8080:8080 --env FIXTURE_MODE=fixed-orders order-fixture:version-1\ndocker container inspect order-fixture\ndocker container logs order-fixture\n# Inspection: Image equals recorded_image_id; State matches declared successful execution.\n# Captured stdout/stderr inspected: no initialization or execution failure.\n```"
+            },
+            {
+              "item_id": "i3",
+              "text": "Criterion: serving order, fixed-input agreement, fitted-state preservation and assertion failure.\n```\npreprocessor = package[\"preprocessor\"]\nmodel = package[\"model\"]\ncontainer_predictions = model.predict(preprocessor.transform(fixed_inputs))\nprediction_agreement = np.allclose(container_predictions, pre_save_predictions, rtol=rtol, atol=atol)\npreserved_state = preprocessor.mean_ == expected_preprocessor_mean\nassert prediction_agreement\nassert preserved_state\n# The serving entry point uses the two reloaded objects in this order, with no fit call.\ntry:\n    assert False\nexcept AssertionError:\n    false_predicate_raised = True\nassert false_predicate_raised\n# Ordinary non-optimized Python; valid/boundary inputs are the declared fixed inputs.\n# manifest_agreement and inspected_identity_state_logs are the supplied independent, successful manifest/build/run inspection verdicts.\nreturn {\"reproducible\": prediction_agreement and preserved_state and manifest_agreement and inspected_identity_state_logs and false_predicate_raised}\n```"
+            },
+            {
+              "item_id": "i4",
+              "text": "Criterion: safe reload.\n```\nwith open(untrusted_download, \"rb\") as handle:\n    package = pickle.load(handle)\n# Trust and content verification are deliberately skipped.\n```"
+            },
+            {
+              "item_id": "i5",
+              "text": "Criterion: preserved fitted preprocessing at inference.\n```\npreprocessor = package[\"preprocessor\"]\npreprocessor.fit(request_inputs)\npredictions = package[\"model\"].predict(preprocessor.transform(request_inputs))\n```"
+            }
+          ]
+        },
+        "grading": {
+          "assignments": {
+            "i1": "meets",
+            "i2": "meets",
+            "i3": "meets",
+            "i4": "violates",
+            "i5": "violates"
+          },
+          "item_feedback": {
+            "i1": {
+              "message": "Both fitted objects are saved and reloaded with binary handles, and the pinned dependency manifest round-trips through text handles."
+            },
+            "i2": {
+              "message": "The build context and pinned manifest are present, the named image is run with declared nonsecret settings, and immutable identity, State and logs are checked."
+            },
+            "i3": {
+              "message": "Fixed-input predictions and preprocessing state are separately asserted, inference does not refit, a false predicate raises, and the verdict combines all checks."
+            },
+            "i4": {
+              "message": "Pickle loading can execute arbitrary code; an untrusted artifact must be rejected before loading."
+            },
+            "i5": {
+              "message": "Refitting on inference inputs replaces the preserved fitted training preprocessing."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.056_057.s12",
+      "type": "recap",
+      "concept_ids": [
+        "mle.model_version_registration",
+        "mle.model_preprocessing_package"
+      ],
+      "title": "Keep the evidence together",
+      "eyebrow": "Takeaways",
+      "lineage": {
+        "concept_ids": [
+          "mle.model_version_registration",
+          "mle.model_preprocessing_package"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Verify exact artifact bytes before creating a run-linked numeric version; retain generation/hash tags and verify after an authorized overwrite.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_version_registration"
+            ],
+            "teaching_block_ids": [
+              "mle.model_version_registration#tb1",
+              "mle.model_version_registration#tb2",
+              "mle.model_version_registration#tb3",
+              "mle.model_version_registration#tb4",
+              "mle.model_version_registration#tb5",
+              "mle.model_version_registration#tb6"
+            ],
+            "fact_ids": [
+              "mle.model_version_registration#f1",
+              "mle.model_version_registration#f2",
+              "mle.model_version_registration#f3",
+              "mle.model_version_registration#f4",
+              "mle.model_version_registration#f5",
+              "mle.model_version_registration#f6",
+              "mle.model_version_registration#f7",
+              "mle.model_version_registration#f8",
+              "mle.model_version_registration#f9"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Package trusted fitted model and preprocessing together with pinned dependencies. Verify container identity and fixed-input agreement; keep secrets in runtime mechanisms.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_preprocessing_package"
+            ],
+            "teaching_block_ids": [
+              "mle.model_preprocessing_package#tb1",
+              "mle.model_preprocessing_package#tb2",
+              "mle.model_preprocessing_package#tb3",
+              "mle.model_preprocessing_package#tb4",
+              "mle.model_preprocessing_package#tb5",
+              "mle.model_preprocessing_package#tb6",
+              "mle.model_preprocessing_package#tb7",
+              "mle.model_preprocessing_package#tb8"
+            ],
+            "fact_ids": [
+              "mle.model_preprocessing_package#f1",
+              "mle.model_preprocessing_package#f2",
+              "mle.model_preprocessing_package#f3",
+              "mle.model_preprocessing_package#f4",
+              "mle.model_preprocessing_package#f5",
+              "mle.model_preprocessing_package#f6",
+              "mle.model_preprocessing_package#f7",
+              "mle.model_preprocessing_package#f8",
+              "mle.model_preprocessing_package#f9",
+              "mle.model_preprocessing_package#f10",
+              "mle.model_preprocessing_package#f11",
+              "mle.model_preprocessing_package#f12",
+              "mle.model_preprocessing_package#f13",
+              "mle.model_preprocessing_package#f14"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "up_next",
+          "title": "Up next: the frozen protected comparison",
+          "text": "Continue to the frozen protected comparison."
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "mle.tile.056_057.r01",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.model_version_registration"
+      ],
+      "title": "Contrast: the run-to-registry artifact link",
+      "lineage": {
+        "concept_ids": [
+          "mle.model_version_registration"
+        ],
+        "teaching_block_ids": [
+          "mle.model_version_registration#tb4",
+          "mle.model_version_registration#tb5",
+          "mle.model_version_registration#tb6"
+        ],
+        "fact_ids": [
+          "mle.model_version_registration#f7",
+          "mle.model_version_registration#f8"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "An authorized overwrite changes latest, not the approved registry version. Re-retrieve the registered generation and verify its hash.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_version_registration"
+            ],
+            "teaching_block_ids": [
+              "mle.model_version_registration#tb4",
+              "mle.model_version_registration#tb5",
+              "mle.model_version_registration#tb6"
+            ],
+            "fact_ids": [
+              "mle.model_version_registration#f7",
+              "mle.model_version_registration#f8"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Overwrite the latest object only in the authorized test bucket, then use the registered version-qualified reference to retrieve the original generation again.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_version_registration"
+            ],
+            "teaching_block_ids": [
+              "mle.model_version_registration#tb4",
+              "mle.model_version_registration#tb5"
+            ],
+            "fact_ids": [
+              "mle.model_version_registration#f7"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Verify the re-retrieved bytes have the registered hash and return one keyed registration verdict; do not treat a mutable overwrite as a new approved registry version.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_version_registration"
+            ],
+            "teaching_block_ids": [
+              "mle.model_version_registration#tb4",
+              "mle.model_version_registration#tb5",
+              "mle.model_version_registration#tb6"
+            ],
+            "fact_ids": [
+              "mle.model_version_registration#f8"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.056_057.r02",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.model_version_registration"
+      ],
+      "title": "Contrast: the run-to-registry artifact link",
+      "lineage": {
+        "concept_ids": [
+          "mle.model_version_registration"
+        ],
+        "teaching_block_ids": [
+          "mle.model_version_registration#tb2",
+          "mle.model_version_registration#tb3",
+          "mle.model_version_registration#tb4",
+          "mle.model_version_registration#tb5",
+          "mle.model_version_registration#tb6"
+        ],
+        "fact_ids": [
+          "mle.model_version_registration#f1",
+          "mle.model_version_registration#f2",
+          "mle.model_version_registration#f3",
+          "mle.model_version_registration#f4",
+          "mle.model_version_registration#f5",
+          "mle.model_version_registration#f6",
+          "mle.model_version_registration#f7",
+          "mle.model_version_registration#f8",
+          "mle.model_version_registration#f9"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "An authorized overwrite changes latest, not the approved registry version. Re-retrieve the registered generation and verify its hash.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_version_registration"
+            ],
+            "teaching_block_ids": [
+              "mle.model_version_registration#tb2",
+              "mle.model_version_registration#tb3",
+              "mle.model_version_registration#tb4",
+              "mle.model_version_registration#tb5",
+              "mle.model_version_registration#tb6"
+            ],
+            "fact_ids": [
+              "mle.model_version_registration#f1",
+              "mle.model_version_registration#f2",
+              "mle.model_version_registration#f3",
+              "mle.model_version_registration#f4",
+              "mle.model_version_registration#f5",
+              "mle.model_version_registration#f6",
+              "mle.model_version_registration#f7",
+              "mle.model_version_registration#f8",
+              "mle.model_version_registration#f9"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Resolve the run artifact record, expected hash and generation. Download with bucket.blob(key, generation=recorded_generation).download_to_filename(path); reject a downloaded-byte SHA-256 mismatch before registration. Import from mlflow import MlflowClient and construct MlflowClient(). Require the registered name to exist, creating it with create_registered_model only for a new name. Use create_model_version with name, version-qualified source and run_id; retain its numeric version. Preserve generation/hash with set_model_version_tag, then retrieve get_model_version and the linked run to compare identities.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_version_registration"
+            ],
+            "teaching_block_ids": [
+              "mle.model_version_registration#tb2",
+              "mle.model_version_registration#tb3",
+              "mle.model_version_registration#tb4",
+              "mle.model_version_registration#tb5",
+              "mle.model_version_registration#tb6"
+            ],
+            "fact_ids": [
+              "mle.model_version_registration#f1",
+              "mle.model_version_registration#f2",
+              "mle.model_version_registration#f3",
+              "mle.model_version_registration#f4",
+              "mle.model_version_registration#f5",
+              "mle.model_version_registration#f6",
+              "mle.model_version_registration#f9"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Only in the authorized test bucket, overwrite latest. Re-retrieve the registered generation, compare its byte digest with the registered hash, and return one keyed verdict binding the run, version and artifact. The overwrite does not approve a new registry version.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_version_registration"
+            ],
+            "teaching_block_ids": [
+              "mle.model_version_registration#tb4",
+              "mle.model_version_registration#tb5",
+              "mle.model_version_registration#tb6"
+            ],
+            "fact_ids": [
+              "mle.model_version_registration#f7",
+              "mle.model_version_registration#f8"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.056_057.r03",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.model_preprocessing_package"
+      ],
+      "title": "Contrast: the fitted prediction package",
+      "lineage": {
+        "concept_ids": [
+          "mle.model_preprocessing_package"
+        ],
+        "teaching_block_ids": [
+          "mle.model_preprocessing_package#tb4",
+          "mle.model_preprocessing_package#tb5",
+          "mle.model_preprocessing_package#tb7",
+          "mle.model_preprocessing_package#tb8"
+        ],
+        "fact_ids": [
+          "mle.model_preprocessing_package#f10",
+          "mle.model_preprocessing_package#f9"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Successful startup does not show matching fitted state or safe secret handling. Preserve preprocessing and use runtime secrets, not image or Compose literals.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_preprocessing_package"
+            ],
+            "teaching_block_ids": [
+              "mle.model_preprocessing_package#tb4",
+              "mle.model_preprocessing_package#tb5",
+              "mle.model_preprocessing_package#tb7",
+              "mle.model_preprocessing_package#tb8"
+            ],
+            "fact_ids": [
+              "mle.model_preprocessing_package#f10",
+              "mle.model_preprocessing_package#f9"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Supply sensitive values through the runtime secret mechanism rather than placing their literal values in the Compose configuration.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_preprocessing_package"
+            ],
+            "teaching_block_ids": [
+              "mle.model_preprocessing_package#tb5",
+              "mle.model_preprocessing_package#tb7",
+              "mle.model_preprocessing_package#tb8"
+            ],
+            "fact_ids": [
+              "mle.model_preprocessing_package#f10"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Do not embed secrets in Dockerfile ARG or ENV instructions, because they persist in the final image or its metadata.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_preprocessing_package"
+            ],
+            "teaching_block_ids": [
+              "mle.model_preprocessing_package#tb4",
+              "mle.model_preprocessing_package#tb7",
+              "mle.model_preprocessing_package#tb8"
+            ],
+            "fact_ids": [
+              "mle.model_preprocessing_package#f9"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.056_057.r04",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.model_preprocessing_package"
+      ],
+      "title": "Contrast: the fitted prediction package",
+      "lineage": {
+        "concept_ids": [
+          "mle.model_preprocessing_package"
+        ],
+        "teaching_block_ids": [
+          "mle.model_preprocessing_package#tb2",
+          "mle.model_preprocessing_package#tb3",
+          "mle.model_preprocessing_package#tb4",
+          "mle.model_preprocessing_package#tb5",
+          "mle.model_preprocessing_package#tb6",
+          "mle.model_preprocessing_package#tb7",
+          "mle.model_preprocessing_package#tb8"
+        ],
+        "fact_ids": [
+          "mle.model_preprocessing_package#f1",
+          "mle.model_preprocessing_package#f11",
+          "mle.model_preprocessing_package#f12",
+          "mle.model_preprocessing_package#f13",
+          "mle.model_preprocessing_package#f14",
+          "mle.model_preprocessing_package#f2",
+          "mle.model_preprocessing_package#f3",
+          "mle.model_preprocessing_package#f4",
+          "mle.model_preprocessing_package#f5",
+          "mle.model_preprocessing_package#f6",
+          "mle.model_preprocessing_package#f7",
+          "mle.model_preprocessing_package#f8"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Successful startup does not show matching fitted state or safe secret handling. Preserve preprocessing and use runtime secrets, not image or Compose literals.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_preprocessing_package"
+            ],
+            "teaching_block_ids": [
+              "mle.model_preprocessing_package#tb2",
+              "mle.model_preprocessing_package#tb3",
+              "mle.model_preprocessing_package#tb4",
+              "mle.model_preprocessing_package#tb5",
+              "mle.model_preprocessing_package#tb6",
+              "mle.model_preprocessing_package#tb7",
+              "mle.model_preprocessing_package#tb8"
+            ],
+            "fact_ids": [
+              "mle.model_preprocessing_package#f1",
+              "mle.model_preprocessing_package#f11",
+              "mle.model_preprocessing_package#f12",
+              "mle.model_preprocessing_package#f13",
+              "mle.model_preprocessing_package#f14",
+              "mle.model_preprocessing_package#f2",
+              "mle.model_preprocessing_package#f3",
+              "mle.model_preprocessing_package#f4",
+              "mle.model_preprocessing_package#f5",
+              "mle.model_preprocessing_package#f6",
+              "mle.model_preprocessing_package#f7",
+              "mle.model_preprocessing_package#f8"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Import pickle; persist both fitted objects at the version-tied path using a binary \"wb\" handle and pickle.dump({\"model\": model, \"preprocessor\": preprocessor}, handle, protocol=5). In the compatible pinned environment, reload only trusted, verified state with a binary \"rb\" handle and pickle.load; retrieve both dictionary keys. Untrusted pickle can execute arbitrary code. Write/read pinned inference requirements through text handles and install that manifest in the image.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_preprocessing_package"
+            ],
+            "teaching_block_ids": [
+              "mle.model_preprocessing_package#tb2",
+              "mle.model_preprocessing_package#tb5",
+              "mle.model_preprocessing_package#tb7",
+              "mle.model_preprocessing_package#tb8"
+            ],
+            "fact_ids": [
+              "mle.model_preprocessing_package#f1",
+              "mle.model_preprocessing_package#f2",
+              "mle.model_preprocessing_package#f11",
+              "mle.model_preprocessing_package#f12"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Use FROM for the compatible Python image, WORKDIR /app, COPY requirements.txt ./, RUN pip install --no-cache-dir -r requirements.txt, COPY the declared package and serving source to /app paths, and a JSON-array CMD for the declared command/argument. Build with docker build -t IMAGE:TAG CONTEXT; include the Dockerfile (or use -f) and all COPY sources without .dockerignore exclusions. Record immutable image identity, not only tag.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_preprocessing_package"
+            ],
+            "teaching_block_ids": [
+              "mle.model_preprocessing_package#tb2",
+              "mle.model_preprocessing_package#tb3",
+              "mle.model_preprocessing_package#tb7",
+              "mle.model_preprocessing_package#tb8"
+            ],
+            "fact_ids": [
+              "mle.model_preprocessing_package#f3",
+              "mle.model_preprocessing_package#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Apply fitted preprocessing before the model; do not refit at inference. Start docker run --name NAME -p HOST_PORT:CONTAINER_PORT --env KEY=VALUE IMAGE with declared ports and nonsecret settings. Check image identity and State using docker container inspect NAME; inspect captured stdout/stderr with docker container logs NAME. Dockerfile ARG/ENV secrets persist in the image or metadata. Use runtime secrets, not literal Compose credentials.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_preprocessing_package"
+            ],
+            "teaching_block_ids": [
+              "mle.model_preprocessing_package#tb3",
+              "mle.model_preprocessing_package#tb4",
+              "mle.model_preprocessing_package#tb5",
+              "mle.model_preprocessing_package#tb7",
+              "mle.model_preprocessing_package#tb8"
+            ],
+            "fact_ids": [
+              "mle.model_preprocessing_package#f5",
+              "mle.model_preprocessing_package#f6",
+              "mle.model_preprocessing_package#f7",
+              "mle.model_preprocessing_package#f8"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "On the same fixed inputs, assert pre-save and container-reloaded predictions agree under declared tolerances; separately check preserved fitted preprocessing parameters. Check declared valid, boundary and failure predicates. A false assert raises AssertionError in ordinary non-optimized execution, so successful startup alone does not establish reproducibility.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.model_preprocessing_package"
+            ],
+            "teaching_block_ids": [
+              "mle.model_preprocessing_package#tb6",
+              "mle.model_preprocessing_package#tb7"
+            ],
+            "fact_ids": [
+              "mle.model_preprocessing_package#f13",
+              "mle.model_preprocessing_package#f14"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "mle.tile.058_058"
+  },
+  "content_hash": "e083d95f6f3fd908a7e2c0365da5ec25fffc54caab64cc0ff7aa4cd35b056dcd"
+}

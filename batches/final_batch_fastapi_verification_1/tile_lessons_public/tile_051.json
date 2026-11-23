@@ -1,0 +1,822 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "python_fastapi_backend_developer",
+  "tile_id": "tile_051",
+  "toc_location": {
+    "region_id": "region_verification",
+    "terrain_id": "terrain_runtime_verification"
+  },
+  "title": "Request-scoped async-compatible PostgreSQL session lifecycle",
+  "summary": "",
+  "concept_ids": [
+    "sqlalchemy.async_session_lifecycle"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_python_fastapi_backend_developer",
+    "toc_freeze_hash": "96d245a8da4552263398bda220dd1f88774cc30045abdf029e8d40064881cb7e",
+    "glossary_bundle_hashes": {
+      "sqlalchemy.async_session_lifecycle": "14000f289d477114f7c4d1bacc0298a095e17fc83b7bf9988e7bcff820871d4b"
+    },
+    "scenario_registry_hash": "29f9d7b7be7d9e0858e82988aea40ba028377717f8de8844e2cbe4d3f079a05b"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core"
+    ],
+    "block_types": [
+      "diagram",
+      "media_group",
+      "prose",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "code_exercise"
+    ],
+    "runtimes": [
+      "python_asgi"
+    ],
+    "asset_ids": []
+  },
+  "pacing": {
+    "estimated_minutes": 7.7
+  },
+  "steps": [
+    {
+      "step_id": "tile_051.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "sqlalchemy.async_session_lifecycle"
+      ],
+      "title": "Declare the boundary: Request-scoped async-compatible PostgreSQL session lifecycle",
+      "eyebrow": "Explainer",
+      "lineage": {
+        "concept_ids": [
+          "sqlalchemy.async_session_lifecycle"
+        ],
+        "teaching_block_ids": [
+          "sqlalchemy.async_session_lifecycle#tb1",
+          "sqlalchemy.async_session_lifecycle#tb2",
+          "sqlalchemy.async_session_lifecycle#tb3"
+        ],
+        "fact_ids": [
+          "sqlalchemy.async_session_lifecycle#f1",
+          "sqlalchemy.async_session_lifecycle#f2",
+          "sqlalchemy.async_session_lifecycle#f3"
+        ],
+        "anchors": [
+          "sqlalchemy.async_session_lifecycle#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "AsyncSession holds mutable state for database work. It is unsafe to share across concurrent tasks; give each concurrent unit of work a separate session.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.async_session_lifecycle"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.async_session_lifecycle#tb1",
+              "sqlalchemy.async_session_lifecycle#tb2"
+            ],
+            "fact_ids": [
+              "sqlalchemy.async_session_lifecycle#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Bind async_sessionmaker to an async engine. async with session_factory() as session obtains and closes a session for the request’s unit of work.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.async_session_lifecycle"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.async_session_lifecycle#tb3"
+            ],
+            "fact_ids": [
+              "sqlalchemy.async_session_lifecycle#f2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A request dependency can yield the session from that async context. The context still owns cleanup on normal and exceptional exit.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.async_session_lifecycle"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.async_session_lifecycle#tb3"
+            ],
+            "fact_ids": [
+              "sqlalchemy.async_session_lifecycle#f3"
+            ]
+          }
+        },
+        {
+          "type": "diagram",
+          "diagram_kind": "container",
+          "title": "One factory, separate concurrent sessions",
+          "nodes": [
+            {
+              "id": "factory",
+              "label": "async_sessionmaker(async engine)"
+            },
+            {
+              "id": "sa",
+              "label": "Session A: mutable work state",
+              "group": "request A"
+            },
+            {
+              "id": "sb",
+              "label": "Session B: mutable work state",
+              "group": "request B"
+            },
+            {
+              "id": "ya",
+              "label": "Dependency yields session A",
+              "group": "request A"
+            },
+            {
+              "id": "yb",
+              "label": "Dependency yields session B",
+              "group": "request B"
+            },
+            {
+              "id": "ca",
+              "label": "async context exit closes A",
+              "group": "request A"
+            },
+            {
+              "id": "cb",
+              "label": "async context exit closes B",
+              "group": "request B"
+            }
+          ],
+          "edges": [
+            {
+              "from": "factory",
+              "to": "sa",
+              "label": "async with session_factory()",
+              "directed": true
+            },
+            {
+              "from": "factory",
+              "to": "sb",
+              "label": "async with session_factory()",
+              "directed": true
+            },
+            {
+              "from": "sa",
+              "to": "ya",
+              "label": "operation use",
+              "directed": true
+            },
+            {
+              "from": "sb",
+              "to": "yb",
+              "label": "operation use",
+              "directed": true
+            },
+            {
+              "from": "ya",
+              "to": "ca",
+              "label": "normal or exceptional exit",
+              "directed": true
+            },
+            {
+              "from": "yb",
+              "to": "cb",
+              "label": "normal or exceptional exit",
+              "directed": true
+            }
+          ],
+          "layout": "auto",
+          "alt_text": "One factory, separate concurrent sessions: async_sessionmaker(async engine); Session A: mutable work state; Session B: mutable work state; Dependency yields session A; Dependency yields session B; async context exit closes A; async context exit closes B",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.async_session_lifecycle"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.async_session_lifecycle#tb1",
+              "sqlalchemy.async_session_lifecycle#tb2",
+              "sqlalchemy.async_session_lifecycle#tb3"
+            ],
+            "fact_ids": [
+              "sqlalchemy.async_session_lifecycle#f1",
+              "sqlalchemy.async_session_lifecycle#f2",
+              "sqlalchemy.async_session_lifecycle#f3"
+            ],
+            "anchors": [
+              "sqlalchemy.async_session_lifecycle#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_051.s02",
+      "type": "explainer",
+      "concept_ids": [
+        "sqlalchemy.async_session_lifecycle"
+      ],
+      "title": "Trace the contract",
+      "eyebrow": "Explainer",
+      "lineage": {
+        "concept_ids": [
+          "sqlalchemy.async_session_lifecycle"
+        ],
+        "teaching_block_ids": [
+          "sqlalchemy.async_session_lifecycle#tb4"
+        ],
+        "fact_ids": [
+          "sqlalchemy.async_session_lifecycle#f1",
+          "sqlalchemy.async_session_lifecycle#f2",
+          "sqlalchemy.async_session_lifecycle#f3"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Separate the engine-bound factory from the mutable sessions it creates. Concurrent request A and request B need separate sessions. Each request’s async context owns closure, including exceptional exit. Yield supplies the session to the operation without transferring that cleanup responsibility. A shared factory is not a shared AsyncSession.",
+          "role": "mental_model",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.async_session_lifecycle"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.async_session_lifecycle#tb4"
+            ],
+            "fact_ids": [
+              "sqlalchemy.async_session_lifecycle#f1",
+              "sqlalchemy.async_session_lifecycle#f2",
+              "sqlalchemy.async_session_lifecycle#f3"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_051.s03",
+      "type": "explainer",
+      "concept_ids": [
+        "sqlalchemy.async_session_lifecycle"
+      ],
+      "title": "Work through the supplied example",
+      "eyebrow": "Explainer",
+      "lineage": {
+        "concept_ids": [
+          "sqlalchemy.async_session_lifecycle"
+        ],
+        "teaching_block_ids": [
+          "sqlalchemy.async_session_lifecycle#tb5",
+          "sqlalchemy.async_session_lifecycle#tb6"
+        ],
+        "fact_ids": [
+          "sqlalchemy.async_session_lifecycle#f1",
+          "sqlalchemy.async_session_lifecycle#f2",
+          "sqlalchemy.async_session_lifecycle#f3"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Bind the factory to the async engine, then open a session with async with for each request’s work. Yield that session from inside the context so both normal and exceptional exit close it. Draw session A and session B separately for concurrent requests. Sharing factory setup does not permit both tasks to borrow one mutable session, and cleanup must not depend only on a successful return.",
+          "role": "walkthrough",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.async_session_lifecycle"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.async_session_lifecycle#tb5",
+              "sqlalchemy.async_session_lifecycle#tb6"
+            ],
+            "fact_ids": [
+              "sqlalchemy.async_session_lifecycle#f1",
+              "sqlalchemy.async_session_lifecycle#f2",
+              "sqlalchemy.async_session_lifecycle#f3"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_051.s04",
+      "type": "video",
+      "concept_ids": [
+        "sqlalchemy.async_session_lifecycle"
+      ],
+      "title": "Optional deeper walkthrough",
+      "eyebrow": "Video",
+      "lineage": {
+        "concept_ids": [
+          "sqlalchemy.async_session_lifecycle"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "sqlalchemy.async_session_lifecycle#f2"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "media_group",
+          "segment_ids": [
+            "seg_sqlalchemy.async_session_lifecycle_T0JXFhJ7pM0_216_441"
+          ],
+          "segments": [
+            {
+              "segment_id": "seg_sqlalchemy.async_session_lifecycle_T0JXFhJ7pM0_216_441",
+              "video_id": "T0JXFhJ7pM0",
+              "youtube_url": "https://www.youtube.com/watch?v=T0JXFhJ7pM0",
+              "review_url": "https://www.youtube.com/watch?v=T0JXFhJ7pM0&t=216s",
+              "start_seconds": 216,
+              "end_seconds": 441,
+              "label": "Build an async session factory and yield a session from its context",
+              "summary": "The example replaces a synchronous engine with create_async_engine and explains that the database driver must support asynchronous operation. It then builds an async_sessionmaker bound to that engine. An async dependency opens a session using async with, yields it to the endpoint, and leaves cleanup to the context manager when its block finishes. FastAPI's Depends supplies the yielded session to a route parameter.",
+              "fact_ids": [
+                "f2"
+              ],
+              "transcript_ref": "T0JXFhJ7pM0:216-441"
+            }
+          ],
+          "group_title": "Create a factory and supply a request-owned async session",
+          "bridge": {
+            "before": "Watch how the engine-bound factory supplies a session inside an async context. The clip calls the factory async_session_local; Devspace uses session_factory to distinguish the factory from an individual session.",
+            "after": "The clip demonstrates factory setup and yielding with context cleanup, but does not explain concurrent-sharing safety or exceptional-exit cleanup. The text covers separate sessions for concurrent work and cleanup on both normal and exceptional exit."
+          },
+          "default_mode": "video"
+        }
+      ]
+    },
+    {
+      "step_id": "tile_051.s05",
+      "type": "check",
+      "concept_ids": [
+        "sqlalchemy.async_session_lifecycle"
+      ],
+      "title": "Check the boundary: Request-scoped async-compatible PostgreSQL session lifecycle",
+      "eyebrow": "Check",
+      "lineage": {
+        "concept_ids": [
+          "sqlalchemy.async_session_lifecycle"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "sqlalchemy.async_session_lifecycle#f2",
+          "sqlalchemy.async_session_lifecycle#f3"
+        ],
+        "anchors": [
+          "sqlalchemy.async_session_lifecycle#assessment:identify_session_leaks_from_missing_context_owned_cleanup"
+        ]
+      },
+      "lede": "Use the supplied order-service scenario to reason about this contract.",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_051.s05",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "sqlalchemy.async_session_lifecycle",
+            "fact_ids": [
+              "f2",
+              "f3"
+            ],
+            "capability": "identify_session_leaks_from_missing_context_owned_cleanup"
+          }
+        ],
+        "anchors": [
+          "sqlalchemy.async_session_lifecycle#assessment:identify_session_leaks_from_missing_context_owned_cleanup"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "The session context owns closure on either exit."
+          },
+          "incorrect": {
+            "message": "Recheck the stated boundary and distinguish the separate obligations rather than assuming one implies the other."
+          },
+          "hints": [
+            "Separate the stated requirement from a nearby but different boundary."
+          ],
+          "remediation_step_id": "tile_051.r01"
+        },
+        "public": {
+          "prompt": "A request dependency yields an AsyncSession. Which ownership pattern closes the session after both normal and exceptional exit?",
+          "options": [
+            {
+              "option_id": "option_1",
+              "text": "Yield inside async with session_factory() as session so the context owns cleanup."
+            },
+            {
+              "option_id": "option_2",
+              "text": "Create a session, yield it, and never enter or close its context."
+            },
+            {
+              "option_id": "option_3",
+              "text": "Close the session only if the handler succeeds."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "option_1"
+          ],
+          "option_feedback": {
+            "option_1": {
+              "message": "The session context owns closure on either exit."
+            },
+            "option_2": {
+              "message": "A bare yield does not establish context-owned session cleanup."
+            },
+            "option_3": {
+              "message": "Cleanup is required after exceptional exit as well as normal exit."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_051.s06",
+      "type": "hands_on",
+      "concept_ids": [
+        "sqlalchemy.async_session_lifecycle"
+      ],
+      "title": "Apply the contract: Request-scoped async-compatible PostgreSQL session lifecycle",
+      "eyebrow": "Hands On",
+      "lineage": {
+        "concept_ids": [
+          "sqlalchemy.async_session_lifecycle"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "sqlalchemy.async_session_lifecycle#f1"
+        ],
+        "anchors": [
+          "sqlalchemy.async_session_lifecycle#practice",
+          "sqlalchemy.async_session_lifecycle#assessment:identify_unsafe_session_sharing_across_concurrent_requests"
+        ]
+      },
+      "lede": "Complete the supplied workspace within its stated contract.",
+      "interaction": {
+        "type": "code_exercise",
+        "interaction_id": "ix.tile_051.s06",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "sqlalchemy.async_session_lifecycle",
+            "fact_ids": [
+              "f1"
+            ],
+            "capability": "identify_unsafe_session_sharing_across_concurrent_requests"
+          }
+        ],
+        "anchors": [
+          "sqlalchemy.async_session_lifecycle#practice",
+          "sqlalchemy.async_session_lifecycle#assessment:identify_unsafe_session_sharing_across_concurrent_requests"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "You applied the declared boundary and preserved its required behavior."
+          },
+          "incorrect": {
+            "message": "Recheck the stated boundary and distinguish the separate obligations rather than assuming one implies the other."
+          },
+          "hints": [
+            "Compare each declaration with its input or lifecycle boundary.",
+            "Trace what happens on the alternative input or exit, not only the successful path."
+          ]
+        },
+        "public": {
+          "prompt": "Build session_factory = async_sessionmaker(engine). Complete async def get_session() with async with session_factory() as session: yield session. Preserve the supplied unconnected engine and harness; this is session lifetime, not SQL execution. The harness keeps two dependency invocations open simultaneously, verifies distinct real AsyncSession objects, and verifies context-owned closure after normal and exceptional exit without concealing an exception. A supplied no-I/O close bridge replaces unavailable greenlet only for this unconnected fixture.",
+          "runtime": {
+            "kind": "python_asgi",
+            "version": "0.29.5"
+          },
+          "workspace": {
+            "entry": "exercise.py",
+            "files": [
+              {
+                "path": "exercise.py",
+                "role": "editable",
+                "language": "python",
+                "content": "from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncEngine\nfrom sqlalchemy import create_engine\nsync_engine = create_engine('sqlite:///:memory:')\nsync_engine.dialect.is_async = True\nengine = AsyncEngine(sync_engine)\n# Supplied engine fixture never connects or issues SQL.\nfrom sqlalchemy.ext.asyncio import async_sessionmaker\n# TODO: session_factory = async_sessionmaker(engine)\nasync def get_session():\n    # TODO: async with session_factory() as session: yield session\n    raise NotImplementedError\nimport asyncio, inspect, json, ast\nimport httpx\nfrom contextlib import contextmanager\n\ndef _drive(coro):\n    try:\n        pending = coro.send(None)\n    except StopIteration as done:\n        return done.value\n    raise RuntimeError('Harness encountered a suspending operation: ' + repr(pending))\n\nasync def _requests(application, requests):\n    async with application.router.lifespan_context(application):\n        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=application, raise_app_exceptions=False), base_url='http://testserver') as client:\n            out=[]\n            for method,path,kwargs in requests:\n                response=await client.request(method,path,**kwargs)\n                try: body=response.json()\n                except ValueError: body=response.text\n                out.append({'status':response.status_code,'body':body})\n            return out\nasync def _case(which):\n    from unittest.mock import patch\n    from sqlalchemy.ext.asyncio import AsyncSession\n    entered=[];closed=[];exits=[]\n    old_enter=AsyncSession.__aenter__;old_close=AsyncSession.close;old_exit=AsyncSession.__aexit__\n    import sqlalchemy.ext.asyncio.session as session_module\n    # No SQL or asynchronous driver IO occurs in this fixture. This bridge\n    # executes the real underlying Session.close where WASM lacks greenlet.\n    async def no_io_bridge(fn,*args,**kwargs):return fn(*args,**kwargs)\n    async def enter(s):\n        value=await old_enter(s);entered.append(s);return value\n    async def close(s):\n        await old_close(s);closed.append(s)\n    async def exit(s,t,v,tb):\n        value=await old_exit(s,t,v,tb);exits.append((s,t));return value\n    async def run():\n        a,b=get_session(),get_session()\n        sa=await anext(a);sb=await anext(b)\n        assert sa is not sb and entered==[sa,sb] and not closed\n        await a.aclose()\n        assert closed==[sa]\n        if which=='failure':\n            failure=RuntimeError('request B failure')\n            try:await b.athrow(failure)\n            except RuntimeError as e:assert e is failure\n            else:raise AssertionError('failure concealed')\n        else:await b.aclose()\n        assert closed==[sa,sb]\n        return {'distinct_sessions':sa is not sb,'entered':len(entered),'closed':len(closed),'B_exit':exits[-1][1].__name__}\n    with patch.object(session_module,'greenlet_spawn',no_io_bridge),patch.object(AsyncSession,'__aenter__',enter),patch.object(AsyncSession,'close',close),patch.object(AsyncSession,'__aexit__',exit):return await run()\nimport inspect\nfrom fastapi import FastAPI, Body\nverification_app=FastAPI()\n\nasync def verify_case(payload: dict=Body(...)):\n    result=_case(payload['case'])\n    if inspect.isawaitable(result):return await result\n    return result\nverify_case = verification_app.post('/_verify')(verify_case)\n"
+              }
+            ],
+            "asset_mounts": []
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "from sqlalchemy.ext.asyncio import async_sessionmaker",
+              "session_factory = async_sessionmaker(engine)",
+              "async def get_session():",
+              "async with session_factory() as session:",
+              "yield session"
+            ],
+            "blocked_syntax": [
+              "session.execute(...)",
+              "session.get(...)",
+              "session.scalar(...)",
+              "session.scalars(...)",
+              "select(...)",
+              "session.add(...)",
+              "session.delete(...)",
+              "update(...)",
+              "session.commit()",
+              "session.rollback()",
+              "session.begin()",
+              "app.dependency_overrides[...]"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "exercise.py",
+              "content": "from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncEngine\nfrom sqlalchemy import create_engine\nsync_engine = create_engine('sqlite:///:memory:')\nsync_engine.dialect.is_async = True\nengine = AsyncEngine(sync_engine)\n# Supplied engine fixture never connects or issues SQL.\nfrom sqlalchemy.ext.asyncio import async_sessionmaker\nsession_factory = async_sessionmaker(engine)\nasync def get_session():\n    async with session_factory() as session:\n        yield session\nimport asyncio, inspect, json, ast\nimport httpx\nfrom contextlib import contextmanager\n\ndef _drive(coro):\n    try:\n        pending = coro.send(None)\n    except StopIteration as done:\n        return done.value\n    raise RuntimeError('Harness encountered a suspending operation: ' + repr(pending))\n\nasync def _requests(application, requests):\n    async with application.router.lifespan_context(application):\n        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=application, raise_app_exceptions=False), base_url='http://testserver') as client:\n            out=[]\n            for method,path,kwargs in requests:\n                response=await client.request(method,path,**kwargs)\n                try: body=response.json()\n                except ValueError: body=response.text\n                out.append({'status':response.status_code,'body':body})\n            return out\nasync def _case(which):\n    from unittest.mock import patch\n    from sqlalchemy.ext.asyncio import AsyncSession\n    entered=[];closed=[];exits=[]\n    old_enter=AsyncSession.__aenter__;old_close=AsyncSession.close;old_exit=AsyncSession.__aexit__\n    import sqlalchemy.ext.asyncio.session as session_module\n    # No SQL or asynchronous driver IO occurs in this fixture. This bridge\n    # executes the real underlying Session.close where WASM lacks greenlet.\n    async def no_io_bridge(fn,*args,**kwargs):return fn(*args,**kwargs)\n    async def enter(s):\n        value=await old_enter(s);entered.append(s);return value\n    async def close(s):\n        await old_close(s);closed.append(s)\n    async def exit(s,t,v,tb):\n        value=await old_exit(s,t,v,tb);exits.append((s,t));return value\n    async def run():\n        a,b=get_session(),get_session()\n        sa=await anext(a);sb=await anext(b)\n        assert sa is not sb and entered==[sa,sb] and not closed\n        await a.aclose()\n        assert closed==[sa]\n        if which=='failure':\n            failure=RuntimeError('request B failure')\n            try:await b.athrow(failure)\n            except RuntimeError as e:assert e is failure\n            else:raise AssertionError('failure concealed')\n        else:await b.aclose()\n        assert closed==[sa,sb]\n        return {'distinct_sessions':sa is not sb,'entered':len(entered),'closed':len(closed),'B_exit':exits[-1][1].__name__}\n    with patch.object(session_module,'greenlet_spawn',no_io_bridge),patch.object(AsyncSession,'__aenter__',enter),patch.object(AsyncSession,'close',close),patch.object(AsyncSession,'__aexit__',exit):return await run()\nimport inspect\nfrom fastapi import FastAPI, Body\nverification_app=FastAPI()\n\nasync def verify_case(payload: dict=Body(...)):\n    result=_case(payload['case'])\n    if inspect.isawaitable(result):return await result\n    return result\nverify_case = verification_app.post('/_verify')(verify_case)\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "test_1",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/_verify",
+                    "json": {
+                      "case": "normal"
+                    }
+                  }
+                ],
+                "app": "verification_app",
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "distinct_sessions": true,
+                    "entered": 2,
+                    "closed": 2,
+                    "B_exit": "GeneratorExit"
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+            },
+            {
+              "test_id": "test_2",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/_verify",
+                    "json": {
+                      "case": "failure"
+                    }
+                  }
+                ],
+                "app": "verification_app",
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "distinct_sessions": true,
+                    "entered": 2,
+                    "closed": 2,
+                    "B_exit": "RuntimeError"
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "pyodide",
+            "runtime_version": "0.29.5",
+            "solution_sha256": "6accd8a8c9a834c488ccf5d00907ea469cffb3f3fcf1a38a24ce041db75716ea",
+            "tests_passed": 2
+          },
+          "hidden_checks": []
+        }
+      }
+    },
+    {
+      "step_id": "tile_051.s07",
+      "type": "recap",
+      "concept_ids": [
+        "sqlalchemy.async_session_lifecycle"
+      ],
+      "title": "Keep these distinctions",
+      "eyebrow": "Recap",
+      "lineage": {
+        "concept_ids": [
+          "sqlalchemy.async_session_lifecycle"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Share factory setup, not mutable sessions across concurrent tasks. Obtain sessions with async contexts and yield without losing normal or exceptional cleanup.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.async_session_lifecycle"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.async_session_lifecycle#tb1",
+              "sqlalchemy.async_session_lifecycle#tb2",
+              "sqlalchemy.async_session_lifecycle#tb3",
+              "sqlalchemy.async_session_lifecycle#tb4",
+              "sqlalchemy.async_session_lifecycle#tb5",
+              "sqlalchemy.async_session_lifecycle#tb6"
+            ],
+            "fact_ids": [
+              "sqlalchemy.async_session_lifecycle#f1",
+              "sqlalchemy.async_session_lifecycle#f2",
+              "sqlalchemy.async_session_lifecycle#f3"
+            ]
+          }
+        },
+        {
+          "type": "up_next",
+          "title": "Next: tile_052 — Graceful termination and shutdown verification",
+          "text": "Start with Graceful termination and shutdown verification."
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "tile_051.r01",
+      "type": "remediation",
+      "concept_ids": [
+        "sqlalchemy.async_session_lifecycle"
+      ],
+      "title": "Try the contrast: Request-scoped async-compatible PostgreSQL session lifecycle",
+      "eyebrow": "Review",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Bind async_sessionmaker to an async engine. async with session_factory() as session obtains and closes a session for the request’s unit of work.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.async_session_lifecycle"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.async_session_lifecycle#tb3",
+              "sqlalchemy.async_session_lifecycle#tb4",
+              "sqlalchemy.async_session_lifecycle#tb5"
+            ],
+            "fact_ids": [
+              "sqlalchemy.async_session_lifecycle#f2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A request dependency can yield the session from that async context. The context still owns cleanup on normal and exceptional exit.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.async_session_lifecycle"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.async_session_lifecycle#tb3",
+              "sqlalchemy.async_session_lifecycle#tb4",
+              "sqlalchemy.async_session_lifecycle#tb5"
+            ],
+            "fact_ids": [
+              "sqlalchemy.async_session_lifecycle#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For the order request, obtaining a session is not the whole ownership boundary: yield stays inside async with so context exit closes it even on failure.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.async_session_lifecycle"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.async_session_lifecycle#tb3",
+              "sqlalchemy.async_session_lifecycle#tb4",
+              "sqlalchemy.async_session_lifecycle#tb5"
+            ],
+            "fact_ids": [
+              "sqlalchemy.async_session_lifecycle#f2",
+              "sqlalchemy.async_session_lifecycle#f3"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "sqlalchemy.async_session_lifecycle"
+        ],
+        "teaching_block_ids": [
+          "sqlalchemy.async_session_lifecycle#tb3",
+          "sqlalchemy.async_session_lifecycle#tb4",
+          "sqlalchemy.async_session_lifecycle#tb5"
+        ],
+        "fact_ids": [
+          "sqlalchemy.async_session_lifecycle#f2",
+          "sqlalchemy.async_session_lifecycle#f3"
+        ]
+      }
+    },
+    {
+      "step_id": "tile_051.r02",
+      "type": "remediation",
+      "concept_ids": [
+        "sqlalchemy.async_session_lifecycle"
+      ],
+      "title": "Try the contrast: Request-scoped async-compatible PostgreSQL session lifecycle",
+      "eyebrow": "Review",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "AsyncSession holds mutable state for database work. It is unsafe to share across concurrent tasks; give each concurrent unit of work a separate session.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.async_session_lifecycle"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.async_session_lifecycle#tb2",
+              "sqlalchemy.async_session_lifecycle#tb4",
+              "sqlalchemy.async_session_lifecycle#tb5",
+              "sqlalchemy.async_session_lifecycle#tb6"
+            ],
+            "fact_ids": [
+              "sqlalchemy.async_session_lifecycle#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Concurrent request A and request B need separate mutable sessions rather than concurrent use of one AsyncSession.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.async_session_lifecycle"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.async_session_lifecycle#tb2",
+              "sqlalchemy.async_session_lifecycle#tb4",
+              "sqlalchemy.async_session_lifecycle#tb5",
+              "sqlalchemy.async_session_lifecycle#tb6"
+            ],
+            "fact_ids": [
+              "sqlalchemy.async_session_lifecycle#f1"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "sqlalchemy.async_session_lifecycle"
+        ],
+        "teaching_block_ids": [
+          "sqlalchemy.async_session_lifecycle#tb2",
+          "sqlalchemy.async_session_lifecycle#tb4",
+          "sqlalchemy.async_session_lifecycle#tb5",
+          "sqlalchemy.async_session_lifecycle#tb6"
+        ],
+        "fact_ids": [
+          "sqlalchemy.async_session_lifecycle#f1"
+        ]
+      }
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "tile_052"
+  },
+  "content_hash": "7ccfb0978e9dffd100d0a0766444c0ab76a8459f3d69e926f3e98efdf128c9b1"
+}

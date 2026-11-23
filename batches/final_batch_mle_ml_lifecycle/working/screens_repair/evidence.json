@@ -1,0 +1,2741 @@
+{
+  "dataset_quality_gate": {
+    "asset_id": "ws.dataset_quality_gate",
+    "parsed_supplied_cloudbuild_yaml": {
+      "steps": [
+        {
+          "id": "quality",
+          "name": "python:3.11",
+          "args": [
+            "python",
+            "learner.py",
+            "${_SNAPSHOT}"
+          ],
+          "waitFor": [
+            "-"
+          ]
+        },
+        {
+          "id": "training",
+          "name": "python:3.11",
+          "args": [
+            "python",
+            "training_entry.py",
+            "${_SNAPSHOT}"
+          ],
+          "waitFor": []
+        }
+      ],
+      "substitutions": {
+        "_SNAPSHOT": "valid",
+        "_CASE": "accepted",
+        "_ARTIFACT": "A"
+      },
+      "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com"
+    },
+    "entry_point_implementation": "import json, sys, math, hashlib\nfrom pathlib import Path\nload = lambda p: json.loads(Path(p).read_text())\n\ncase = load('fixtures/dataset_cases.json')[sys.argv[1]]\ncontract = load('fixtures/dataset_contract.json')\nrows = case['rows']\ndef number(x): return not isinstance(x,bool) and isinstance(x,(int,float)) and math.isfinite(x)\nchecks = {\n 'schema': all(set(r)==set(contract['columns']) for r in rows),\n 'feature_values': all(number(r.get('feature')) and 0 <= r['feature'] <= 5 for r in rows),\n 'label_values': all(type(r.get('label')) is int and r['label'] in (0,1) for r in rows),\n 'unique_sample_id': all(isinstance(r.get('sample_id'),str) and r['sample_id'] for r in rows) and len({r.get('sample_id') for r in rows})==len(rows)\n}\nfailed = [k for k in contract['required_checks'] if not checks.get(k,False)]\nprint(json.dumps({'snapshot_id':case['snapshot_id'],'recorded_sha256':case['sha256'],'named_checks':checks,'failed_checks':failed}))\nsys.exit(bool(failed))\n",
+    "computed_local_results": [
+      {
+        "event": {
+          "branch": "main",
+          "snapshot_id": "valid"
+        },
+        "parsed_local_demonstration_config": {
+          "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+          "steps": [
+            {
+              "args": [
+                "python",
+                "demonstration_entry.py",
+                "${_SNAPSHOT}"
+              ],
+              "id": "quality",
+              "name": "python:3.11",
+              "waitFor": [
+                "-"
+              ]
+            },
+            {
+              "args": [
+                "python",
+                "training_entry.py",
+                "${_SNAPSHOT}"
+              ],
+              "id": "training",
+              "name": "python:3.11",
+              "waitFor": [
+                "quality"
+              ]
+            }
+          ],
+          "substitutions": {
+            "_ARTIFACT": "A",
+            "_CASE": "accepted",
+            "_SNAPSHOT": "valid"
+          }
+        },
+        "run": {
+          "triggered": true,
+          "resolved_inputs": {
+            "_ARTIFACT": "A",
+            "_CASE": "accepted",
+            "_SNAPSHOT": "valid"
+          },
+          "steps": [
+            {
+              "id": "quality",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "valid"
+              ],
+              "waitFor": [],
+              "status": "SUCCESS",
+              "exit_code": 0,
+              "evidence": {
+                "snapshot_id": "snapshot.valid",
+                "recorded_sha256": "9a80d8aba1a479286779fd296606d795b9d7b91cfc0feaceacddeaffa24b8572",
+                "named_checks": {
+                  "schema": true,
+                  "feature_values": true,
+                  "label_values": true,
+                  "unique_sample_id": true
+                },
+                "failed_checks": []
+              }
+            },
+            {
+              "id": "training",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "training_entry.py",
+                "valid"
+              ],
+              "waitFor": [
+                "quality"
+              ],
+              "status": "SUCCESS",
+              "exit_code": 0
+            }
+          ]
+        }
+      },
+      {
+        "event": {
+          "branch": "main",
+          "snapshot_id": "missing_required_feature"
+        },
+        "parsed_local_demonstration_config": {
+          "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+          "steps": [
+            {
+              "args": [
+                "python",
+                "demonstration_entry.py",
+                "${_SNAPSHOT}"
+              ],
+              "id": "quality",
+              "name": "python:3.11",
+              "waitFor": [
+                "-"
+              ]
+            },
+            {
+              "args": [
+                "python",
+                "training_entry.py",
+                "${_SNAPSHOT}"
+              ],
+              "id": "training",
+              "name": "python:3.11",
+              "waitFor": [
+                "quality"
+              ]
+            }
+          ],
+          "substitutions": {
+            "_ARTIFACT": "A",
+            "_CASE": "accepted",
+            "_SNAPSHOT": "valid"
+          }
+        },
+        "run": {
+          "triggered": true,
+          "resolved_inputs": {
+            "_ARTIFACT": "A",
+            "_CASE": "accepted",
+            "_SNAPSHOT": "missing_required_feature"
+          },
+          "steps": [
+            {
+              "id": "quality",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "missing_required_feature"
+              ],
+              "waitFor": [],
+              "status": "FAILURE",
+              "exit_code": 1,
+              "evidence": {
+                "snapshot_id": "snapshot.missing_required_feature",
+                "recorded_sha256": "09398d2fd8847ec08e07b24bc0cd5cfc4f10e9f7ac6c9bc3e6c507ad8f8e1257",
+                "named_checks": {
+                  "schema": false,
+                  "feature_values": false,
+                  "label_values": true,
+                  "unique_sample_id": true
+                },
+                "failed_checks": [
+                  "schema",
+                  "feature_values"
+                ]
+              }
+            },
+            {
+              "id": "training",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "training_entry.py",
+                "missing_required_feature"
+              ],
+              "waitFor": [
+                "quality"
+              ],
+              "status": "NOT_STARTED",
+              "exit_code": null
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "model_behavior_tests": {
+    "asset_id": "ws.model_behavior_tests",
+    "parsed_supplied_cloudbuild_yaml": {
+      "steps": [
+        {
+          "id": "behavior_tests",
+          "name": "python:3.11",
+          "args": [
+            "python",
+            "learner.py",
+            "${_CASE}"
+          ],
+          "waitFor": [
+            "-"
+          ]
+        },
+        {
+          "id": "release_gate",
+          "name": "python:3.11",
+          "args": [
+            "python",
+            "downstream_entry.py",
+            "${_ARTIFACT}"
+          ],
+          "waitFor": []
+        }
+      ],
+      "substitutions": {
+        "_SNAPSHOT": "valid",
+        "_CASE": "accepted",
+        "_ARTIFACT": "A"
+      },
+      "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com"
+    },
+    "entry_point_implementation": "import json, sys, math, hashlib\nfrom pathlib import Path\nload = lambda p: json.loads(Path(p).read_text())\n\nimport numpy as np\nfrom prediction_package import FittedPackage, InputContractError\nexecution = load('fixtures/behavior_execution_cases.json')[sys.argv[1]]\npackage = FittedPackage(execution['regression'])\ncontract = load('fixtures/behavior_contract.json')\nresults = {}\nfor name, case in load('fixtures/behavior_cases.json').items():\n if 'expected_exception' in case:\n  try: package.predict(case['inputs'])\n  except InputContractError as e: results[name]={'required_rejection':True,'exception':type(e).__name__}\n  else: results[name]={'required_rejection':False}\n  continue\n actual = package.predict(case['inputs'])\n expected = np.array(case['expected_values']).reshape(case['expected_shape'])\n shape_ok = list(actual['values'].shape)==case['expected_shape']\n checks={'row_count':len(actual['values'])==len(case['expected_sample_ids']),\n 'correspondence':actual['sample_ids']==case['expected_sample_ids'], 'shape':shape_ok}\n structural_ok = all(checks.values())\n comparison = {'rtol':contract['rtol'],'atol':contract['atol'], 'executed_after_structure_pass':structural_ok}\n if structural_ok:\n  try: np.testing.assert_allclose(actual['values'],expected,rtol=contract['rtol'],atol=contract['atol'])\n  except AssertionError: comparison['allclose']=False\n  else: comparison['allclose']=True\n  comparison['absolute_error']=np.abs(actual['values']-expected).tolist()\n  comparison['allowed_error']=(contract['atol']+contract['rtol']*np.abs(expected)).tolist()\n else: comparison['not_executed_reason']='structural check failed; values cannot substitute for correspondence'\n results[name]={'actual_row_count':len(actual['values']), 'expected_row_count':len(case['expected_sample_ids']),\n 'actual_sample_ids':actual['sample_ids'],'expected_sample_ids':case['expected_sample_ids'],\n 'actual_shape':list(actual['values'].shape),'expected_shape':case['expected_shape'],'checks':checks,'tolerance_comparison':comparison}\npassed=all(r.get('required_rejection', all(r.get('checks',{}).values()) and r.get('tolerance_comparison',{}).get('allclose',False)) for r in results.values())\nprint(json.dumps({'execution':execution,'fixture_results':results,'passed':passed}))\nsys.exit(not passed)\n",
+    "computed_local_results": [
+      {
+        "event": {
+          "branch": "main",
+          "snapshot_id": "valid",
+          "case_id": "accepted"
+        },
+        "parsed_local_demonstration_config": {
+          "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+          "steps": [
+            {
+              "args": [
+                "python",
+                "demonstration_entry.py",
+                "${_CASE}"
+              ],
+              "id": "behavior_tests",
+              "name": "python:3.11",
+              "waitFor": [
+                "-"
+              ]
+            },
+            {
+              "args": [
+                "python",
+                "downstream_entry.py",
+                "${_ARTIFACT}"
+              ],
+              "id": "release_gate",
+              "name": "python:3.11",
+              "waitFor": [
+                "behavior_tests"
+              ]
+            }
+          ],
+          "substitutions": {
+            "_ARTIFACT": "A",
+            "_CASE": "accepted",
+            "_SNAPSHOT": "valid"
+          }
+        },
+        "run": {
+          "triggered": true,
+          "resolved_inputs": {
+            "_ARTIFACT": "A",
+            "_CASE": "accepted",
+            "_SNAPSHOT": "valid"
+          },
+          "steps": [
+            {
+              "id": "behavior_tests",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "accepted"
+              ],
+              "waitFor": [],
+              "status": "SUCCESS",
+              "exit_code": 0,
+              "evidence": {
+                "execution": {
+                  "fixture_id": "valid",
+                  "regression": null
+                },
+                "fixture_results": {
+                  "valid": {
+                    "actual_row_count": 4,
+                    "expected_row_count": 4,
+                    "actual_sample_ids": [
+                      "sample.201",
+                      "sample.202",
+                      "sample.203",
+                      "sample.204"
+                    ],
+                    "expected_sample_ids": [
+                      "sample.201",
+                      "sample.202",
+                      "sample.203",
+                      "sample.204"
+                    ],
+                    "actual_shape": [
+                      4,
+                      1
+                    ],
+                    "expected_shape": [
+                      4,
+                      1
+                    ],
+                    "checks": {
+                      "row_count": true,
+                      "correspondence": true,
+                      "shape": true
+                    },
+                    "tolerance_comparison": {
+                      "rtol": 1e-07,
+                      "atol": 1e-08,
+                      "executed_after_structure_pass": true,
+                      "allclose": true,
+                      "absolute_error": [
+                        [
+                          0.0
+                        ],
+                        [
+                          0.0
+                        ],
+                        [
+                          0.0
+                        ],
+                        [
+                          0.0
+                        ]
+                      ],
+                      "allowed_error": [
+                        [
+                          1e-08
+                        ],
+                        [
+                          1e-08
+                        ],
+                        [
+                          1.0999999999999999e-07
+                        ],
+                        [
+                          1.0999999999999999e-07
+                        ]
+                      ]
+                    }
+                  },
+                  "boundary_low": {
+                    "actual_row_count": 1,
+                    "expected_row_count": 1,
+                    "actual_sample_ids": [
+                      "sample.201"
+                    ],
+                    "expected_sample_ids": [
+                      "sample.201"
+                    ],
+                    "actual_shape": [
+                      1,
+                      1
+                    ],
+                    "expected_shape": [
+                      1,
+                      1
+                    ],
+                    "checks": {
+                      "row_count": true,
+                      "correspondence": true,
+                      "shape": true
+                    },
+                    "tolerance_comparison": {
+                      "rtol": 1e-07,
+                      "atol": 1e-08,
+                      "executed_after_structure_pass": true,
+                      "allclose": true,
+                      "absolute_error": [
+                        [
+                          0.0
+                        ]
+                      ],
+                      "allowed_error": [
+                        [
+                          1e-08
+                        ]
+                      ]
+                    }
+                  },
+                  "boundary_high": {
+                    "actual_row_count": 1,
+                    "expected_row_count": 1,
+                    "actual_sample_ids": [
+                      "sample.204"
+                    ],
+                    "expected_sample_ids": [
+                      "sample.204"
+                    ],
+                    "actual_shape": [
+                      1,
+                      1
+                    ],
+                    "expected_shape": [
+                      1,
+                      1
+                    ],
+                    "checks": {
+                      "row_count": true,
+                      "correspondence": true,
+                      "shape": true
+                    },
+                    "tolerance_comparison": {
+                      "rtol": 1e-07,
+                      "atol": 1e-08,
+                      "executed_after_structure_pass": true,
+                      "allclose": true,
+                      "absolute_error": [
+                        [
+                          0.0
+                        ]
+                      ],
+                      "allowed_error": [
+                        [
+                          1.0999999999999999e-07
+                        ]
+                      ]
+                    }
+                  },
+                  "empty": {
+                    "actual_row_count": 0,
+                    "expected_row_count": 0,
+                    "actual_sample_ids": [],
+                    "expected_sample_ids": [],
+                    "actual_shape": [
+                      0,
+                      1
+                    ],
+                    "expected_shape": [
+                      0,
+                      1
+                    ],
+                    "checks": {
+                      "row_count": true,
+                      "correspondence": true,
+                      "shape": true
+                    },
+                    "tolerance_comparison": {
+                      "rtol": 1e-07,
+                      "atol": 1e-08,
+                      "executed_after_structure_pass": true,
+                      "allclose": true,
+                      "absolute_error": [],
+                      "allowed_error": []
+                    }
+                  },
+                  "malformed": {
+                    "required_rejection": true,
+                    "exception": "InputContractError"
+                  },
+                  "missing_feature": {
+                    "required_rejection": true,
+                    "exception": "InputContractError"
+                  },
+                  "out_of_bounds": {
+                    "required_rejection": true,
+                    "exception": "InputContractError"
+                  }
+                },
+                "passed": true
+              }
+            },
+            {
+              "id": "release_gate",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "downstream_entry.py",
+                "A"
+              ],
+              "waitFor": [
+                "behavior_tests"
+              ],
+              "status": "SUCCESS",
+              "exit_code": 0
+            }
+          ]
+        }
+      },
+      {
+        "event": {
+          "branch": "main",
+          "snapshot_id": "missing_required_feature",
+          "case_id": "regressed"
+        },
+        "parsed_local_demonstration_config": {
+          "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+          "steps": [
+            {
+              "args": [
+                "python",
+                "demonstration_entry.py",
+                "${_CASE}"
+              ],
+              "id": "behavior_tests",
+              "name": "python:3.11",
+              "waitFor": [
+                "-"
+              ]
+            },
+            {
+              "args": [
+                "python",
+                "downstream_entry.py",
+                "${_ARTIFACT}"
+              ],
+              "id": "release_gate",
+              "name": "python:3.11",
+              "waitFor": [
+                "behavior_tests"
+              ]
+            }
+          ],
+          "substitutions": {
+            "_ARTIFACT": "A",
+            "_CASE": "accepted",
+            "_SNAPSHOT": "valid"
+          }
+        },
+        "run": {
+          "triggered": true,
+          "resolved_inputs": {
+            "_ARTIFACT": "A",
+            "_CASE": "regressed",
+            "_SNAPSHOT": "missing_required_feature"
+          },
+          "steps": [
+            {
+              "id": "behavior_tests",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "regressed"
+              ],
+              "waitFor": [],
+              "status": "FAILURE",
+              "exit_code": 1,
+              "evidence": {
+                "execution": {
+                  "fixture_id": "valid",
+                  "regression": "reverse_rows"
+                },
+                "fixture_results": {
+                  "valid": {
+                    "actual_row_count": 4,
+                    "expected_row_count": 4,
+                    "actual_sample_ids": [
+                      "sample.204",
+                      "sample.203",
+                      "sample.202",
+                      "sample.201"
+                    ],
+                    "expected_sample_ids": [
+                      "sample.201",
+                      "sample.202",
+                      "sample.203",
+                      "sample.204"
+                    ],
+                    "actual_shape": [
+                      4,
+                      1
+                    ],
+                    "expected_shape": [
+                      4,
+                      1
+                    ],
+                    "checks": {
+                      "row_count": true,
+                      "correspondence": false,
+                      "shape": true
+                    },
+                    "tolerance_comparison": {
+                      "rtol": 1e-07,
+                      "atol": 1e-08,
+                      "executed_after_structure_pass": false,
+                      "not_executed_reason": "structural check failed; values cannot substitute for correspondence"
+                    }
+                  },
+                  "boundary_low": {
+                    "actual_row_count": 1,
+                    "expected_row_count": 1,
+                    "actual_sample_ids": [
+                      "sample.201"
+                    ],
+                    "expected_sample_ids": [
+                      "sample.201"
+                    ],
+                    "actual_shape": [
+                      1,
+                      1
+                    ],
+                    "expected_shape": [
+                      1,
+                      1
+                    ],
+                    "checks": {
+                      "row_count": true,
+                      "correspondence": true,
+                      "shape": true
+                    },
+                    "tolerance_comparison": {
+                      "rtol": 1e-07,
+                      "atol": 1e-08,
+                      "executed_after_structure_pass": true,
+                      "allclose": true,
+                      "absolute_error": [
+                        [
+                          0.0
+                        ]
+                      ],
+                      "allowed_error": [
+                        [
+                          1e-08
+                        ]
+                      ]
+                    }
+                  },
+                  "boundary_high": {
+                    "actual_row_count": 1,
+                    "expected_row_count": 1,
+                    "actual_sample_ids": [
+                      "sample.204"
+                    ],
+                    "expected_sample_ids": [
+                      "sample.204"
+                    ],
+                    "actual_shape": [
+                      1,
+                      1
+                    ],
+                    "expected_shape": [
+                      1,
+                      1
+                    ],
+                    "checks": {
+                      "row_count": true,
+                      "correspondence": true,
+                      "shape": true
+                    },
+                    "tolerance_comparison": {
+                      "rtol": 1e-07,
+                      "atol": 1e-08,
+                      "executed_after_structure_pass": true,
+                      "allclose": true,
+                      "absolute_error": [
+                        [
+                          0.0
+                        ]
+                      ],
+                      "allowed_error": [
+                        [
+                          1.0999999999999999e-07
+                        ]
+                      ]
+                    }
+                  },
+                  "empty": {
+                    "actual_row_count": 0,
+                    "expected_row_count": 0,
+                    "actual_sample_ids": [],
+                    "expected_sample_ids": [],
+                    "actual_shape": [
+                      0,
+                      1
+                    ],
+                    "expected_shape": [
+                      0,
+                      1
+                    ],
+                    "checks": {
+                      "row_count": true,
+                      "correspondence": true,
+                      "shape": true
+                    },
+                    "tolerance_comparison": {
+                      "rtol": 1e-07,
+                      "atol": 1e-08,
+                      "executed_after_structure_pass": true,
+                      "allclose": true,
+                      "absolute_error": [],
+                      "allowed_error": []
+                    }
+                  },
+                  "malformed": {
+                    "required_rejection": true,
+                    "exception": "InputContractError"
+                  },
+                  "missing_feature": {
+                    "required_rejection": true,
+                    "exception": "InputContractError"
+                  },
+                  "out_of_bounds": {
+                    "required_rejection": true,
+                    "exception": "InputContractError"
+                  }
+                },
+                "passed": false
+              }
+            },
+            {
+              "id": "release_gate",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "downstream_entry.py",
+                "A"
+              ],
+              "waitFor": [
+                "behavior_tests"
+              ],
+              "status": "NOT_STARTED",
+              "exit_code": null
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "model_release_quality_gate": {
+    "asset_id": "ws.model_release_quality_gate",
+    "parsed_supplied_cloudbuild_yaml": {
+      "steps": [
+        {
+          "id": "release_gate",
+          "name": "python:3.11",
+          "args": [
+            "python",
+            "learner.py",
+            "${_CASE}",
+            "${_ARTIFACT}"
+          ],
+          "waitFor": [
+            "-"
+          ]
+        },
+        {
+          "id": "promotion",
+          "name": "python:3.11",
+          "args": [
+            "python",
+            "downstream_entry.py",
+            "${_ARTIFACT}"
+          ],
+          "waitFor": []
+        }
+      ],
+      "substitutions": {
+        "_SNAPSHOT": "valid",
+        "_CASE": "A",
+        "_ARTIFACT": "A"
+      },
+      "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com"
+    },
+    "entry_point_implementation": "import json, sys, math, hashlib\nfrom pathlib import Path\nload = lambda p: json.loads(Path(p).read_text())\n\ncases=load('fixtures/release_cases.json'); c=cases[sys.argv[1]]; contract=load('fixtures/release_contract.json')\ndef cost(c):\n fpr=c['FP']/(c['FP']+c['TN']); fnr=c['FN']/(c['FN']+c['TP'])\n return fpr*contract['costs']['cost_FP']*contract['probabilities']['P(Y=0)']+fnr*contract['costs']['cost_FN']*contract['probabilities']['P(Y=1)']\nvalue=cost(c); reference=cost(cases[contract['accepted_reference']])\nchecks={'all_evidence_present':all(k in c and c[k] is not None for k in cases[contract['accepted_reference']]),\n 'nonnegative_integer_counts':all(type(c[k]) is int and c[k]>=0 for k in ('FP','TN','FN','TP')),\n 'negative_denominator_nonempty':c['FP']+c['TN']>0,'positive_denominator_nonempty':c['FN']+c['TP']>0,\n 'candidate_identity_matches_event':c['candidate_id']==sys.argv[2],\n 'cost_within_fixed_maximum':value<=contract['max_expected_error_cost'], 'cost_not_worse_than_reference':value<=reference,\n 'latency_within_fixed_maximum':c['latency_ms']<=contract['max_latency_ms'],\n 'operating_ok':c['operating_ok'] is True,'evidence_complete':c['evidence_complete'] is True}\nprint(json.dumps({'candidate':c,'expected_error_cost':value,'reference_cost':reference,\n 'fixed_cost_limit':contract['max_expected_error_cost'],'fixed_latency_limit_ms':contract['max_latency_ms'],\n 'probabilities':contract['probabilities'],'costs':contract['costs'],'predicates':checks,'failed_predicates':[k for k,v in checks.items() if not v]}))\nsys.exit(not all(checks.values()))\n",
+    "computed_local_results": [
+      {
+        "event": {
+          "event_type": "artifact_ready",
+          "case_id": "A",
+          "artifact_id": "A"
+        },
+        "parsed_local_demonstration_config": {
+          "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+          "steps": [
+            {
+              "args": [
+                "python",
+                "demonstration_entry.py",
+                "${_CASE}",
+                "${_ARTIFACT}"
+              ],
+              "id": "release_gate",
+              "name": "python:3.11",
+              "waitFor": [
+                "-"
+              ]
+            },
+            {
+              "args": [
+                "python",
+                "downstream_entry.py",
+                "${_ARTIFACT}"
+              ],
+              "id": "promotion",
+              "name": "python:3.11",
+              "waitFor": [
+                "release_gate"
+              ]
+            }
+          ],
+          "substitutions": {
+            "_ARTIFACT": "A",
+            "_CASE": "A",
+            "_SNAPSHOT": "valid"
+          }
+        },
+        "run": {
+          "triggered": true,
+          "resolved_inputs": {
+            "_ARTIFACT": "A",
+            "_CASE": "A",
+            "_SNAPSHOT": "valid"
+          },
+          "steps": [
+            {
+              "id": "release_gate",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "A",
+                "A"
+              ],
+              "waitFor": [],
+              "status": "SUCCESS",
+              "exit_code": 0,
+              "evidence": {
+                "candidate": {
+                  "candidate_id": "A",
+                  "FP": 5,
+                  "TN": 95,
+                  "FN": 5,
+                  "TP": 95,
+                  "latency_ms": 20,
+                  "operating_ok": true,
+                  "evidence_complete": true
+                },
+                "expected_error_cost": 0.08000000000000002,
+                "reference_cost": 0.16000000000000003,
+                "fixed_cost_limit": 0.16,
+                "fixed_latency_limit_ms": 20,
+                "probabilities": {
+                  "P(Y=0)": 0.8,
+                  "P(Y=1)": 0.2
+                },
+                "costs": {
+                  "cost_FP": 1,
+                  "cost_FN": 4,
+                  "correct_prediction": 0
+                },
+                "predicates": {
+                  "all_evidence_present": true,
+                  "nonnegative_integer_counts": true,
+                  "negative_denominator_nonempty": true,
+                  "positive_denominator_nonempty": true,
+                  "candidate_identity_matches_event": true,
+                  "cost_within_fixed_maximum": true,
+                  "cost_not_worse_than_reference": true,
+                  "latency_within_fixed_maximum": true,
+                  "operating_ok": true,
+                  "evidence_complete": true
+                },
+                "failed_predicates": []
+              }
+            },
+            {
+              "id": "promotion",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "downstream_entry.py",
+                "A"
+              ],
+              "waitFor": [
+                "release_gate"
+              ],
+              "status": "SUCCESS",
+              "exit_code": 0
+            }
+          ]
+        }
+      },
+      {
+        "event": {
+          "event_type": "artifact_ready",
+          "case_id": "B",
+          "artifact_id": "B"
+        },
+        "parsed_local_demonstration_config": {
+          "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+          "steps": [
+            {
+              "args": [
+                "python",
+                "demonstration_entry.py",
+                "${_CASE}",
+                "${_ARTIFACT}"
+              ],
+              "id": "release_gate",
+              "name": "python:3.11",
+              "waitFor": [
+                "-"
+              ]
+            },
+            {
+              "args": [
+                "python",
+                "downstream_entry.py",
+                "${_ARTIFACT}"
+              ],
+              "id": "promotion",
+              "name": "python:3.11",
+              "waitFor": [
+                "release_gate"
+              ]
+            }
+          ],
+          "substitutions": {
+            "_ARTIFACT": "A",
+            "_CASE": "A",
+            "_SNAPSHOT": "valid"
+          }
+        },
+        "run": {
+          "triggered": true,
+          "resolved_inputs": {
+            "_ARTIFACT": "B",
+            "_CASE": "B",
+            "_SNAPSHOT": "valid"
+          },
+          "steps": [
+            {
+              "id": "release_gate",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "B",
+                "B"
+              ],
+              "waitFor": [],
+              "status": "FAILURE",
+              "exit_code": 1,
+              "evidence": {
+                "candidate": {
+                  "candidate_id": "B",
+                  "FP": 4,
+                  "TN": 96,
+                  "FN": 4,
+                  "TP": 96,
+                  "latency_ms": 21,
+                  "operating_ok": true,
+                  "evidence_complete": true
+                },
+                "expected_error_cost": 0.064,
+                "reference_cost": 0.16000000000000003,
+                "fixed_cost_limit": 0.16,
+                "fixed_latency_limit_ms": 20,
+                "probabilities": {
+                  "P(Y=0)": 0.8,
+                  "P(Y=1)": 0.2
+                },
+                "costs": {
+                  "cost_FP": 1,
+                  "cost_FN": 4,
+                  "correct_prediction": 0
+                },
+                "predicates": {
+                  "all_evidence_present": true,
+                  "nonnegative_integer_counts": true,
+                  "negative_denominator_nonempty": true,
+                  "positive_denominator_nonempty": true,
+                  "candidate_identity_matches_event": true,
+                  "cost_within_fixed_maximum": true,
+                  "cost_not_worse_than_reference": true,
+                  "latency_within_fixed_maximum": false,
+                  "operating_ok": true,
+                  "evidence_complete": true
+                },
+                "failed_predicates": [
+                  "latency_within_fixed_maximum"
+                ]
+              }
+            },
+            {
+              "id": "promotion",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "downstream_entry.py",
+                "B"
+              ],
+              "waitFor": [
+                "release_gate"
+              ],
+              "status": "NOT_STARTED",
+              "exit_code": null
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "pipeline_artifact_dependencies": {
+    "asset_id": "ws.pipeline_artifact_dependencies",
+    "parsed_supplied_cloudbuild_yaml": {
+      "steps": [
+        {
+          "id": "data_validation",
+          "name": "python:3.11",
+          "args": [
+            "python",
+            "learner.py",
+            "${_CASE}"
+          ],
+          "waitFor": [
+            "-"
+          ]
+        },
+        {
+          "id": "training",
+          "name": "python:3.11",
+          "args": [
+            "python",
+            "downstream_entry.py",
+            "${_ARTIFACT}"
+          ],
+          "waitFor": []
+        },
+        {
+          "id": "model_validation",
+          "name": "python:3.11",
+          "args": [
+            "python",
+            "learner.py",
+            "${_CASE}",
+            "B"
+          ],
+          "waitFor": []
+        }
+      ],
+      "substitutions": {
+        "_SNAPSHOT": "valid",
+        "_CASE": "valid",
+        "_ARTIFACT": "A"
+      },
+      "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com"
+    },
+    "entry_point_implementation": "import json, sys, math, hashlib\nfrom pathlib import Path\nload = lambda p: json.loads(Path(p).read_text())\n\ncase=load('fixtures/dependency_cases.json')[sys.argv[1]]\nstage=sys.argv[2]\nif stage=='data_validation':\n result={'stage':stage, 'resolved_consumed':case[stage]['consumed'],'validation_ok':case[stage]['validation_ok']}\n passed=result['validation_ok']\nelse:\n result={'stage':stage,'training_produced':case['training']['produced'],'resolved_consumed':sys.argv[3],\n 'dictionary_consumed':case[stage]['consumed'],'identity_matches':case['training']['produced']==sys.argv[3],\n 'args_match_dictionary':sys.argv[3]==case[stage]['consumed'],'validation_ok':case[stage]['validation_ok']}\n passed=result['identity_matches'] and result['args_match_dictionary'] and result['validation_ok']\nprint(json.dumps(result)); sys.exit(not passed)\n",
+    "computed_local_results": [
+      {
+        "event": {
+          "event_type": "artifact_ready",
+          "case_id": "valid",
+          "artifact_id": "A"
+        },
+        "parsed_local_demonstration_config": {
+          "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+          "steps": [
+            {
+              "args": [
+                "python",
+                "demonstration_entry.py",
+                "${_CASE}",
+                "data_validation"
+              ],
+              "id": "data_validation",
+              "name": "python:3.11",
+              "waitFor": [
+                "-"
+              ]
+            },
+            {
+              "args": [
+                "python",
+                "downstream_entry.py",
+                "${_PRODUCED}"
+              ],
+              "id": "training",
+              "name": "python:3.11",
+              "waitFor": [
+                "data_validation"
+              ]
+            },
+            {
+              "args": [
+                "python",
+                "demonstration_entry.py",
+                "${_CASE}",
+                "model_validation",
+                "${_CONSUMED}"
+              ],
+              "id": "model_validation",
+              "name": "python:3.11",
+              "waitFor": [
+                "training"
+              ]
+            }
+          ],
+          "substitutions": {
+            "_ARTIFACT": "A",
+            "_CASE": "valid",
+            "_CONSUMED": "A",
+            "_PRODUCED": "A",
+            "_SNAPSHOT": "valid"
+          }
+        },
+        "run": {
+          "triggered": true,
+          "resolved_inputs": {
+            "_ARTIFACT": "A",
+            "_CASE": "valid",
+            "_CONSUMED": "A",
+            "_PRODUCED": "A",
+            "_SNAPSHOT": "valid"
+          },
+          "steps": [
+            {
+              "id": "data_validation",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "valid",
+                "data_validation"
+              ],
+              "waitFor": [],
+              "status": "SUCCESS",
+              "exit_code": 0,
+              "evidence": {
+                "stage": "data_validation",
+                "resolved_consumed": "snapshot.A",
+                "validation_ok": true
+              }
+            },
+            {
+              "id": "training",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "downstream_entry.py",
+                "A"
+              ],
+              "waitFor": [
+                "data_validation"
+              ],
+              "status": "SUCCESS",
+              "exit_code": 0,
+              "evidence": {
+                "produced_identity": "A"
+              }
+            },
+            {
+              "id": "model_validation",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "valid",
+                "model_validation",
+                "A"
+              ],
+              "waitFor": [
+                "training"
+              ],
+              "status": "SUCCESS",
+              "exit_code": 0,
+              "evidence": {
+                "stage": "model_validation",
+                "training_produced": "A",
+                "resolved_consumed": "A",
+                "dictionary_consumed": "A",
+                "identity_matches": true,
+                "args_match_dictionary": true,
+                "validation_ok": true
+              }
+            }
+          ]
+        }
+      },
+      {
+        "event": {
+          "event_type": "artifact_ready",
+          "case_id": "mismatch",
+          "artifact_id": "B"
+        },
+        "parsed_local_demonstration_config": {
+          "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+          "steps": [
+            {
+              "args": [
+                "python",
+                "demonstration_entry.py",
+                "${_CASE}",
+                "data_validation"
+              ],
+              "id": "data_validation",
+              "name": "python:3.11",
+              "waitFor": [
+                "-"
+              ]
+            },
+            {
+              "args": [
+                "python",
+                "downstream_entry.py",
+                "${_PRODUCED}"
+              ],
+              "id": "training",
+              "name": "python:3.11",
+              "waitFor": [
+                "data_validation"
+              ]
+            },
+            {
+              "args": [
+                "python",
+                "demonstration_entry.py",
+                "${_CASE}",
+                "model_validation",
+                "${_CONSUMED}"
+              ],
+              "id": "model_validation",
+              "name": "python:3.11",
+              "waitFor": [
+                "training"
+              ]
+            }
+          ],
+          "substitutions": {
+            "_ARTIFACT": "A",
+            "_CASE": "valid",
+            "_CONSUMED": "B",
+            "_PRODUCED": "A",
+            "_SNAPSHOT": "valid"
+          }
+        },
+        "run": {
+          "triggered": true,
+          "resolved_inputs": {
+            "_ARTIFACT": "B",
+            "_CASE": "mismatch",
+            "_CONSUMED": "B",
+            "_PRODUCED": "A",
+            "_SNAPSHOT": "valid"
+          },
+          "steps": [
+            {
+              "id": "data_validation",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "mismatch",
+                "data_validation"
+              ],
+              "waitFor": [],
+              "status": "SUCCESS",
+              "exit_code": 0,
+              "evidence": {
+                "stage": "data_validation",
+                "resolved_consumed": "snapshot.A",
+                "validation_ok": true
+              }
+            },
+            {
+              "id": "training",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "downstream_entry.py",
+                "A"
+              ],
+              "waitFor": [
+                "data_validation"
+              ],
+              "status": "SUCCESS",
+              "exit_code": 0,
+              "evidence": {
+                "produced_identity": "A"
+              }
+            },
+            {
+              "id": "model_validation",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "mismatch",
+                "model_validation",
+                "B"
+              ],
+              "waitFor": [
+                "training"
+              ],
+              "status": "FAILURE",
+              "exit_code": 1,
+              "evidence": {
+                "stage": "model_validation",
+                "training_produced": "A",
+                "resolved_consumed": "B",
+                "dictionary_consumed": "B",
+                "identity_matches": false,
+                "args_match_dictionary": true,
+                "validation_ok": true
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "staged_ml_promotion": {
+    "asset_id": "ws.staged_ml_promotion",
+    "parsed_supplied_cloudbuild_yaml": {
+      "steps": [
+        {
+          "id": "compatibility",
+          "name": "python:3.11",
+          "args": [
+            "python",
+            "learner.py",
+            "${_CASE}"
+          ],
+          "waitFor": [
+            "-"
+          ]
+        },
+        {
+          "id": "staging_quality",
+          "name": "python:3.11",
+          "args": [
+            "python",
+            "learner.py",
+            "${_CASE}"
+          ],
+          "waitFor": []
+        },
+        {
+          "id": "authorization",
+          "name": "python:3.11",
+          "args": [
+            "python",
+            "learner.py",
+            "${_CASE}"
+          ],
+          "waitFor": []
+        },
+        {
+          "id": "production",
+          "name": "python:3.11",
+          "args": [
+            "python",
+            "downstream_entry.py",
+            "${_ARTIFACT}"
+          ],
+          "waitFor": [],
+          "secretEnv": [
+            "PROMOTION_TOKEN"
+          ]
+        }
+      ],
+      "substitutions": {
+        "_SNAPSHOT": "valid",
+        "_CASE": "accepted",
+        "_ARTIFACT": "A"
+      },
+      "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+      "availableSecrets": {
+        "secretManager": [
+          {
+            "versionName": "projects/fixture-project/secrets/promotion-token/versions/1",
+            "env": "PROMOTION_TOKEN"
+          }
+        ]
+      }
+    },
+    "entry_point_implementation": "import json, sys, math, hashlib\nfrom pathlib import Path\nload = lambda p: json.loads(Path(p).read_text())\n\nc=load('fixtures/promotion_cases.json')[sys.argv[1]]; stage=sys.argv[2]; r=load('fixtures/registry.json')[c['registry_version']]\nidentity=(c['artifact_id']==r['artifact_id']==c['staged_artifact_id']==c['approval']['artifact_id'] and c['run_id']==r['run_id'] and c['registry_version']==c['approval']['registry_version'])\nchecks={'compatibility':c['compatibility_ok'], 'offline_validation':c['offline_validation_ok'],\n 'staged_validation':c['staged_validation_ok'] and identity,\n 'authorization':c['approval']['authorized'] and identity and bool(c['approval']['accountable_identity'])}\npassed={'compatibility':checks['compatibility'], 'staging_quality':checks['offline_validation'] and checks['staged_validation'], 'authorization':checks['authorization']}[stage]\nprint(json.dumps({'stage':stage,'passed':passed,'immutable_artifact_reference':r,\n 'promotion_record':{**{k:c[k] for k in ('approval','registry_version','run_id','artifact_id')},'accountable_identity':c['approval']['accountable_identity'],'per_stage_results':checks}}))\nsys.exit(not passed)\n",
+    "computed_local_results": [
+      {
+        "event": {
+          "event_type": "artifact_ready",
+          "case_id": "accepted",
+          "artifact_id": "A"
+        },
+        "parsed_local_demonstration_config": {
+          "availableSecrets": {
+            "secretManager": [
+              {
+                "env": "PROMOTION_TOKEN",
+                "versionName": "projects/fixture-project/secrets/promotion-token/versions/1"
+              }
+            ]
+          },
+          "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+          "steps": [
+            {
+              "args": [
+                "python",
+                "demonstration_entry.py",
+                "${_CASE}",
+                "compatibility"
+              ],
+              "id": "compatibility",
+              "name": "python:3.11",
+              "waitFor": [
+                "-"
+              ]
+            },
+            {
+              "args": [
+                "python",
+                "demonstration_entry.py",
+                "${_CASE}",
+                "staging_quality"
+              ],
+              "id": "staging_quality",
+              "name": "python:3.11",
+              "waitFor": [
+                "compatibility"
+              ]
+            },
+            {
+              "args": [
+                "python",
+                "demonstration_entry.py",
+                "${_CASE}",
+                "authorization"
+              ],
+              "id": "authorization",
+              "name": "python:3.11",
+              "waitFor": [
+                "staging_quality"
+              ]
+            },
+            {
+              "args": [
+                "python",
+                "downstream_entry.py",
+                "${_ARTIFACT}"
+              ],
+              "id": "production",
+              "name": "python:3.11",
+              "secretEnv": [
+                "PROMOTION_TOKEN"
+              ],
+              "waitFor": [
+                "authorization"
+              ]
+            }
+          ],
+          "substitutions": {
+            "_ARTIFACT": "A",
+            "_CASE": "accepted",
+            "_SNAPSHOT": "valid"
+          }
+        },
+        "run": {
+          "triggered": true,
+          "resolved_inputs": {
+            "_ARTIFACT": "A",
+            "_CASE": "accepted",
+            "_SNAPSHOT": "valid"
+          },
+          "steps": [
+            {
+              "id": "compatibility",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "accepted",
+                "compatibility"
+              ],
+              "waitFor": [],
+              "status": "SUCCESS",
+              "exit_code": 0,
+              "evidence": {
+                "stage": "compatibility",
+                "passed": true,
+                "immutable_artifact_reference": {
+                  "model_name": "fixture_model",
+                  "version": "1",
+                  "artifact_id": "A",
+                  "artifact_source": "gs://fixture-artifacts/A.txt",
+                  "generation": 1,
+                  "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                  "run_id": "run.A"
+                },
+                "promotion_record": {
+                  "approval": {
+                    "approval_id": "approval.A",
+                    "registry_version": "1",
+                    "artifact_id": "A",
+                    "authorized": true,
+                    "accountable_identity": "fixture-promoter"
+                  },
+                  "registry_version": "1",
+                  "run_id": "run.A",
+                  "artifact_id": "A",
+                  "accountable_identity": "fixture-promoter",
+                  "per_stage_results": {
+                    "compatibility": true,
+                    "offline_validation": true,
+                    "staged_validation": true,
+                    "authorization": true
+                  }
+                }
+              }
+            },
+            {
+              "id": "staging_quality",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "accepted",
+                "staging_quality"
+              ],
+              "waitFor": [
+                "compatibility"
+              ],
+              "status": "SUCCESS",
+              "exit_code": 0,
+              "evidence": {
+                "stage": "staging_quality",
+                "passed": true,
+                "immutable_artifact_reference": {
+                  "model_name": "fixture_model",
+                  "version": "1",
+                  "artifact_id": "A",
+                  "artifact_source": "gs://fixture-artifacts/A.txt",
+                  "generation": 1,
+                  "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                  "run_id": "run.A"
+                },
+                "promotion_record": {
+                  "approval": {
+                    "approval_id": "approval.A",
+                    "registry_version": "1",
+                    "artifact_id": "A",
+                    "authorized": true,
+                    "accountable_identity": "fixture-promoter"
+                  },
+                  "registry_version": "1",
+                  "run_id": "run.A",
+                  "artifact_id": "A",
+                  "accountable_identity": "fixture-promoter",
+                  "per_stage_results": {
+                    "compatibility": true,
+                    "offline_validation": true,
+                    "staged_validation": true,
+                    "authorization": true
+                  }
+                }
+              }
+            },
+            {
+              "id": "authorization",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "accepted",
+                "authorization"
+              ],
+              "waitFor": [
+                "staging_quality"
+              ],
+              "status": "SUCCESS",
+              "exit_code": 0,
+              "evidence": {
+                "stage": "authorization",
+                "passed": true,
+                "immutable_artifact_reference": {
+                  "model_name": "fixture_model",
+                  "version": "1",
+                  "artifact_id": "A",
+                  "artifact_source": "gs://fixture-artifacts/A.txt",
+                  "generation": 1,
+                  "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                  "run_id": "run.A"
+                },
+                "promotion_record": {
+                  "approval": {
+                    "approval_id": "approval.A",
+                    "registry_version": "1",
+                    "artifact_id": "A",
+                    "authorized": true,
+                    "accountable_identity": "fixture-promoter"
+                  },
+                  "registry_version": "1",
+                  "run_id": "run.A",
+                  "artifact_id": "A",
+                  "accountable_identity": "fixture-promoter",
+                  "per_stage_results": {
+                    "compatibility": true,
+                    "offline_validation": true,
+                    "staged_validation": true,
+                    "authorization": true
+                  }
+                }
+              }
+            },
+            {
+              "id": "production",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "downstream_entry.py",
+                "A"
+              ],
+              "waitFor": [
+                "authorization"
+              ],
+              "status": "SUCCESS",
+              "exit_code": 0
+            }
+          ]
+        },
+        "secret_reference_and_scope": {
+          "references": [
+            {
+              "env": "PROMOTION_TOKEN",
+              "versionName": "projects/fixture-project/secrets/promotion-token/versions/1"
+            }
+          ],
+          "step_scopes": {
+            "compatibility": [],
+            "staging_quality": [],
+            "authorization": [],
+            "production": [
+              "PROMOTION_TOKEN"
+            ]
+          }
+        },
+        "non_disclosure_check": {
+          "adapter_supplies_credentials": false,
+          "credential_fields_in_emitted_records": false,
+          "production_marker": {
+            "artifact_id": "A",
+            "started": true
+          }
+        }
+      },
+      {
+        "event": {
+          "event_type": "artifact_ready",
+          "case_id": "unauthorized",
+          "artifact_id": "A"
+        },
+        "parsed_local_demonstration_config": {
+          "availableSecrets": {
+            "secretManager": [
+              {
+                "env": "PROMOTION_TOKEN",
+                "versionName": "projects/fixture-project/secrets/promotion-token/versions/1"
+              }
+            ]
+          },
+          "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+          "steps": [
+            {
+              "args": [
+                "python",
+                "demonstration_entry.py",
+                "${_CASE}",
+                "compatibility"
+              ],
+              "id": "compatibility",
+              "name": "python:3.11",
+              "waitFor": [
+                "-"
+              ]
+            },
+            {
+              "args": [
+                "python",
+                "demonstration_entry.py",
+                "${_CASE}",
+                "staging_quality"
+              ],
+              "id": "staging_quality",
+              "name": "python:3.11",
+              "waitFor": [
+                "compatibility"
+              ]
+            },
+            {
+              "args": [
+                "python",
+                "demonstration_entry.py",
+                "${_CASE}",
+                "authorization"
+              ],
+              "id": "authorization",
+              "name": "python:3.11",
+              "waitFor": [
+                "staging_quality"
+              ]
+            },
+            {
+              "args": [
+                "python",
+                "downstream_entry.py",
+                "${_ARTIFACT}"
+              ],
+              "id": "production",
+              "name": "python:3.11",
+              "secretEnv": [
+                "PROMOTION_TOKEN"
+              ],
+              "waitFor": [
+                "authorization"
+              ]
+            }
+          ],
+          "substitutions": {
+            "_ARTIFACT": "A",
+            "_CASE": "accepted",
+            "_SNAPSHOT": "valid"
+          }
+        },
+        "run": {
+          "triggered": true,
+          "resolved_inputs": {
+            "_ARTIFACT": "A",
+            "_CASE": "unauthorized",
+            "_SNAPSHOT": "valid"
+          },
+          "steps": [
+            {
+              "id": "compatibility",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "unauthorized",
+                "compatibility"
+              ],
+              "waitFor": [],
+              "status": "SUCCESS",
+              "exit_code": 0,
+              "evidence": {
+                "stage": "compatibility",
+                "passed": true,
+                "immutable_artifact_reference": {
+                  "model_name": "fixture_model",
+                  "version": "1",
+                  "artifact_id": "A",
+                  "artifact_source": "gs://fixture-artifacts/A.txt",
+                  "generation": 1,
+                  "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                  "run_id": "run.A"
+                },
+                "promotion_record": {
+                  "approval": {
+                    "approval_id": "approval.A",
+                    "registry_version": "1",
+                    "artifact_id": "A",
+                    "authorized": false,
+                    "accountable_identity": "fixture-promoter"
+                  },
+                  "registry_version": "1",
+                  "run_id": "run.A",
+                  "artifact_id": "A",
+                  "accountable_identity": "fixture-promoter",
+                  "per_stage_results": {
+                    "compatibility": true,
+                    "offline_validation": true,
+                    "staged_validation": true,
+                    "authorization": false
+                  }
+                }
+              }
+            },
+            {
+              "id": "staging_quality",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "unauthorized",
+                "staging_quality"
+              ],
+              "waitFor": [
+                "compatibility"
+              ],
+              "status": "SUCCESS",
+              "exit_code": 0,
+              "evidence": {
+                "stage": "staging_quality",
+                "passed": true,
+                "immutable_artifact_reference": {
+                  "model_name": "fixture_model",
+                  "version": "1",
+                  "artifact_id": "A",
+                  "artifact_source": "gs://fixture-artifacts/A.txt",
+                  "generation": 1,
+                  "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                  "run_id": "run.A"
+                },
+                "promotion_record": {
+                  "approval": {
+                    "approval_id": "approval.A",
+                    "registry_version": "1",
+                    "artifact_id": "A",
+                    "authorized": false,
+                    "accountable_identity": "fixture-promoter"
+                  },
+                  "registry_version": "1",
+                  "run_id": "run.A",
+                  "artifact_id": "A",
+                  "accountable_identity": "fixture-promoter",
+                  "per_stage_results": {
+                    "compatibility": true,
+                    "offline_validation": true,
+                    "staged_validation": true,
+                    "authorization": false
+                  }
+                }
+              }
+            },
+            {
+              "id": "authorization",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "unauthorized",
+                "authorization"
+              ],
+              "waitFor": [
+                "staging_quality"
+              ],
+              "status": "FAILURE",
+              "exit_code": 1,
+              "evidence": {
+                "stage": "authorization",
+                "passed": false,
+                "immutable_artifact_reference": {
+                  "model_name": "fixture_model",
+                  "version": "1",
+                  "artifact_id": "A",
+                  "artifact_source": "gs://fixture-artifacts/A.txt",
+                  "generation": 1,
+                  "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                  "run_id": "run.A"
+                },
+                "promotion_record": {
+                  "approval": {
+                    "approval_id": "approval.A",
+                    "registry_version": "1",
+                    "artifact_id": "A",
+                    "authorized": false,
+                    "accountable_identity": "fixture-promoter"
+                  },
+                  "registry_version": "1",
+                  "run_id": "run.A",
+                  "artifact_id": "A",
+                  "accountable_identity": "fixture-promoter",
+                  "per_stage_results": {
+                    "compatibility": true,
+                    "offline_validation": true,
+                    "staged_validation": true,
+                    "authorization": false
+                  }
+                }
+              }
+            },
+            {
+              "id": "production",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "downstream_entry.py",
+                "A"
+              ],
+              "waitFor": [
+                "authorization"
+              ],
+              "status": "NOT_STARTED",
+              "exit_code": null
+            }
+          ]
+        },
+        "secret_reference_and_scope": {
+          "references": [
+            {
+              "env": "PROMOTION_TOKEN",
+              "versionName": "projects/fixture-project/secrets/promotion-token/versions/1"
+            }
+          ],
+          "step_scopes": {
+            "compatibility": [],
+            "staging_quality": [],
+            "authorization": [],
+            "production": [
+              "PROMOTION_TOKEN"
+            ]
+          }
+        },
+        "non_disclosure_check": {
+          "adapter_supplies_credentials": false,
+          "credential_fields_in_emitted_records": false,
+          "production_marker": null
+        }
+      }
+    ]
+  },
+  "pipeline_failure_recovery": {
+    "asset_id": "ws.pipeline_failure_recovery",
+    "parsed_supplied_cloudbuild_yaml": {
+      "steps": [
+        {
+          "id": "recovery",
+          "name": "python:3.11",
+          "args": [
+            "python",
+            "learner.py",
+            "${_CASE}"
+          ],
+          "waitFor": [
+            "-"
+          ]
+        },
+        {
+          "id": "required_validation",
+          "name": "python:3.11",
+          "args": [
+            "python",
+            "learner.py",
+            "${_CASE}"
+          ],
+          "waitFor": []
+        },
+        {
+          "id": "promotion",
+          "name": "python:3.11",
+          "args": [
+            "python",
+            "downstream_entry.py",
+            "${_ARTIFACT}"
+          ],
+          "waitFor": []
+        }
+      ],
+      "substitutions": {
+        "_SNAPSHOT": "valid",
+        "_CASE": "accepted",
+        "_ARTIFACT": "A"
+      },
+      "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com"
+    },
+    "entry_point_implementation": "import json, sys, math, hashlib\nfrom pathlib import Path\nload = lambda p: json.loads(Path(p).read_text())\n\nfrom storage_sim import StorageClient, RecoverableFailure, PreconditionFailed\ncase_id=sys.argv[1]; stage=sys.argv[2]; case=load('fixtures/recovery_cases.json')[case_id]\ncontract=load('fixtures/recovery_contract.json'); state_path=Path('state.'+case_id+'.json')\nif not state_path.exists():\n state={'objects':{k:{'generation':contract['outputs'][k]['generation'],'data':Path('outputs/'+k+'.txt').read_text()} for k in case['initial_outputs']},'uploads':[], 'invocations':0}\nelse: state=load(state_path)\nclient=StorageClient({k:{'generation':v['generation'],'data':v['data'].encode()} for k,v in state['objects'].items()})\ndef inspect():\n result={}\n for k, expected in contract['outputs'].items():\n  b=client.blob(k); exists=b.exists()\n  if exists:\n   b.reload(); digest=hashlib.sha256(b.download_as_bytes(if_generation_match=b.generation)).hexdigest()\n   result[k]={'exists':True,'generation':b.generation,'sha256':digest,'validation_ok':digest==expected['sha256'] and expected['validation_ok']}\n  else: result[k]={'exists':False,'generation':None,'sha256':None,'validation_ok':False}\n return result\nbefore=inspect()\nif stage=='recovery':\n for k, expected in contract['outputs'].items():\n  b=client.blob(k)\n  if b.exists():\n   if not inspect()[k]['validation_ok']: raise ValueError('invalid completed artifact '+k)\n  else:\n   try: b.upload_from_filename('outputs/'+k+'.txt',if_generation_match=0)\n   except PreconditionFailed:\n    if not inspect()[k]['validation_ok']: raise ValueError('conflicting artifact '+k)\n state['invocations']+=1; state['uploads']+=client.uploads\n state['objects']={k:{'generation':v['generation'],'data':v['data'].decode()} for k,v in client.objects.items()}\n state_path.write_text(json.dumps(state))\npassed=all(v['validation_ok'] for v in inspect().values()) and (stage=='recovery' or case['gate_ok'])\nprint(json.dumps({'stage':stage,'before':before,'after':inspect(),'upload_count':len(state['uploads']),'uploads':state['uploads'],'invocations':state['invocations'],'required_validation_ok':all(v['validation_ok'] for v in inspect().values()) and case['gate_ok']}))\nsys.exit(not passed)\n",
+    "computed_local_results": [
+      {
+        "event": {
+          "event_type": "artifact_ready",
+          "case_id": "accepted",
+          "artifact_id": "A"
+        },
+        "parsed_local_demonstration_config": {
+          "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+          "steps": [
+            {
+              "args": [
+                "python",
+                "demonstration_entry.py",
+                "${_CASE}",
+                "recovery"
+              ],
+              "id": "recovery",
+              "name": "python:3.11",
+              "waitFor": [
+                "-"
+              ]
+            },
+            {
+              "args": [
+                "python",
+                "demonstration_entry.py",
+                "${_CASE}",
+                "required_validation"
+              ],
+              "id": "required_validation",
+              "name": "python:3.11",
+              "waitFor": [
+                "recovery"
+              ]
+            },
+            {
+              "args": [
+                "python",
+                "downstream_entry.py",
+                "${_ARTIFACT}"
+              ],
+              "id": "promotion",
+              "name": "python:3.11",
+              "waitFor": [
+                "required_validation"
+              ]
+            }
+          ],
+          "substitutions": {
+            "_ARTIFACT": "A",
+            "_CASE": "accepted",
+            "_SNAPSHOT": "valid"
+          }
+        },
+        "run": {
+          "triggered": true,
+          "resolved_inputs": {
+            "_ARTIFACT": "A",
+            "_CASE": "accepted",
+            "_SNAPSHOT": "valid"
+          },
+          "steps": [
+            {
+              "id": "recovery",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "accepted",
+                "recovery"
+              ],
+              "waitFor": [],
+              "status": "SUCCESS",
+              "exit_code": 0,
+              "evidence": {
+                "stage": "recovery",
+                "before": {
+                  "A": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                    "validation_ok": true
+                  },
+                  "B": {
+                    "exists": false,
+                    "generation": null,
+                    "sha256": null,
+                    "validation_ok": false
+                  }
+                },
+                "after": {
+                  "A": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                    "validation_ok": true
+                  },
+                  "B": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+                    "validation_ok": true
+                  }
+                },
+                "upload_count": 2,
+                "uploads": [
+                  "A",
+                  "B"
+                ],
+                "invocations": 1,
+                "required_validation_ok": true
+              }
+            },
+            {
+              "id": "required_validation",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "accepted",
+                "required_validation"
+              ],
+              "waitFor": [
+                "recovery"
+              ],
+              "status": "SUCCESS",
+              "exit_code": 0,
+              "evidence": {
+                "stage": "required_validation",
+                "before": {
+                  "A": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                    "validation_ok": true
+                  },
+                  "B": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+                    "validation_ok": true
+                  }
+                },
+                "after": {
+                  "A": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                    "validation_ok": true
+                  },
+                  "B": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+                    "validation_ok": true
+                  }
+                },
+                "upload_count": 2,
+                "uploads": [
+                  "A",
+                  "B"
+                ],
+                "invocations": 1,
+                "required_validation_ok": true
+              }
+            },
+            {
+              "id": "promotion",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "downstream_entry.py",
+                "A"
+              ],
+              "waitFor": [
+                "required_validation"
+              ],
+              "status": "SUCCESS",
+              "exit_code": 0
+            }
+          ]
+        },
+        "before_recovery": {
+          "triggered": true,
+          "resolved_inputs": {
+            "_ARTIFACT": "A",
+            "_CASE": "accepted",
+            "_SNAPSHOT": "valid"
+          },
+          "steps": [
+            {
+              "id": "recovery",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "inject_failure.py",
+                "accepted"
+              ],
+              "waitFor": [],
+              "status": "FAILURE",
+              "exit_code": 1,
+              "evidence": {
+                "failure": "injected after A upload, before B",
+                "exception": "RecoverableFailure",
+                "A": {
+                  "exists": true,
+                  "generation": 1,
+                  "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6"
+                },
+                "B": {
+                  "exists": false,
+                  "generation": null,
+                  "sha256": null
+                }
+              }
+            },
+            {
+              "id": "required_validation",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "accepted",
+                "required_validation"
+              ],
+              "waitFor": [
+                "recovery"
+              ],
+              "status": "NOT_STARTED",
+              "exit_code": null
+            },
+            {
+              "id": "promotion",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "downstream_entry.py",
+                "A"
+              ],
+              "waitFor": [
+                "required_validation"
+              ],
+              "status": "NOT_STARTED",
+              "exit_code": null
+            }
+          ]
+        },
+        "second_invocation": {
+          "triggered": true,
+          "resolved_inputs": {
+            "_ARTIFACT": "A",
+            "_CASE": "accepted",
+            "_SNAPSHOT": "valid"
+          },
+          "steps": [
+            {
+              "id": "recovery",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "accepted",
+                "recovery"
+              ],
+              "waitFor": [],
+              "status": "SUCCESS",
+              "exit_code": 0,
+              "evidence": {
+                "stage": "recovery",
+                "before": {
+                  "A": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                    "validation_ok": true
+                  },
+                  "B": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+                    "validation_ok": true
+                  }
+                },
+                "after": {
+                  "A": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                    "validation_ok": true
+                  },
+                  "B": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+                    "validation_ok": true
+                  }
+                },
+                "upload_count": 2,
+                "uploads": [
+                  "A",
+                  "B"
+                ],
+                "invocations": 2,
+                "required_validation_ok": true
+              }
+            },
+            {
+              "id": "required_validation",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "accepted",
+                "required_validation"
+              ],
+              "waitFor": [
+                "recovery"
+              ],
+              "status": "SUCCESS",
+              "exit_code": 0,
+              "evidence": {
+                "stage": "required_validation",
+                "before": {
+                  "A": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                    "validation_ok": true
+                  },
+                  "B": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+                    "validation_ok": true
+                  }
+                },
+                "after": {
+                  "A": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                    "validation_ok": true
+                  },
+                  "B": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+                    "validation_ok": true
+                  }
+                },
+                "upload_count": 2,
+                "uploads": [
+                  "A",
+                  "B"
+                ],
+                "invocations": 2,
+                "required_validation_ok": true
+              }
+            },
+            {
+              "id": "promotion",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "downstream_entry.py",
+                "A"
+              ],
+              "waitFor": [
+                "required_validation"
+              ],
+              "status": "SUCCESS",
+              "exit_code": 0
+            }
+          ]
+        }
+      },
+      {
+        "event": {
+          "event_type": "artifact_ready",
+          "case_id": "rejected_gate",
+          "artifact_id": "A"
+        },
+        "parsed_local_demonstration_config": {
+          "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+          "steps": [
+            {
+              "args": [
+                "python",
+                "demonstration_entry.py",
+                "${_CASE}",
+                "recovery"
+              ],
+              "id": "recovery",
+              "name": "python:3.11",
+              "waitFor": [
+                "-"
+              ]
+            },
+            {
+              "args": [
+                "python",
+                "demonstration_entry.py",
+                "${_CASE}",
+                "required_validation"
+              ],
+              "id": "required_validation",
+              "name": "python:3.11",
+              "waitFor": [
+                "recovery"
+              ]
+            },
+            {
+              "args": [
+                "python",
+                "downstream_entry.py",
+                "${_ARTIFACT}"
+              ],
+              "id": "promotion",
+              "name": "python:3.11",
+              "waitFor": [
+                "required_validation"
+              ]
+            }
+          ],
+          "substitutions": {
+            "_ARTIFACT": "A",
+            "_CASE": "accepted",
+            "_SNAPSHOT": "valid"
+          }
+        },
+        "run": {
+          "triggered": true,
+          "resolved_inputs": {
+            "_ARTIFACT": "A",
+            "_CASE": "rejected_gate",
+            "_SNAPSHOT": "valid"
+          },
+          "steps": [
+            {
+              "id": "recovery",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "rejected_gate",
+                "recovery"
+              ],
+              "waitFor": [],
+              "status": "SUCCESS",
+              "exit_code": 0,
+              "evidence": {
+                "stage": "recovery",
+                "before": {
+                  "A": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                    "validation_ok": true
+                  },
+                  "B": {
+                    "exists": false,
+                    "generation": null,
+                    "sha256": null,
+                    "validation_ok": false
+                  }
+                },
+                "after": {
+                  "A": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                    "validation_ok": true
+                  },
+                  "B": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+                    "validation_ok": true
+                  }
+                },
+                "upload_count": 2,
+                "uploads": [
+                  "A",
+                  "B"
+                ],
+                "invocations": 1,
+                "required_validation_ok": false
+              }
+            },
+            {
+              "id": "required_validation",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "rejected_gate",
+                "required_validation"
+              ],
+              "waitFor": [
+                "recovery"
+              ],
+              "status": "FAILURE",
+              "exit_code": 1,
+              "evidence": {
+                "stage": "required_validation",
+                "before": {
+                  "A": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                    "validation_ok": true
+                  },
+                  "B": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+                    "validation_ok": true
+                  }
+                },
+                "after": {
+                  "A": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                    "validation_ok": true
+                  },
+                  "B": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+                    "validation_ok": true
+                  }
+                },
+                "upload_count": 2,
+                "uploads": [
+                  "A",
+                  "B"
+                ],
+                "invocations": 1,
+                "required_validation_ok": false
+              }
+            },
+            {
+              "id": "promotion",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "downstream_entry.py",
+                "A"
+              ],
+              "waitFor": [
+                "required_validation"
+              ],
+              "status": "NOT_STARTED",
+              "exit_code": null
+            }
+          ]
+        },
+        "before_recovery": {
+          "triggered": true,
+          "resolved_inputs": {
+            "_ARTIFACT": "A",
+            "_CASE": "rejected_gate",
+            "_SNAPSHOT": "valid"
+          },
+          "steps": [
+            {
+              "id": "recovery",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "inject_failure.py",
+                "rejected_gate"
+              ],
+              "waitFor": [],
+              "status": "FAILURE",
+              "exit_code": 1,
+              "evidence": {
+                "failure": "injected after A upload, before B",
+                "exception": "RecoverableFailure",
+                "A": {
+                  "exists": true,
+                  "generation": 1,
+                  "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6"
+                },
+                "B": {
+                  "exists": false,
+                  "generation": null,
+                  "sha256": null
+                }
+              }
+            },
+            {
+              "id": "required_validation",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "rejected_gate",
+                "required_validation"
+              ],
+              "waitFor": [
+                "recovery"
+              ],
+              "status": "NOT_STARTED",
+              "exit_code": null
+            },
+            {
+              "id": "promotion",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "downstream_entry.py",
+                "A"
+              ],
+              "waitFor": [
+                "required_validation"
+              ],
+              "status": "NOT_STARTED",
+              "exit_code": null
+            }
+          ]
+        },
+        "second_invocation": {
+          "triggered": true,
+          "resolved_inputs": {
+            "_ARTIFACT": "A",
+            "_CASE": "rejected_gate",
+            "_SNAPSHOT": "valid"
+          },
+          "steps": [
+            {
+              "id": "recovery",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "rejected_gate",
+                "recovery"
+              ],
+              "waitFor": [],
+              "status": "SUCCESS",
+              "exit_code": 0,
+              "evidence": {
+                "stage": "recovery",
+                "before": {
+                  "A": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                    "validation_ok": true
+                  },
+                  "B": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+                    "validation_ok": true
+                  }
+                },
+                "after": {
+                  "A": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                    "validation_ok": true
+                  },
+                  "B": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+                    "validation_ok": true
+                  }
+                },
+                "upload_count": 2,
+                "uploads": [
+                  "A",
+                  "B"
+                ],
+                "invocations": 2,
+                "required_validation_ok": false
+              }
+            },
+            {
+              "id": "required_validation",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "demonstration_entry.py",
+                "rejected_gate",
+                "required_validation"
+              ],
+              "waitFor": [
+                "recovery"
+              ],
+              "status": "FAILURE",
+              "exit_code": 1,
+              "evidence": {
+                "stage": "required_validation",
+                "before": {
+                  "A": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                    "validation_ok": true
+                  },
+                  "B": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+                    "validation_ok": true
+                  }
+                },
+                "after": {
+                  "A": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+                    "validation_ok": true
+                  },
+                  "B": {
+                    "exists": true,
+                    "generation": 1,
+                    "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+                    "validation_ok": true
+                  }
+                },
+                "upload_count": 2,
+                "uploads": [
+                  "A",
+                  "B"
+                ],
+                "invocations": 2,
+                "required_validation_ok": false
+              }
+            },
+            {
+              "id": "promotion",
+              "name": "python:3.11",
+              "resolved_args": [
+                "python",
+                "downstream_entry.py",
+                "A"
+              ],
+              "waitFor": [
+                "required_validation"
+              ],
+              "status": "NOT_STARTED",
+              "exit_code": null
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

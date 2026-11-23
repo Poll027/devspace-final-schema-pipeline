@@ -1,0 +1,1587 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "python_fastapi_backend_developer",
+  "tile_id": "tile_045",
+  "toc_location": {
+    "region_id": "region_verification",
+    "terrain_id": "terrain_request_controls"
+  },
+  "title": "Request-scoped dependency reuse and lifetime · Endpoint integration tests using TestClient or async HTTPX as appropriate",
+  "summary": "",
+  "concept_ids": [
+    "fastapi.dependency_lifetime",
+    "fastapi.endpoint_integration_tests"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_python_fastapi_backend_developer",
+    "toc_freeze_hash": "96d245a8da4552263398bda220dd1f88774cc30045abdf029e8d40064881cb7e",
+    "glossary_bundle_hashes": {
+      "fastapi.dependency_lifetime": "8ba53d92cbdc399ee48ac0534842868d014c0002a8319e52ae53a2d3c3c41205",
+      "fastapi.endpoint_integration_tests": "8b13daf9432f819d83fc29189ad140a533e805471e772aa40dee63251feb3d7f"
+    },
+    "scenario_registry_hash": "29f9d7b7be7d9e0858e82988aea40ba028377717f8de8844e2cbe4d3f079a05b"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core"
+    ],
+    "block_types": [
+      "code_walkthrough",
+      "diagram",
+      "media_group",
+      "prose",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "code_exercise"
+    ],
+    "runtimes": [
+      "python_asgi"
+    ],
+    "asset_ids": []
+  },
+  "pacing": {
+    "estimated_minutes": 9.8
+  },
+  "steps": [
+    {
+      "step_id": "tile_045.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "fastapi.dependency_lifetime"
+      ],
+      "title": "Declare the boundary: Request-scoped dependency reuse and lifetime",
+      "eyebrow": "Explainer",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.dependency_lifetime"
+        ],
+        "teaching_block_ids": [
+          "fastapi.dependency_lifetime#tb1",
+          "fastapi.dependency_lifetime#tb2",
+          "fastapi.dependency_lifetime#tb3"
+        ],
+        "fact_ids": [
+          "fastapi.dependency_lifetime#f1",
+          "fastapi.dependency_lifetime#f2",
+          "fastapi.dependency_lifetime#f3"
+        ],
+        "anchors": [
+          "fastapi.dependency_lifetime#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "FastAPI normally caches a dependency result within a request when several dependants declare the same dependency.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.dependency_lifetime"
+            ],
+            "teaching_block_ids": [
+              "fastapi.dependency_lifetime#tb1",
+              "fastapi.dependency_lifetime#tb2"
+            ],
+            "fact_ids": [
+              "fastapi.dependency_lifetime#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Use Depends(provider, use_cache=False) on a declaration that needs fresh execution instead of the cached result.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.dependency_lifetime"
+            ],
+            "teaching_block_ids": [
+              "fastapi.dependency_lifetime#tb3"
+            ],
+            "fact_ids": [
+              "fastapi.dependency_lifetime#f2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Check that two dependants receive the same provider result in one request, then examine a fresh request independently. This cache is request-local, not application-wide storage.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.dependency_lifetime"
+            ],
+            "teaching_block_ids": [
+              "fastapi.dependency_lifetime#tb3"
+            ],
+            "fact_ids": [
+              "fastapi.dependency_lifetime#f3"
+            ]
+          }
+        },
+        {
+          "type": "diagram",
+          "diagram_kind": "container",
+          "title": "Separate request-cache boundaries",
+          "nodes": [
+            {
+              "id": "a",
+              "label": "Request A",
+              "group": "A"
+            },
+            {
+              "id": "pa",
+              "label": "Provider execution → value A",
+              "group": "A"
+            },
+            {
+              "id": "a1",
+              "label": "First dependant: same value A",
+              "group": "A"
+            },
+            {
+              "id": "a2",
+              "label": "Second dependant: same value A",
+              "group": "A"
+            },
+            {
+              "id": "fresh",
+              "label": "Depends(provider, use_cache=False): fresh execution",
+              "group": "A"
+            },
+            {
+              "id": "b",
+              "label": "Request B",
+              "group": "B"
+            },
+            {
+              "id": "pb",
+              "label": "Independent provider execution → value B",
+              "group": "B"
+            },
+            {
+              "id": "b1",
+              "label": "First dependant: value B",
+              "group": "B"
+            },
+            {
+              "id": "b2",
+              "label": "Second dependant: value B",
+              "group": "B"
+            }
+          ],
+          "edges": [
+            {
+              "from": "a",
+              "to": "pa",
+              "label": "normal request-local cache",
+              "directed": true
+            },
+            {
+              "from": "pa",
+              "to": "a1",
+              "label": "reuse",
+              "directed": true
+            },
+            {
+              "from": "pa",
+              "to": "a2",
+              "label": "reuse",
+              "directed": true
+            },
+            {
+              "from": "a",
+              "to": "fresh",
+              "label": "explicit uncached declaration",
+              "directed": true
+            },
+            {
+              "from": "b",
+              "to": "pb",
+              "label": "new request",
+              "directed": true
+            },
+            {
+              "from": "pb",
+              "to": "b1",
+              "label": "reuse",
+              "directed": true
+            },
+            {
+              "from": "pb",
+              "to": "b2",
+              "label": "reuse",
+              "directed": true
+            }
+          ],
+          "layout": "auto",
+          "alt_text": "Separate request-cache boundaries: Request A; Provider execution → value A; First dependant: same value A; Second dependant: same value A; Depends(provider, use_cache=False): fresh execution; Request B; Independent provider execution → value B; First dependant: value B; Second dependant: value B",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.dependency_lifetime"
+            ],
+            "teaching_block_ids": [
+              "fastapi.dependency_lifetime#tb1",
+              "fastapi.dependency_lifetime#tb2",
+              "fastapi.dependency_lifetime#tb3"
+            ],
+            "fact_ids": [
+              "fastapi.dependency_lifetime#f1",
+              "fastapi.dependency_lifetime#f2",
+              "fastapi.dependency_lifetime#f3"
+            ],
+            "anchors": [
+              "fastapi.dependency_lifetime#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_045.s02",
+      "type": "explainer",
+      "concept_ids": [
+        "fastapi.dependency_lifetime"
+      ],
+      "title": "Trace the contract",
+      "eyebrow": "Explainer",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.dependency_lifetime"
+        ],
+        "teaching_block_ids": [
+          "fastapi.dependency_lifetime#tb4",
+          "fastapi.dependency_lifetime#tb5"
+        ],
+        "fact_ids": [
+          "fastapi.dependency_lifetime#f1",
+          "fastapi.dependency_lifetime#f2",
+          "fastapi.dependency_lifetime#f3"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Draw request A around its provider result and both dependants. Verify reuse inside that boundary, then inspect request B independently. On a declaration needing another execution, use Depends(provider, use_cache=False). The normal cache reduces repeat execution within one request; it does not turn a request-specific value into storage shared by all clients.",
+          "role": "mental_model",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.dependency_lifetime"
+            ],
+            "teaching_block_ids": [
+              "fastapi.dependency_lifetime#tb4",
+              "fastapi.dependency_lifetime#tb5"
+            ],
+            "fact_ids": [
+              "fastapi.dependency_lifetime#f1",
+              "fastapi.dependency_lifetime#f2",
+              "fastapi.dependency_lifetime#f3"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_045.s03",
+      "type": "check",
+      "concept_ids": [
+        "fastapi.dependency_lifetime"
+      ],
+      "title": "Check the boundary: Request-scoped dependency reuse and lifetime",
+      "eyebrow": "Check",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.dependency_lifetime"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "fastapi.dependency_lifetime#f2"
+        ],
+        "anchors": [
+          "fastapi.dependency_lifetime#assessment:predict_fresh_execution_for_uncached_declaration"
+        ]
+      },
+      "lede": "Use the supplied order-service scenario to reason about this contract.",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_045.s03",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "fastapi.dependency_lifetime",
+            "fact_ids": [
+              "f2"
+            ],
+            "capability": "predict_fresh_execution_for_uncached_declaration"
+          }
+        ],
+        "anchors": [
+          "fastapi.dependency_lifetime#assessment:predict_fresh_execution_for_uncached_declaration"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "This declaration opts out of the normal cached result."
+          },
+          "incorrect": {
+            "message": "Recheck the stated boundary and distinguish the separate obligations rather than assuming one implies the other."
+          },
+          "hints": [
+            "Separate the stated requirement from a nearby but different boundary."
+          ],
+          "remediation_step_id": "tile_045.r01"
+        },
+        "public": {
+          "prompt": "A particular dependency declaration must execute the provider freshly instead of using its request-local cached result. Which declaration requests that behavior?",
+          "options": [
+            {
+              "option_id": "option_1",
+              "text": "Depends(provider, use_cache=False)."
+            },
+            {
+              "option_id": "option_2",
+              "text": "Depends(provider) with normal caching."
+            },
+            {
+              "option_id": "option_3",
+              "text": "Move the result into application-wide storage and retain normal caching."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "option_1"
+          ],
+          "option_feedback": {
+            "option_1": {
+              "message": "This declaration opts out of the normal cached result."
+            },
+            "option_2": {
+              "message": "The normal declaration reuses the request-local cached provider result."
+            },
+            "option_3": {
+              "message": "Application-wide storage is not the declaration-level fresh-execution behavior."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_045.s04",
+      "type": "check",
+      "concept_ids": [
+        "fastapi.dependency_lifetime"
+      ],
+      "title": "Check the boundary: Request-scoped dependency reuse and lifetime",
+      "eyebrow": "Check",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.dependency_lifetime"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "fastapi.dependency_lifetime#f3"
+        ],
+        "anchors": [
+          "fastapi.dependency_lifetime#assessment:distinguish_request_local_reuse_from_application_wide_storage"
+        ]
+      },
+      "lede": "Use the supplied order-service scenario to reason about this contract.",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_045.s04",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "fastapi.dependency_lifetime",
+            "fact_ids": [
+              "f3"
+            ],
+            "capability": "distinguish_request_local_reuse_from_application_wide_storage"
+          }
+        ],
+        "anchors": [
+          "fastapi.dependency_lifetime#assessment:distinguish_request_local_reuse_from_application_wide_storage"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Reuse is request-local rather than application-wide storage."
+          },
+          "incorrect": {
+            "message": "Recheck the stated boundary and distinguish the separate obligations rather than assuming one implies the other."
+          },
+          "hints": [
+            "Separate the stated requirement from a nearby but different boundary."
+          ]
+        },
+        "public": {
+          "prompt": "Two dependants normally reuse one provider value in request A. Request B starts independently. What boundary should verification establish?",
+          "options": [
+            {
+              "option_id": "option_2",
+              "text": "The same stored instance must be reused across requests A and B."
+            },
+            {
+              "option_id": "option_3",
+              "text": "Normal caching requires two separate provider executions within request A."
+            },
+            {
+              "option_id": "option_1",
+              "text": "Shared instance within each request, with a separate provider execution for request B."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "option_1"
+          ],
+          "option_feedback": {
+            "option_2": {
+              "message": "Request-local caching does not imply application-wide shared storage."
+            },
+            "option_3": {
+              "message": "Multiple dependants normally reuse the same provider result within one request."
+            },
+            "option_1": {
+              "message": "Reuse is request-local rather than application-wide storage."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_045.s05",
+      "type": "hands_on",
+      "concept_ids": [
+        "fastapi.dependency_lifetime"
+      ],
+      "title": "Apply the contract: Request-scoped dependency reuse and lifetime",
+      "eyebrow": "Hands On",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.dependency_lifetime"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "fastapi.dependency_lifetime#f1"
+        ],
+        "anchors": [
+          "fastapi.dependency_lifetime#practice",
+          "fastapi.dependency_lifetime#assessment:predict_shared_dependency_reuse_within_one_request"
+        ]
+      },
+      "lede": "Complete the supplied workspace within its stated contract.",
+      "interaction": {
+        "type": "code_exercise",
+        "interaction_id": "ix.tile_045.s05",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "fastapi.dependency_lifetime",
+            "fact_ids": [
+              "f1"
+            ],
+            "capability": "predict_shared_dependency_reuse_within_one_request"
+          }
+        ],
+        "anchors": [
+          "fastapi.dependency_lifetime#practice",
+          "fastapi.dependency_lifetime#assessment:predict_shared_dependency_reuse_within_one_request"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "You applied the declared boundary and preserved its required behavior."
+          },
+          "incorrect": {
+            "message": "Recheck the stated boundary and distinguish the separate obligations rather than assuming one implies the other."
+          },
+          "hints": [
+            "Compare each declaration with its input or lifecycle boundary.",
+            "Trace what happens on the alternative input or exit, not only the successful path."
+          ]
+        },
+        "public": {
+          "prompt": "Replace the operation placeholder with return {'same_instance': a is b}. Keep provider and both cached dependency declarations unchanged. The harness sends request A and request B separately, verifies shared identity within each request and distinct provider executions across requests. Do not make a module-global shared value.",
+          "runtime": {
+            "kind": "python_asgi",
+            "version": "0.29.5"
+          },
+          "workspace": {
+            "entry": "exercise.py",
+            "files": [
+              {
+                "path": "exercise.py",
+                "role": "editable",
+                "language": "python",
+                "content": "import logging\nlogger = logging.getLogger('order.provider.exercise')\nlogger.addHandler(logging.StreamHandler())\nlogger.setLevel(logging.INFO)\nexecutions = []\ndef record_execution(value):\n    executions.append(value)\n    logger.info('provider execution', extra={'event_type': 'provider_execution'})\nfrom fastapi import FastAPI, Depends\napp = FastAPI()\nclass Value:\n    pass\ndef provider():\n    value = Value()\n    record_execution(value)\n    return value\ndef first(value=Depends(provider)):\n    return value\ndef second(value=Depends(provider)):\n    return value\n@app.get('/orders')\ndef operation(a=Depends(first), b=Depends(second)):\n    # TODO: report Python identity comparison of the two supplied values.\n    raise NotImplementedError\n# Then compare a declaration using Depends(provider, use_cache=False).\nimport asyncio, inspect, json, ast\nimport httpx\nfrom contextlib import contextmanager\n\ndef _drive(coro):\n    try:\n        pending = coro.send(None)\n    except StopIteration as done:\n        return done.value\n    raise RuntimeError('Harness encountered a suspending operation: ' + repr(pending))\n\nasync def _requests(application, requests):\n    async with application.router.lifespan_context(application):\n        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=application, raise_app_exceptions=False), base_url='http://testserver') as client:\n            out=[]\n            for method,path,kwargs in requests:\n                response=await client.request(method,path,**kwargs)\n                try: body=response.json()\n                except ValueError: body=response.text\n                out.append({'status':response.status_code,'body':body})\n            return out\ndef _case(requests):\n    executions.clear()\n    responses=_drive(_requests(app,[('GET','/orders',{'params':{'request':str(i)}}) for i in range(requests)]))\n    assert len(executions)==requests\n    assert len({id(x) for x in executions})==requests\n    assert all(r=={'status':200,'body':{'same_instance':True}} for r in responses)\n    return {'responses':responses,'provider_executions':len(executions),'distinct_values':len({id(x) for x in executions})}\nimport inspect\nfrom fastapi import FastAPI, Body\nverification_app=FastAPI()\n\nasync def verify_case(payload: dict=Body(...)):\n    result=_case(payload['case'])\n    if inspect.isawaitable(result):return await result\n    return result\nverify_case = verification_app.post('/_verify')(verify_case)\n"
+              }
+            ],
+            "asset_mounts": []
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "from fastapi import FastAPI, Depends",
+              "class declarations",
+              "def declarations",
+              "instance construction",
+              "parameter annotations",
+              "Depends(provider)",
+              "Depends(provider, use_cache=False)",
+              "path-operation decorators",
+              "local assignment",
+              "return statements",
+              "is identity comparison",
+              "dictionary literals",
+              "string and boolean literals",
+              "calls to the existing structured logger"
+            ],
+            "blocked_syntax": [
+              "TestClient(...)",
+              "httpx.AsyncClient(...)",
+              "app.dependency_overrides",
+              "Header(...)",
+              "Cookie(...)"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "exercise.py",
+              "content": "import logging\nlogger = logging.getLogger('order.provider.exercise')\nlogger.addHandler(logging.StreamHandler())\nlogger.setLevel(logging.INFO)\nexecutions = []\ndef record_execution(value):\n    executions.append(value)\n    logger.info('provider execution', extra={'event_type': 'provider_execution'})\nfrom fastapi import FastAPI, Depends\napp = FastAPI()\nclass Value:\n    pass\ndef provider():\n    value = Value()\n    record_execution(value)\n    return value\ndef first(value=Depends(provider)):\n    return value\ndef second(value=Depends(provider)):\n    return value\n@app.get('/orders')\ndef operation(a=Depends(first), b=Depends(second)):\n    return {'same_instance': a is b}\n# Then compare a declaration using Depends(provider, use_cache=False).\nimport asyncio, inspect, json, ast\nimport httpx\nfrom contextlib import contextmanager\n\ndef _drive(coro):\n    try:\n        pending = coro.send(None)\n    except StopIteration as done:\n        return done.value\n    raise RuntimeError('Harness encountered a suspending operation: ' + repr(pending))\n\nasync def _requests(application, requests):\n    async with application.router.lifespan_context(application):\n        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=application, raise_app_exceptions=False), base_url='http://testserver') as client:\n            out=[]\n            for method,path,kwargs in requests:\n                response=await client.request(method,path,**kwargs)\n                try: body=response.json()\n                except ValueError: body=response.text\n                out.append({'status':response.status_code,'body':body})\n            return out\ndef _case(requests):\n    executions.clear()\n    responses=_drive(_requests(app,[('GET','/orders',{'params':{'request':str(i)}}) for i in range(requests)]))\n    assert len(executions)==requests\n    assert len({id(x) for x in executions})==requests\n    assert all(r=={'status':200,'body':{'same_instance':True}} for r in responses)\n    return {'responses':responses,'provider_executions':len(executions),'distinct_values':len({id(x) for x in executions})}\nimport inspect\nfrom fastapi import FastAPI, Body\nverification_app=FastAPI()\n\nasync def verify_case(payload: dict=Body(...)):\n    result=_case(payload['case'])\n    if inspect.isawaitable(result):return await result\n    return result\nverify_case = verification_app.post('/_verify')(verify_case)\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "test_1",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/_verify",
+                    "json": {
+                      "case": 1
+                    }
+                  }
+                ],
+                "app": "verification_app",
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "responses": [
+                      {
+                        "status": 200,
+                        "body": {
+                          "same_instance": true
+                        }
+                      }
+                    ],
+                    "provider_executions": 1,
+                    "distinct_values": 1
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+            },
+            {
+              "test_id": "test_2",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/_verify",
+                    "json": {
+                      "case": 2
+                    }
+                  }
+                ],
+                "app": "verification_app",
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "responses": [
+                      {
+                        "status": 200,
+                        "body": {
+                          "same_instance": true
+                        }
+                      },
+                      {
+                        "status": 200,
+                        "body": {
+                          "same_instance": true
+                        }
+                      }
+                    ],
+                    "provider_executions": 2,
+                    "distinct_values": 2
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "pyodide",
+            "runtime_version": "0.29.5",
+            "solution_sha256": "b6f92e6ce24bcc191cbb6df9ccf61e2b89cd582680c4f82b914021ae229f8309",
+            "tests_passed": 2
+          },
+          "hidden_checks": []
+        }
+      }
+    },
+    {
+      "step_id": "tile_045.s06",
+      "type": "explainer",
+      "concept_ids": [
+        "fastapi.endpoint_integration_tests"
+      ],
+      "title": "Declare the boundary: Endpoint integration tests using TestClient or async HTTPX as appropriate",
+      "eyebrow": "Explainer",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.endpoint_integration_tests"
+        ],
+        "teaching_block_ids": [
+          "fastapi.endpoint_integration_tests#tb1",
+          "fastapi.endpoint_integration_tests#tb2",
+          "fastapi.endpoint_integration_tests#tb3"
+        ],
+        "fact_ids": [
+          "fastapi.endpoint_integration_tests#f1",
+          "fastapi.endpoint_integration_tests#f2",
+          "fastapi.endpoint_integration_tests#f3"
+        ],
+        "anchors": [
+          "fastapi.endpoint_integration_tests#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Create TestClient(app), send a request such as client.get(...), and assert both response.status_code and response.json() in a pytest test_ function.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.endpoint_integration_tests"
+            ],
+            "teaching_block_ids": [
+              "fastapi.endpoint_integration_tests#tb1",
+              "fastapi.endpoint_integration_tests#tb2"
+            ],
+            "fact_ids": [
+              "fastapi.endpoint_integration_tests#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "When setup and teardown matter, use with TestClient(app) as client to execute application lifespan.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.endpoint_integration_tests"
+            ],
+            "teaching_block_ids": [
+              "fastapi.endpoint_integration_tests#tb3"
+            ],
+            "fact_ids": [
+              "fastapi.endpoint_integration_tests#f2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A TestClient request exercises route and dependency resolution through the application. Calling the handler directly does not exercise that HTTP boundary.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.endpoint_integration_tests"
+            ],
+            "teaching_block_ids": [
+              "fastapi.endpoint_integration_tests#tb3"
+            ],
+            "fact_ids": [
+              "fastapi.endpoint_integration_tests#f3"
+            ]
+          }
+        },
+        {
+          "type": "code_walkthrough",
+          "language": "python",
+          "code": "from fastapi.testclient import TestClient\nfrom app import app\n\ndef test_get_order():\n    with TestClient(app) as client:\n        response = client.get('/orders/42')\n        assert response.status_code == 200\n        assert response.json() == {'id': 42, 'quantity': 2}\n",
+          "reveal": "all",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.endpoint_integration_tests"
+            ],
+            "teaching_block_ids": [
+              "fastapi.endpoint_integration_tests#tb1",
+              "fastapi.endpoint_integration_tests#tb2",
+              "fastapi.endpoint_integration_tests#tb3"
+            ],
+            "fact_ids": [
+              "fastapi.endpoint_integration_tests#f1",
+              "fastapi.endpoint_integration_tests#f2",
+              "fastapi.endpoint_integration_tests#f3"
+            ],
+            "anchors": [
+              "fastapi.endpoint_integration_tests#visual"
+            ]
+          },
+          "annotations": [
+            {
+              "start_line": 5,
+              "end_line": 5,
+              "text": "Context runs lifespan setup and teardown."
+            },
+            {
+              "start_line": 6,
+              "end_line": 6,
+              "text": "HTTP request exercises routing and dependency resolution."
+            },
+            {
+              "start_line": 7,
+              "end_line": 8,
+              "text": "Independent status and public JSON assertions; pytest executes test_get_order."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "step_id": "tile_045.s07",
+      "type": "explainer",
+      "concept_ids": [
+        "fastapi.endpoint_integration_tests"
+      ],
+      "title": "Trace the contract",
+      "eyebrow": "Explainer",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.endpoint_integration_tests"
+        ],
+        "teaching_block_ids": [
+          "fastapi.endpoint_integration_tests#tb4"
+        ],
+        "fact_ids": [
+          "fastapi.endpoint_integration_tests#f1",
+          "fastapi.endpoint_integration_tests#f2",
+          "fastapi.endpoint_integration_tests#f3"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Specify an HTTP exchange, not merely a call that avoids crashing: method, path, expected status and expected public JSON. TestClient sends it through route and dependency resolution. Add the context manager when lifespan setup and teardown belong in the test. A direct handler call checks a different boundary and cannot establish the registered endpoint’s complete exchange.",
+          "role": "mental_model",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.endpoint_integration_tests"
+            ],
+            "teaching_block_ids": [
+              "fastapi.endpoint_integration_tests#tb4"
+            ],
+            "fact_ids": [
+              "fastapi.endpoint_integration_tests#f1",
+              "fastapi.endpoint_integration_tests#f2",
+              "fastapi.endpoint_integration_tests#f3"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_045.s08",
+      "type": "explainer",
+      "concept_ids": [
+        "fastapi.endpoint_integration_tests"
+      ],
+      "title": "Work through the supplied example",
+      "eyebrow": "Explainer",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.endpoint_integration_tests"
+        ],
+        "teaching_block_ids": [
+          "fastapi.endpoint_integration_tests#tb5",
+          "fastapi.endpoint_integration_tests#tb6"
+        ],
+        "fact_ids": [
+          "fastapi.endpoint_integration_tests#f1",
+          "fastapi.endpoint_integration_tests#f2",
+          "fastapi.endpoint_integration_tests#f3"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Use the supplied order fixture to make separate status and JSON assertions in test_get_order. Send the GET through TestClient rather than invoking get_order directly. Run the test_ function with pytest; use the context manager to execute lifespan when the case needs it. The status assertion checks the HTTP outcome, and the JSON assertion checks public content. Neither substitutes for the other.",
+          "role": "walkthrough",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.endpoint_integration_tests"
+            ],
+            "teaching_block_ids": [
+              "fastapi.endpoint_integration_tests#tb5",
+              "fastapi.endpoint_integration_tests#tb6"
+            ],
+            "fact_ids": [
+              "fastapi.endpoint_integration_tests#f1",
+              "fastapi.endpoint_integration_tests#f2",
+              "fastapi.endpoint_integration_tests#f3"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_045.s09",
+      "type": "video",
+      "concept_ids": [
+        "fastapi.endpoint_integration_tests"
+      ],
+      "title": "Optional deeper walkthrough",
+      "eyebrow": "Video",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.endpoint_integration_tests"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "fastapi.endpoint_integration_tests#f1"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "media_group",
+          "segment_ids": [
+            "seg_fastapi.endpoint_integration_tests_9gC3Ot0LoUQ_327_429"
+          ],
+          "segments": [
+            {
+              "segment_id": "seg_fastapi.endpoint_integration_tests_9gC3Ot0LoUQ_327_429",
+              "video_id": "9gC3Ot0LoUQ",
+              "youtube_url": "https://www.youtube.com/watch?v=9gC3Ot0LoUQ",
+              "review_url": "https://www.youtube.com/watch?v=9gC3Ot0LoUQ&t=327s",
+              "start_seconds": 327,
+              "end_seconds": 429,
+              "label": "Send a TestClient request and assert status and JSON",
+              "summary": "An endpoint test imports TestClient and the application, creates a client, and sends a GET request from a test function. It checks that the response status is 200 and the decoded JSON equals the string \"server is running\". Running pytest produces a passing test. Adding an exclamation mark to the endpoint's response makes the same test fail, demonstrating that the payload assertion detects a changed response. The original response is then restored.",
+              "fact_ids": [
+                "f1"
+              ],
+              "transcript_ref": "9gC3Ot0LoUQ:327-429"
+            }
+          ],
+          "group_title": "Verify an endpoint's HTTP response",
+          "bridge": {
+            "before": "Watch how TestClient sends a GET request and how separate status and JSON assertions define the expected response. Notice how changing the response makes the test fail.",
+            "after": "The clip demonstrates request and response assertions, but does not explain lifespan execution or dependency resolution. The text covers both, including when to use the TestClient context manager."
+          },
+          "default_mode": "video"
+        }
+      ]
+    },
+    {
+      "step_id": "tile_045.s10",
+      "type": "check",
+      "concept_ids": [
+        "fastapi.endpoint_integration_tests"
+      ],
+      "title": "Check the boundary: Endpoint integration tests using TestClient or async HTTPX as appropriate",
+      "eyebrow": "Check",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.endpoint_integration_tests"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "fastapi.endpoint_integration_tests#f3"
+        ],
+        "anchors": [
+          "fastapi.endpoint_integration_tests#assessment:distinguish_http_route_and_dependency_resolution_from_direct_handler_calls"
+        ]
+      },
+      "lede": "Use the supplied order-service scenario to reason about this contract.",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_045.s10",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "fastapi.endpoint_integration_tests",
+            "fact_ids": [
+              "f3"
+            ],
+            "capability": "distinguish_http_route_and_dependency_resolution_from_direct_handler_calls"
+          }
+        ],
+        "anchors": [
+          "fastapi.endpoint_integration_tests#assessment:distinguish_http_route_and_dependency_resolution_from_direct_handler_calls"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "A TestClient request traverses the application route and dependency resolution."
+          },
+          "incorrect": {
+            "message": "Recheck the stated boundary and distinguish the separate obligations rather than assuming one implies the other."
+          },
+          "hints": [
+            "Separate the stated requirement from a nearby but different boundary."
+          ],
+          "remediation_step_id": "tile_045.r04"
+        },
+        "public": {
+          "prompt": "Which test exercises the application's HTTP route and dependency resolution instead of only directly calling its handler?",
+          "options": [
+            {
+              "option_id": "option_1",
+              "text": "Send the request through TestClient(app)."
+            },
+            {
+              "option_id": "option_2",
+              "text": "Call the handler as an ordinary function without sending a request."
+            },
+            {
+              "option_id": "option_3",
+              "text": "Read the handler function source without sending a request."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "option_1"
+          ],
+          "option_feedback": {
+            "option_1": {
+              "message": "A TestClient request traverses the application route and dependency resolution."
+            },
+            "option_2": {
+              "message": "A direct call does not establish the HTTP route and dependency resolution boundary."
+            },
+            "option_3": {
+              "message": "Source inspection alone is not an HTTP request through the application."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_045.s11",
+      "type": "hands_on",
+      "concept_ids": [
+        "fastapi.endpoint_integration_tests"
+      ],
+      "title": "Apply the contract: Endpoint integration tests using TestClient or async HTTPX as appropriate",
+      "eyebrow": "Hands On",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.endpoint_integration_tests"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "fastapi.endpoint_integration_tests#f1",
+          "fastapi.endpoint_integration_tests#f2"
+        ],
+        "anchors": [
+          "fastapi.endpoint_integration_tests#practice",
+          "fastapi.endpoint_integration_tests#assessment:assert_endpoint_status_and_json_payload",
+          "fastapi.endpoint_integration_tests#assessment:include_application_lifespan_in_test_boundary"
+        ]
+      },
+      "lede": "Complete the supplied workspace within its stated contract.",
+      "interaction": {
+        "type": "code_exercise",
+        "interaction_id": "ix.tile_045.s11",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "fastapi.endpoint_integration_tests",
+            "fact_ids": [
+              "f1"
+            ],
+            "capability": "assert_endpoint_status_and_json_payload"
+          },
+          {
+            "concept_id": "fastapi.endpoint_integration_tests",
+            "fact_ids": [
+              "f2"
+            ],
+            "capability": "include_application_lifespan_in_test_boundary"
+          }
+        ],
+        "anchors": [
+          "fastapi.endpoint_integration_tests#practice",
+          "fastapi.endpoint_integration_tests#assessment:assert_endpoint_status_and_json_payload",
+          "fastapi.endpoint_integration_tests#assessment:include_application_lifespan_in_test_boundary"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "You applied the declared boundary and preserved its required behavior."
+          },
+          "incorrect": {
+            "message": "Recheck the stated boundary and distinguish the separate obligations rather than assuming one implies the other."
+          },
+          "hints": [
+            "Compare each declaration with its input or lifecycle boundary.",
+            "Trace what happens on the alternative input or exit, not only the successful path."
+          ]
+        },
+        "public": {
+          "prompt": "Write def test_get_order() using with TestClient(app) as client. Send GET /orders/42; independently assert response.status_code == 200 and response.json() == {\"id\": 42, \"quantity\": 2}. Only on sys.platform == 'emscripten', the supplied WASM adapter preserves the TestClient API and traverses the real ASGI app without threads, including lifespan. The verification harness requires the HTTP request, checks setup/teardown, and verifies that incorrect status and incorrect JSON each cause an assertion failure independently. In a native environment, run pytest exercise.py for discovery verification; the native TestClient is not patched.",
+          "runtime": {
+            "kind": "python_asgi",
+            "version": "0.29.5"
+          },
+          "workspace": {
+            "entry": "exercise.py",
+            "files": [
+              {
+                "path": "exercise.py",
+                "role": "editable",
+                "language": "python",
+                "content": "from contextlib import asynccontextmanager\nfrom fastapi import FastAPI, Depends\nlifecycle_events = []\n\n# Supplied harness scaffolding (unchanged in the solution).\nif True:\n    async def lifespan(app):\n        lifecycle_events.append('setup')\n        try:\n            yield\n        finally:\n            lifecycle_events.append('teardown')\nlifespan = asynccontextmanager(lifespan)\napp = FastAPI(lifespan=lifespan)\n# Supplied harness scaffolding (unchanged in the solution).\nif True:\n    def order_dependency():\n        return {'id': 42, 'quantity': 2}\n# Supplied harness scaffolding (unchanged in the solution).\nif True:\n    @app.get('/orders/42')\n    def get_order(order=Depends(order_dependency)):\n        return order\nimport asyncio, inspect, json, ast\nimport httpx\nfrom contextlib import contextmanager\n\n# Supplied harness scaffolding (unchanged in the solution).\nif True:\n    def _drive(coro):\n        try:\n            pending = coro.send(None)\n        except StopIteration as done:\n            return done.value\n        raise RuntimeError('Harness encountered a suspending operation: ' + repr(pending))\n\n# Supplied harness scaffolding (unchanged in the solution).\nif True:\n    async def _requests(application, requests):\n        async with application.router.lifespan_context(application):\n            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=application, raise_app_exceptions=False), base_url='http://testserver') as client:\n                out=[]\n                for method,path,kwargs in requests:\n                    response=await client.request(method,path,**kwargs)\n                    try: body=response.json()\n                    except ValueError: body=response.text\n                    out.append({'status':response.status_code,'body':body})\n                return out\nfrom fastapi.testclient import TestClient\n# Supplied harness scaffolding (unchanged in the solution).\nif True:\n    class _InlineTransport(httpx.BaseTransport):\n        def __init__(self,application):self.application=application\n        def handle_request(self,request):\n            response=_drive(self._handle(request))\n            return httpx.Response(response.status_code,headers=response.headers,content=response.content,request=request)\n        async def _handle(self,request):\n            transport=httpx.ASGITransport(app=self.application)\n            async with httpx.AsyncClient(transport=transport) as c:\n                return await c.send(request)\n# Supplied harness scaffolding (unchanged in the solution).\nif True:\n    def _client_init(self,application,**kwargs):\n        self.app=application\n        httpx.Client.__init__(self,transport=_InlineTransport(application),base_url='http://testserver',follow_redirects=True)\n# Supplied harness scaffolding (unchanged in the solution).\nif True:\n    def _client_enter(self):\n        self._lifespan=self.app.router.lifespan_context(self.app)\n        _drive(self._lifespan.__aenter__())\n        return self\n# Supplied harness scaffolding (unchanged in the solution).\nif True:\n    def _client_exit(self,*exc):\n        _drive(self._lifespan.__aexit__(*exc));self.close()\nimport sys\nif sys.platform == 'emscripten':\n    TestClient.__init__=_client_init\n    TestClient.__enter__=_client_enter\n    TestClient.__exit__=_client_exit\nfrom fastapi.testclient import TestClient\n# TODO: write test_get_order with a TestClient context manager,\n# GET /orders/42, and independent status and JSON assertions.\n# Supplied harness scaffolding (unchanged in the solution).\nif True:\n    def _case(repetitions):\n        lifecycle_events.clear()\n        source=inspect.getsource(test_get_order)\n        tree=ast.parse(source)\n        assert sum(isinstance(n,ast.Assert) for n in ast.walk(tree))>=2\n        assert any(isinstance(n,ast.With) for n in ast.walk(tree))\n        original_request = TestClient.request\n        calls = []\n        mutation = None\n        def checked_request(client, method, url, **kwargs):\n            response = original_request(client, method, url, **kwargs)\n            calls.append((client.app is app, method.upper(), response.request.url.path))\n            if mutation == 'status':\n                return httpx.Response(response.status_code + 1, json=response.json(), request=response.request)\n            if mutation == 'json':\n                body = response.json()\n                key = next(iter(body))\n                body[key] = body[key] + 1\n                return httpx.Response(response.status_code, json=body, request=response.request)\n            return response\n        TestClient.request = checked_request\n        try:\n            for _ in range(repetitions):\n                calls.clear()\n                test_get_order()\n                assert calls == [(True, 'GET', '/orders/42')]\n            assert lifecycle_events == ['setup','teardown'] * repetitions\n            passed_events = list(lifecycle_events)\n            for mutation in ('status', 'json'):\n                calls.clear()\n                lifecycle_events.clear()\n                failed = False\n                try:\n                    test_get_order()\n                except AssertionError:\n                    failed = True\n                assert calls == [(True, 'GET', '/orders/42')]\n                assert failed, 'The test must reject an independently incorrect ' + mutation\n                assert lifecycle_events == ['setup', 'teardown']\n            return {'test_name':test_get_order.__name__,'runs':repetitions,'lifespan_events':passed_events}\n        finally:\n            TestClient.request = original_request\nimport inspect\nfrom fastapi import FastAPI, Body\nverification_app=FastAPI()\n\n# Supplied harness scaffolding (unchanged in the solution).\nif True:\n    async def verify_case(payload: dict=Body(...)):\n        result=_case(payload['case'])\n        if inspect.isawaitable(result):return await result\n        return result\nverify_case = verification_app.post('/_verify')(verify_case)\n"
+              }
+            ],
+            "asset_mounts": []
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "from fastapi.testclient import TestClient",
+              "def test_get_order():",
+              "with TestClient(app) as client:",
+              "response = client.get(\"/orders/42\")",
+              "assert response.status_code == 200",
+              "assert response.json() == {\"id\": 42, \"quantity\": 2}"
+            ],
+            "blocked_syntax": [
+              "app.dependency_overrides",
+              "request.headers",
+              "request.cookies",
+              "app.openapi()",
+              "@app.exception_handler",
+              "session.execute(...)",
+              "session.commit()",
+              "session.rollback()"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "exercise.py",
+              "content": "from contextlib import asynccontextmanager\nfrom fastapi import FastAPI, Depends\nlifecycle_events = []\n\n# Supplied harness scaffolding (unchanged in the solution).\nif True:\n    async def lifespan(app):\n        lifecycle_events.append('setup')\n        try:\n            yield\n        finally:\n            lifecycle_events.append('teardown')\nlifespan = asynccontextmanager(lifespan)\napp = FastAPI(lifespan=lifespan)\n# Supplied harness scaffolding (unchanged in the solution).\nif True:\n    def order_dependency():\n        return {'id': 42, 'quantity': 2}\n# Supplied harness scaffolding (unchanged in the solution).\nif True:\n    @app.get('/orders/42')\n    def get_order(order=Depends(order_dependency)):\n        return order\nimport asyncio, inspect, json, ast\nimport httpx\nfrom contextlib import contextmanager\n\n# Supplied harness scaffolding (unchanged in the solution).\nif True:\n    def _drive(coro):\n        try:\n            pending = coro.send(None)\n        except StopIteration as done:\n            return done.value\n        raise RuntimeError('Harness encountered a suspending operation: ' + repr(pending))\n\n# Supplied harness scaffolding (unchanged in the solution).\nif True:\n    async def _requests(application, requests):\n        async with application.router.lifespan_context(application):\n            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=application, raise_app_exceptions=False), base_url='http://testserver') as client:\n                out=[]\n                for method,path,kwargs in requests:\n                    response=await client.request(method,path,**kwargs)\n                    try: body=response.json()\n                    except ValueError: body=response.text\n                    out.append({'status':response.status_code,'body':body})\n                return out\nfrom fastapi.testclient import TestClient\n# Supplied harness scaffolding (unchanged in the solution).\nif True:\n    class _InlineTransport(httpx.BaseTransport):\n        def __init__(self,application):self.application=application\n        def handle_request(self,request):\n            response=_drive(self._handle(request))\n            return httpx.Response(response.status_code,headers=response.headers,content=response.content,request=request)\n        async def _handle(self,request):\n            transport=httpx.ASGITransport(app=self.application)\n            async with httpx.AsyncClient(transport=transport) as c:\n                return await c.send(request)\n# Supplied harness scaffolding (unchanged in the solution).\nif True:\n    def _client_init(self,application,**kwargs):\n        self.app=application\n        httpx.Client.__init__(self,transport=_InlineTransport(application),base_url='http://testserver',follow_redirects=True)\n# Supplied harness scaffolding (unchanged in the solution).\nif True:\n    def _client_enter(self):\n        self._lifespan=self.app.router.lifespan_context(self.app)\n        _drive(self._lifespan.__aenter__())\n        return self\n# Supplied harness scaffolding (unchanged in the solution).\nif True:\n    def _client_exit(self,*exc):\n        _drive(self._lifespan.__aexit__(*exc));self.close()\nimport sys\nif sys.platform == 'emscripten':\n    TestClient.__init__=_client_init\n    TestClient.__enter__=_client_enter\n    TestClient.__exit__=_client_exit\nfrom fastapi.testclient import TestClient\n# TODO: write test_get_order with a TestClient context manager,\n# GET /orders/42, and independent status and JSON assertions.\ndef test_get_order():\n    with TestClient(app) as client:\n        response = client.get(\"/orders/42\")\n        assert response.status_code == 200\n        assert response.json() == {\"id\": 42, \"quantity\": 2}\n# Supplied harness scaffolding (unchanged in the solution).\nif True:\n    def _case(repetitions):\n        lifecycle_events.clear()\n        source=inspect.getsource(test_get_order)\n        tree=ast.parse(source)\n        assert sum(isinstance(n,ast.Assert) for n in ast.walk(tree))>=2\n        assert any(isinstance(n,ast.With) for n in ast.walk(tree))\n        original_request = TestClient.request\n        calls = []\n        mutation = None\n        def checked_request(client, method, url, **kwargs):\n            response = original_request(client, method, url, **kwargs)\n            calls.append((client.app is app, method.upper(), response.request.url.path))\n            if mutation == 'status':\n                return httpx.Response(response.status_code + 1, json=response.json(), request=response.request)\n            if mutation == 'json':\n                body = response.json()\n                key = next(iter(body))\n                body[key] = body[key] + 1\n                return httpx.Response(response.status_code, json=body, request=response.request)\n            return response\n        TestClient.request = checked_request\n        try:\n            for _ in range(repetitions):\n                calls.clear()\n                test_get_order()\n                assert calls == [(True, 'GET', '/orders/42')]\n            assert lifecycle_events == ['setup','teardown'] * repetitions\n            passed_events = list(lifecycle_events)\n            for mutation in ('status', 'json'):\n                calls.clear()\n                lifecycle_events.clear()\n                failed = False\n                try:\n                    test_get_order()\n                except AssertionError:\n                    failed = True\n                assert calls == [(True, 'GET', '/orders/42')]\n                assert failed, 'The test must reject an independently incorrect ' + mutation\n                assert lifecycle_events == ['setup', 'teardown']\n            return {'test_name':test_get_order.__name__,'runs':repetitions,'lifespan_events':passed_events}\n        finally:\n            TestClient.request = original_request\nimport inspect\nfrom fastapi import FastAPI, Body\nverification_app=FastAPI()\n\n# Supplied harness scaffolding (unchanged in the solution).\nif True:\n    async def verify_case(payload: dict=Body(...)):\n        result=_case(payload['case'])\n        if inspect.isawaitable(result):return await result\n        return result\nverify_case = verification_app.post('/_verify')(verify_case)\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "test_1",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/_verify",
+                    "json": {
+                      "case": 1
+                    }
+                  }
+                ],
+                "app": "verification_app",
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "test_name": "test_get_order",
+                    "runs": 1,
+                    "lifespan_events": [
+                      "setup",
+                      "teardown"
+                    ]
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+            },
+            {
+              "test_id": "test_2",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/_verify",
+                    "json": {
+                      "case": 2
+                    }
+                  }
+                ],
+                "app": "verification_app",
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "test_name": "test_get_order",
+                    "runs": 2,
+                    "lifespan_events": [
+                      "setup",
+                      "teardown",
+                      "setup",
+                      "teardown"
+                    ]
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "pyodide",
+            "runtime_version": "0.29.5",
+            "solution_sha256": "01cb24dbf43bfb1cf0f40c4650034bcf7bef305de05b665c7c02865364c60b88",
+            "tests_passed": 2
+          },
+          "hidden_checks": []
+        }
+      }
+    },
+    {
+      "step_id": "tile_045.s12",
+      "type": "recap",
+      "concept_ids": [
+        "fastapi.dependency_lifetime",
+        "fastapi.endpoint_integration_tests"
+      ],
+      "title": "Keep these distinctions",
+      "eyebrow": "Recap",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.dependency_lifetime",
+          "fastapi.endpoint_integration_tests"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Verify request-local reuse, check a fresh request independently, and request fresh execution with use_cache=False when needed.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.dependency_lifetime"
+            ],
+            "teaching_block_ids": [
+              "fastapi.dependency_lifetime#tb1",
+              "fastapi.dependency_lifetime#tb2",
+              "fastapi.dependency_lifetime#tb3",
+              "fastapi.dependency_lifetime#tb4",
+              "fastapi.dependency_lifetime#tb5"
+            ],
+            "fact_ids": [
+              "fastapi.dependency_lifetime#f1",
+              "fastapi.dependency_lifetime#f2",
+              "fastapi.dependency_lifetime#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Use a pytest test_ function to request the HTTP endpoint and assert status plus JSON; include lifespan through the TestClient context when needed.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.endpoint_integration_tests"
+            ],
+            "teaching_block_ids": [
+              "fastapi.endpoint_integration_tests#tb1",
+              "fastapi.endpoint_integration_tests#tb2",
+              "fastapi.endpoint_integration_tests#tb3",
+              "fastapi.endpoint_integration_tests#tb4",
+              "fastapi.endpoint_integration_tests#tb5",
+              "fastapi.endpoint_integration_tests#tb6"
+            ],
+            "fact_ids": [
+              "fastapi.endpoint_integration_tests#f1",
+              "fastapi.endpoint_integration_tests#f2",
+              "fastapi.endpoint_integration_tests#f3"
+            ]
+          }
+        },
+        {
+          "type": "up_next",
+          "title": "Next: tile_047 — Required, optional and default input semantics",
+          "text": "Start with Required, optional and default input semantics."
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "tile_045.r01",
+      "type": "remediation",
+      "concept_ids": [
+        "fastapi.dependency_lifetime"
+      ],
+      "title": "Try the contrast: Request-scoped dependency reuse and lifetime",
+      "eyebrow": "Review",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Use Depends(provider, use_cache=False) on a declaration that needs fresh execution instead of the cached result.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.dependency_lifetime"
+            ],
+            "teaching_block_ids": [
+              "fastapi.dependency_lifetime#tb3",
+              "fastapi.dependency_lifetime#tb4"
+            ],
+            "fact_ids": [
+              "fastapi.dependency_lifetime#f2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For a dependant needing a fresh provider execution, use_cache=False differs from relying on the normally cached result.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.dependency_lifetime"
+            ],
+            "teaching_block_ids": [
+              "fastapi.dependency_lifetime#tb3",
+              "fastapi.dependency_lifetime#tb4"
+            ],
+            "fact_ids": [
+              "fastapi.dependency_lifetime#f2"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "fastapi.dependency_lifetime"
+        ],
+        "teaching_block_ids": [
+          "fastapi.dependency_lifetime#tb3",
+          "fastapi.dependency_lifetime#tb4"
+        ],
+        "fact_ids": [
+          "fastapi.dependency_lifetime#f2"
+        ]
+      }
+    },
+    {
+      "step_id": "tile_045.r02",
+      "type": "remediation",
+      "concept_ids": [
+        "fastapi.dependency_lifetime"
+      ],
+      "title": "Try the contrast: Request-scoped dependency reuse and lifetime",
+      "eyebrow": "Review",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Check that two dependants receive the same provider result in one request, then examine a fresh request independently. This cache is request-local, not application-wide storage.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.dependency_lifetime"
+            ],
+            "teaching_block_ids": [
+              "fastapi.dependency_lifetime#tb3",
+              "fastapi.dependency_lifetime#tb4",
+              "fastapi.dependency_lifetime#tb5"
+            ],
+            "fact_ids": [
+              "fastapi.dependency_lifetime#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "The order provider can reuse a result inside request A without making that result application-wide storage for request B.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.dependency_lifetime"
+            ],
+            "teaching_block_ids": [
+              "fastapi.dependency_lifetime#tb3",
+              "fastapi.dependency_lifetime#tb4",
+              "fastapi.dependency_lifetime#tb5"
+            ],
+            "fact_ids": [
+              "fastapi.dependency_lifetime#f3"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "fastapi.dependency_lifetime"
+        ],
+        "teaching_block_ids": [
+          "fastapi.dependency_lifetime#tb3",
+          "fastapi.dependency_lifetime#tb4",
+          "fastapi.dependency_lifetime#tb5"
+        ],
+        "fact_ids": [
+          "fastapi.dependency_lifetime#f3"
+        ]
+      }
+    },
+    {
+      "step_id": "tile_045.r03",
+      "type": "remediation",
+      "concept_ids": [
+        "fastapi.dependency_lifetime"
+      ],
+      "title": "Try the contrast: Request-scoped dependency reuse and lifetime",
+      "eyebrow": "Review",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "FastAPI normally caches a dependency result within a request when several dependants declare the same dependency.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.dependency_lifetime"
+            ],
+            "teaching_block_ids": [
+              "fastapi.dependency_lifetime#tb2",
+              "fastapi.dependency_lifetime#tb4",
+              "fastapi.dependency_lifetime#tb5"
+            ],
+            "fact_ids": [
+              "fastapi.dependency_lifetime#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Within one order request, multiple dependants declaring the same provider normally reuse its returned value rather than requiring repeated execution.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.dependency_lifetime"
+            ],
+            "teaching_block_ids": [
+              "fastapi.dependency_lifetime#tb2",
+              "fastapi.dependency_lifetime#tb4",
+              "fastapi.dependency_lifetime#tb5"
+            ],
+            "fact_ids": [
+              "fastapi.dependency_lifetime#f1"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "fastapi.dependency_lifetime"
+        ],
+        "teaching_block_ids": [
+          "fastapi.dependency_lifetime#tb2",
+          "fastapi.dependency_lifetime#tb4",
+          "fastapi.dependency_lifetime#tb5"
+        ],
+        "fact_ids": [
+          "fastapi.dependency_lifetime#f1"
+        ]
+      }
+    },
+    {
+      "step_id": "tile_045.r04",
+      "type": "remediation",
+      "concept_ids": [
+        "fastapi.endpoint_integration_tests"
+      ],
+      "title": "Try the contrast: Endpoint integration tests using TestClient or async HTTPX as appropriate",
+      "eyebrow": "Review",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "A TestClient request exercises route and dependency resolution through the application. Calling the handler directly does not exercise that HTTP boundary.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.endpoint_integration_tests"
+            ],
+            "teaching_block_ids": [
+              "fastapi.endpoint_integration_tests#tb3",
+              "fastapi.endpoint_integration_tests#tb4",
+              "fastapi.endpoint_integration_tests#tb5",
+              "fastapi.endpoint_integration_tests#tb6"
+            ],
+            "fact_ids": [
+              "fastapi.endpoint_integration_tests#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For order retrieval, an HTTP request through TestClient differs from a direct call to get_order.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.endpoint_integration_tests"
+            ],
+            "teaching_block_ids": [
+              "fastapi.endpoint_integration_tests#tb3",
+              "fastapi.endpoint_integration_tests#tb4",
+              "fastapi.endpoint_integration_tests#tb5",
+              "fastapi.endpoint_integration_tests#tb6"
+            ],
+            "fact_ids": [
+              "fastapi.endpoint_integration_tests#f3"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "fastapi.endpoint_integration_tests"
+        ],
+        "teaching_block_ids": [
+          "fastapi.endpoint_integration_tests#tb3",
+          "fastapi.endpoint_integration_tests#tb4",
+          "fastapi.endpoint_integration_tests#tb5",
+          "fastapi.endpoint_integration_tests#tb6"
+        ],
+        "fact_ids": [
+          "fastapi.endpoint_integration_tests#f3"
+        ]
+      }
+    },
+    {
+      "step_id": "tile_045.r05",
+      "type": "remediation",
+      "concept_ids": [
+        "fastapi.endpoint_integration_tests"
+      ],
+      "title": "Try the contrast: Endpoint integration tests using TestClient or async HTTPX as appropriate",
+      "eyebrow": "Review",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Create TestClient(app), send a request such as client.get(...), and assert both response.status_code and response.json() in a pytest test_ function.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.endpoint_integration_tests"
+            ],
+            "teaching_block_ids": [
+              "fastapi.endpoint_integration_tests#tb2",
+              "fastapi.endpoint_integration_tests#tb4",
+              "fastapi.endpoint_integration_tests#tb5"
+            ],
+            "fact_ids": [
+              "fastapi.endpoint_integration_tests#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "When setup and teardown matter, use with TestClient(app) as client to execute application lifespan.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.endpoint_integration_tests"
+            ],
+            "teaching_block_ids": [
+              "fastapi.endpoint_integration_tests#tb3",
+              "fastapi.endpoint_integration_tests#tb4",
+              "fastapi.endpoint_integration_tests#tb5",
+              "fastapi.endpoint_integration_tests#tb6"
+            ],
+            "fact_ids": [
+              "fastapi.endpoint_integration_tests#f2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For the supplied order test, an HTTP status assertion does not substitute for the JSON assertion; use the TestClient context when lifespan must run.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.endpoint_integration_tests"
+            ],
+            "teaching_block_ids": [
+              "fastapi.endpoint_integration_tests#tb2",
+              "fastapi.endpoint_integration_tests#tb3",
+              "fastapi.endpoint_integration_tests#tb4",
+              "fastapi.endpoint_integration_tests#tb5",
+              "fastapi.endpoint_integration_tests#tb6"
+            ],
+            "fact_ids": [
+              "fastapi.endpoint_integration_tests#f1",
+              "fastapi.endpoint_integration_tests#f2"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "fastapi.endpoint_integration_tests"
+        ],
+        "teaching_block_ids": [
+          "fastapi.endpoint_integration_tests#tb2",
+          "fastapi.endpoint_integration_tests#tb3",
+          "fastapi.endpoint_integration_tests#tb4",
+          "fastapi.endpoint_integration_tests#tb5",
+          "fastapi.endpoint_integration_tests#tb6"
+        ],
+        "fact_ids": [
+          "fastapi.endpoint_integration_tests#f1",
+          "fastapi.endpoint_integration_tests#f2"
+        ]
+      }
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "tile_047"
+  },
+  "content_hash": "3ec96b61ba996a8171b5eb9943334413879a255bfb3688e3dc3acc16466dc1df"
+}

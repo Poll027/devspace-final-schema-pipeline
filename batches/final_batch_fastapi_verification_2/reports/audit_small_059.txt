@@ -1,0 +1,756 @@
+{
+  "step_id": "tile_059.s01",
+  "type": "explainer",
+  "concept_ids": [
+    "pydantic.partial_update_contracts"
+  ],
+  "title": "Preserve supplied-field intent",
+  "blocks": [
+    {
+      "type": "prose",
+      "text": "A partial update separates presence from value. Pydantic records explicitly supplied fields in model_fields_set; model_dump(exclude_unset=True) excludes fields that were not supplied.",
+      "role": "mechanism"
+    },
+    {
+      "type": "prose",
+      "text": "Extract update = model.model_dump(exclude_unset=True) so omitted fields do not introduce defaults that overwrite stored values. Inspect the extracted data before changing storage. A quantity-only input leaves note out of the update rather than treating its default as a supplied value.",
+      "role": "mechanism"
+    },
+    {
+      "type": "prose",
+      "text": "An explicitly supplied note=None remains supplied with exclude_unset=True. A supplied string keeps its value. Adding exclude_none=True separately removes None-valued fields and can erase an intentional null update. A final model value alone cannot distinguish omission from explicit supply.",
+      "role": "mechanism"
+    },
+    {
+      "type": "side_by_side",
+      "left": {
+        "type": "code_walkthrough",
+        "language": "python",
+        "code": "from pydantic import BaseModel\n\nclass OrderUpdate(BaseModel):\n    note: str | None = None\n    quantity: int | None = None\n\nquantity_only = OrderUpdate(quantity=2)\nexplicit_null = OrderUpdate(note=None)\nconcrete_note = OrderUpdate(note='Leave at reception')\n",
+        "reveal": "all"
+      },
+      "right": {
+        "type": "code_walkthrough",
+        "language": "python",
+        "code": "from main import quantity_only, explicit_null, concrete_note\n\ndef evidence():\n    for name, model in [(\"note omitted\", quantity_only),\n                        (\"explicit null note\", explicit_null),\n                        (\"concrete note\", concrete_note)]:\n        yield {\"case\": name, \"model_fields_set\": sorted(model.model_fields_set),\n               \"exclude_unset\": model.model_dump(exclude_unset=True),\n               \"exclude_unset_and_none\": model.model_dump(exclude_unset=True, exclude_none=True)}\n",
+        "reveal": "all"
+      },
+      "left_label": "Three supplied-field cases",
+      "right_label": "Compare extraction options",
+      "takeaway": "Inspect supplied fields and execute the extraction; exclude_none removes null separately from omission."
+    }
+  ]
+}
+{
+  "step_id": "tile_059.s02",
+  "type": "explainer",
+  "concept_ids": [
+    "pydantic.partial_update_contracts"
+  ],
+  "title": "Omission and null are different updates",
+  "blocks": [
+    {
+      "type": "prose",
+      "text": "Compare the registered cases: quantity-only input, explicit note=None, and note='Leave at reception'. model_fields_set reveals what was supplied; model_dump(exclude_unset=True) extracts those fields without omitted defaults. This preserves the difference between leaving note unchanged and supplying a replacement value.",
+      "role": "mechanism"
+    },
+    {
+      "type": "prose",
+      "text": "exclude_unset asks whether a field was supplied. exclude_none asks whether its value is None. They are not interchangeable cleanup flags: adding exclude_none can remove the explicit null that the update contract intended to preserve.",
+      "role": "mechanism"
+    }
+  ]
+}
+{
+  "step_id": "tile_059.s03",
+  "type": "video",
+  "concept_ids": [
+    "pydantic.partial_update_contracts"
+  ],
+  "title": "Trace supplied-field extraction",
+  "blocks": [
+    {
+      "type": "media_group",
+      "segment_ids": [
+        "seg_pydantic.partial_update_contracts_VyoGAoxQhxM_710_799"
+      ],
+      "segments": [
+        {
+          "segment_id": "seg_pydantic.partial_update_contracts_VyoGAoxQhxM_710_799",
+          "video_id": "VyoGAoxQhxM",
+          "youtube_url": "https://www.youtube.com/watch?v=VyoGAoxQhxM",
+          "review_url": "https://www.youtube.com/watch?v=VyoGAoxQhxM&t=710s",
+          "start_seconds": 710,
+          "end_seconds": 799,
+          "label": "Extract supplied fields without including omitted defaults",
+          "summary": "A partial update should contain only fields the caller supplied. Calling post_data.model_dump(exclude_unset=True) extracts those fields from the request-body model. For example, when a caller supplies only a new title, an omitted content field must not enter the update through its default None value. Without exclude_unset=True, that default could overwrite existing content; with it, the extracted update contains only the supplied title.",
+          "fact_ids": [
+            "f2"
+          ],
+          "transcript_ref": "VyoGAoxQhxM:710-799"
+        }
+      ],
+      "group_title": "Preserve supplied-field intent in partial updates",
+      "bridge": {
+        "before": "Watch how exclude_unset=True keeps an omitted default out of the extracted update. The clip uses title and content; our worked example uses quantity and note.",
+        "after": "The clip explains supplied-only extraction. The text additionally teaches model_fields_set and distinguishes explicit None from omission, including why exclude_none=True can erase an intentional null update."
+      },
+      "default_mode": "video"
+    }
+  ]
+}
+{
+  "step_id": "tile_059.s04",
+  "type": "check",
+  "concept_ids": [
+    "pydantic.partial_update_contracts"
+  ],
+  "title": "Separate omitted and supplied fields",
+  "interaction": {
+    "type": "choice",
+    "interaction_id": "ix.tile_059.s04",
+    "difficulty": "intro",
+    "grading_mode": "client",
+    "standalone": true,
+    "measures": [
+      {
+        "concept_id": "pydantic.partial_update_contracts",
+        "fact_ids": [
+          "f1",
+          "f2"
+        ],
+        "capability": "distinguish_omitted_fields_from_supplied_fields"
+      }
+    ],
+    "anchors": [
+      "pydantic.partial_update_contracts#assessment:distinguish_omitted_fields_from_supplied_fields"
+    ],
+    "feedback": {
+      "correct": {
+        "message": "Supplied-field extraction preserves explicitly provided fields rather than all defaults."
+      },
+      "incorrect": {
+        "message": "Revisit the stated boundary and compare it with the supplied case."
+      },
+      "hints": [
+        "Track whether the field was supplied separately from whether its value is None."
+      ],
+      "remediation_step_id": "tile_059.r01"
+    },
+    "public": {
+      "prompt": "OrderUpdate gives note and quantity defaults of None. For OrderUpdate(quantity=2), which supplied-field extraction rule applies?",
+      "options": [
+        {
+          "option_id": "o1",
+          "text": "exclude_unset=True retains the supplied quantity and omits the unsupplied note."
+        },
+        {
+          "option_id": "o2",
+          "text": "exclude_unset=True adds note=None because it has a default."
+        },
+        {
+          "option_id": "o3",
+          "text": "exclude_unset=True removes quantity because note was omitted."
+        }
+      ],
+      "selection": "single",
+      "shuffle": true
+    },
+    "grading": {
+      "correct_option_ids": [
+        "o1"
+      ],
+      "option_feedback": {
+        "o1": {
+          "message": "Supplied-field extraction preserves explicitly provided fields rather than all defaults."
+        },
+        "o2": {
+          "message": "The unsupplied default note is excluded by exclude_unset."
+        },
+        "o3": {
+          "message": "Omitting one field does not remove a different explicitly supplied field."
+        }
+      }
+    }
+  }
+}
+{
+  "step_id": "tile_059.s05",
+  "type": "hands_on",
+  "concept_ids": [
+    "pydantic.partial_update_contracts"
+  ],
+  "title": "Extract updates without losing null intent",
+  "interaction": {
+    "type": "code_exercise",
+    "interaction_id": "ix.tile_059.s05",
+    "difficulty": "core",
+    "grading_mode": "client",
+    "standalone": true,
+    "measures": [
+      {
+        "concept_id": "pydantic.partial_update_contracts",
+        "fact_ids": [
+          "f1",
+          "f3"
+        ],
+        "capability": "distinguish_explicit_null_from_omission"
+      },
+      {
+        "concept_id": "pydantic.partial_update_contracts",
+        "fact_ids": [
+          "f3"
+        ],
+        "capability": "differentiate_exclude_unset_and_exclude_none"
+      }
+    ],
+    "anchors": [
+      "pydantic.partial_update_contracts#practice",
+      "pydantic.partial_update_contracts#assessment:distinguish_explicit_null_from_omission",
+      "pydantic.partial_update_contracts#assessment:differentiate_exclude_unset_and_exclude_none"
+    ],
+    "feedback": {
+      "correct": {
+        "message": "The completed verification matches the supplied cases and preserves the contract."
+      },
+      "incorrect": {
+        "message": "Revisit the stated boundary and compare it with the supplied case."
+      },
+      "hints": [
+        "Track whether the field was supplied separately from whether its value is None."
+      ],
+      "remediation_step_id": "tile_059.r02"
+    },
+    "public": {
+      "prompt": "Inside the scaffold update_probe, assign quantity_update, null_update and note_update using model_dump(exclude_unset=True) on the corresponding supplied models. Assign quantity_fields, null_fields and note_fields from model_fields_set. Assign null_without_none by additionally using exclude_none=True on explicit_null. Preserve the returned diagnostic structure. This must distinguish omission, explicit null and a supplied string without storage operations.",
+      "runtime": {
+        "kind": "python_asgi",
+        "version": "0.29.5",
+        "packages": []
+      },
+      "workspace": {
+        "entry": "main.py",
+        "files": [
+          {
+            "path": "main.py",
+            "role": "editable",
+            "language": "python",
+            "content": "from pydantic import BaseModel\n\nclass OrderUpdate(BaseModel):\n    note: str | None = None\n    quantity: int | None = None\n\n\ndef update_probe(value):\n    # Scaffold inputs; edit only the TODO extraction assignments.\n    quantity_only = OrderUpdate(quantity=2)\n    explicit_null = OrderUpdate(note=None)\n    concrete_note = OrderUpdate(note=value)\n    # TODO: extract three updates, three field sets and the null-with-exclude_none contrast.\n    return {\"quantity\": quantity_update, \"null\": null_update, \"note\": note_update, \"fields\": [quantity_fields, null_fields, note_fields], \"null_without_none\": null_without_none}\n"
+          }
+        ],
+        "asset_mounts": []
+      }
+    },
+    "grading": {
+      "solution_files": [
+        {
+          "path": "main.py",
+          "content": "from pydantic import BaseModel\n\nclass OrderUpdate(BaseModel):\n    note: str | None = None\n    quantity: int | None = None\n\n\ndef update_probe(value):\n    # Scaffold inputs; edit only the TODO extraction assignments.\n    quantity_only = OrderUpdate(quantity=2)\n    explicit_null = OrderUpdate(note=None)\n    concrete_note = OrderUpdate(note=value)\n    quantity_update = quantity_only.model_dump(exclude_unset=True)\n    null_update = explicit_null.model_dump(exclude_unset=True)\n    note_update = concrete_note.model_dump(exclude_unset=True)\n    quantity_fields = quantity_only.model_fields_set\n    null_fields = explicit_null.model_fields_set\n    note_fields = concrete_note.model_fields_set\n    null_without_none = explicit_null.model_dump(exclude_unset=True, exclude_none=True)\n    return {\"quantity\": quantity_update, \"null\": null_update, \"note\": note_update, \"fields\": [quantity_fields, null_fields, note_fields], \"null_without_none\": null_without_none}\n"
+        }
+      ],
+      "tests": [
+        {
+          "test_id": "t1",
+          "kind": "function_call",
+          "spec": {
+            "function": "update_probe",
+            "args": [
+              "Leave at reception"
+            ],
+            "expected": {
+              "quantity": {
+                "quantity": 2
+              },
+              "null": {
+                "note": null
+              },
+              "note": {
+                "note": "Leave at reception"
+              },
+              "fields": [
+                [
+                  "quantity"
+                ],
+                [
+                  "note"
+                ],
+                [
+                  "note"
+                ]
+              ],
+              "null_without_none": {}
+            }
+          },
+          "message_on_fail": "Compare this case with the supplied contract and complete the verification without changing fixture behavior."
+        },
+        {
+          "test_id": "t2",
+          "kind": "function_call",
+          "spec": {
+            "function": "update_probe",
+            "args": [
+              "Synthetic alternate note"
+            ],
+            "expected": {
+              "quantity": {
+                "quantity": 2
+              },
+              "null": {
+                "note": null
+              },
+              "note": {
+                "note": "Synthetic alternate note"
+              },
+              "fields": [
+                [
+                  "quantity"
+                ],
+                [
+                  "note"
+                ],
+                [
+                  "note"
+                ]
+              ],
+              "null_without_none": {}
+            }
+          },
+          "message_on_fail": "Compare this case with the supplied contract and complete the verification without changing fixture behavior."
+        }
+      ]
+    }
+  }
+}
+{
+  "step_id": "tile_059.s06",
+  "type": "explainer",
+  "concept_ids": [
+    "rest.compatible_contract_changes"
+  ],
+  "title": "Review the previous contract too",
+  "blocks": [
+    {
+      "type": "prose",
+      "text": "Compatibility review compares old client expectations, not just matching type names. Changing an omittable note field into a required field rejects previously accepted requests that omit it. Compare requiredness as well as types.",
+      "role": "mechanism"
+    },
+    {
+      "type": "prose",
+      "text": "Tightening a type or field constraint can reject previously valid input. Test representative old inputs against the revised model. The registered comparison keeps an old quantity sample alongside the previous and tightened constraints, so both validations can be inspected.",
+      "role": "mechanism"
+    },
+    {
+      "type": "prose",
+      "text": "Removing or changing a public response field or operation can change documented client expectations. Compare the generated paths and response schemas against the previous contract before approving the revision. Matching input type names alone says nothing about those public output changes.",
+      "role": "mechanism"
+    },
+    {
+      "type": "side_by_side",
+      "left": {
+        "type": "code_walkthrough",
+        "language": "python",
+        "code": "from pydantic import BaseModel, ValidationError\n\nclass PreviousOrderInput(BaseModel):\n    note: str | None = None\n\nclass RevisedOrderInput(BaseModel):\n    note: str | None\n\nomitted_note = {}\nsupplied_note = {\"note\": 'Leave at reception'}\n",
+        "reveal": "all"
+      },
+      "right": {
+        "type": "code_walkthrough",
+        "language": "python",
+        "code": "from fastapi import FastAPI\nfrom pydantic import BaseModel, Field, ValidationError\nfrom main import PreviousOrderInput, RevisedOrderInput, omitted_note, supplied_note\n\n# Independent synthetic comparisons; do not combine these changes with the practice task.\nclass PreviousQuantity(BaseModel):\n    quantity: int = Field(gt=0)\n\nclass TightenedQuantity(BaseModel):\n    quantity: int = Field(gt=2)\n\nclass PreviousResponse(BaseModel):\n    quantity: int\n    note: str | None = None\n\nclass RemovedNoteResponse(BaseModel):\n    quantity: int\n\ndef validation_evidence():\n    for old, new, payload in [(PreviousOrderInput, RevisedOrderInput, omitted_note),\n                              (PreviousOrderInput, RevisedOrderInput, supplied_note),\n                              (PreviousQuantity, TightenedQuantity, {\"quantity\": 2})]:\n        results = []\n        for model in (old, new):\n            try:\n                value = model.model_validate(payload)\n                results.append({\"model\": model.__name__, \"accepted\": True, \"value\": value.model_dump()})\n            except ValidationError as exc:\n                results.append({\"model\": model.__name__, \"accepted\": False, \"errors\": exc.errors()})\n        yield {\"input\": payload, \"results\": results}\n\ndef contract_app(response_model, include_operation=True):\n    app = FastAPI()\n    if include_operation:\n        @app.get(\"/orders/{order_id}\", response_model=response_model)\n        def retrieve_order(order_id: int):\n            return {\"quantity\": 2, \"note\": 'Leave at reception'}\n    return app\n\ndef schema_evidence():\n    for name, app in [(\"previous\", contract_app(PreviousResponse)),\n                      (\"response field removed\", contract_app(RemovedNoteResponse)),\n                      (\"operation removed\", contract_app(PreviousResponse, False))]:\n        schema = app.openapi()\n        yield {\"case\": name, \"paths\": schema[\"paths\"],\n               \"schemas\": schema.get(\"components\", {}).get(\"schemas\", {})}\n",
+        "reveal": "all"
+      },
+      "left_label": "Previous and revised requiredness",
+      "right_label": "Constraints and public contracts",
+      "takeaway": "Compare old inputs and generated public schemas, not just type names."
+    }
+  ]
+}
+{
+  "step_id": "tile_059.s07",
+  "type": "check",
+  "concept_ids": [
+    "rest.compatible_contract_changes"
+  ],
+  "title": "Review tightened input constraints",
+  "interaction": {
+    "type": "choice",
+    "interaction_id": "ix.tile_059.s07",
+    "difficulty": "core",
+    "grading_mode": "client",
+    "standalone": true,
+    "measures": [
+      {
+        "concept_id": "rest.compatible_contract_changes",
+        "fact_ids": [
+          "f2"
+        ],
+        "capability": "identify_input_rejection_from_tightened_types_or_constraints"
+      }
+    ],
+    "anchors": [
+      "rest.compatible_contract_changes#assessment:identify_input_rejection_from_tightened_types_or_constraints"
+    ],
+    "feedback": {
+      "correct": {
+        "message": "A tighter bound can invalidate previously accepted inputs."
+      },
+      "incorrect": {
+        "message": "Revisit the stated boundary and compare it with the supplied case."
+      },
+      "hints": [
+        "Check whether quantity=2 passed the previous bound but fails the revised bound"
+      ],
+      "remediation_step_id": "tile_059.r03"
+    },
+    "public": {
+      "prompt": "The previous quantity constraint is gt=0; a revision tightens it to gt=2. What should the compatibility review verify?",
+      "options": [
+        {
+          "option_id": "o1",
+          "text": "Test representative previously valid inputs against the revision; tightened constraints can reject them."
+        },
+        {
+          "option_id": "o2",
+          "text": "Matching the int type alone proves compatibility."
+        },
+        {
+          "option_id": "o3",
+          "text": "Only compare names; constraint changes cannot affect clients."
+        }
+      ],
+      "selection": "single",
+      "shuffle": true
+    },
+    "grading": {
+      "correct_option_ids": [
+        "o1"
+      ],
+      "option_feedback": {
+        "o1": {
+          "message": "A tighter bound can invalidate previously accepted inputs."
+        },
+        "o2": {
+          "message": "The constraint also controls acceptance, so a matching type is insufficient."
+        },
+        "o3": {
+          "message": "Tightening constraints can change which client inputs validate."
+        }
+      }
+    }
+  }
+}
+{
+  "step_id": "tile_059.s08",
+  "type": "check",
+  "concept_ids": [
+    "rest.compatible_contract_changes"
+  ],
+  "title": "Review public fields and operations",
+  "interaction": {
+    "type": "choice",
+    "interaction_id": "ix.tile_059.s08",
+    "difficulty": "core",
+    "grading_mode": "client",
+    "standalone": true,
+    "measures": [
+      {
+        "concept_id": "rest.compatible_contract_changes",
+        "fact_ids": [
+          "f3"
+        ],
+        "capability": "identify_breaking_public_response_or_operation_changes"
+      }
+    ],
+    "anchors": [
+      "rest.compatible_contract_changes#assessment:identify_breaking_public_response_or_operation_changes"
+    ],
+    "feedback": {
+      "correct": {
+        "message": "These comparisons expose removed or changed public fields and operations."
+      },
+      "incorrect": {
+        "message": "Revisit the stated boundary and compare it with the supplied case."
+      },
+      "hints": [
+        "Compare public operation paths and response fields, not only request declarations"
+      ],
+      "remediation_step_id": "tile_059.r04"
+    },
+    "public": {
+      "prompt": "A proposed revision removes a public response field or an operation. Which review checks the documented client expectations?",
+      "options": [
+        {
+          "option_id": "o1",
+          "text": "Compare generated paths and response schemas with the previous contract."
+        },
+        {
+          "option_id": "o2",
+          "text": "Compare request type names only."
+        },
+        {
+          "option_id": "o3",
+          "text": "Approve because request requiredness is unchanged."
+        }
+      ],
+      "selection": "single",
+      "shuffle": true
+    },
+    "grading": {
+      "correct_option_ids": [
+        "o1"
+      ],
+      "option_feedback": {
+        "o1": {
+          "message": "These comparisons expose removed or changed public fields and operations."
+        },
+        "o2": {
+          "message": "Request type names do not check public response fields or operation paths."
+        },
+        "o3": {
+          "message": "Unchanged request requiredness does not preserve changed public response or operation expectations."
+        }
+      }
+    }
+  }
+}
+{
+  "step_id": "tile_059.s09",
+  "type": "hands_on",
+  "concept_ids": [
+    "rest.compatible_contract_changes"
+  ],
+  "title": "Compare requiredness across revisions",
+  "interaction": {
+    "type": "code_exercise",
+    "interaction_id": "ix.tile_059.s09",
+    "difficulty": "stretch",
+    "grading_mode": "client",
+    "standalone": true,
+    "measures": [
+      {
+        "concept_id": "rest.compatible_contract_changes",
+        "fact_ids": [
+          "f1"
+        ],
+        "capability": "identify_breaking_requiredness_changes"
+      }
+    ],
+    "anchors": [
+      "rest.compatible_contract_changes#practice",
+      "rest.compatible_contract_changes#assessment:identify_breaking_requiredness_changes"
+    ],
+    "feedback": {
+      "correct": {
+        "message": "The completed verification matches the supplied cases and preserves the contract."
+      },
+      "incorrect": {
+        "message": "Revisit the stated boundary and compare it with the supplied case."
+      },
+      "hints": [
+        "Validate the omitted-note payload against both models; retain = None to preserve omission support"
+      ],
+      "remediation_step_id": "tile_059.r05"
+    },
+    "public": {
+      "prompt": "Compare the unchanged PreviousOrderInput and RevisedOrderInput with the supplied payload: assign previous_accepts and revised_accepts according to model_validate (catch ValidationError for the revision). Assign client_breaking=True to identify the loss of omission support. Restore = None in CompatibleOrderInput without changing its type, and assign repaired by validating payload with it. The tests use both an omitted note and a string note; preserve the scaffold diagnostic return structure.",
+      "runtime": {
+        "kind": "python_asgi",
+        "version": "0.29.5",
+        "packages": []
+      },
+      "workspace": {
+        "entry": "main.py",
+        "files": [
+          {
+            "path": "main.py",
+            "role": "editable",
+            "language": "python",
+            "content": "from pydantic import BaseModel, ValidationError\n\nclass PreviousOrderInput(BaseModel):\n    note: str | None = None\n\nclass RevisedOrderInput(BaseModel):\n    note: str | None\n\n\n# Previous/revised models above stay unchanged for the comparison.\nclass CompatibleOrderInput(BaseModel):\n    note: str | None\n\n# Scaffold input and return shape; fill only the TODO validation block/default.\ndef compatibility_probe(payload):\n    # TODO: establish previous/revised acceptance and validate the repaired model.\n    return {\"previous_accepts\": previous_accepts, \"revised_accepts\": revised_accepts, \"client_breaking\": client_breaking, \"repaired_note\": repaired.note}\n"
+          }
+        ],
+        "asset_mounts": []
+      }
+    },
+    "grading": {
+      "solution_files": [
+        {
+          "path": "main.py",
+          "content": "from pydantic import BaseModel, ValidationError\n\nclass PreviousOrderInput(BaseModel):\n    note: str | None = None\n\nclass RevisedOrderInput(BaseModel):\n    note: str | None\n\n\n# Previous/revised models above stay unchanged for the comparison.\nclass CompatibleOrderInput(BaseModel):\n    note: str | None = None\n\n# Scaffold input and return shape; fill only the TODO validation block/default.\ndef compatibility_probe(payload):\n    PreviousOrderInput.model_validate(payload)\n    previous_accepts = True\n    try:\n        RevisedOrderInput.model_validate(payload)\n        revised_accepts = True\n    except ValidationError:\n        revised_accepts = False\n    client_breaking = True\n    repaired = CompatibleOrderInput.model_validate(payload)\n    return {\"previous_accepts\": previous_accepts, \"revised_accepts\": revised_accepts, \"client_breaking\": client_breaking, \"repaired_note\": repaired.note}\n"
+        }
+      ],
+      "tests": [
+        {
+          "test_id": "t1",
+          "kind": "function_call",
+          "spec": {
+            "function": "compatibility_probe",
+            "args": [
+              {}
+            ],
+            "expected": {
+              "previous_accepts": true,
+              "revised_accepts": false,
+              "client_breaking": true,
+              "repaired_note": null
+            }
+          },
+          "message_on_fail": "Compare this case with the supplied contract and complete the verification without changing fixture behavior."
+        },
+        {
+          "test_id": "t2",
+          "kind": "function_call",
+          "spec": {
+            "function": "compatibility_probe",
+            "args": [
+              {
+                "note": "Leave at reception"
+              }
+            ],
+            "expected": {
+              "previous_accepts": true,
+              "revised_accepts": true,
+              "client_breaking": true,
+              "repaired_note": "Leave at reception"
+            }
+          },
+          "message_on_fail": "Compare this case with the supplied contract and complete the verification without changing fixture behavior."
+        }
+      ]
+    }
+  }
+}
+{
+  "step_id": "tile_059.s10",
+  "type": "recap",
+  "concept_ids": [
+    "pydantic.partial_update_contracts",
+    "rest.compatible_contract_changes"
+  ],
+  "title": "Keep these distinctions",
+  "blocks": [
+    {
+      "type": "prose",
+      "text": "model_fields_set tracks supply; exclude_unset extracts supplied fields without omitted defaults. Explicit None remains supplied; exclude_none can erase intentional null.",
+      "role": "takeaway"
+    },
+    {
+      "type": "prose",
+      "text": "Review requiredness, tightened types or constraints, public response fields and operations. Test previously valid inputs and compare generated paths and response schemas before approving changes.",
+      "role": "takeaway"
+    },
+    {
+      "type": "up_next",
+      "title": "Retrieve resource",
+      "text": "Next: Retrieve resource."
+    }
+  ]
+}
+{
+  "step_id": "tile_059.r01",
+  "type": "remediation",
+  "concept_ids": [
+    "pydantic.partial_update_contracts"
+  ],
+  "title": "Revisit: Separate omitted and supplied fields",
+  "blocks": [
+    {
+      "type": "prose",
+      "text": "Compare quantity-only input, note=None, and the registered string note. Omission is not explicit null; supplied-field extraction preserves that distinction.",
+      "role": "mental_model"
+    },
+    {
+      "type": "prose",
+      "text": "model_fields_set records explicitly supplied fields; model_dump(exclude_unset=True) leaves out fields that were not supplied.",
+      "role": "definition"
+    },
+    {
+      "type": "prose",
+      "text": "Extract update = model.model_dump(exclude_unset=True) so defaults for omitted fields do not overwrite stored values.",
+      "role": "definition"
+    }
+  ]
+}
+{
+  "step_id": "tile_059.r02",
+  "type": "remediation",
+  "concept_ids": [
+    "pydantic.partial_update_contracts"
+  ],
+  "title": "Revisit: Extract updates without losing null intent",
+  "blocks": [
+    {
+      "type": "prose",
+      "text": "Compare quantity-only input, note=None, and the registered string note. Omission is not explicit null; supplied-field extraction preserves that distinction.",
+      "role": "mental_model"
+    },
+    {
+      "type": "prose",
+      "text": "model_fields_set records explicitly supplied fields; model_dump(exclude_unset=True) leaves out fields that were not supplied.",
+      "role": "definition"
+    },
+    {
+      "type": "prose",
+      "text": "Explicit None remains supplied with exclude_unset=True. exclude_none=True separately removes None-valued fields and can erase an intentional null update.",
+      "role": "definition"
+    }
+  ]
+}
+{
+  "step_id": "tile_059.r03",
+  "type": "remediation",
+  "concept_ids": [
+    "rest.compatible_contract_changes"
+  ],
+  "title": "Revisit: Review tightened input constraints",
+  "blocks": [
+    {
+      "type": "prose",
+      "text": "Compare the same old order request against the previous and revised note declarations. Matching type names do not establish matching requiredness or the rest of the public contract.",
+      "role": "mental_model"
+    },
+    {
+      "type": "prose",
+      "text": "Tightening a type or constraint can reject previously valid input. Test representative old inputs against the revision.",
+      "role": "definition"
+    }
+  ]
+}
+{
+  "step_id": "tile_059.r04",
+  "type": "remediation",
+  "concept_ids": [
+    "rest.compatible_contract_changes"
+  ],
+  "title": "Revisit: Review public fields and operations",
+  "blocks": [
+    {
+      "type": "prose",
+      "text": "Compare the same old order request against the previous and revised note declarations. Matching type names do not establish matching requiredness or the rest of the public contract.",
+      "role": "mental_model"
+    },
+    {
+      "type": "prose",
+      "text": "Changing or removing a public response field or operation can change documented client expectations. Compare generated paths and response schemas with the previous contract.",
+      "role": "definition"
+    }
+  ]
+}
+{
+  "step_id": "tile_059.r05",
+  "type": "remediation",
+  "concept_ids": [
+    "rest.compatible_contract_changes"
+  ],
+  "title": "Revisit: Compare requiredness across revisions",
+  "blocks": [
+    {
+      "type": "prose",
+      "text": "Compare the same old order request against the previous and revised note declarations. Matching type names do not establish matching requiredness or the rest of the public contract.",
+      "role": "mental_model"
+    },
+    {
+      "type": "prose",
+      "text": "Making an omittable request field required rejects formerly accepted requests. Compare requiredness as well as types.",
+      "role": "definition"
+    }
+  ]
+}

@@ -1,0 +1,1112 @@
+{
+  "schema_version": "0.1.0",
+  "path_id": "python_fastapi_backend_developer",
+  "batch_id": "final_batch_foundations_2",
+  "kind": "interactions_part",
+  "tiles": [
+    {
+      "tile_id": "tile_018",
+      "interactions": [
+        {
+          "step_id": "tile_018.s05",
+          "interaction": {
+            "type": "choice",
+            "interaction_id": "ix.tile_018.s05",
+            "difficulty": "intro",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "fastapi_backend.application_lifespan",
+                "fact_ids": [
+                  "f1",
+                  "f3"
+                ],
+                "capability": "determine_application_lifetime_resource_ownership"
+              }
+            ],
+            "anchors": [
+              "fastapi_backend.application_lifespan#assessment:determine_application_lifetime_resource_ownership"
+            ],
+            "public": {
+              "prompt": "A client is intended to live for the entire application request-handling period. Several handlers borrow it. Which ownership plan meets the one-time startup goal?",
+              "options": [
+                {
+                  "option_id": "o1",
+                  "text": "Acquire once in lifespan before request handling; let handlers borrow it; clean up after request handling."
+                },
+                {
+                  "option_id": "o2",
+                  "text": "Acquire a fresh client inside every handler invocation."
+                },
+                {
+                  "option_id": "o3",
+                  "text": "Acquire once in lifespan but close it before the request-handling period starts."
+                }
+              ],
+              "selection": "single",
+              "shuffle": true
+            },
+            "grading": {
+              "correct_option_ids": [
+                "o1"
+              ],
+              "option_feedback": {
+                "o1": {
+                  "message": "Lifespan owns startup and cleanup for this intended application-lifetime client."
+                },
+                "o2": {
+                  "message": "Per-request acquisition repeats startup work instead of meeting the one-time startup goal."
+                },
+                "o3": {
+                  "message": "Cleanup follows request handling; closing beforehand does not keep the shared resource available during that period."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Lifespan owns startup and cleanup for this intended application-lifetime client."
+              },
+              "incorrect": {
+                "message": "Compare the chosen option with the rule in the prompt; its feedback explains the specific mismatch."
+              },
+              "hints": [
+                "Draw the request-handling interval inside the application lifetime. Acquire the client before request handling begins and close it after request handling ends."
+              ],
+              "remediation_step_id": "tile_018.r01"
+            }
+          }
+        },
+        {
+          "step_id": "tile_018.s06",
+          "interaction": {
+            "type": "choice",
+            "interaction_id": "ix.tile_018.s06",
+            "difficulty": "core",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "fastapi_backend.application_lifespan",
+                "fact_ids": [
+                  "f1",
+                  "f2"
+                ],
+                "capability": "identify_startup_and_shutdown_sides_of_yield"
+              }
+            ],
+            "anchors": [
+              "fastapi_backend.application_lifespan#assessment:identify_startup_and_shutdown_sides_of_yield"
+            ],
+            "public": {
+              "prompt": "In an @asynccontextmanager lifespan function, where do acquisition and cleanup belong relative to yield?",
+              "options": [
+                {
+                  "option_id": "o1",
+                  "text": "Acquire after yield and clean up before yield."
+                },
+                {
+                  "option_id": "o2",
+                  "text": "Acquire before yield and clean up after yield."
+                },
+                {
+                  "option_id": "o3",
+                  "text": "Acquire and close the client before yield."
+                }
+              ],
+              "selection": "single",
+              "shuffle": true
+            },
+            "grading": {
+              "correct_option_ids": [
+                "o2"
+              ],
+              "option_feedback": {
+                "o1": {
+                  "message": "Acquisition must precede request handling; this reverses startup and cleanup."
+                },
+                "o2": {
+                  "message": "Yield separates initialization from the request-handling interval; cleanup follows that interval."
+                },
+                "o3": {
+                  "message": "Closing before yield puts cleanup before the request-handling interval instead of after it."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Yield separates initialization from the request-handling interval; cleanup follows that interval."
+              },
+              "incorrect": {
+                "message": "Compare the chosen option with the rule in the prompt; its feedback explains the specific mismatch."
+              },
+              "hints": [
+                "Draw the request-handling interval inside the application lifetime. Acquire the client before request handling begins and close it after request handling ends."
+              ],
+              "remediation_step_id": "tile_018.r02"
+            }
+          }
+        },
+        {
+          "step_id": "tile_018.s07",
+          "interaction": {
+            "type": "code_exercise",
+            "interaction_id": "ix.tile_018.s07",
+            "difficulty": "stretch",
+            "grading_mode": "client",
+            "standalone": false,
+            "measures": [
+              {
+                "concept_id": "fastapi_backend.application_lifespan",
+                "fact_ids": [
+                  "f2"
+                ],
+                "capability": "recognize_lifespan_registration"
+              }
+            ],
+            "anchors": [
+              "fastapi_backend.application_lifespan#practice",
+              "fastapi_backend.application_lifespan#assessment:recognize_lifespan_registration"
+            ],
+            "public": {
+              "prompt": "Complete the marked lifespan section and application construction. Acquire one supplied SharedClient before yield, store it as shared_resources[\"client\"], close that same client after the yielded interval, and register lifespan with FastAPI. Leave the supplied stand-in and observe(borrows) harness unchanged. Its observations must show one construction, repeated borrowing of the same open instance, one close on exit, and registration.",
+              "runtime": {
+                "kind": "python_asgi",
+                "version": "0.29.5",
+                "packages": [
+                  "fastapi"
+                ]
+              },
+              "workspace": {
+                "files": [
+                  {
+                    "path": "main.py",
+                    "role": "editable",
+                    "language": "python",
+                    "content": "class SharedClient:\n    constructions = 0\n    closures = 0\n\n    def __init__(self):\n        type(self).constructions += 1\n        self.closed = False\n\n    def close(self):\n        type(self).closures += 1\n        self.closed = True\n\nfrom contextlib import asynccontextmanager\nfrom fastapi import FastAPI\n\nshared_resources = {}\n\n@asynccontextmanager\nasync def lifespan(app):\n    # TODO: acquire one SharedClient and store it under the key \"client\".\n    # TODO: close that same client during cleanup after yield.\n    yield\n\n# TODO: register lifespan when constructing the application.\napp = FastAPI()\n\n# Supplied observation harness: do not edit.\nimport asyncio\nasync def _observe(borrows):\n    SharedClient.constructions = 0\n    SharedClient.closures = 0\n    shared_resources.clear()\n    before = [SharedClient.constructions, SharedClient.closures]\n    async with app.router.lifespan_context(app):\n        clients = [shared_resources.get(\"client\") for _ in range(borrows)]\n        first = clients[0]\n        same = first is not None and all(c is first for c in clients)\n        during = [SharedClient.constructions, SharedClient.closures]\n        closed_during = None if first is None else first.closed\n    return {\"before\": before, \"during\": during,\n            \"after\": [SharedClient.constructions, SharedClient.closures],\n            \"borrowed_same\": same, \"borrows\": borrows,\n            \"closed_during\": closed_during,\n            \"closed_after\": None if first is None else first.closed,\n            \"registered\": app.router.lifespan_context is lifespan}\ndef observe(borrows):\n    coroutine = _observe(borrows)\n    try:\n        coroutine.send(None)\n    except StopIteration as done:\n        return done.value\n    raise RuntimeError(\"The local stand-in must not suspend for external I/O\")\n"
+                  }
+                ],
+                "entry": "main.py"
+              },
+              "constraints": {
+                "allowed_syntax": [
+                  "from contextlib import asynccontextmanager",
+                  "from fastapi import FastAPI",
+                  "@asynccontextmanager",
+                  "async def lifespan(app):",
+                  "yield",
+                  "try/finally",
+                  "variable assignment",
+                  "dictionary literals and key access",
+                  "SharedClient()",
+                  "client.close()",
+                  "FastAPI(lifespan=lifespan)"
+                ],
+                "blocked_syntax": [
+                  "@app.get",
+                  "@app.post",
+                  "APIRouter(...)",
+                  "Depends(...)",
+                  "HTTPException(...)",
+                  "httpx.AsyncClient(...)",
+                  "TestClient(...)"
+                ]
+              }
+            },
+            "grading": {
+              "solution_files": [
+                {
+                  "path": "main.py",
+                  "content": "class SharedClient:\n    constructions = 0\n    closures = 0\n\n    def __init__(self):\n        type(self).constructions += 1\n        self.closed = False\n\n    def close(self):\n        type(self).closures += 1\n        self.closed = True\n\nfrom contextlib import asynccontextmanager\nfrom fastapi import FastAPI\n\nshared_resources = {}\n\n@asynccontextmanager\nasync def lifespan(app):\n    # TODO: acquire one SharedClient and store it under the key \"client\".\n    # TODO: close that same client during cleanup after yield.\n    client = SharedClient()\n    shared_resources[\"client\"] = client\n    try:\n        yield\n    finally:\n        client.close()\n\n# TODO: register lifespan when constructing the application.\napp = FastAPI(lifespan=lifespan)\n\n# Supplied observation harness: do not edit.\nimport asyncio\nasync def _observe(borrows):\n    SharedClient.constructions = 0\n    SharedClient.closures = 0\n    shared_resources.clear()\n    before = [SharedClient.constructions, SharedClient.closures]\n    async with app.router.lifespan_context(app):\n        clients = [shared_resources.get(\"client\") for _ in range(borrows)]\n        first = clients[0]\n        same = first is not None and all(c is first for c in clients)\n        during = [SharedClient.constructions, SharedClient.closures]\n        closed_during = None if first is None else first.closed\n    return {\"before\": before, \"during\": during,\n            \"after\": [SharedClient.constructions, SharedClient.closures],\n            \"borrowed_same\": same, \"borrows\": borrows,\n            \"closed_during\": closed_during,\n            \"closed_after\": None if first is None else first.closed,\n            \"registered\": app.router.lifespan_context is lifespan}\ndef observe(borrows):\n    coroutine = _observe(borrows)\n    try:\n        coroutine.send(None)\n    except StopIteration as done:\n        return done.value\n    raise RuntimeError(\"The local stand-in must not suspend for external I/O\")\n"
+                }
+              ],
+              "tests": [
+                {
+                  "test_id": "t0",
+                  "kind": "function_call",
+                  "spec": {
+                    "function": "observe",
+                    "args": [
+                      2
+                    ],
+                    "expected": {
+                      "before": [
+                        0,
+                        0
+                      ],
+                      "during": [
+                        1,
+                        0
+                      ],
+                      "after": [
+                        1,
+                        1
+                      ],
+                      "borrowed_same": true,
+                      "borrows": 2,
+                      "closed_during": false,
+                      "closed_after": true,
+                      "registered": true
+                    }
+                  },
+                  "visible": true,
+                  "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+                },
+                {
+                  "test_id": "t1",
+                  "kind": "function_call",
+                  "spec": {
+                    "function": "observe",
+                    "args": [
+                      4
+                    ],
+                    "expected": {
+                      "before": [
+                        0,
+                        0
+                      ],
+                      "during": [
+                        1,
+                        0
+                      ],
+                      "after": [
+                        1,
+                        1
+                      ],
+                      "borrowed_same": true,
+                      "borrows": 4,
+                      "closed_during": false,
+                      "closed_after": true,
+                      "registered": true
+                    }
+                  },
+                  "visible": true,
+                  "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+                }
+              ]
+            },
+            "feedback": {
+              "correct": {
+                "message": "The registered lifespan creates one shared client, lends the same open instance during its yielded interval, and closes it on exit."
+              },
+              "incorrect": {
+                "message": "Check acquisition before yield, cleanup after yield, the shared dictionary entry, and FastAPI lifespan registration."
+              },
+              "hints": [
+                "Draw the request-handling interval inside the application lifetime. Acquire the client before request handling begins and close it after request handling ends."
+              ],
+              "remediation_step_id": "tile_018.r03"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "tile_id": "tile_019",
+      "interactions": [
+        {
+          "step_id": "tile_019.s04",
+          "interaction": {
+            "type": "choice",
+            "interaction_id": "ix.tile_019.s04",
+            "difficulty": "intro",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "fastapi_backend.orm_relationship_mapping",
+                "fact_ids": [
+                  "f1",
+                  "f3"
+                ],
+                "capability": "determine_association_from_paired_relationship_attributes"
+              }
+            ],
+            "anchors": [
+              "fastapi_backend.orm_relationship_mapping#assessment:determine_association_from_paired_relationship_attributes"
+            ],
+            "public": {
+              "prompt": "Customer.orders and Order.customer are relationship attributes alongside Order.customer_id, a foreign-key column. Which reciprocal back_populates pair names the opposite relationship attributes?",
+              "options": [
+                {
+                  "option_id": "o1",
+                  "text": "Customer.orders names \"customer\"; Order.customer names \"orders\"."
+                },
+                {
+                  "option_id": "o2",
+                  "text": "Customer.orders names \"customer_id\"; Order.customer names \"id\"."
+                },
+                {
+                  "option_id": "o3",
+                  "text": "Customer.orders names \"orders\"; Order.customer names \"customer\"."
+                }
+              ],
+              "selection": "single",
+              "shuffle": true
+            },
+            "grading": {
+              "correct_option_ids": [
+                "o1"
+              ],
+              "option_feedback": {
+                "o1": {
+                  "message": "Each value names the counterpart navigation attribute on the opposite class."
+                },
+                "o2": {
+                  "message": "These are stored column names, not the counterpart relationship attributes."
+                },
+                "o3": {
+                  "message": "These name the same-side attributes rather than each other."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Each value names the counterpart navigation attribute on the opposite class."
+              },
+              "incorrect": {
+                "message": "Compare the chosen option with the rule in the prompt; its feedback explains the specific mismatch."
+              },
+              "hints": [
+                "Separate stored identifiers from object navigation, then look at the opposite class."
+              ],
+              "remediation_step_id": "tile_019.r01"
+            }
+          }
+        },
+        {
+          "step_id": "tile_019.s05",
+          "interaction": {
+            "type": "code_exercise",
+            "interaction_id": "ix.tile_019.s05",
+            "difficulty": "stretch",
+            "grading_mode": "client",
+            "standalone": false,
+            "measures": [
+              {
+                "concept_id": "fastapi_backend.orm_relationship_mapping",
+                "fact_ids": [
+                  "f1",
+                  "f2"
+                ],
+                "capability": "distinguish_stored_foreign_key_from_object_navigation"
+              },
+              {
+                "concept_id": "fastapi_backend.orm_relationship_mapping",
+                "fact_ids": [
+                  "f1",
+                  "f3"
+                ],
+                "capability": "determine_association_from_paired_relationship_attributes"
+              }
+            ],
+            "anchors": [
+              "fastapi_backend.orm_relationship_mapping#practice",
+              "fastapi_backend.orm_relationship_mapping#assessment:distinguish_stored_foreign_key_from_object_navigation",
+              "fastapi_backend.orm_relationship_mapping#assessment:determine_association_from_paired_relationship_attributes"
+            ],
+            "public": {
+              "prompt": "Complete Customer.orders, Order.customer_id and Order.customer in the existing classes. The stored foreign key must target customers.id; Order.customer must navigate to one Customer and Customer.orders to an Order collection. Set reciprocal back_populates names. Leave Base and the observe(customer_id, order_id) harness unchanged; it inspects declarations and verifies that assigning o.customer places o in c.orders.",
+              "runtime": {
+                "kind": "python_asgi",
+                "version": "0.29.5",
+                "packages": [
+                  "sqlalchemy"
+                ]
+              },
+              "workspace": {
+                "files": [
+                  {
+                    "path": "main.py",
+                    "role": "editable",
+                    "language": "python",
+                    "content": "from sqlalchemy import ForeignKey\nfrom sqlalchemy.orm import Mapped, mapped_column, relationship\nfrom sqlalchemy.orm import DeclarativeBase\n\nclass Base(DeclarativeBase):\n    pass\n\nclass Customer(Base):\n    __tablename__ = \"customers\"\n    id: Mapped[int] = mapped_column(primary_key=True)\n    # TODO: declare the orders collection and its counterpart name.\n\nclass Order(Base):\n    __tablename__ = \"orders\"\n    id: Mapped[int] = mapped_column(primary_key=True)\n    # TODO: declare customer_id, customer navigation, and its counterpart name.\n\n# Supplied inspection/association harness: do not edit.\nfrom sqlalchemy import inspect\n\ndef observe(customer_id, order_id):\n    cm, om = inspect(Customer), inspect(Order)\n    c = Customer(id=customer_id)\n    o = Order(id=order_id, customer_id=customer_id)\n    o.customer = c\n    return {\"foreign_keys\": sorted(f.target_fullname for f in om.columns.customer_id.foreign_keys),\n            \"order_customer_collection\": om.relationships.customer.uselist,\n            \"customer_orders_collection\": cm.relationships.orders.uselist,\n            \"order_counterpart\": om.relationships.customer.back_populates,\n            \"customer_counterpart\": cm.relationships.orders.back_populates,\n            \"stored_customer_id\": o.customer_id,\n            \"navigation_customer_id\": o.customer.id,\n            \"collection_order_ids\": [item.id for item in c.orders],\n            \"same_customer\": o.customer is c}\n"
+                  }
+                ],
+                "entry": "main.py"
+              },
+              "constraints": {
+                "allowed_syntax": [
+                  "from sqlalchemy import ForeignKey",
+                  "from sqlalchemy.orm import Mapped, mapped_column, relationship",
+                  "class Customer(Base):",
+                  "class Order(Base):",
+                  "__tablename__ = \"customers\"",
+                  "__tablename__ = \"orders\"",
+                  "Mapped[int]",
+                  "Mapped[\"Customer\"]",
+                  "Mapped[list[\"Order\"]]",
+                  "mapped_column(primary_key=True)",
+                  "mapped_column(ForeignKey(\"customers.id\"))",
+                  "relationship(back_populates=\"orders\")",
+                  "relationship(back_populates=\"customer\")"
+                ],
+                "blocked_syntax": [
+                  "select()",
+                  "session.execute()",
+                  "session.add()",
+                  "session.delete()",
+                  "session.commit()",
+                  "session.rollback()",
+                  "async_sessionmaker()",
+                  "Depends()",
+                  "@app.get",
+                  "@app.post"
+                ]
+              }
+            },
+            "grading": {
+              "solution_files": [
+                {
+                  "path": "main.py",
+                  "content": "from sqlalchemy import ForeignKey\nfrom sqlalchemy.orm import Mapped, mapped_column, relationship\nfrom sqlalchemy.orm import DeclarativeBase\n\nclass Base(DeclarativeBase):\n    pass\n\nclass Customer(Base):\n    __tablename__ = \"customers\"\n    id: Mapped[int] = mapped_column(primary_key=True)\n    orders: Mapped[list[\"Order\"]] = relationship(back_populates=\"customer\")\n\nclass Order(Base):\n    __tablename__ = \"orders\"\n    id: Mapped[int] = mapped_column(primary_key=True)\n    customer_id: Mapped[int] = mapped_column(ForeignKey(\"customers.id\"))\n    customer: Mapped[\"Customer\"] = relationship(back_populates=\"orders\")\n\n# Supplied inspection/association harness: do not edit.\nfrom sqlalchemy import inspect\n\ndef observe(customer_id, order_id):\n    cm, om = inspect(Customer), inspect(Order)\n    c = Customer(id=customer_id)\n    o = Order(id=order_id, customer_id=customer_id)\n    o.customer = c\n    return {\"foreign_keys\": sorted(f.target_fullname for f in om.columns.customer_id.foreign_keys),\n            \"order_customer_collection\": om.relationships.customer.uselist,\n            \"customer_orders_collection\": cm.relationships.orders.uselist,\n            \"order_counterpart\": om.relationships.customer.back_populates,\n            \"customer_counterpart\": cm.relationships.orders.back_populates,\n            \"stored_customer_id\": o.customer_id,\n            \"navigation_customer_id\": o.customer.id,\n            \"collection_order_ids\": [item.id for item in c.orders],\n            \"same_customer\": o.customer is c}\n"
+                }
+              ],
+              "tests": [
+                {
+                  "test_id": "t0",
+                  "kind": "function_call",
+                  "spec": {
+                    "function": "observe",
+                    "args": [
+                      1,
+                      1
+                    ],
+                    "expected": {
+                      "foreign_keys": [
+                        "customers.id"
+                      ],
+                      "order_customer_collection": false,
+                      "customer_orders_collection": true,
+                      "order_counterpart": "orders",
+                      "customer_counterpart": "customer",
+                      "stored_customer_id": 1,
+                      "navigation_customer_id": 1,
+                      "collection_order_ids": [
+                        1
+                      ],
+                      "same_customer": true
+                    }
+                  },
+                  "visible": true,
+                  "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+                },
+                {
+                  "test_id": "t1",
+                  "kind": "function_call",
+                  "spec": {
+                    "function": "observe",
+                    "args": [
+                      2,
+                      3
+                    ],
+                    "expected": {
+                      "foreign_keys": [
+                        "customers.id"
+                      ],
+                      "order_customer_collection": false,
+                      "customer_orders_collection": true,
+                      "order_counterpart": "orders",
+                      "customer_counterpart": "customer",
+                      "stored_customer_id": 2,
+                      "navigation_customer_id": 2,
+                      "collection_order_ids": [
+                        3
+                      ],
+                      "same_customer": true
+                    }
+                  },
+                  "visible": true,
+                  "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+                }
+              ]
+            },
+            "feedback": {
+              "correct": {
+                "message": "The foreign-key column stores the association, while reciprocal relationship attributes provide single-object and collection navigation."
+              },
+              "incorrect": {
+                "message": "Keep the foreign-key column separate from navigation, and name the opposite relationship attribute in each back_populates value."
+              },
+              "hints": [
+                "Separate stored identifiers from object navigation, then look at the opposite class."
+              ],
+              "remediation_step_id": "tile_019.r02"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "tile_id": "tile_020",
+      "interactions": [
+        {
+          "step_id": "tile_020.s05",
+          "interaction": {
+            "type": "choice",
+            "interaction_id": "ix.tile_020.s05",
+            "difficulty": "intro",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "pydantic.field_constraints",
+                "fact_ids": [
+                  "f1"
+                ],
+                "capability": "determine_numeric_constraint_satisfaction"
+              }
+            ],
+            "anchors": [
+              "pydantic.field_constraints#assessment:determine_numeric_constraint_satisfaction"
+            ],
+            "public": {
+              "prompt": "For quantity: int = Field(ge=1, le=20), with all other fields valid, how should construction treat the two quantity endpoints?",
+              "options": [
+                {
+                  "option_id": "o1",
+                  "text": "Reject both endpoints because bounds are always exclusive."
+                },
+                {
+                  "option_id": "o2",
+                  "text": "Accept the lower endpoint but reject the upper endpoint."
+                },
+                {
+                  "option_id": "o3",
+                  "text": "Accept both endpoints."
+                }
+              ],
+              "selection": "single",
+              "shuffle": true
+            },
+            "grading": {
+              "correct_option_ids": [
+                "o3"
+              ],
+              "option_feedback": {
+                "o1": {
+                  "message": "ge and le include their respective endpoints; gt and lt are the exclusive bounds."
+                },
+                "o2": {
+                  "message": "le includes the upper endpoint just as ge includes the lower one."
+                },
+                "o3": {
+                  "message": "ge and le express inclusive lower and upper bounds."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "ge and le express inclusive lower and upper bounds."
+              },
+              "incorrect": {
+                "message": "Compare the chosen option with the rule in the prompt; its feedback explains the specific mismatch."
+              },
+              "hints": [
+                "Check the exact boundary, not only an interior value."
+              ],
+              "remediation_step_id": "tile_020.r01"
+            }
+          }
+        },
+        {
+          "step_id": "tile_020.s06",
+          "interaction": {
+            "type": "code_exercise",
+            "interaction_id": "ix.tile_020.s06",
+            "difficulty": "core",
+            "grading_mode": "client",
+            "standalone": false,
+            "measures": [
+              {
+                "concept_id": "pydantic.field_constraints",
+                "fact_ids": [
+                  "f2"
+                ],
+                "capability": "determine_string_constraint_satisfaction"
+              },
+              {
+                "concept_id": "pydantic.field_constraints",
+                "fact_ids": [
+                  "f3"
+                ],
+                "capability": "identify_constraints_applied_at_model_construction"
+              }
+            ],
+            "anchors": [
+              "pydantic.field_constraints#practice",
+              "pydantic.field_constraints#assessment:determine_string_constraint_satisfaction",
+              "pydantic.field_constraints#assessment:identify_constraints_applied_at_model_construction"
+            ],
+            "public": {
+              "prompt": "Add Field declarations to both typed attributes of Order. Accept quantity from 1 through 20 inclusive and order_reference from 3 through 12 characters, with no additional pattern or divisibility restriction. Leave the supplied observe(quantity, order_reference) harness unchanged. Construction must accept both endpoints and reject immediately outside each range with the other field valid.",
+              "runtime": {
+                "kind": "python_asgi",
+                "version": "0.29.5",
+                "packages": [
+                  "pydantic"
+                ]
+              },
+              "workspace": {
+                "files": [
+                  {
+                    "path": "main.py",
+                    "role": "editable",
+                    "language": "python",
+                    "content": "from pydantic import BaseModel, Field\n\nclass Order(BaseModel):\n    # TODO: quantity from 1 through 20 inclusive.\n    quantity: int\n    # TODO: order_reference from 3 through 12 characters.\n    order_reference: str\n\n# Supplied boundary harness: do not edit.\nfrom pydantic import ValidationError\n\ndef observe(quantity, order_reference):\n    try:\n        model = Order(quantity=quantity, order_reference=order_reference)\n        return {\"constructed\": True, \"quantity\": model.quantity,\n                \"order_reference\": model.order_reference}\n    except ValidationError as error:\n        return {\"constructed\": False, \"locations\": [list(e[\"loc\"]) for e in error.errors()]}\n"
+                  }
+                ],
+                "entry": "main.py"
+              },
+              "constraints": {
+                "allowed_syntax": [
+                  "from pydantic import BaseModel, Field",
+                  "class Order(BaseModel):",
+                  "int and str attribute annotations",
+                  "Field(gt=..., ge=..., lt=..., le=..., multiple_of=...)",
+                  "Field(min_length=..., max_length=..., pattern=...)",
+                  "integer and string literals",
+                  "Order(quantity=..., order_reference=...)"
+                ],
+                "blocked_syntax": [
+                  "@field_validator",
+                  "@model_validator",
+                  "nested BaseModel attributes",
+                  "FastAPI()",
+                  "@app.post(...)",
+                  "Depends(...)",
+                  "HTTPException(...)",
+                  "BaseSettings",
+                  "model_dump(...)",
+                  "model_fields_set"
+                ]
+              }
+            },
+            "grading": {
+              "solution_files": [
+                {
+                  "path": "main.py",
+                  "content": "from pydantic import BaseModel, Field\n\nclass Order(BaseModel):\n    # TODO: quantity from 1 through 20 inclusive.\n    quantity: int = Field(ge=1, le=20)\n    # TODO: order_reference from 3 through 12 characters.\n    order_reference: str = Field(min_length=3, max_length=12)\n\n# Supplied boundary harness: do not edit.\nfrom pydantic import ValidationError\n\ndef observe(quantity, order_reference):\n    try:\n        model = Order(quantity=quantity, order_reference=order_reference)\n        return {\"constructed\": True, \"quantity\": model.quantity,\n                \"order_reference\": model.order_reference}\n    except ValidationError as error:\n        return {\"constructed\": False, \"locations\": [list(e[\"loc\"]) for e in error.errors()]}\n"
+                }
+              ],
+              "tests": [
+                {
+                  "test_id": "t0",
+                  "kind": "function_call",
+                  "spec": {
+                    "function": "observe",
+                    "args": [
+                      0,
+                      "REF"
+                    ],
+                    "expected": {
+                      "constructed": false,
+                      "locations": [
+                        [
+                          "quantity"
+                        ]
+                      ]
+                    }
+                  },
+                  "visible": true,
+                  "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+                },
+                {
+                  "test_id": "t1",
+                  "kind": "function_call",
+                  "spec": {
+                    "function": "observe",
+                    "args": [
+                      1,
+                      "REF"
+                    ],
+                    "expected": {
+                      "constructed": true,
+                      "quantity": 1,
+                      "order_reference": "REF"
+                    }
+                  },
+                  "visible": true,
+                  "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+                },
+                {
+                  "test_id": "t2",
+                  "kind": "function_call",
+                  "spec": {
+                    "function": "observe",
+                    "args": [
+                      20,
+                      "REF"
+                    ],
+                    "expected": {
+                      "constructed": true,
+                      "quantity": 20,
+                      "order_reference": "REF"
+                    }
+                  },
+                  "visible": true,
+                  "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+                },
+                {
+                  "test_id": "t3",
+                  "kind": "function_call",
+                  "spec": {
+                    "function": "observe",
+                    "args": [
+                      21,
+                      "REF"
+                    ],
+                    "expected": {
+                      "constructed": false,
+                      "locations": [
+                        [
+                          "quantity"
+                        ]
+                      ]
+                    }
+                  },
+                  "visible": true,
+                  "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+                },
+                {
+                  "test_id": "t4",
+                  "kind": "function_call",
+                  "spec": {
+                    "function": "observe",
+                    "args": [
+                      1,
+                      "RR"
+                    ],
+                    "expected": {
+                      "constructed": false,
+                      "locations": [
+                        [
+                          "order_reference"
+                        ]
+                      ]
+                    }
+                  },
+                  "visible": true,
+                  "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+                },
+                {
+                  "test_id": "t5",
+                  "kind": "function_call",
+                  "spec": {
+                    "function": "observe",
+                    "args": [
+                      1,
+                      "RRR"
+                    ],
+                    "expected": {
+                      "constructed": true,
+                      "quantity": 1,
+                      "order_reference": "RRR"
+                    }
+                  },
+                  "visible": true,
+                  "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+                },
+                {
+                  "test_id": "t6",
+                  "kind": "function_call",
+                  "spec": {
+                    "function": "observe",
+                    "args": [
+                      1,
+                      "RRRRRRRRRRRR"
+                    ],
+                    "expected": {
+                      "constructed": true,
+                      "quantity": 1,
+                      "order_reference": "RRRRRRRRRRRR"
+                    }
+                  },
+                  "visible": true,
+                  "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+                },
+                {
+                  "test_id": "t7",
+                  "kind": "function_call",
+                  "spec": {
+                    "function": "observe",
+                    "args": [
+                      1,
+                      "RRRRRRRRRRRRR"
+                    ],
+                    "expected": {
+                      "constructed": false,
+                      "locations": [
+                        [
+                          "order_reference"
+                        ]
+                      ]
+                    }
+                  },
+                  "visible": true,
+                  "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+                }
+              ]
+            },
+            "feedback": {
+              "correct": {
+                "message": "Both typed attributes carry Field constraints; inclusive quantity and reference-length boundaries pass while immediately outside values fail."
+              },
+              "incorrect": {
+                "message": "Attach Field to each typed attribute. Do not substitute exclusive bounds for inclusive ones or omit the reference-length constraints."
+              },
+              "hints": [
+                "Check the exact boundary, not only an interior value."
+              ],
+              "remediation_step_id": "tile_020.r02"
+            }
+          }
+        },
+        {
+          "step_id": "tile_020.s09",
+          "interaction": {
+            "type": "choice",
+            "interaction_id": "ix.tile_020.s09",
+            "difficulty": "core",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "pydantic.nested_models",
+                "fact_ids": [
+                  "f1",
+                  "f3"
+                ],
+                "capability": "locate_failed_fields_in_nested_validation"
+              }
+            ],
+            "anchors": [
+              "pydantic.nested_models#assessment:locate_failed_fields_in_nested_validation"
+            ],
+            "public": {
+              "prompt": "Order uses address: Address and line_items: list[LineItem]. In this input, where does nested validation locate the invalid value?\n{\n  \"address\": {\n    \"street\": \"7 Sample Lane\"\n  },\n  \"line_items\": [\n    {\n      \"product\": \"Notebook\",\n      \"quantity\": 1\n    },\n    {\n      \"product\": \"Pencil\",\n      \"quantity\": \"not-a-number\"\n    }\n  ]\n}",
+              "options": [
+                {
+                  "option_id": "o1",
+                  "text": "('line_items', 1, 'quantity')"
+                },
+                {
+                  "option_id": "o2",
+                  "text": "('address', 'street')"
+                },
+                {
+                  "option_id": "o3",
+                  "text": "No error: enclosing the data in Order makes nested values acceptable."
+                }
+              ],
+              "selection": "single",
+              "shuffle": true
+            },
+            "grading": {
+              "correct_option_ids": [
+                "o1"
+              ],
+              "option_feedback": {
+                "o1": {
+                  "message": "The collection path identifies the second item and its failing quantity field."
+                },
+                "o2": {
+                  "message": "The supplied address street is valid; the nonnumeric value belongs to a line item, not the address."
+                },
+                "o3": {
+                  "message": "Submodel validation participates in enclosing-model validation; an invalid nested value does not become acceptable."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "The collection path identifies the second item and its failing quantity field."
+              },
+              "incorrect": {
+                "message": "Compare the chosen option with the rule in the prompt; its feedback explains the specific mismatch."
+              },
+              "hints": [
+                "Follow the input tree inward: outer field, collection position, then inner field."
+              ],
+              "remediation_step_id": "tile_020.r03"
+            }
+          }
+        },
+        {
+          "step_id": "tile_020.s10",
+          "interaction": {
+            "type": "code_exercise",
+            "interaction_id": "ix.tile_020.s10",
+            "difficulty": "stretch",
+            "grading_mode": "client",
+            "standalone": false,
+            "measures": [
+              {
+                "concept_id": "pydantic.nested_models",
+                "fact_ids": [
+                  "f2",
+                  "f3"
+                ],
+                "capability": "interpret_collection_indexes_in_nested_error_paths"
+              }
+            ],
+            "anchors": [
+              "pydantic.nested_models#practice",
+              "pydantic.nested_models#assessment:interpret_collection_indexes_in_nested_error_paths"
+            ],
+            "public": {
+              "prompt": "Complete Address with street: str and LineItem with product: str and quantity: int. Complete Order with one address submodel and a line_items collection of submodels. Leave observe(data) unchanged. Valid supplied input must construct Order containing Address and LineItem instances and preserve their values. The supplied invalid second item must fail at the collection field, index 1, quantity; the harness returns error locations.",
+              "runtime": {
+                "kind": "python_asgi",
+                "version": "0.29.5",
+                "packages": [
+                  "pydantic"
+                ]
+              },
+              "workspace": {
+                "files": [
+                  {
+                    "path": "main.py",
+                    "role": "editable",
+                    "language": "python",
+                    "content": "from pydantic import BaseModel, ValidationError\n\nclass Address(BaseModel):\n    # TODO: street string field.\n    pass\n\nclass LineItem(BaseModel):\n    # TODO: product string and quantity integer fields.\n    pass\n\nclass Order(BaseModel):\n    # TODO: address submodel and line_items collection of submodels.\n    pass\n\n# Supplied construction/location harness: do not edit.\ndef observe(data):\n    try:\n        model = Order.model_validate(data)\n        return {\"constructed\": True, \"address_type\": type(model.address).__name__,\n                \"item_types\": [type(i).__name__ for i in model.line_items],\n                \"street\": model.address.street,\n                \"items\": [[i.product, i.quantity] for i in model.line_items]}\n    except ValidationError as error:\n        return {\"constructed\": False, \"locations\": [list(e[\"loc\"]) for e in error.errors()]}\n"
+                  }
+                ],
+                "entry": "main.py"
+              },
+              "constraints": {
+                "allowed_syntax": [
+                  "from pydantic import BaseModel, ValidationError",
+                  "class declarations inheriting from BaseModel",
+                  "field annotations using str and int",
+                  "field annotations using a declared submodel class",
+                  "list[Submodel] field annotations",
+                  "dictionary, list, string, and integer literals",
+                  "model construction with keyword arguments",
+                  "Model.model_validate(data)",
+                  "variable assignment",
+                  "try and except ValidationError as error",
+                  "error.errors()",
+                  "list indexing and dictionary key access"
+                ],
+                "blocked_syntax": [
+                  "FastAPI()",
+                  "@app.post(...)",
+                  "APIRouter()",
+                  "Depends(...)",
+                  "HTTPException(...)",
+                  "@field_validator(...)",
+                  "@model_validator(...)",
+                  "model_dump(...)"
+                ]
+              }
+            },
+            "grading": {
+              "solution_files": [
+                {
+                  "path": "main.py",
+                  "content": "from pydantic import BaseModel, ValidationError\n\nclass Address(BaseModel):\n    street: str\n\nclass LineItem(BaseModel):\n    product: str\n    quantity: int\n\nclass Order(BaseModel):\n    address: Address\n    line_items: list[LineItem]\n\n# Supplied construction/location harness: do not edit.\ndef observe(data):\n    try:\n        model = Order.model_validate(data)\n        return {\"constructed\": True, \"address_type\": type(model.address).__name__,\n                \"item_types\": [type(i).__name__ for i in model.line_items],\n                \"street\": model.address.street,\n                \"items\": [[i.product, i.quantity] for i in model.line_items]}\n    except ValidationError as error:\n        return {\"constructed\": False, \"locations\": [list(e[\"loc\"]) for e in error.errors()]}\n"
+                }
+              ],
+              "tests": [
+                {
+                  "test_id": "t0",
+                  "kind": "function_call",
+                  "spec": {
+                    "function": "observe",
+                    "args": [
+                      {
+                        "address": {
+                          "street": "7 Sample Lane"
+                        },
+                        "line_items": [
+                          {
+                            "product": "Notebook",
+                            "quantity": 1
+                          },
+                          {
+                            "product": "Pencil",
+                            "quantity": 2
+                          }
+                        ]
+                      }
+                    ],
+                    "expected": {
+                      "constructed": true,
+                      "address_type": "Address",
+                      "item_types": [
+                        "LineItem",
+                        "LineItem"
+                      ],
+                      "street": "7 Sample Lane",
+                      "items": [
+                        [
+                          "Notebook",
+                          1
+                        ],
+                        [
+                          "Pencil",
+                          2
+                        ]
+                      ]
+                    }
+                  },
+                  "visible": true,
+                  "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+                },
+                {
+                  "test_id": "t1",
+                  "kind": "function_call",
+                  "spec": {
+                    "function": "observe",
+                    "args": [
+                      {
+                        "address": {
+                          "street": "7 Sample Lane"
+                        },
+                        "line_items": [
+                          {
+                            "product": "Notebook",
+                            "quantity": 1
+                          },
+                          {
+                            "product": "Pencil",
+                            "quantity": "not-a-number"
+                          }
+                        ]
+                      }
+                    ],
+                    "expected": {
+                      "constructed": false,
+                      "locations": [
+                        [
+                          "line_items",
+                          1,
+                          "quantity"
+                        ]
+                      ]
+                    }
+                  },
+                  "visible": true,
+                  "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+                }
+              ]
+            },
+            "feedback": {
+              "correct": {
+                "message": "The submodel annotations construct valid nested models and locate the invalid second item at its quantity field."
+              },
+              "incorrect": {
+                "message": "Use Address for one nested object and list[LineItem] for the collection; their field annotations participate in enclosing validation."
+              },
+              "hints": [
+                "Follow the input tree inward: outer field, collection position, then inner field."
+              ],
+              "remediation_step_id": "tile_020.r04"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

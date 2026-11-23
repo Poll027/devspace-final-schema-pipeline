@@ -1,0 +1,418 @@
+{
+  "type": "live_code",
+  "objective": "Implement a learner-defined Python dataset-gate function and write its required imports in the supplied pipeline's test stage. Author named contract checks and assertions for valid, boundary and invalid fixtures, including a fixture missing a required feature. Preserve tested snapshot identities and failure evidence. Write and reload the existing Cloud Build configuration with PyYAML, inspect its resolved fields, and wire fatal gate execution and explicit training dependencies. Use the configured repository commit trigger and branch filter to run accepted and rejected fixtures.",
+  "success": "The declared valid and acceptable boundary fixtures pass; invalid fixtures produce named failure evidence and an unsuccessful gate-process exit. Reloaded configuration retains the required image, command, step IDs and waitFor dependencies without permitting required gate failures. Actual triggered-run results show training starts only after an accepted quality stage and never starts after a rejected quality stage. Tested snapshots and failed checks remain available for validation of a repaired dataset against the same contract.",
+  "live_code": {
+    "required_skill": "Write a dataset-gate function that aggregates named checks under the supplied policy, test it with assert predicates, and connect its fatal result to the existing Cloud Build test stage.",
+    "allowed_syntax": [
+      "import yaml",
+      "import sys",
+      "Learner-written imports for declared dataset-reading and validation dependencies",
+      "def function_name(...):",
+      "Function calls and local variable assignment",
+      "Dictionary and list literals",
+      "Dictionary and list access",
+      "for loops",
+      "if/else conditionals",
+      "Boolean expressions and comparisons",
+      "assert predicate",
+      "return",
+      "raise",
+      "try/except AssertionError",
+      "with open(...) as file_handle:",
+      "yaml.safe_dump(config, file_handle)",
+      "yaml.safe_load(file_handle)",
+      "sys.exit(nonzero_status)"
+    ],
+    "blocked_syntax": [],
+    "starter_state_intent": "Provide the existing authorized repository, commit trigger and branch filter, Cloud Build configuration, declared dependencies, dataset contract, gate policy and dataset snapshot. Include the missing-required-feature fixture described in the example and locations for learner-authored valid, boundary and invalid fixtures. Leave the gate function, imports and assertions unwritten. Retain the existing training entry point without requiring changes to its implementation.",
+    "observable_success": "Assertions distinguish the declared fixture cases in ordinary non-optimized execution. Named results determine an explicit gate decision, rejected execution exits unsuccessfully, and saved evidence identifies the tested snapshot and failed requirements. Resolved configuration fields and actual triggered stage results establish that a successful gate permits training while a failed required check prevents training from starting."
+  }
+}
+[
+  {
+    "fact_ids": [
+      "f1",
+      "f2",
+      "f3",
+      "f5"
+    ],
+    "capability": "demonstrate_dataset_contract_acceptance_and_rejection"
+  },
+  {
+    "fact_ids": [
+      "f6",
+      "f7",
+      "f8"
+    ],
+    "capability": "enforce_fatal_quality_stage_before_training"
+  },
+  {
+    "fact_ids": [
+      "f4",
+      "f9"
+    ],
+    "capability": "verify_triggered_run_outcomes_and_preserve_failure_evidence"
+  },
+  {
+    "fact_ids": [
+      "f6",
+      "f7",
+      "f8",
+      "f10"
+    ],
+    "capability": "inspect_round_tripped_gate_configuration"
+  }
+]
+
+FILE cloudbuild.yaml
+{
+  "steps": [
+    {
+      "id": "quality",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "learner.py",
+        "${_SNAPSHOT}"
+      ],
+      "waitFor": [
+        "-"
+      ]
+    },
+    {
+      "id": "training",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "training_entry.py",
+        "${_SNAPSHOT}"
+      ],
+      "waitFor": []
+    }
+  ],
+  "substitutions": {
+    "_SNAPSHOT": "valid",
+    "_CASE": "accepted",
+    "_ARTIFACT": "A"
+  },
+  "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com"
+}
+
+FILE storage_sim.py
+"""Bounded local Cloud Storage interface, never a real cloud client."""
+from pathlib import Path
+class PreconditionFailed(Exception):
+    status_code = 412
+class RecoverableFailure(Exception):
+    pass
+class StorageClient:
+    def __init__(self, initial=None, race=None):
+        self.objects = dict(initial or {})
+        self.race = dict(race or {})
+        self.uploads = []
+        self.requests = []
+    def blob(self, name):
+        return Blob(self, name)
+class Blob:
+    def __init__(self, client, name):
+        self.client, self.name = client, name
+        self.generation = None
+    def exists(self):
+        return self.name in self.client.objects
+    def reload(self):
+        self.generation = self.client.objects[self.name]["generation"]
+    def download_as_bytes(self, if_generation_match):
+        self.client.requests.append((self.name, if_generation_match))
+        obj = self.client.objects[self.name]
+        if obj["generation"] != if_generation_match:
+            raise PreconditionFailed("generation mismatch")
+        return obj["data"]
+    def upload_from_filename(self, path, if_generation_match):
+        if if_generation_match != 0:
+            raise ValueError("fixture contract permits create-only upload")
+        if self.name in self.client.race:
+            self.client.objects[self.name] = self.client.race.pop(self.name)
+            raise PreconditionFailed("412 concurrent creation")
+        if self.exists():
+            raise PreconditionFailed("412 already exists")
+        self.client.objects[self.name] = {"generation": 1, "data": Path(path).read_bytes()}
+        self.client.uploads.append(self.name)
+        self.reload()
+
+FILE fixtures/artifacts.json
+{
+  "A": {
+    "artifact_id": "A",
+    "uri": "gs://fixture-artifacts/A.txt",
+    "generation": 1,
+    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+    "validation_ok": true
+  },
+  "B": {
+    "artifact_id": "B",
+    "uri": "gs://fixture-artifacts/B.txt",
+    "generation": 1,
+    "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+    "validation_ok": true
+  }
+}
+
+FILE fixtures/dataset_cases.json
+{
+  "valid": {
+    "snapshot_id": "snapshot.valid",
+    "sha256": "9a80d8aba1a479286779fd296606d795b9d7b91cfc0feaceacddeaffa24b8572",
+    "rows": [
+      {
+        "sample_id": "sample.101",
+        "feature": 0,
+        "label": 0
+      },
+      {
+        "sample_id": "sample.102",
+        "feature": 1,
+        "label": 0
+      },
+      {
+        "sample_id": "sample.103",
+        "feature": 2,
+        "label": 1
+      },
+      {
+        "sample_id": "sample.104",
+        "feature": 3,
+        "label": 1
+      },
+      {
+        "sample_id": "sample.105",
+        "feature": 4,
+        "label": 1
+      },
+      {
+        "sample_id": "sample.106",
+        "feature": 5,
+        "label": 1
+      }
+    ]
+  },
+  "boundary": {
+    "snapshot_id": "snapshot.boundary",
+    "sha256": "c81549aaab713d3575bd3451098b0ab3ee279d25cbb02cae30cad01b31e868a7",
+    "rows": [
+      {
+        "sample_id": "sample.101",
+        "feature": 0,
+        "label": 0
+      },
+      {
+        "sample_id": "sample.106",
+        "feature": 5,
+        "label": 1
+      }
+    ]
+  },
+  "missing_required_feature": {
+    "snapshot_id": "snapshot.missing_required_feature",
+    "sha256": "09398d2fd8847ec08e07b24bc0cd5cfc4f10e9f7ac6c9bc3e6c507ad8f8e1257",
+    "rows": [
+      {
+        "sample_id": "sample.101",
+        "label": 0
+      },
+      {
+        "sample_id": "sample.102",
+        "label": 0
+      },
+      {
+        "sample_id": "sample.103",
+        "label": 1
+      },
+      {
+        "sample_id": "sample.104",
+        "label": 1
+      },
+      {
+        "sample_id": "sample.105",
+        "label": 1
+      },
+      {
+        "sample_id": "sample.106",
+        "label": 1
+      }
+    ]
+  },
+  "unexpected_feature": {
+    "snapshot_id": "snapshot.unexpected_feature",
+    "sha256": "057671d877a61bee1e3aee03fba3b290deab50f1a6de31d4793382768386af90",
+    "rows": [
+      {
+        "sample_id": "sample.101",
+        "feature": 0,
+        "label": 0,
+        "extra": 1
+      },
+      {
+        "sample_id": "sample.102",
+        "feature": 1,
+        "label": 0,
+        "extra": 1
+      },
+      {
+        "sample_id": "sample.103",
+        "feature": 2,
+        "label": 1,
+        "extra": 1
+      },
+      {
+        "sample_id": "sample.104",
+        "feature": 3,
+        "label": 1,
+        "extra": 1
+      },
+      {
+        "sample_id": "sample.105",
+        "feature": 4,
+        "label": 1,
+        "extra": 1
+      },
+      {
+        "sample_id": "sample.106",
+        "feature": 5,
+        "label": 1,
+        "extra": 1
+      }
+    ]
+  },
+  "invalid_feature": {
+    "snapshot_id": "snapshot.invalid_feature",
+    "sha256": "56bae9661e829f0a8aca48f80561bdeb123014f4f5994765a853a98bc6894984",
+    "rows": [
+      {
+        "sample_id": "sample.101",
+        "feature": 0,
+        "label": 0
+      },
+      {
+        "sample_id": "sample.102",
+        "feature": 1,
+        "label": 0
+      },
+      {
+        "sample_id": "sample.103",
+        "feature": -1,
+        "label": 1
+      },
+      {
+        "sample_id": "sample.104",
+        "feature": 3,
+        "label": 1
+      },
+      {
+        "sample_id": "sample.105",
+        "feature": 4,
+        "label": 1
+      },
+      {
+        "sample_id": "sample.106",
+        "feature": 5,
+        "label": 1
+      }
+    ]
+  },
+  "missing_value": {
+    "snapshot_id": "snapshot.missing_value",
+    "sha256": "d94863c4f043e3bd39e094416882b06d61af509d5ad40d905dab17604f9e8bec",
+    "rows": [
+      {
+        "sample_id": "sample.101",
+        "feature": 0,
+        "label": 0
+      },
+      {
+        "sample_id": "sample.102",
+        "feature": 1,
+        "label": 0
+      },
+      {
+        "sample_id": "sample.103",
+        "feature": 2,
+        "label": 1
+      },
+      {
+        "sample_id": "sample.104",
+        "feature": null,
+        "label": 1
+      },
+      {
+        "sample_id": "sample.105",
+        "feature": 4,
+        "label": 1
+      },
+      {
+        "sample_id": "sample.106",
+        "feature": 5,
+        "label": 1
+      }
+    ]
+  },
+  "duplicate_sample": {
+    "snapshot_id": "snapshot.duplicate_sample",
+    "sha256": "7e1e2cd307a9d9c17f1a84ec4b93d807206deeeab580a7c0d35a9c63af7d9597",
+    "rows": [
+      {
+        "sample_id": "sample.101",
+        "feature": 0,
+        "label": 0
+      },
+      {
+        "sample_id": "sample.102",
+        "feature": 1,
+        "label": 0
+      },
+      {
+        "sample_id": "sample.103",
+        "feature": 2,
+        "label": 1
+      },
+      {
+        "sample_id": "sample.104",
+        "feature": 3,
+        "label": 1
+      },
+      {
+        "sample_id": "sample.105",
+        "feature": 4,
+        "label": 1
+      },
+      {
+        "sample_id": "sample.106",
+        "feature": 5,
+        "label": 1
+      },
+      {
+        "sample_id": "sample.102",
+        "feature": 1,
+        "label": 0
+      }
+    ]
+  }
+}
+
+FILE fixtures/dataset_contract.json
+{
+  "columns": {
+    "sample_id": "unique nonempty string label",
+    "feature": "finite number in [0,5], inclusive",
+    "label": "integer category 0 or 1"
+  },
+  "schema_policy": "exactly declared columns",
+  "required_checks": [
+    "schema",
+    "feature_values",
+    "label_values",
+    "unique_sample_id"
+  ],
+  "gate_policy": "all required named checks must be present and true; otherwise raise or exit nonzero",
+  "evidence": "retain snapshot_id, sha256, named results and failed checks; repaired inputs use unchanged requirements"
+}

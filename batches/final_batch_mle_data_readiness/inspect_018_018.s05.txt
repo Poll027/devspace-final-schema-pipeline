@@ -1,0 +1,94 @@
+PROMPT In the supplied workflow, replace only `learner_operation = None` with a binding of `learner_operation` to `supplied_operation` (without calling it). The helper implements `read_sample(identity, sample)`. Leave the inputs, helper and verification scaffolding unchanged. This is a scaffolded operation-binding task; the remaining implementation is supplied. The completed workflow must meet the following output contract: Implement audit(identity, sample). Use supplied read_sample to enforce the existing authorization boundary, then construct and return a new dictionary using membership in permitted_fields. Include only permitted keys with their original values. Never print restricted values or retrieve a secret literal. The supplied verify harness captures output, checks restricted-field exclusion, and verifies the authorized secret mechanism still works; unauthorized access must raise PermissionError.
+SOLUTION
+# Supplied inputs and operation; do not edit.
+FIXTURES = {'sample': {'run_id': 'run_fixture', 'row_count': 6, 'token': 'DUMMY_TOKEN_NOT_A_CREDENTIAL', 'raw_customer_values': 'DUMMY_CUSTOMER_NOT_A_PERSON'}, 'permitted_fields': ['run_id', 'row_count'], 'authorized_identity': 'fixture_reader', 'unauthorized_identity': 'fixture_other', 'policy': 'Only fixture_reader may read sample; permission denial raises PermissionError. No restricted value in returned record or stdout.', 'runtime_secret_name': 'fixture_token'}
+_SECRET = 'DUMMY_RUNTIME_SECRET_NOT_A_CREDENTIAL'
+if True:
+
+    def supplied_operation(identity, read_sample, sample):
+        return read_sample(identity, sample)
+
+learner_operation = supplied_operation
+
+# Supplied workflow and verification scaffolding; do not edit.
+if True:
+    if True:
+
+        def read_sample(identity, sample):
+            if identity != 'fixture_reader':
+                raise PermissionError('Unauthorized fixture identity')
+            return dict(sample)
+    if True:
+
+        def use_secret(identity, secret_name):
+            if identity != 'fixture_reader' or secret_name != 'fixture_token':
+                raise PermissionError('Unauthorized fixture secret use')
+            return bool(_SECRET)
+    import io
+    from contextlib import redirect_stdout
+    if True:
+
+        def verify(identity, sample):
+            output = io.StringIO()
+            try:
+                with redirect_stdout(output):
+                    record = audit(identity, sample)
+                assert not output.getvalue()
+                assert 'token' not in record and 'raw_customer_values' not in record
+                assert use_secret(identity, FIXTURES['runtime_secret_name'])
+                return record
+            except PermissionError:
+                return 'PermissionError'
+
+    def audit(identity, sample):
+        authorized = learner_operation(identity, read_sample, sample)
+        record = {}
+        for key, value in authorized.items():
+            if key in FIXTURES['permitted_fields']:
+                record[key] = value
+        return record
+
+TESTS
+[
+  {
+    "test_id": "case_1",
+    "kind": "function_call",
+    "spec": {
+      "function": "verify",
+      "args": [
+        "fixture_reader",
+        {
+          "run_id": "run_fixture",
+          "row_count": 6,
+          "token": "DUMMY_TOKEN_NOT_A_CREDENTIAL",
+          "raw_customer_values": "DUMMY_CUSTOMER_NOT_A_PERSON"
+        }
+      ],
+      "expected": {
+        "run_id": "run_fixture",
+        "row_count": 6
+      }
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  },
+  {
+    "test_id": "case_2",
+    "kind": "function_call",
+    "spec": {
+      "function": "verify",
+      "args": [
+        "fixture_other",
+        {
+          "run_id": "run_fixture",
+          "row_count": 6,
+          "token": "DUMMY_TOKEN_NOT_A_CREDENTIAL",
+          "raw_customer_values": "DUMMY_CUSTOMER_NOT_A_PERSON"
+        }
+      ],
+      "expected": "PermissionError"
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  }
+]
+CONSTRAINTS
+{"allowed_syntax": ["def and function parameters", "return statements", "import and from ... import statements for required dependencies", "variable assignment", "dictionary literals and dictionary key access", "dictionary items() iteration", "for loops", "if statements", "in and not in membership checks", "dictionary comprehensions", "list, tuple and set literals for supplied permitted-field collections", "string, integer and boolean literals", "calls to supplied authorized runtime interfaces", "assert statements and equality comparisons"], "blocked_syntax": ["model.fit() and model.predict() calls", "MLflow tracking API calls", "PyTorch tensor, neural-network, autograd and optimizer APIs", "prediction-service route and authentication-handler definitions", "deployment, registry and pipeline orchestration API calls"]}

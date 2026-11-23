@@ -1,0 +1,179 @@
+PRACTICE {
+  "type": "live_code",
+  "objective": "Investigate the supplied order-endpoint failure. Compare the supplied request-rate, failure-fraction and latency evidence for the affected operation and time window. Write one controlled request using the supplied test setup, record its outcome, and follow its interaction identifier through the supplied local, outbound and database evidence before choosing a diagnostic boundary.",
+  "success": "The controlled request reproduces the supplied failure and its outcome is recorded. The investigation distinguishes traffic growth from increased failures or latency, identifies the first recorded failure or delay, and compares timeout evidence with emitted database work and local input handling. The selected boundary is supported by that evidence rather than by the endpoint's final error alone; any proposed change remains separate from the observations.",
+  "live_code": {
+    "required_skill": "Use the supplied TestClient setup to send a controlled order request, capture its response and interaction identifier, and connect the recorded outcome to the supplied diagnostic evidence.",
+    "allowed_syntax": [
+      "with TestClient(app) as client:",
+      "client.post(..., json=..., headers=...)",
+      "variable assignment",
+      "dictionary literals",
+      "string and numeric literals",
+      "response.status_code",
+      "response.headers",
+      "assert ..."
+    ],
+    "blocked_syntax": [
+      "@retry(...)",
+      "selectinload(...)",
+      "joinedload(...)",
+      "Security(..., scopes=[...])"
+    ],
+    "starter_state_intent": "Provide the existing order application, a TestClient setup, the supplied failing order payload, the configured interaction-identifier header, and an evidence packet containing operation-level signals and correlated local, outbound and database records. Leave the controlled request and outcome assertions incomplete.",
+    "observable_success": "The completed request executes once and captures the expected failure status and interaction identifier. A diagnostic record connects that identifier to the first recorded failure or delay, cites the relevant signal comparison and timeout/database evidence, and supports the chosen boundary without changing application code prematurely."
+  }
+}
+SOLUTION
+#!/usr/bin/env bash
+set -euo pipefail
+# Requires the supplied native workspace dependencies and any provisioned service.
+cat > 'starter.py' <<'DEVSPACE_FILE_0'
+from application import client, packet, runtime_evidence
+signals = packet['signals']
+records = packet['records']
+with client() as http:
+    response = http.post('/orders', json=packet['failing_order_payload'])
+    controlled_outcome = {'status':response.status_code,
+                         'interaction_id':response.headers[packet['interaction_header']],
+                         'body':response.json()}
+assert controlled_outcome['interaction_id'] == packet['interaction_id']
+# Synthetic packet evidence and observed controlled outcome are kept distinct.
+comparison = {'baseline':signals[0], 'affected':signals[1]}
+first_failure = records[3]
+suspected_boundary = first_failure['boundary']
+supporting_evidence = {'input':records[0], 'database':records[1],
+                       'outbound_start':records[2], 'first_failure':first_failure,
+                       'final_response':records[4],
+                       'controlled_runtime':runtime_evidence}
+proposed_change = None  # A proposed intervention is not an observation.
+DEVSPACE_FILE_0
+cat > 'check_diagnosis.py' <<'DEVSPACE_FILE_1'
+import starter as s
+from application import packet
+assert s.controlled_outcome['status'] == 504
+assert s.controlled_outcome['body'] == {'detail':'Lookup timeout'}
+assert s.comparison['baseline']['request_count'] == s.comparison['affected']['request_count']
+assert s.comparison['baseline']['window_seconds'] == s.comparison['affected']['window_seconds']
+assert s.comparison['affected']['failure_count'] > s.comparison['baseline']['failure_count']
+assert s.comparison['affected']['latency_ms'] > s.comparison['baseline']['latency_ms']
+assert s.first_failure['event'] == 'timeout'
+assert s.suspected_boundary == 'outbound'
+assert s.supporting_evidence['database']['event'] == 'lookup_complete'
+assert s.supporting_evidence['database']['sql_statement_count'] == 1
+assert s.supporting_evidence['input']['event'] == 'request_received'
+assert s.proposed_change is None
+DEVSPACE_FILE_1
+python check_diagnosis.py
+
+
+FILE starter.py
+from application import client, packet, runtime_evidence
+signals = packet['signals']
+records = packet['records']
+controlled_outcome = None
+suspected_boundary = None
+supporting_evidence = []
+proposed_change = None
+with client() as http:
+    # TODO: Execute exactly one POST /orders with packet['failing_order_payload'].
+    # Record status, interaction header, body and runtime_evidence separately
+    # from synthetic signals/records, then identify the supported boundary.
+    pass
+
+FILE fixtures.json
+{
+  "signals": [
+    {
+      "operation": "create_order",
+      "window": "baseline",
+      "request_count": 60,
+      "window_seconds": 60,
+      "failure_count": 0,
+      "latency_ms": 25.0
+    },
+    {
+      "operation": "create_order",
+      "window": "affected",
+      "request_count": 60,
+      "window_seconds": 60,
+      "failure_count": 12,
+      "latency_ms": 2025.0
+    }
+  ],
+  "records": [
+    {
+      "interaction_id": "interaction_fixture",
+      "offset_ms": 0,
+      "boundary": "local",
+      "event": "request_received",
+      "sql_statement_count": 0
+    },
+    {
+      "interaction_id": "interaction_fixture",
+      "offset_ms": 5,
+      "boundary": "database",
+      "event": "lookup_complete",
+      "sql_statement_count": 1
+    },
+    {
+      "interaction_id": "interaction_fixture",
+      "offset_ms": 10,
+      "boundary": "outbound",
+      "event": "lookup_started",
+      "sql_statement_count": 0
+    },
+    {
+      "interaction_id": "interaction_fixture",
+      "offset_ms": 2010,
+      "boundary": "outbound",
+      "event": "timeout",
+      "sql_statement_count": 0
+    },
+    {
+      "interaction_id": "interaction_fixture",
+      "offset_ms": 2025,
+      "boundary": "local",
+      "event": "response_504",
+      "sql_statement_count": 0
+    }
+  ],
+  "interaction_header": "X-Interaction-ID",
+  "interaction_id": "interaction_fixture",
+  "failing_order_payload": {
+    "id": 101,
+    "status": "pending"
+  },
+  "packet_kind": "authored synthetic fixture; not observed HTTP or SQL output"
+}
+
+FILE application.py
+import json
+from pathlib import Path
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from fastapi.testclient import TestClient
+packet = json.loads(Path('fixtures.json').read_text())
+app = FastAPI()
+runtime_evidence = []
+async def controlled_lookup():
+    # Deterministic timeout injection: no real remote service and no measured
+    # 2010ms delay. Packet offsets remain authored synthetic data.
+    raise TimeoutError('controlled outbound lookup timeout')
+@app.post('/orders')
+async def create_order(request: Request):
+    payload = await request.json()
+    interaction = packet['interaction_id']
+    if payload != packet['failing_order_payload']:
+        return JSONResponse({'detail':'Unknown controlled payload'}, status_code=422)
+    runtime_evidence.append({'interaction_id':interaction,'boundary':'local','event':'request_received'})
+    runtime_evidence.append({'interaction_id':interaction,'boundary':'database','event':'lookup_complete','provenance':'simulated database lookup; no SQL executed'})
+    runtime_evidence.append({'interaction_id':interaction,'boundary':'outbound','event':'lookup_started'})
+    try:
+        await controlled_lookup()
+    except TimeoutError:
+        runtime_evidence.append({'interaction_id':interaction,'boundary':'outbound','event':'timeout','provenance':'controlled exception injection'})
+        return JSONResponse({'detail':'Lookup timeout'}, status_code=504,
+                            headers={packet['interaction_header']:interaction})
+def client():
+    return TestClient(app)

@@ -1,0 +1,35 @@
+exec("import csv\nimport json\ndef supplied_rows(path):\n    with open(path) as f:\n        raw = list(csv.DictReader(f))\n    def convert(v):\n        if v == '': return None\n        if v.lower() == 'true': return True\n        if v.lower() == 'false': return False\n        try: return float(v) if '.' in v or 'e' in v.lower() else int(v)\n        except ValueError: return v\n    return [{k: convert(v) for k,v in r.items()} for r in raw]\nvalidation_scores = supplied_rows('validation_scores.csv')\nthresholds = supplied_rows('thresholds.csv')\np0 = 0.8\np1 = 0.2\ncfp = 1\ncfn = 5\nbound = 0.3\ndef supplied_eligible(cost, FPR, FNR):\n    return cost is not None and cost <= bound\ndef supplied_retain(threshold, representation, records):\n    return {'threshold': threshold, 'score_representation': representation, 'validation_records': records}\n")
+import numpy as np
+def thresholds_evaluate(scores, y, candidates, p0, p1, cfp, cfn):
+    scores = np.asarray(scores)
+    y = np.asarray(y)
+    records = []
+    selected = None
+    best = None
+    for threshold in candidates:
+        pred = scores >= threshold
+        TP = aggregate((y == 1) & (pred == 1))
+        FP = aggregate((y == 0) & (pred == 1))
+        FN = aggregate((y == 1) & (pred == 0))
+        TN = aggregate((y == 0) & (pred == 0))
+        if FP + TN == 0:
+            FPR = None
+        else:
+            FPR = FP / (FP + TN)
+        if FN + TP == 0:
+            FNR = None
+        else:
+            FNR = FN / (FN + TP)
+        if FPR == None or FNR == None:
+            cost = None
+        else:
+            cost = p0 * FPR * cfp + p1 * FNR * cfn
+        eligible = supplied_eligible(cost, FPR, FNR)
+        record = {'threshold': threshold, 'TP': TP, 'FP': FP, 'FN': FN, 'TN': TN, 'FPR': FPR, 'FNR': FNR, 'expected_cost': cost, 'eligible': eligible}
+        records = records + [record]
+        if eligible:
+            if best == None or cost < best:
+                best = cost
+                selected = threshold
+    return supplied_retain(selected, 'probability_score; predicted positive when score >= threshold', records)
+exec("\n\nimport numpy as np\nscores = [r['score'] for r in validation_scores]\ny = [r['actual_label'] for r in validation_scores]\ncandidates = [r['threshold'] for r in thresholds]\nresult = thresholds_evaluate(scores,y,candidates,p0,p1,cfp,cfn)\nempty = thresholds_evaluate(scores[:2],[1,1],candidates,p0,p1,cfp,cfn)\n\n")

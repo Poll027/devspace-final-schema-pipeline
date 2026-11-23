@@ -1,0 +1,2566 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "machine_learning_engineer",
+  "tile_id": "mle.tile.038_040",
+  "toc_location": {
+    "region_id": "mle.region.custom_training",
+    "terrain_id": "mle.terrain.gradient_training"
+  },
+  "title": "Compute neural-network gradients with automatic differentiation / Choose a task-compatible training loss / Configure a baseline optimizer and learning rate",
+  "summary": "",
+  "concept_ids": [
+    "mle.autograd_gradients",
+    "mle.task_loss_selection",
+    "mle.optimizer_configuration"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_machine_learning_engineer",
+    "toc_freeze_hash": "f38fc7a62df329118a32053d1557dcc9a74ada7a9c52269ee9a0c50d28a67a36",
+    "glossary_bundle_hashes": {
+      "mle.autograd_gradients": "b3b99f3be878c3606d2ed943053a6a1a4e8f387d2c76d9744503f3f1772c7b84",
+      "mle.task_loss_selection": "54f369c28250a76a8adc1ddbf97becc540137a6e23aca1e2a007b7692e40cbee",
+      "mle.optimizer_configuration": "9cba558c2587c8361f7c0bd5755618be7d91d89227e3c33df793ad359e130095"
+    },
+    "scenario_registry_hash": "47180d4314306d6e20c3b05167ed92b60ac29422068d33e3e42fb23c4e968d16"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core"
+    ],
+    "block_types": [
+      "before_after",
+      "code_walkthrough",
+      "media_group",
+      "prose",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "classify"
+    ],
+    "runtimes": [],
+    "asset_ids": []
+  },
+  "pacing": {
+    "estimated_minutes": 19.8
+  },
+  "steps": [
+    {
+      "step_id": "mle.tile.038_040.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.autograd_gradients"
+      ],
+      "title": "Compute neural-network gradients with automatic differentiation",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.autograd_gradients"
+        ],
+        "teaching_block_ids": [
+          "mle.autograd_gradients#tb1",
+          "mle.autograd_gradients#tb2",
+          "mle.autograd_gradients#tb3"
+        ],
+        "fact_ids": [
+          "mle.autograd_gradients#f1",
+          "mle.autograd_gradients#f2",
+          "mle.autograd_gradients#f3",
+          "mle.autograd_gradients#f4",
+          "mle.autograd_gradients#f5",
+          "mle.autograd_gradients#f6"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.autograd_gradients#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Use the chain-rule reference to check autograd, not just the existence of a gradient.",
+          "role": "intro",
+          "lineage": {
+            "concept_ids": [
+              "mle.autograd_gradients"
+            ],
+            "teaching_block_ids": [
+              "mle.autograd_gradients#tb1"
+            ],
+            "fact_ids": [],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Autograd builds a computation graph from tensor operations, then applies the chain rule to differentiate its scalar output. Mark trainable leaves with requires_grad=True. Form the supplied scalar loss and call loss.backward(); inspect .grad on each leaf parameter. Clear old gradients before a fresh reference comparison: backward accumulates into .grad.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.autograd_gradients"
+            ],
+            "teaching_block_ids": [
+              "mle.autograd_gradients#tb2"
+            ],
+            "fact_ids": [
+              "mle.autograd_gradients#f1",
+              "mle.autograd_gradients#f2",
+              "mle.autograd_gradients#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For a linear batch Z = XW + b with scalar-loss derivative D = ∂L/∂Z, the chain rule yields ∂L/∂W = X.T @ D and ∂L/∂b = D.sum(axis=0), with any loss reduction already included in D. Compare the computed gradients to the matrix-shaped chain-rule reference with explicit relative and absolute tolerances. Test valid, boundary and failure fixtures with assert predicates. A false predicate raises AssertionError in ordinary non-optimized execution.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.autograd_gradients"
+            ],
+            "teaching_block_ids": [
+              "mle.autograd_gradients#tb3"
+            ],
+            "fact_ids": [
+              "mle.autograd_gradients#f4",
+              "mle.autograd_gradients#f5",
+              "mle.autograd_gradients#f6"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "code_walkthrough",
+          "language": "python",
+          "code": "import torch\n\nW = supplied_W.clone().requires_grad_(True)\nb = supplied_b.clone().requires_grad_(True)\nW.grad = None\nb.grad = None\nZ = X @ W + b\nloss = supplied_scalar_loss(Z, targets)\nloss.backward()\n# D is the supplied scalar-loss derivative, including its reduction.\nreference_W = X.T @ D\nreference_b = D.sum(dim=0)\nassert W.grad.shape == reference_W.shape\nassert b.grad.shape == reference_b.shape\nassert torch.allclose(W.grad, reference_W, rtol=rtol, atol=atol)\nassert torch.allclose(b.grad, reference_b, rtol=rtol, atol=atol)",
+          "reveal": "all",
+          "lineage": {
+            "concept_ids": [
+              "mle.autograd_gradients"
+            ],
+            "teaching_block_ids": [
+              "mle.autograd_gradients#tb1",
+              "mle.autograd_gradients#tb2",
+              "mle.autograd_gradients#tb3"
+            ],
+            "fact_ids": [
+              "mle.autograd_gradients#f1",
+              "mle.autograd_gradients#f2",
+              "mle.autograd_gradients#f3",
+              "mle.autograd_gradients#f4",
+              "mle.autograd_gradients#f5",
+              "mle.autograd_gradients#f6"
+            ],
+            "segment_ids": [],
+            "anchors": [
+              "mle.autograd_gradients#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.038_040.s02",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.autograd_gradients"
+      ],
+      "title": "Compute neural-network gradients with automatic differentiation",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.autograd_gradients"
+        ],
+        "teaching_block_ids": [
+          "mle.autograd_gradients#tb4"
+        ],
+        "fact_ids": [
+          "mle.autograd_gradients#f1",
+          "mle.autograd_gradients#f2",
+          "mle.autograd_gradients#f3",
+          "mle.autograd_gradients#f4",
+          "mle.autograd_gradients#f5",
+          "mle.autograd_gradients#f6"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Take X=[[1, 2], [3, 4]] and the supplied derivative D=[[0.1], [0.2]] for Z=XW+b. The weight-gradient reference is X.T @ D = [[0.7], [1.0]], and the bias-gradient reference is [0.3]. Any loss reduction is already included in D; dividing again would change the reference. Set trainable leaf tensors to require gradients, form the scalar loss and call backward. Inspect .grad before clearing it, and compare shapes and values under explicit tolerances. For a fresh computation, clear the old gradients first because backward accumulates.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.autograd_gradients"
+            ],
+            "teaching_block_ids": [
+              "mle.autograd_gradients#tb4"
+            ],
+            "fact_ids": [
+              "mle.autograd_gradients#f1",
+              "mle.autograd_gradients#f2",
+              "mle.autograd_gradients#f3",
+              "mle.autograd_gradients#f4",
+              "mle.autograd_gradients#f5",
+              "mle.autograd_gradients#f6"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Include a failure fixture whose gradient differs from the declared reference, not only a successful call.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.autograd_gradients"
+            ],
+            "teaching_block_ids": [
+              "mle.autograd_gradients#tb4"
+            ],
+            "fact_ids": [
+              "mle.autograd_gradients#f1",
+              "mle.autograd_gradients#f2",
+              "mle.autograd_gradients#f3",
+              "mle.autograd_gradients#f4",
+              "mle.autograd_gradients#f5",
+              "mle.autograd_gradients#f6"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.038_040.s03",
+      "type": "video",
+      "concept_ids": [
+        "mle.autograd_gradients"
+      ],
+      "title": "A worked demonstration",
+      "eyebrow": "Demonstration",
+      "lineage": {
+        "concept_ids": [
+          "mle.autograd_gradients"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.autograd_gradients#f1"
+        ],
+        "segment_ids": [
+          "seg_mle.autograd_gradients_DbeIqrwb_dE_28_397"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "media_group",
+          "segment_ids": [
+            "seg_mle.autograd_gradients_DbeIqrwb_dE_28_397"
+          ],
+          "segments": [
+            {
+              "segment_id": "seg_mle.autograd_gradients_DbeIqrwb_dE_28_397",
+              "video_id": "DbeIqrwb_dE",
+              "youtube_url": "https://www.youtube.com/watch?v=DbeIqrwb_dE",
+              "review_url": "https://www.youtube.com/watch?v=DbeIqrwb_dE&t=28s",
+              "start_seconds": 28,
+              "end_seconds": 397,
+              "label": "Trace a scalar tensor computation and inspect its gradient",
+              "summary": "PyTorch tracks operations on a tensor when requires_grad=True. Starting with a three-element tensor x, the demonstration forms y = x + 2, multiplies y by itself and by 2, and takes the mean to produce a scalar. Each tracked operation contributes to a computation graph and has an associated gradient function. Calling backward() on the scalar computes its derivative with respect to x and stores the result in x.grad. Repeating the construction without enabling gradient tracking leads to an error when backward() is called. The explanation connects differentiation through the graph to the chain rule: local derivatives are combined to obtain the final gradient. Because the output is scalar, this backward() call needs no explicit gradient argument.",
+              "fact_ids": [
+                "f1"
+              ],
+              "transcript_ref": "DbeIqrwb_dE:28-397"
+            }
+          ],
+          "group_title": "How autograd carries derivatives through a computation graph",
+          "bridge": {
+            "before": "Watch how tracked operations connect a tensor to a scalar output and how backward() populates its gradient. The clip uses “computational graph”; Devspace calls this a computation graph.",
+            "after": "The clip demonstrates the mechanism, not the complete parameter-verification contract. The text adds the supplied-loss leaf-parameter workflow, gradient clearing, matrix references, explicit tolerances, and valid, boundary, and failure assertions."
+          },
+          "default_mode": "video"
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.038_040.s04",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.autograd_gradients"
+      ],
+      "title": "Compute neural-network gradients with automatic differentiation",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.autograd_gradients"
+        ],
+        "teaching_block_ids": [
+          "mle.autograd_gradients#tb5"
+        ],
+        "fact_ids": [
+          "mle.autograd_gradients#f3",
+          "mle.autograd_gradients#f4",
+          "mle.autograd_gradients#f5"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "A populated .grad is not proof of correctness. Clear accumulated gradients and compare the matrix-shaped reference under declared tolerances.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.autograd_gradients"
+            ],
+            "teaching_block_ids": [
+              "mle.autograd_gradients#tb5"
+            ],
+            "fact_ids": [
+              "mle.autograd_gradients#f3",
+              "mle.autograd_gradients#f4",
+              "mle.autograd_gradients#f5"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.038_040.s05",
+      "type": "check",
+      "concept_ids": [
+        "mle.autograd_gradients"
+      ],
+      "title": "Check: Verify parameter gradients against the corresponding matrix-shaped derivative reference.",
+      "eyebrow": "Check",
+      "lineage": {
+        "concept_ids": [
+          "mle.autograd_gradients"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.autograd_gradients#f5",
+          "mle.autograd_gradients#f6"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.autograd_gradients#assessment:assert_gradient_agreement_with_explicit_tolerances"
+        ]
+      },
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.mle.tile.038_040.s05",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.autograd_gradients",
+            "capability": "assert_gradient_agreement_with_explicit_tolerances",
+            "fact_ids": [
+              "f5",
+              "f6"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.autograd_gradients#assessment:assert_gradient_agreement_with_explicit_tolerances"
+        ],
+        "public": {
+          "prompt": "Which assertion is appropriate after a fresh backward computation for Z=XW+b with supplied D already including loss reduction?",
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Compare W.grad with X.T @ D and b.grad with D summed over rows, checking shapes and explicit rtol/atol."
+            },
+            {
+              "option_id": "o2",
+              "text": "Divide both reference gradients by batch size again before comparing."
+            },
+            {
+              "option_id": "o3",
+              "text": "Check only that backward completed without an exception."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "This follows the stated contract."
+            },
+            "o2": {
+              "message": "The supplied D already includes reduction, so another division changes the reference."
+            },
+            "o3": {
+              "message": "Successful execution does not verify matrix-shaped gradient agreement."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "Correct. Compare W.grad with X.T @ D and b.grad with D summed over rows, checking shapes and explicit rtol/atol."
+          },
+          "incorrect": {
+            "message": "Recheck the stated contract. The supplied D already includes reduction, so another division changes the reference. Successful execution does not verify matrix-shaped gradient agreement."
+          },
+          "hints": [
+            "Keep the supplied reduction convention visible in the reference."
+          ],
+          "remediation_step_id": "mle.tile.038_040.r01"
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.038_040.s06",
+      "type": "hands_on",
+      "concept_ids": [
+        "mle.autograd_gradients"
+      ],
+      "title": "Apply: Verify parameter gradients against the corresponding matrix-shaped derivative reference.",
+      "eyebrow": "Apply",
+      "lineage": {
+        "concept_ids": [
+          "mle.autograd_gradients"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.autograd_gradients#f1",
+          "mle.autograd_gradients#f2",
+          "mle.autograd_gradients#f3",
+          "mle.autograd_gradients#f4",
+          "mle.autograd_gradients#f5",
+          "mle.autograd_gradients#f6"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.autograd_gradients#practice",
+          "mle.autograd_gradients#assessment:verify_scalar_loss_gradient_tracking",
+          "mle.autograd_gradients#assessment:ensure_fresh_parameter_gradients",
+          "mle.autograd_gradients#assessment:derive_matrix_shaped_parameter_gradients",
+          "mle.autograd_gradients#assessment:assert_gradient_agreement_with_explicit_tolerances"
+        ]
+      },
+      "interaction": {
+        "type": "classify",
+        "interaction_id": "ix.mle.tile.038_040.s06",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.autograd_gradients",
+            "capability": "verify_scalar_loss_gradient_tracking",
+            "fact_ids": [
+              "f1",
+              "f2"
+            ]
+          },
+          {
+            "concept_id": "mle.autograd_gradients",
+            "capability": "ensure_fresh_parameter_gradients",
+            "fact_ids": [
+              "f3"
+            ]
+          },
+          {
+            "concept_id": "mle.autograd_gradients",
+            "capability": "derive_matrix_shaped_parameter_gradients",
+            "fact_ids": [
+              "f4"
+            ]
+          },
+          {
+            "concept_id": "mle.autograd_gradients",
+            "capability": "assert_gradient_agreement_with_explicit_tolerances",
+            "fact_ids": [
+              "f5",
+              "f6"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.autograd_gradients#practice",
+          "mle.autograd_gradients#assessment:verify_scalar_loss_gradient_tracking",
+          "mle.autograd_gradients#assessment:ensure_fresh_parameter_gradients",
+          "mle.autograd_gradients#assessment:derive_matrix_shaped_parameter_gradients",
+          "mle.autograd_gradients#assessment:assert_gradient_agreement_with_explicit_tolerances"
+        ],
+        "public": {
+          "prompt": "Review gradient checks for X=[[1, 2], [3, 4]], D=[[0.1], [0.2]] and Z=XW+b. D already includes the scalar-loss reduction. The supplied tolerance is rtol=1e-5, atol=1e-8. Valid and zero-D boundary references must pass; a deliberately perturbed reference must fail. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+          "buckets": [
+            {
+              "bucket_id": "supported",
+              "label": "Supported by the contract"
+            },
+            {
+              "bucket_id": "defective",
+              "label": "Defective claim or implementation"
+            }
+          ],
+          "items": [
+            {
+              "item_id": "e1",
+              "text": "# Trainable leaf W and b have requires_grad=True.\nW.grad = None; b.grad = None\nloss = supplied_scalar_loss(X @ W + b)\nloss.backward()\nassert torch.allclose(W.grad, X.T @ D, rtol=1e-5, atol=1e-8)\nassert torch.allclose(b.grad, D.sum(dim=0), rtol=1e-5, atol=1e-8)\n# Observed gradient shapes: (2, 1), (1,); references: [[0.7], [1.0]], [0.3].\n# Valid and zero-D cases pass. A perturbed reference raises AssertionError."
+            },
+            {
+              "item_id": "e2",
+              "text": "# The same scalar loss is backpropagated twice without clearing W.grad or b.grad.\n# Compare the second accumulated gradients against the one-pass reference."
+            },
+            {
+              "item_id": "e3",
+              "text": "reference_W = (X.T @ D) / 2\nreference_b = D.sum(dim=0) / 2\n# Claim: the extra division is required by mean reduction."
+            }
+          ]
+        },
+        "grading": {
+          "assignments": {
+            "e1": "supported",
+            "e2": "defective",
+            "e3": "defective"
+          },
+          "item_feedback": {
+            "e1": {
+              "message": "Fresh leaf gradients are compared with both correctly shaped references under explicit tolerances, including boundary and rejection checks."
+            },
+            "e2": {
+              "message": "Backward accumulates gradients, so this is not a fresh single-pass comparison."
+            },
+            "e3": {
+              "message": "D already carries the reduction; applying it again produces a different reference."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+          },
+          "incorrect": {
+            "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+          },
+          "hints": [
+            "Ask whether the gradient is fresh and whether reduction was applied exactly once."
+          ],
+          "remediation_step_id": "mle.tile.038_040.r02"
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.038_040.s07",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.task_loss_selection"
+      ],
+      "title": "Choose a task-compatible training loss",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.task_loss_selection"
+        ],
+        "teaching_block_ids": [
+          "mle.task_loss_selection#tb1",
+          "mle.task_loss_selection#tb2"
+        ],
+        "fact_ids": [
+          "mle.task_loss_selection#f1",
+          "mle.task_loss_selection#f2",
+          "mle.task_loss_selection#f3"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.task_loss_selection#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Choose the output and target contract before choosing the scalar objective.",
+          "role": "intro",
+          "lineage": {
+            "concept_ids": [
+              "mle.task_loss_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.task_loss_selection#tb1"
+            ],
+            "fact_ids": [],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "The scalar objective compares outputs with their corresponding targets. First establish the loss's input contract. CrossEntropyLoss expects unnormalized class logits; for class-index targets, logits have shape (N, C), targets have shape (N,) with dtype long and values in [0, C). For MSELoss, inputs and targets must share a shape. Mean reduction averages the squared elementwise differences.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.task_loss_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.task_loss_selection#tb2"
+            ],
+            "fact_ids": [
+              "mle.task_loss_selection#f1",
+              "mle.task_loss_selection#f2",
+              "mle.task_loss_selection#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "code_walkthrough",
+          "language": "python",
+          "code": "from torch import nn\n\n# Class indices: raw logits (N, C), long targets (N,), indices in [0, C).\nclass_loss = nn.CrossEntropyLoss()(class_logits, class_indices)\n# Numerical targets: same shape as outputs.\nregression_loss = nn.MSELoss(reduction=\"mean\")(outputs, numeric_targets)\n# Binary targets: same shape, values in [0, 1], raw logits as inputs.\nbinary_loss = nn.BCEWithLogitsLoss(reduction=\"mean\")(binary_logits, binary_targets)\n\nmse_D = 2 * (outputs - numeric_targets) / outputs.numel()\nbinary_D = (binary_logits.sigmoid() - binary_targets) / binary_logits.numel()\nclass_D = (class_logits.softmax(dim=1) - one_hot_targets) / class_logits.shape[0]",
+          "reveal": "all",
+          "lineage": {
+            "concept_ids": [
+              "mle.task_loss_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.task_loss_selection#tb1",
+              "mle.task_loss_selection#tb2"
+            ],
+            "fact_ids": [
+              "mle.task_loss_selection#f1",
+              "mle.task_loss_selection#f2",
+              "mle.task_loss_selection#f3"
+            ],
+            "segment_ids": [],
+            "anchors": [
+              "mle.task_loss_selection#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.038_040.s08",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.task_loss_selection"
+      ],
+      "title": "Choose a task-compatible training loss",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.task_loss_selection"
+        ],
+        "teaching_block_ids": [
+          "mle.task_loss_selection#tb3",
+          "mle.task_loss_selection#tb4"
+        ],
+        "fact_ids": [
+          "mle.task_loss_selection#f4",
+          "mle.task_loss_selection#f5",
+          "mle.task_loss_selection#f6",
+          "mle.task_loss_selection#f7"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "BCEWithLogitsLoss combines sigmoid and binary cross-entropy for logits and same-shaped targets in [0, 1], rather than expecting already-sigmoid-transformed inputs. For mean squared error over M output elements, the loss derivative with respect to an output is 2 × (output−target)/M, so its sign points toward increasing loss as the output moves away from the target. For unweighted mean binary cross-entropy with logits over M elements, the logit derivative is (sigmoid(logit)−target)/M; this distinguishes the probability representation from the raw logit.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.task_loss_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.task_loss_selection#tb3"
+            ],
+            "fact_ids": [
+              "mle.task_loss_selection#f4",
+              "mle.task_loss_selection#f5",
+              "mle.task_loss_selection#f6"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For mean class-index cross-entropy without weighting, the derivative per sample logit is (softmax probability−one-hot target)/N, so output width, target identity and reduction affect the gradient reference.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.task_loss_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.task_loss_selection#tb4"
+            ],
+            "fact_ids": [
+              "mle.task_loss_selection#f7"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.038_040.s09",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.task_loss_selection"
+      ],
+      "title": "Choose a task-compatible training loss",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.task_loss_selection"
+        ],
+        "teaching_block_ids": [
+          "mle.task_loss_selection#tb5"
+        ],
+        "fact_ids": [
+          "mle.task_loss_selection#f1",
+          "mle.task_loss_selection#f2",
+          "mle.task_loss_selection#f3",
+          "mle.task_loss_selection#f4",
+          "mle.task_loss_selection#f5",
+          "mle.task_loss_selection#f6",
+          "mle.task_loss_selection#f7"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "For an unweighted mean squared-error fixture with outputs [2, 4] and targets [1, 2], the loss is (1²+2²)/2 = 2.5 and output derivatives are [1, 2]. For a binary-logit fixture with one logit 0 and target 1, sigmoid(0)=0.5, so the supplied mean-logit derivative is −0.5. For target 1, decreasing the logit increases loss, while increasing it decreases loss. For a class-index task with three classes, verify logits width 3 and long target indices in [0, 3); use the stated softmax-minus-one-hot reference with its sample-count reduction.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.task_loss_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.task_loss_selection#tb5"
+            ],
+            "fact_ids": [
+              "mle.task_loss_selection#f1",
+              "mle.task_loss_selection#f2",
+              "mle.task_loss_selection#f3",
+              "mle.task_loss_selection#f4",
+              "mle.task_loss_selection#f5",
+              "mle.task_loss_selection#f6",
+              "mle.task_loss_selection#f7"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "These are distinct output contracts, not interchangeable wrappers around arbitrary tensors.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.task_loss_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.task_loss_selection#tb5"
+            ],
+            "fact_ids": [
+              "mle.task_loss_selection#f1",
+              "mle.task_loss_selection#f2",
+              "mle.task_loss_selection#f3",
+              "mle.task_loss_selection#f4",
+              "mle.task_loss_selection#f5",
+              "mle.task_loss_selection#f6",
+              "mle.task_loss_selection#f7"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.038_040.s10",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.task_loss_selection"
+      ],
+      "title": "Choose a task-compatible training loss",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.task_loss_selection"
+        ],
+        "teaching_block_ids": [
+          "mle.task_loss_selection#tb6"
+        ],
+        "fact_ids": [
+          "mle.task_loss_selection#f2",
+          "mle.task_loss_selection#f3",
+          "mle.task_loss_selection#f4"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Loss names do not repair incompatible shapes or representations. Logits, class indices and same-shaped numerical targets have different contracts.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.task_loss_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.task_loss_selection#tb6"
+            ],
+            "fact_ids": [
+              "mle.task_loss_selection#f2",
+              "mle.task_loss_selection#f3",
+              "mle.task_loss_selection#f4"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.038_040.s11",
+      "type": "check",
+      "concept_ids": [
+        "mle.task_loss_selection"
+      ],
+      "title": "Check: Choose a task-compatible loss and verify its output, target and gradient contracts.",
+      "eyebrow": "Check",
+      "lineage": {
+        "concept_ids": [
+          "mle.task_loss_selection"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.task_loss_selection#f1",
+          "mle.task_loss_selection#f2"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.task_loss_selection#assessment:select_cross_entropy_for_class_index_targets_and_logits"
+        ]
+      },
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.mle.tile.038_040.s11",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.task_loss_selection",
+            "capability": "select_cross_entropy_for_class_index_targets_and_logits",
+            "fact_ids": [
+              "f1",
+              "f2"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.task_loss_selection#assessment:select_cross_entropy_for_class_index_targets_and_logits"
+        ],
+        "public": {
+          "prompt": "For a three-class task with unnormalized logits of shape (N, 3), which target contract fits class-index CrossEntropyLoss?",
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Apply sigmoid first and use same-shaped binary targets for this class-index contract."
+            },
+            {
+              "option_id": "o2",
+              "text": "Long targets of shape (N,) with indices in [0, 3)."
+            },
+            {
+              "option_id": "o3",
+              "text": "Long targets of shape (N,) allowing index 3."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o2"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "That substitutes the binary-logit target contract for the declared class-index one."
+            },
+            "o2": {
+              "message": "This follows the stated contract."
+            },
+            "o3": {
+              "message": "The upper bound is exclusive; index 3 is outside a three-class mapping."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "Correct. Long targets of shape (N,) with indices in [0, 3)."
+          },
+          "incorrect": {
+            "message": "Recheck the stated contract. The upper bound is exclusive; index 3 is outside a three-class mapping. That substitutes the binary-logit target contract for the declared class-index one."
+          },
+          "hints": [
+            "Check the output width against the target-index range."
+          ],
+          "remediation_step_id": "mle.tile.038_040.r03"
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.038_040.s12",
+      "type": "check",
+      "concept_ids": [
+        "mle.task_loss_selection"
+      ],
+      "title": "Check: Choose a task-compatible loss and verify its output, target and gradient contracts.",
+      "eyebrow": "Check",
+      "lineage": {
+        "concept_ids": [
+          "mle.task_loss_selection"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.task_loss_selection#f1",
+          "mle.task_loss_selection#f4"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.task_loss_selection#assessment:select_binary_cross_entropy_with_logits_for_binary_targets"
+        ]
+      },
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.mle.tile.038_040.s12",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.task_loss_selection",
+            "capability": "select_binary_cross_entropy_with_logits_for_binary_targets",
+            "fact_ids": [
+              "f1",
+              "f4"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.task_loss_selection#assessment:select_binary_cross_entropy_with_logits_for_binary_targets"
+        ],
+        "public": {
+          "prompt": "Which input pair matches BCEWithLogitsLoss for the stated binary contract?",
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Raw logits and same-shaped targets in [0, 1]."
+            },
+            {
+              "option_id": "o2",
+              "text": "Already-sigmoid probabilities and same-shaped targets in [0, 1]."
+            },
+            {
+              "option_id": "o3",
+              "text": "Raw logits and binary targets with a different shape."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "This follows the stated contract."
+            },
+            "o2": {
+              "message": "BCEWithLogitsLoss combines sigmoid with binary cross-entropy and expects logits."
+            },
+            "o3": {
+              "message": "The declared binary contract requires matching output and target shapes."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "Correct. Raw logits and same-shaped targets in [0, 1]."
+          },
+          "incorrect": {
+            "message": "Recheck the stated contract. BCEWithLogitsLoss combines sigmoid with binary cross-entropy and expects logits. The declared binary contract requires matching output and target shapes."
+          },
+          "hints": [
+            "Distinguish the raw score from its sigmoid probability."
+          ],
+          "remediation_step_id": "mle.tile.038_040.r04"
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.038_040.s13",
+      "type": "hands_on",
+      "concept_ids": [
+        "mle.task_loss_selection"
+      ],
+      "title": "Apply: Choose a task-compatible loss and verify its output, target and gradient contracts.",
+      "eyebrow": "Apply",
+      "lineage": {
+        "concept_ids": [
+          "mle.task_loss_selection"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.task_loss_selection#f1",
+          "mle.task_loss_selection#f3",
+          "mle.task_loss_selection#f5",
+          "mle.task_loss_selection#f6",
+          "mle.task_loss_selection#f7"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.task_loss_selection#practice",
+          "mle.task_loss_selection#assessment:select_mean_squared_error_for_same_shaped_numerical_targets",
+          "mle.task_loss_selection#assessment:verify_loss_gradient_against_output_representation_and_mean_reduction"
+        ]
+      },
+      "interaction": {
+        "type": "classify",
+        "interaction_id": "ix.mle.tile.038_040.s13",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.task_loss_selection",
+            "capability": "select_mean_squared_error_for_same_shaped_numerical_targets",
+            "fact_ids": [
+              "f1",
+              "f3"
+            ]
+          },
+          {
+            "concept_id": "mle.task_loss_selection",
+            "capability": "verify_loss_gradient_against_output_representation_and_mean_reduction",
+            "fact_ids": [
+              "f5",
+              "f6",
+              "f7"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.task_loss_selection#practice",
+          "mle.task_loss_selection#assessment:select_mean_squared_error_for_same_shaped_numerical_targets",
+          "mle.task_loss_selection#assessment:verify_loss_gradient_against_output_representation_and_mean_reduction"
+        ],
+        "public": {
+          "prompt": "Inspect mean-MSE proposals for outputs [2, 4] and numerical targets [1, 2]. The function must verify equal shapes, choose mean MSE, check its loss and output derivatives, and interpret their signs. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+          "buckets": [
+            {
+              "bucket_id": "supported",
+              "label": "Supported by the contract"
+            },
+            {
+              "bucket_id": "defective",
+              "label": "Defective claim or implementation"
+            }
+          ],
+          "items": [
+            {
+              "item_id": "e1",
+              "text": "assert outputs.shape == targets.shape\nloss = nn.MSELoss(reduction=\"mean\")(outputs, targets)\nloss.backward()\n# Assert under supplied tolerances: loss.item() == 2.5; outputs.grad == [1.0, 2.0].\n# Each positive derivative means increasing that output farther above its\n# target increases loss."
+            },
+            {
+              "item_id": "e2",
+              "text": "# Same fixture and equal-shape assertion\nloss = nn.MSELoss(reduction=\"sum\")(outputs, targets)\n# Report this as the requested mean-reduced loss."
+            },
+            {
+              "item_id": "e3",
+              "text": "# Correct measured derivatives: [1.0, 2.0]\n# Report: increasing either output farther above its target decreases loss."
+            }
+          ]
+        },
+        "grading": {
+          "assignments": {
+            "e1": "supported",
+            "e2": "defective",
+            "e3": "defective"
+          },
+          "item_feedback": {
+            "e1": {
+              "message": "Equal-shaped numerical targets, mean squared differences and the mean-reduced derivative reference agree; the sign interpretation is correct."
+            },
+            "e2": {
+              "message": "Sum reduction is not the declared mean loss or mean derivative contract."
+            },
+            "e3": {
+              "message": "Positive derivatives indicate increasing loss in the direction of increasing output here, not decreasing loss."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+          },
+          "incorrect": {
+            "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+          },
+          "hints": [
+            "Write the mean factor before interpreting a derivative sign."
+          ],
+          "remediation_step_id": "mle.tile.038_040.r05"
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.038_040.s14",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.optimizer_configuration"
+      ],
+      "title": "Configure a baseline optimizer and learning rate",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.optimizer_configuration"
+        ],
+        "teaching_block_ids": [
+          "mle.optimizer_configuration#tb1",
+          "mle.optimizer_configuration#tb2",
+          "mle.optimizer_configuration#tb3"
+        ],
+        "fact_ids": [
+          "mle.optimizer_configuration#f1",
+          "mle.optimizer_configuration#f2",
+          "mle.optimizer_configuration#f3",
+          "mle.optimizer_configuration#f4",
+          "mle.optimizer_configuration#f5"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.optimizer_configuration#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Give plain SGD the trainable parameters and verify one current-gradient update.",
+          "role": "intro",
+          "lineage": {
+            "concept_ids": [
+              "mle.optimizer_configuration"
+            ],
+            "teaching_block_ids": [
+              "mle.optimizer_configuration#tb1"
+            ],
+            "fact_ids": [],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Pass the model's trainable parameters to torch.optim.SGD(model.parameters(), lr=declared_learning_rate). For plain SGD without momentum, weight decay or other modifications, the parameter update is parameter_new = parameter_old − learning_rate × gradient. Apply the current update in order: optimizer.zero_grad() clears old gradients, loss.backward() computes gradients, and optimizer.step() updates parameters.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.optimizer_configuration"
+            ],
+            "teaching_block_ids": [
+              "mle.optimizer_configuration#tb2"
+            ],
+            "fact_ids": [
+              "mle.optimizer_configuration#f1",
+              "mle.optimizer_configuration#f2",
+              "mle.optimizer_configuration#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Check one deterministic fixture update against the declared plain-SGD equation, without extending that rule to every optimizer. Test valid, boundary and failure fixtures with assert predicates. A false predicate raises AssertionError in ordinary non-optimized execution.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.optimizer_configuration"
+            ],
+            "teaching_block_ids": [
+              "mle.optimizer_configuration#tb3"
+            ],
+            "fact_ids": [
+              "mle.optimizer_configuration#f4",
+              "mle.optimizer_configuration#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "before_after",
+          "before": {
+            "type": "code_walkthrough",
+            "language": "python",
+            "code": "import torch\noptimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)\noptimizer.zero_grad()\nloss = loss_fn(model(features), targets)\nloss.backward()\nbefore = [p.detach().clone() for p in model.parameters()]\ngradients = [p.grad.detach().clone() for p in model.parameters()]",
+            "reveal": "all",
+            "lineage": {
+              "concept_ids": [
+                "mle.optimizer_configuration"
+              ],
+              "teaching_block_ids": [
+                "mle.optimizer_configuration#tb1",
+                "mle.optimizer_configuration#tb2",
+                "mle.optimizer_configuration#tb3"
+              ],
+              "fact_ids": [
+                "mle.optimizer_configuration#f1",
+                "mle.optimizer_configuration#f2",
+                "mle.optimizer_configuration#f3",
+                "mle.optimizer_configuration#f4",
+                "mle.optimizer_configuration#f5"
+              ],
+              "segment_ids": [],
+              "anchors": [
+                "mle.optimizer_configuration#visual"
+              ]
+            }
+          },
+          "after": {
+            "type": "code_walkthrough",
+            "language": "python",
+            "code": "optimizer.step()\nfor p, old, gradient in zip(model.parameters(), before, gradients):\n    expected = old - learning_rate * gradient\n    assert torch.allclose(p.detach(), expected, rtol=rtol, atol=atol)",
+            "reveal": "all",
+            "lineage": {
+              "concept_ids": [
+                "mle.optimizer_configuration"
+              ],
+              "teaching_block_ids": [
+                "mle.optimizer_configuration#tb1",
+                "mle.optimizer_configuration#tb2",
+                "mle.optimizer_configuration#tb3"
+              ],
+              "fact_ids": [
+                "mle.optimizer_configuration#f1",
+                "mle.optimizer_configuration#f2",
+                "mle.optimizer_configuration#f3",
+                "mle.optimizer_configuration#f4",
+                "mle.optimizer_configuration#f5"
+              ],
+              "segment_ids": [],
+              "anchors": [
+                "mle.optimizer_configuration#visual"
+              ]
+            }
+          },
+          "change_summary": "Verify the current-gradient update.",
+          "lineage": {
+            "concept_ids": [
+              "mle.optimizer_configuration"
+            ],
+            "teaching_block_ids": [
+              "mle.optimizer_configuration#tb1",
+              "mle.optimizer_configuration#tb2",
+              "mle.optimizer_configuration#tb3"
+            ],
+            "fact_ids": [
+              "mle.optimizer_configuration#f1",
+              "mle.optimizer_configuration#f2",
+              "mle.optimizer_configuration#f3",
+              "mle.optimizer_configuration#f4",
+              "mle.optimizer_configuration#f5"
+            ],
+            "segment_ids": [],
+            "anchors": [
+              "mle.optimizer_configuration#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.038_040.s15",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.optimizer_configuration"
+      ],
+      "title": "Configure a baseline optimizer and learning rate",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.optimizer_configuration"
+        ],
+        "teaching_block_ids": [
+          "mle.optimizer_configuration#tb4"
+        ],
+        "fact_ids": [
+          "mle.optimizer_configuration#f1",
+          "mle.optimizer_configuration#f2",
+          "mle.optimizer_configuration#f3",
+          "mle.optimizer_configuration#f4",
+          "mle.optimizer_configuration#f5"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "For plain SGD with no momentum, weight decay or other modifications, let a parameter be 2, its current gradient 3 and learning rate 0.1. The reference new value is 2 − 0.1 × 3 = 1.7, with change −0.3. Clear old gradients, compute backward and then step. Retain the before and after values and compare their difference with the reference under declared tolerances. Initialize the optimizer with model.parameters() so it acts on the supplied trainable model parameters.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.optimizer_configuration"
+            ],
+            "teaching_block_ids": [
+              "mle.optimizer_configuration#tb4"
+            ],
+            "fact_ids": [
+              "mle.optimizer_configuration#f1",
+              "mle.optimizer_configuration#f2",
+              "mle.optimizer_configuration#f3",
+              "mle.optimizer_configuration#f4",
+              "mle.optimizer_configuration#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A fixture that calls backward but never step would produce a gradient without this parameter update. Keep the plain-SGD restrictions visible so this arithmetic is not mistaken for the update rule of every optimizer.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.optimizer_configuration"
+            ],
+            "teaching_block_ids": [
+              "mle.optimizer_configuration#tb4"
+            ],
+            "fact_ids": [
+              "mle.optimizer_configuration#f1",
+              "mle.optimizer_configuration#f2",
+              "mle.optimizer_configuration#f3",
+              "mle.optimizer_configuration#f4",
+              "mle.optimizer_configuration#f5"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.038_040.s16",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.optimizer_configuration"
+      ],
+      "title": "Configure a baseline optimizer and learning rate",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.optimizer_configuration"
+        ],
+        "teaching_block_ids": [
+          "mle.optimizer_configuration#tb5"
+        ],
+        "fact_ids": [
+          "mle.optimizer_configuration#f1",
+          "mle.optimizer_configuration#f2",
+          "mle.optimizer_configuration#f3"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "An optimizer needs the model parameters and a fresh gradient. The plain-SGD equation is not a rule for every optimizer.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.optimizer_configuration"
+            ],
+            "teaching_block_ids": [
+              "mle.optimizer_configuration#tb5"
+            ],
+            "fact_ids": [
+              "mle.optimizer_configuration#f1",
+              "mle.optimizer_configuration#f2",
+              "mle.optimizer_configuration#f3"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.038_040.s17",
+      "type": "check",
+      "concept_ids": [
+        "mle.optimizer_configuration"
+      ],
+      "title": "Check: Implement and test one plain-SGD update from the current gradients.",
+      "eyebrow": "Check",
+      "lineage": {
+        "concept_ids": [
+          "mle.optimizer_configuration"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.optimizer_configuration#f5"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.optimizer_configuration#assessment:assert_valid_boundary_and_failure_cases"
+        ]
+      },
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.mle.tile.038_040.s17",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.optimizer_configuration",
+            "capability": "assert_valid_boundary_and_failure_cases",
+            "fact_ids": [
+              "f5"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.optimizer_configuration#assessment:assert_valid_boundary_and_failure_cases"
+        ],
+        "public": {
+          "prompt": "A plain-SGD fixture uses a separate zero-learning-rate boundary case and an intentionally wrong expected-update reference. Which test policy is correct?",
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Accept the incorrect reference whenever optimizer.step() runs."
+            },
+            {
+              "option_id": "o2",
+              "text": "Assert unchanged parameters at zero learning rate; require the incorrect reference to fail an assertion."
+            },
+            {
+              "option_id": "o3",
+              "text": "Require a nonzero change even when learning rate is zero."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o2"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "Execution alone does not establish the declared update equation."
+            },
+            "o2": {
+              "message": "This follows the stated contract."
+            },
+            "o3": {
+              "message": "The plain-SGD change is minus learning rate times gradient, hence zero at that boundary."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "Correct. Assert unchanged parameters at zero learning rate; require the incorrect reference to fail an assertion."
+          },
+          "incorrect": {
+            "message": "Recheck the stated contract. The plain-SGD change is minus learning rate times gradient, hence zero at that boundary. Execution alone does not establish the declared update equation."
+          },
+          "hints": [
+            "Distinguish a valid boundary from a false expected-update predicate."
+          ],
+          "remediation_step_id": "mle.tile.038_040.r06"
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.038_040.s18",
+      "type": "hands_on",
+      "concept_ids": [
+        "mle.optimizer_configuration"
+      ],
+      "title": "Apply: Implement and test one plain-SGD update from the current gradients.",
+      "eyebrow": "Apply",
+      "lineage": {
+        "concept_ids": [
+          "mle.optimizer_configuration"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.optimizer_configuration#f1",
+          "mle.optimizer_configuration#f2",
+          "mle.optimizer_configuration#f3",
+          "mle.optimizer_configuration#f4",
+          "mle.optimizer_configuration#f5"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.optimizer_configuration#practice",
+          "mle.optimizer_configuration#assessment:bind_baseline_optimizer_to_model_parameters",
+          "mle.optimizer_configuration#assessment:verify_declared_plain_sgd_update",
+          "mle.optimizer_configuration#assessment:apply_current_gradients_in_correct_order",
+          "mle.optimizer_configuration#assessment:assert_valid_boundary_and_failure_cases"
+        ]
+      },
+      "interaction": {
+        "type": "classify",
+        "interaction_id": "ix.mle.tile.038_040.s18",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.optimizer_configuration",
+            "capability": "bind_baseline_optimizer_to_model_parameters",
+            "fact_ids": [
+              "f1"
+            ]
+          },
+          {
+            "concept_id": "mle.optimizer_configuration",
+            "capability": "verify_declared_plain_sgd_update",
+            "fact_ids": [
+              "f2",
+              "f4"
+            ]
+          },
+          {
+            "concept_id": "mle.optimizer_configuration",
+            "capability": "apply_current_gradients_in_correct_order",
+            "fact_ids": [
+              "f3"
+            ]
+          },
+          {
+            "concept_id": "mle.optimizer_configuration",
+            "capability": "assert_valid_boundary_and_failure_cases",
+            "fact_ids": [
+              "f5"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.optimizer_configuration#practice",
+          "mle.optimizer_configuration#assessment:bind_baseline_optimizer_to_model_parameters",
+          "mle.optimizer_configuration#assessment:verify_declared_plain_sgd_update",
+          "mle.optimizer_configuration#assessment:apply_current_gradients_in_correct_order",
+          "mle.optimizer_configuration#assessment:assert_valid_boundary_and_failure_cases"
+        ],
+        "public": {
+          "prompt": "Inspect a baseline plain-SGD configuration: no momentum, weight decay or other modifications. The deterministic parameter is 2, its current gradient is 3 and learning rate is 0.1. Checks use supplied explicit tolerances. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+          "buckets": [
+            {
+              "bucket_id": "supported",
+              "label": "Supported by the contract"
+            },
+            {
+              "bucket_id": "defective",
+              "label": "Defective claim or implementation"
+            }
+          ],
+          "items": [
+            {
+              "item_id": "e1",
+              "text": "optimizer = torch.optim.SGD(model.parameters(), lr=0.1)\noptimizer.zero_grad()\nloss.backward()\n# Snapshot parameter_before and current gradient before step.\noptimizer.step()\n# Assert parameter_after == 1.7 and change == -0.3 within supplied tolerances.\n# Separate lr=0 boundary asserts parameter_after == 2.\n# Deliberately incorrect expected update raises AssertionError."
+            },
+            {
+              "item_id": "e2",
+              "text": "optimizer.zero_grad()\nloss.backward()\noptimizer.zero_grad()\noptimizer.step()\n# Expect the supplied nonzero current-gradient update."
+            },
+            {
+              "item_id": "e3",
+              "text": "optimizer = torch.optim.SGD(unrelated_parameters, lr=0.1)\n# unrelated_parameters are not any trainable model parameters.\n# Claim: this verifies the model parameter update."
+            }
+          ]
+        },
+        "grading": {
+          "assignments": {
+            "e1": "supported",
+            "e2": "defective",
+            "e3": "defective"
+          },
+          "item_feedback": {
+            "e1": {
+              "message": "The optimizer is bound to model parameters and applies the current gradient in the right order; valid, zero-rate and false-reference tests distinguish the contract."
+            },
+            "e2": {
+              "message": "Clearing after backward removes the gradient that the step is meant to apply."
+            },
+            "e3": {
+              "message": "The optimizer must receive the trainable model parameters, not a separate parameter collection."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+          },
+          "incorrect": {
+            "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+          },
+          "hints": [
+            "Follow parameter identity and the gradient’s lifetime through the update."
+          ],
+          "remediation_step_id": "mle.tile.038_040.r07"
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.038_040.s19",
+      "type": "recap",
+      "concept_ids": [
+        "mle.autograd_gradients",
+        "mle.task_loss_selection",
+        "mle.optimizer_configuration"
+      ],
+      "title": "Keep these contracts together",
+      "eyebrow": "Takeaways",
+      "lineage": {
+        "concept_ids": [
+          "mle.autograd_gradients",
+          "mle.task_loss_selection",
+          "mle.optimizer_configuration"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Compare autograd with the chain rule, select a compatible loss representation, and verify the fresh-gradient plain-SGD update.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "mle.autograd_gradients",
+              "mle.task_loss_selection",
+              "mle.optimizer_configuration"
+            ],
+            "fact_ids": [
+              "mle.autograd_gradients#f1",
+              "mle.autograd_gradients#f2",
+              "mle.autograd_gradients#f3",
+              "mle.autograd_gradients#f4",
+              "mle.autograd_gradients#f5",
+              "mle.autograd_gradients#f6",
+              "mle.task_loss_selection#f1",
+              "mle.task_loss_selection#f2",
+              "mle.task_loss_selection#f3",
+              "mle.task_loss_selection#f4",
+              "mle.task_loss_selection#f5",
+              "mle.task_loss_selection#f6",
+              "mle.task_loss_selection#f7",
+              "mle.optimizer_configuration#f1",
+              "mle.optimizer_configuration#f2",
+              "mle.optimizer_configuration#f3",
+              "mle.optimizer_configuration#f4",
+              "mle.optimizer_configuration#f5"
+            ],
+            "teaching_block_ids": [
+              "mle.autograd_gradients#tb2",
+              "mle.autograd_gradients#tb3",
+              "mle.task_loss_selection#tb2",
+              "mle.task_loss_selection#tb3",
+              "mle.task_loss_selection#tb4",
+              "mle.optimizer_configuration#tb2",
+              "mle.optimizer_configuration#tb3"
+            ]
+          }
+        },
+        {
+          "type": "up_next",
+          "title": "Implement the minibatch forward, backward and optimizer-step loop",
+          "text": "Next: mle.tile.041_043"
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "mle.tile.038_040.r01",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.autograd_gradients"
+      ],
+      "title": "Recheck: Verify parameter gradients against the corresponding matrix-shaped derivative reference.",
+      "eyebrow": "One clear contrast",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Compare the computed gradients to the matrix-shaped chain-rule reference with explicit relative and absolute tolerances.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.autograd_gradients"
+            ],
+            "teaching_block_ids": [
+              "mle.autograd_gradients#tb3"
+            ],
+            "fact_ids": [
+              "mle.autograd_gradients#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Use assert predicates on valid, boundary and failure fixtures. A false predicate raises AssertionError during ordinary non-optimized execution.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.autograd_gradients"
+            ],
+            "teaching_block_ids": [
+              "mle.autograd_gradients#tb3"
+            ],
+            "fact_ids": [
+              "mle.autograd_gradients#f6"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A populated .grad is not proof of correctness. Clear accumulated gradients and compare the matrix-shaped reference under declared tolerances.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.autograd_gradients"
+            ],
+            "teaching_block_ids": [
+              "mle.autograd_gradients#tb5"
+            ],
+            "fact_ids": [
+              "mle.autograd_gradients#f3",
+              "mle.autograd_gradients#f4",
+              "mle.autograd_gradients#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Take X=[[1, 2], [3, 4]] and the supplied derivative D=[[0.1], [0.2]] for Z=XW+b.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.autograd_gradients"
+            ],
+            "teaching_block_ids": [
+              "mle.autograd_gradients#tb4"
+            ],
+            "fact_ids": [
+              "mle.autograd_gradients#f1",
+              "mle.autograd_gradients#f2",
+              "mle.autograd_gradients#f3",
+              "mle.autograd_gradients#f4",
+              "mle.autograd_gradients#f5",
+              "mle.autograd_gradients#f6"
+            ],
+            "anchors": []
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.autograd_gradients"
+        ],
+        "teaching_block_ids": [
+          "mle.autograd_gradients#tb3"
+        ],
+        "fact_ids": [
+          "mle.autograd_gradients#f5",
+          "mle.autograd_gradients#f6"
+        ],
+        "anchors": []
+      }
+    },
+    {
+      "step_id": "mle.tile.038_040.r02",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.task_loss_selection"
+      ],
+      "title": "Recheck: Choose a task-compatible loss and verify its output, target and gradient contracts.",
+      "eyebrow": "One clear contrast",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "A loss compares model outputs with the corresponding target representation; choose its input contract before computing the scalar objective.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.task_loss_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.task_loss_selection#tb2"
+            ],
+            "fact_ids": [
+              "mle.task_loss_selection#f1"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "CrossEntropyLoss expects unnormalized class logits; for class-index targets, logits have shape (N, C), targets have shape (N,) with dtype long and values in [0, C).",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.task_loss_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.task_loss_selection#tb2"
+            ],
+            "fact_ids": [
+              "mle.task_loss_selection#f2"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Loss names do not repair incompatible shapes or representations. Logits, class indices and same-shaped numerical targets have different contracts.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.task_loss_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.task_loss_selection#tb6"
+            ],
+            "fact_ids": [
+              "mle.task_loss_selection#f2",
+              "mle.task_loss_selection#f3",
+              "mle.task_loss_selection#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For an unweighted mean squared-error fixture with outputs [2, 4] and targets [1, 2], the loss is (1²+2²)/2 = 2.5 and output derivatives are [1, 2].",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.task_loss_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.task_loss_selection#tb5"
+            ],
+            "fact_ids": [
+              "mle.task_loss_selection#f1",
+              "mle.task_loss_selection#f2",
+              "mle.task_loss_selection#f3",
+              "mle.task_loss_selection#f4",
+              "mle.task_loss_selection#f5",
+              "mle.task_loss_selection#f6",
+              "mle.task_loss_selection#f7"
+            ],
+            "anchors": []
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.task_loss_selection"
+        ],
+        "teaching_block_ids": [
+          "mle.task_loss_selection#tb2"
+        ],
+        "fact_ids": [
+          "mle.task_loss_selection#f1",
+          "mle.task_loss_selection#f2"
+        ],
+        "anchors": []
+      }
+    },
+    {
+      "step_id": "mle.tile.038_040.r03",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.optimizer_configuration"
+      ],
+      "title": "Recheck: Implement and test one plain-SGD update from the current gradients.",
+      "eyebrow": "One clear contrast",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Use assert predicates on valid, boundary and failure fixtures. A false predicate raises AssertionError during ordinary non-optimized execution.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.optimizer_configuration"
+            ],
+            "teaching_block_ids": [
+              "mle.optimizer_configuration#tb3"
+            ],
+            "fact_ids": [
+              "mle.optimizer_configuration#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "An optimizer needs the model parameters and a fresh gradient. The plain-SGD equation is not a rule for every optimizer.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.optimizer_configuration"
+            ],
+            "teaching_block_ids": [
+              "mle.optimizer_configuration#tb5"
+            ],
+            "fact_ids": [
+              "mle.optimizer_configuration#f1",
+              "mle.optimizer_configuration#f2",
+              "mle.optimizer_configuration#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For plain SGD with no momentum, weight decay or other modifications, let a parameter be 2, its current gradient 3 and learning rate 0.1.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.optimizer_configuration"
+            ],
+            "teaching_block_ids": [
+              "mle.optimizer_configuration#tb4"
+            ],
+            "fact_ids": [
+              "mle.optimizer_configuration#f1",
+              "mle.optimizer_configuration#f2",
+              "mle.optimizer_configuration#f3",
+              "mle.optimizer_configuration#f4",
+              "mle.optimizer_configuration#f5"
+            ],
+            "anchors": []
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.optimizer_configuration"
+        ],
+        "teaching_block_ids": [
+          "mle.optimizer_configuration#tb3"
+        ],
+        "fact_ids": [
+          "mle.optimizer_configuration#f5"
+        ],
+        "anchors": []
+      }
+    },
+    {
+      "step_id": "mle.tile.038_040.r04",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.autograd_gradients"
+      ],
+      "title": "Recheck: Verify parameter gradients against the corresponding matrix-shaped derivative reference.",
+      "eyebrow": "One clear contrast",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Autograd records tensor operations as a computation graph and differentiates the scalar output through that graph using the chain rule.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.autograd_gradients"
+            ],
+            "teaching_block_ids": [
+              "mle.autograd_gradients#tb2"
+            ],
+            "fact_ids": [
+              "mle.autograd_gradients#f1"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Set requires_grad=True on trainable leaf tensors, form the supplied scalar loss, call loss.backward(), and inspect each leaf parameter’s .grad.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.autograd_gradients"
+            ],
+            "teaching_block_ids": [
+              "mle.autograd_gradients#tb2"
+            ],
+            "fact_ids": [
+              "mle.autograd_gradients#f2"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Backward accumulates into .grad, so clear old gradients before comparing a fresh computation with the reference.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.autograd_gradients"
+            ],
+            "teaching_block_ids": [
+              "mle.autograd_gradients#tb2"
+            ],
+            "fact_ids": [
+              "mle.autograd_gradients#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For a linear batch Z = XW + b with scalar-loss derivative D = ∂L/∂Z, the chain rule yields ∂L/∂W = X.T @ D and ∂L/∂b = D.sum(axis=0), with any loss reduction already included in D.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.autograd_gradients"
+            ],
+            "teaching_block_ids": [
+              "mle.autograd_gradients#tb3"
+            ],
+            "fact_ids": [
+              "mle.autograd_gradients#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Compare the computed gradients to the matrix-shaped chain-rule reference with explicit relative and absolute tolerances.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.autograd_gradients"
+            ],
+            "teaching_block_ids": [
+              "mle.autograd_gradients#tb3"
+            ],
+            "fact_ids": [
+              "mle.autograd_gradients#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Use assert predicates on valid, boundary and failure fixtures. A false predicate raises AssertionError during ordinary non-optimized execution.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.autograd_gradients"
+            ],
+            "teaching_block_ids": [
+              "mle.autograd_gradients#tb3"
+            ],
+            "fact_ids": [
+              "mle.autograd_gradients#f6"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A populated .grad is not proof of correctness. Clear accumulated gradients and compare the matrix-shaped reference under declared tolerances.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.autograd_gradients"
+            ],
+            "teaching_block_ids": [
+              "mle.autograd_gradients#tb5"
+            ],
+            "fact_ids": [
+              "mle.autograd_gradients#f3",
+              "mle.autograd_gradients#f4",
+              "mle.autograd_gradients#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Take X=[[1, 2], [3, 4]] and the supplied derivative D=[[0.1], [0.2]] for Z=XW+b.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.autograd_gradients"
+            ],
+            "teaching_block_ids": [
+              "mle.autograd_gradients#tb4"
+            ],
+            "fact_ids": [
+              "mle.autograd_gradients#f1",
+              "mle.autograd_gradients#f2",
+              "mle.autograd_gradients#f3",
+              "mle.autograd_gradients#f4",
+              "mle.autograd_gradients#f5",
+              "mle.autograd_gradients#f6"
+            ],
+            "anchors": []
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.autograd_gradients"
+        ],
+        "teaching_block_ids": [
+          "mle.autograd_gradients#tb2",
+          "mle.autograd_gradients#tb3"
+        ],
+        "fact_ids": [
+          "mle.autograd_gradients#f1",
+          "mle.autograd_gradients#f2",
+          "mle.autograd_gradients#f3",
+          "mle.autograd_gradients#f4",
+          "mle.autograd_gradients#f5",
+          "mle.autograd_gradients#f6"
+        ],
+        "anchors": []
+      }
+    },
+    {
+      "step_id": "mle.tile.038_040.r05",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.task_loss_selection"
+      ],
+      "title": "Recheck: Choose a task-compatible loss and verify its output, target and gradient contracts.",
+      "eyebrow": "One clear contrast",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "A loss compares model outputs with the corresponding target representation; choose its input contract before computing the scalar objective.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.task_loss_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.task_loss_selection#tb2"
+            ],
+            "fact_ids": [
+              "mle.task_loss_selection#f1"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "BCEWithLogitsLoss combines sigmoid and binary cross-entropy for logits and same-shaped targets in [0, 1], rather than expecting already-sigmoid-transformed inputs.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.task_loss_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.task_loss_selection#tb3"
+            ],
+            "fact_ids": [
+              "mle.task_loss_selection#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Loss names do not repair incompatible shapes or representations. Logits, class indices and same-shaped numerical targets have different contracts.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.task_loss_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.task_loss_selection#tb6"
+            ],
+            "fact_ids": [
+              "mle.task_loss_selection#f2",
+              "mle.task_loss_selection#f3",
+              "mle.task_loss_selection#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For an unweighted mean squared-error fixture with outputs [2, 4] and targets [1, 2], the loss is (1²+2²)/2 = 2.5 and output derivatives are [1, 2].",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.task_loss_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.task_loss_selection#tb5"
+            ],
+            "fact_ids": [
+              "mle.task_loss_selection#f1",
+              "mle.task_loss_selection#f2",
+              "mle.task_loss_selection#f3",
+              "mle.task_loss_selection#f4",
+              "mle.task_loss_selection#f5",
+              "mle.task_loss_selection#f6",
+              "mle.task_loss_selection#f7"
+            ],
+            "anchors": []
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.task_loss_selection"
+        ],
+        "teaching_block_ids": [
+          "mle.task_loss_selection#tb2",
+          "mle.task_loss_selection#tb3"
+        ],
+        "fact_ids": [
+          "mle.task_loss_selection#f1",
+          "mle.task_loss_selection#f4"
+        ],
+        "anchors": []
+      }
+    },
+    {
+      "step_id": "mle.tile.038_040.r06",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.task_loss_selection"
+      ],
+      "title": "Recheck: Choose a task-compatible loss and verify its output, target and gradient contracts.",
+      "eyebrow": "One clear contrast",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "A loss compares model outputs with the corresponding target representation; choose its input contract before computing the scalar objective.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.task_loss_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.task_loss_selection#tb2"
+            ],
+            "fact_ids": [
+              "mle.task_loss_selection#f1"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "MSELoss takes input and target tensors of the same shape and, under mean reduction, averages their squared elementwise differences.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.task_loss_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.task_loss_selection#tb2"
+            ],
+            "fact_ids": [
+              "mle.task_loss_selection#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For mean squared error over M output elements, the loss derivative with respect to an output is 2 × (output−target)/M, so its sign points toward increasing loss as the output moves away from the target.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.task_loss_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.task_loss_selection#tb3"
+            ],
+            "fact_ids": [
+              "mle.task_loss_selection#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For unweighted mean binary cross-entropy with logits over M elements, the logit derivative is (sigmoid(logit)−target)/M; this distinguishes the probability representation from the raw logit.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.task_loss_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.task_loss_selection#tb3"
+            ],
+            "fact_ids": [
+              "mle.task_loss_selection#f6"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For mean class-index cross-entropy without weighting, the derivative per sample logit is (softmax probability−one-hot target)/N, so output width, target identity and reduction affect the gradient reference.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.task_loss_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.task_loss_selection#tb4"
+            ],
+            "fact_ids": [
+              "mle.task_loss_selection#f7"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Loss names do not repair incompatible shapes or representations. Logits, class indices and same-shaped numerical targets have different contracts.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.task_loss_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.task_loss_selection#tb6"
+            ],
+            "fact_ids": [
+              "mle.task_loss_selection#f2",
+              "mle.task_loss_selection#f3",
+              "mle.task_loss_selection#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For an unweighted mean squared-error fixture with outputs [2, 4] and targets [1, 2], the loss is (1²+2²)/2 = 2.5 and output derivatives are [1, 2].",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.task_loss_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.task_loss_selection#tb5"
+            ],
+            "fact_ids": [
+              "mle.task_loss_selection#f1",
+              "mle.task_loss_selection#f2",
+              "mle.task_loss_selection#f3",
+              "mle.task_loss_selection#f4",
+              "mle.task_loss_selection#f5",
+              "mle.task_loss_selection#f6",
+              "mle.task_loss_selection#f7"
+            ],
+            "anchors": []
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.task_loss_selection"
+        ],
+        "teaching_block_ids": [
+          "mle.task_loss_selection#tb2",
+          "mle.task_loss_selection#tb3",
+          "mle.task_loss_selection#tb4"
+        ],
+        "fact_ids": [
+          "mle.task_loss_selection#f1",
+          "mle.task_loss_selection#f3",
+          "mle.task_loss_selection#f5",
+          "mle.task_loss_selection#f6",
+          "mle.task_loss_selection#f7"
+        ],
+        "anchors": []
+      }
+    },
+    {
+      "step_id": "mle.tile.038_040.r07",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.optimizer_configuration"
+      ],
+      "title": "Recheck: Implement and test one plain-SGD update from the current gradients.",
+      "eyebrow": "One clear contrast",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Initialize torch.optim.SGD(model.parameters(), lr=declared_learning_rate) so the optimizer receives the trainable model parameters.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.optimizer_configuration"
+            ],
+            "teaching_block_ids": [
+              "mle.optimizer_configuration#tb2"
+            ],
+            "fact_ids": [
+              "mle.optimizer_configuration#f1"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For plain SGD without momentum, weight decay or other modifications, the parameter update is parameter_new = parameter_old − learning_rate × gradient.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.optimizer_configuration"
+            ],
+            "teaching_block_ids": [
+              "mle.optimizer_configuration#tb2"
+            ],
+            "fact_ids": [
+              "mle.optimizer_configuration#f2"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Clear old parameter gradients with optimizer.zero_grad(), compute loss.backward(), then call optimizer.step() to apply the current update.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.optimizer_configuration"
+            ],
+            "teaching_block_ids": [
+              "mle.optimizer_configuration#tb2"
+            ],
+            "fact_ids": [
+              "mle.optimizer_configuration#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Check one deterministic fixture update against the declared plain-SGD equation, rather than assuming every optimizer uses that update rule.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.optimizer_configuration"
+            ],
+            "teaching_block_ids": [
+              "mle.optimizer_configuration#tb3"
+            ],
+            "fact_ids": [
+              "mle.optimizer_configuration#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Use assert predicates on valid, boundary and failure fixtures. A false predicate raises AssertionError during ordinary non-optimized execution.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.optimizer_configuration"
+            ],
+            "teaching_block_ids": [
+              "mle.optimizer_configuration#tb3"
+            ],
+            "fact_ids": [
+              "mle.optimizer_configuration#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "An optimizer needs the model parameters and a fresh gradient. The plain-SGD equation is not a rule for every optimizer.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.optimizer_configuration"
+            ],
+            "teaching_block_ids": [
+              "mle.optimizer_configuration#tb5"
+            ],
+            "fact_ids": [
+              "mle.optimizer_configuration#f1",
+              "mle.optimizer_configuration#f2",
+              "mle.optimizer_configuration#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For plain SGD with no momentum, weight decay or other modifications, let a parameter be 2, its current gradient 3 and learning rate 0.1.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.optimizer_configuration"
+            ],
+            "teaching_block_ids": [
+              "mle.optimizer_configuration#tb4"
+            ],
+            "fact_ids": [
+              "mle.optimizer_configuration#f1",
+              "mle.optimizer_configuration#f2",
+              "mle.optimizer_configuration#f3",
+              "mle.optimizer_configuration#f4",
+              "mle.optimizer_configuration#f5"
+            ],
+            "anchors": []
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.optimizer_configuration"
+        ],
+        "teaching_block_ids": [
+          "mle.optimizer_configuration#tb2",
+          "mle.optimizer_configuration#tb3"
+        ],
+        "fact_ids": [
+          "mle.optimizer_configuration#f1",
+          "mle.optimizer_configuration#f2",
+          "mle.optimizer_configuration#f3",
+          "mle.optimizer_configuration#f4",
+          "mle.optimizer_configuration#f5"
+        ],
+        "anchors": []
+      }
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "mle.tile.041_043"
+  },
+  "content_hash": "87d48dd7ae92d7e0242cb36064d8f7856ec757575971c283f7601a2c3d13e9ed"
+}

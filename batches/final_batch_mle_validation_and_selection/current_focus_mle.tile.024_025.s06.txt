@@ -1,0 +1,43 @@
+Complete only the top-level callable/value bindings. Bind `conditional_count` to the supplied operation that counts true entries in a Boolean error mask. The evaluator must report each threshold’s confusion counts, conditional rates and deployment-weighted expected cost, and select the eligible minimum-cost threshold. Read and preserve all supplied loading, evaluation logic, guards and returned fields; do not edit the supplied evaluation block. The checker runs the completed evaluator on the supplied evidence and boundary cases.
+{'allowed_syntax': ['import numpy as np', 'imports for dependencies required by supplied scaffolding', 'def with parameters and return statements', 'local variable assignment', 'numeric and string literals', 'lists and dictionaries', 'for loops over supplied candidate thresholds', 'if and else conditionals', 'NumPy array conversion and shape checks', 'elementwise score comparisons', 'elementwise binary-label comparisons', 'boolean array operations', 'np.count_nonzero', 'arithmetic expressions with guarded division', 'dictionary and list indexing', 'calls to supplied eligibility and threshold-retention interfaces'], 'blocked_syntax': ['calibration estimator construction or fitting', 'GridSearchCV or RandomizedSearchCV calls', 'MLflow tracking API calls', 'PyTorch model or training API calls', 'protected test data loading or evaluation calls', 'model registry or deployment API calls']}
+# Supplied evaluation scaffold. Keep this block unchanged; complete only the bindings below.
+if __name__:
+    def evaluate(scores, y, thresholds, p_negative, p_positive, cost_FP, cost_FN, bound):
+        records = []
+        selected = None
+        best_cost = None
+        for threshold in thresholds:
+            predictions = scores >= threshold
+            FP = conditional_count((y == 0) & (predictions == 1))
+            TN = conditional_count((y == 0) & (predictions == 0))
+            FN = conditional_count((y == 1) & (predictions == 0))
+            TP = conditional_count((y == 1) & (predictions == 1))
+            negative_count = FP + TN
+            positive_count = FN + TP
+            FPR = None
+            FNR = None
+            expected_cost = None
+            if negative_count > 0:
+                FPR = FP / negative_count
+            if positive_count > 0:
+                FNR = FN / positive_count
+            if negative_count > 0:
+                if positive_count > 0:
+                    expected_cost = p_negative * FPR * cost_FP + p_positive * FNR * cost_FN
+            record = {'FP': FP, 'TN': TN, 'FN': FN, 'TP': TP, 'actual_negative_count': negative_count, 'actual_positive_count': positive_count, 'FPR': FPR, 'FNR': FNR, 'expected_cost': expected_cost, 'threshold': threshold, 'score_representation': 'probability'}
+            records.append(record)
+            if expected_cost is not None:
+                if expected_cost <= bound:
+                    if best_cost is None:
+                        best_cost = expected_cost
+                        selected = threshold
+                    elif expected_cost < best_cost:
+                        best_cost = expected_cost
+                        selected = threshold
+        return {'records': records, 'selected_threshold': selected, 'score_representation': 'probability'}
+
+# Supplied callable operations; keep these assignments unchanged.
+supplied_np_count_nonzero = np.count_nonzero
+
+# Supplied counting interface; keep unchanged.
+conditional_count = None  # TODO: bind the supplied operation/value

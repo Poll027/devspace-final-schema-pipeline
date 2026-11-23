@@ -1,0 +1,223 @@
+tile_019.s01 Stored reference, object navigation
+{"type": "prose", "text": "An order\u2019s stored customer reference and its Python navigation are separate declarations. Use mapped_column(ForeignKey(\"customers.id\")) for customer_id and relationship() for related objects or collections. Customer.orders navigates to orders; Order.customer navigates to the customer. Their back_populates values name each other\u2019s relationship attribute, establishing bidirectional in-Python association behavior."}
+{"type": "diagram", "diagram_kind": "erd", "title": "Stored reference versus Python navigation", "nodes": [{"id": "stored_orders", "label": "orders: stored columns", "fields": ["id", "customer_id"]}, {"id": "stored_customers", "label": "customers: stored columns", "fields": ["id"]}, {"id": "customer_object", "label": "Customer: navigation", "fields": ["orders = relationship(back_populates=\"customer\")"]}, {"id": "order_object", "label": "Order: navigation", "fields": ["customer = relationship(back_populates=\"orders\")"]}], "edges": [{"from": "stored_orders", "to": "stored_customers", "label": "customer_id: mapped_column(ForeignKey(\"customers.id\"))", "cardinality": "N:1"}, {"from": "customer_object", "to": "order_object", "label": "Customer.orders: back_populates=\"customer\"", "cardinality": "1:N"}, {"from": "order_object", "to": "customer_object", "label": "Order.customer: back_populates=\"orders\"", "cardinality": "N:1"}], "alt_text": "The stored orders.customer_id reference points to customers.id. Separate Customer.orders and Order.customer navigation arrows name each other through back_populates."}
+tile_019.s02 Read the counterpart names
+{"type": "prose", "text": "Order.customer_id represents the stored reference to customers.id. Order.customer represents navigation to a Customer object, while Customer.orders is the counterpart collection. On Customer.orders, back_populates=\"customer\" names Order.customer; on Order.customer, back_populates=\"orders\" names Customer.orders. These names identify counterpart attributes, not merely tables. The paired relationships establish bidirectional in-Python association behavior; they do not determine every later loading or query behavior."}
+{"type": "code_walkthrough", "language": "python", "code": "from sqlalchemy import ForeignKey\nfrom sqlalchemy.orm import Mapped, mapped_column, relationship\nfrom base import Base\n\nclass Customer(Base):\n    __tablename__ = \"customers\"\n    id: Mapped[int] = mapped_column(primary_key=True)\n    orders: Mapped[list[\"Order\"]] = relationship(back_populates=\"customer\")\n\nclass Order(Base):\n    __tablename__ = \"orders\"\n    id: Mapped[int] = mapped_column(primary_key=True)\n    customer_id: Mapped[int] = mapped_column(ForeignKey(\"customers.id\"))\n    customer: Mapped[\"Customer\"] = relationship(back_populates=\"orders\")\n", "reveal": "all"}
+{"type": "prose", "text": "Mapped[list[\"Order\"]] declares collection navigation to Order objects; Mapped[\"Customer\"] declares navigation to one Customer object. These annotations supply the related class to relationship(). Quoting the class name lets Customer refer to Order before Order is declared. The customer_id column separately stores the foreign-key reference. Each back_populates value names the relationship attribute on the opposite class."}
+{"type": "prose", "text": "A relationship attribute does not replace a database foreign-key column. Stored association and object navigation are declared alongside one another."}
+tile_019.s03 Association mapping review
+tile_019.s04 Interpret the paired relationships
+{
+  "type": "choice",
+  "interaction_id": "ix.tile_019.s04",
+  "difficulty": "intro",
+  "grading_mode": "client",
+  "standalone": true,
+  "anchors": [
+    "fastapi_backend.orm_relationship_mapping#assessment:determine_association_from_paired_relationship_attributes"
+  ],
+  "public": {
+    "prompt": "Customer.orders and Order.customer are relationship attributes alongside Order.customer_id, a foreign-key column. Which reciprocal back_populates pair names the opposite relationship attributes?",
+    "options": [
+      {
+        "option_id": "o1",
+        "text": "Customer.orders names \"customer\"; Order.customer names \"orders\"."
+      },
+      {
+        "option_id": "o2",
+        "text": "Customer.orders names \"customer_id\"; Order.customer names \"id\"."
+      },
+      {
+        "option_id": "o3",
+        "text": "Customer.orders names \"orders\"; Order.customer names \"customer\"."
+      }
+    ],
+    "selection": "single",
+    "shuffle": true
+  },
+  "grading": {
+    "correct_option_ids": [
+      "o1"
+    ],
+    "option_feedback": {
+      "o1": {
+        "message": "Each value names the counterpart navigation attribute on the opposite class."
+      },
+      "o2": {
+        "message": "These are stored column names, not the counterpart relationship attributes."
+      },
+      "o3": {
+        "message": "These name the same-side attributes rather than each other."
+      }
+    }
+  },
+  "feedback": {
+    "correct": {
+      "message": "Each value names the counterpart navigation attribute on the opposite class."
+    },
+    "incorrect": {
+      "message": "Compare the chosen option with the rule in the prompt; its feedback explains the specific mismatch."
+    },
+    "hints": [
+      "Separate stored identifiers from object navigation, then look at the opposite class."
+    ],
+    "remediation_step_id": "tile_019.r01"
+  }
+}
+tile_019.s05 Map Customer and Order
+{
+  "type": "code_exercise",
+  "interaction_id": "ix.tile_019.s05",
+  "difficulty": "stretch",
+  "grading_mode": "client",
+  "standalone": false,
+  "anchors": [
+    "fastapi_backend.orm_relationship_mapping#practice",
+    "fastapi_backend.orm_relationship_mapping#assessment:distinguish_stored_foreign_key_from_object_navigation",
+    "fastapi_backend.orm_relationship_mapping#assessment:determine_association_from_paired_relationship_attributes"
+  ],
+  "public": {
+    "prompt": "Complete Customer.orders, Order.customer_id and Order.customer in the existing classes. The stored foreign key must target customers.id; Order.customer must navigate to one Customer and Customer.orders to an Order collection. Set reciprocal back_populates names. Leave Base and the observe(customer_id, order_id) harness unchanged; it inspects declarations and verifies that assigning o.customer places o in c.orders.",
+    "runtime": {
+      "kind": "python_asgi",
+      "version": "0.29.5",
+      "packages": [
+        "sqlalchemy"
+      ]
+    },
+    "workspace": {
+      "files": [
+        {
+          "path": "main.py",
+          "role": "editable",
+          "language": "python",
+          "content": "from sqlalchemy import ForeignKey\nfrom sqlalchemy.orm import Mapped, mapped_column, relationship\nfrom sqlalchemy.orm import DeclarativeBase\n\nclass Base(DeclarativeBase):\n    pass\n\nclass Customer(Base):\n    __tablename__ = \"customers\"\n    id: Mapped[int] = mapped_column(primary_key=True)\n    # TODO: declare the orders collection and its counterpart name.\n\nclass Order(Base):\n    __tablename__ = \"orders\"\n    id: Mapped[int] = mapped_column(primary_key=True)\n    # TODO: declare customer_id, customer navigation, and its counterpart name.\n\n# Supplied inspection/association harness: do not edit.\nfrom sqlalchemy import inspect\n\ndef observe(customer_id, order_id):\n    cm, om = inspect(Customer), inspect(Order)\n    c = Customer(id=customer_id)\n    o = Order(id=order_id, customer_id=customer_id)\n    o.customer = c\n    return {\"foreign_keys\": sorted(f.target_fullname for f in om.columns.customer_id.foreign_keys),\n            \"order_customer_collection\": om.relationships.customer.uselist,\n            \"customer_orders_collection\": cm.relationships.orders.uselist,\n            \"order_counterpart\": om.relationships.customer.back_populates,\n            \"customer_counterpart\": cm.relationships.orders.back_populates,\n            \"stored_customer_id\": o.customer_id,\n            \"navigation_customer_id\": o.customer.id,\n            \"collection_order_ids\": [item.id for item in c.orders],\n            \"same_customer\": o.customer is c}\n"
+        }
+      ],
+      "entry": "main.py"
+    },
+    "constraints": {
+      "allowed_syntax": [
+        "from sqlalchemy import ForeignKey",
+        "from sqlalchemy.orm import Mapped, mapped_column, relationship",
+        "class Customer(Base):",
+        "class Order(Base):",
+        "__tablename__ = \"customers\"",
+        "__tablename__ = \"orders\"",
+        "Mapped[int]",
+        "Mapped[\"Customer\"]",
+        "Mapped[list[\"Order\"]]",
+        "mapped_column(primary_key=True)",
+        "mapped_column(ForeignKey(\"customers.id\"))",
+        "relationship(back_populates=\"orders\")",
+        "relationship(back_populates=\"customer\")"
+      ],
+      "blocked_syntax": [
+        "select()",
+        "session.execute()",
+        "session.add()",
+        "session.delete()",
+        "session.commit()",
+        "session.rollback()",
+        "async_sessionmaker()",
+        "Depends()",
+        "@app.get",
+        "@app.post"
+      ]
+    }
+  },
+  "grading": {
+    "solution_files": [
+      {
+        "path": "main.py",
+        "content": "from sqlalchemy import ForeignKey\nfrom sqlalchemy.orm import Mapped, mapped_column, relationship\nfrom sqlalchemy.orm import DeclarativeBase\n\nclass Base(DeclarativeBase):\n    pass\n\nclass Customer(Base):\n    __tablename__ = \"customers\"\n    id: Mapped[int] = mapped_column(primary_key=True)\n    orders: Mapped[list[\"Order\"]] = relationship(back_populates=\"customer\")\n\nclass Order(Base):\n    __tablename__ = \"orders\"\n    id: Mapped[int] = mapped_column(primary_key=True)\n    customer_id: Mapped[int] = mapped_column(ForeignKey(\"customers.id\"))\n    customer: Mapped[\"Customer\"] = relationship(back_populates=\"orders\")\n\n# Supplied inspection/association harness: do not edit.\nfrom sqlalchemy import inspect\n\ndef observe(customer_id, order_id):\n    cm, om = inspect(Customer), inspect(Order)\n    c = Customer(id=customer_id)\n    o = Order(id=order_id, customer_id=customer_id)\n    o.customer = c\n    return {\"foreign_keys\": sorted(f.target_fullname for f in om.columns.customer_id.foreign_keys),\n            \"order_customer_collection\": om.relationships.customer.uselist,\n            \"customer_orders_collection\": cm.relationships.orders.uselist,\n            \"order_counterpart\": om.relationships.customer.back_populates,\n            \"customer_counterpart\": cm.relationships.orders.back_populates,\n            \"stored_customer_id\": o.customer_id,\n            \"navigation_customer_id\": o.customer.id,\n            \"collection_order_ids\": [item.id for item in c.orders],\n            \"same_customer\": o.customer is c}\n"
+      }
+    ],
+    "tests": [
+      {
+        "test_id": "t0",
+        "kind": "function_call",
+        "spec": {
+          "function": "observe",
+          "args": [
+            1,
+            1
+          ],
+          "expected": {
+            "foreign_keys": [
+              "customers.id"
+            ],
+            "order_customer_collection": false,
+            "customer_orders_collection": true,
+            "order_counterpart": "orders",
+            "customer_counterpart": "customer",
+            "stored_customer_id": 1,
+            "navigation_customer_id": 1,
+            "collection_order_ids": [
+              1
+            ],
+            "same_customer": true
+          }
+        },
+        "visible": true,
+        "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+      },
+      {
+        "test_id": "t1",
+        "kind": "function_call",
+        "spec": {
+          "function": "observe",
+          "args": [
+            2,
+            3
+          ],
+          "expected": {
+            "foreign_keys": [
+              "customers.id"
+            ],
+            "order_customer_collection": false,
+            "customer_orders_collection": true,
+            "order_counterpart": "orders",
+            "customer_counterpart": "customer",
+            "stored_customer_id": 2,
+            "navigation_customer_id": 2,
+            "collection_order_ids": [
+              3
+            ],
+            "same_customer": true
+          }
+        },
+        "visible": true,
+        "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+      }
+    ],
+    "execution_provenance": {
+      "runtime": "pyodide",
+      "runtime_version": "0.29.5",
+      "solution_sha256": "4e1afdd8bee68a219094698344f6b71ca8a36c64fb8b6af1217b825d0aad0686",
+      "tests_passed": 2
+    },
+    "hidden_checks": []
+  },
+  "feedback": {
+    "correct": {
+      "message": "The foreign-key column stores the association, while reciprocal relationship attributes provide single-object and collection navigation."
+    },
+    "incorrect": {
+      "message": "Keep the foreign-key column separate from navigation, and name the opposite relationship attribute in each back_populates value."
+    },
+    "hints": [
+      "Separate stored identifiers from object navigation, then look at the opposite class."
+    ],
+    "remediation_step_id": "tile_019.r02"
+  }
+}
+tile_019.s06 Keep the two declarations distinct
+{"type": "prose", "text": "Foreign-key columns describe the stored association; relationship() describes object navigation alongside it.", "role": "takeaway"}
+{"type": "prose", "text": "Use mapped_column(ForeignKey(...)) for the reference, and paired back_populates values to name counterpart relationships and establish bidirectional in-Python association behavior.", "role": "takeaway"}
+{"type": "up_next", "title": "Declarative field validation constraints", "text": "Next: narrow the values admitted by typed model fields."}
+tile_019.r01 Stored reference versus paired navigation
+{"type": "prose", "text": "Order.customer_id is the database reference; relationship() supplies object navigation alongside that reference. Customer.orders and Order.customer pair through back_populates=\"customer\" and back_populates=\"orders\" respectively. Each names the counterpart attribute to establish bidirectional in-Python association behavior\u2014not merely a table name."}
+tile_019.r02 Two kinds of declaration
+{"type": "prose", "text": "Declare customer_id with mapped_column(ForeignKey(\"customers.id\")) for the stored association. Separately declare related-object or collection navigation with relationship(). Pair Customer.orders and Order.customer by naming each other with back_populates. A navigation attribute does not replace the stored foreign-key column; the paired names establish bidirectional in-Python association behavior."}

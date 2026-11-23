@@ -1,0 +1,793 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "python_fastapi_backend_developer",
+  "tile_id": "tile_090",
+  "toc_location": {
+    "region_id": "region_readiness",
+    "terrain_id": "terrain_verified_controls"
+  },
+  "title": "Database test-state isolation",
+  "summary": "",
+  "concept_ids": [
+    "testing.database_state_isolation"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_python_fastapi_backend_developer",
+    "toc_freeze_hash": "96d245a8da4552263398bda220dd1f88774cc30045abdf029e8d40064881cb7e",
+    "glossary_bundle_hashes": {
+      "testing.database_state_isolation": "09d7b539220801f4c0348f7962c28aa6a7908d932af48308cd5564f6a902389d"
+    },
+    "scenario_registry_hash": "8457b835acb638f3087af0988b1e25455e51b5c8a0efda9e9bd119a35f922ffe"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core"
+    ],
+    "block_types": [
+      "code_walkthrough",
+      "media_group",
+      "prose",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "classify"
+    ],
+    "runtimes": [],
+    "asset_ids": []
+  },
+  "pacing": {
+    "estimated_minutes": 5.4
+  },
+  "steps": [
+    {
+      "step_id": "tile_090.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "testing.database_state_isolation"
+      ],
+      "title": "Database test-state isolation",
+      "lineage": {
+        "teaching_block_ids": [
+          "testing.database_state_isolation#tb1",
+          "testing.database_state_isolation#tb2",
+          "testing.database_state_isolation#tb3"
+        ],
+        "fact_ids": [
+          "testing.database_state_isolation#f1",
+          "testing.database_state_isolation#f2",
+          "testing.database_state_isolation#f3",
+          "testing.database_state_isolation#f4"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "testing.database_state_isolation#visual"
+        ]
+      },
+      "eyebrow": "Learn the rule",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "A yield fixture sets up before yield and tears down afterward, making cleanup explicit for its test scope.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "testing.database_state_isolation"
+            ],
+            "fact_ids": [
+              "testing.database_state_isolation#f1"
+            ],
+            "teaching_block_ids": [
+              "testing.database_state_isolation#tb2"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Open an outer connection transaction; bind Session to that connection with join_transaction_mode=\"create_savepoint\". Roll back the outer transaction during teardown.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "testing.database_state_isolation"
+            ],
+            "fact_ids": [
+              "testing.database_state_isolation#f2"
+            ],
+            "teaching_block_ids": [
+              "testing.database_state_isolation#tb3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Override the application session provider with the test provider. Write through TestClient and read resulting state across the same test database boundary.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "testing.database_state_isolation"
+            ],
+            "fact_ids": [
+              "testing.database_state_isolation#f3"
+            ],
+            "teaching_block_ids": [
+              "testing.database_state_isolation#tb3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Close session and connection, restore overrides, and verify a subsequent test does not inherit the earlier write.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "testing.database_state_isolation"
+            ],
+            "fact_ids": [
+              "testing.database_state_isolation#f4"
+            ],
+            "teaching_block_ids": [
+              "testing.database_state_isolation#tb3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "code_walkthrough",
+          "language": "python",
+          "code": "import pytest\nfrom sqlalchemy.orm import Session\nfrom fastapi.testclient import TestClient\nfrom application import app, engine, session_provider\n@pytest.fixture\ndef isolated_client():\n    original_overrides = app.dependency_overrides.copy()\n    connection = engine.connect()\n    outer_transaction = connection.begin()\n    test_session = Session(bind=connection, join_transaction_mode=\"create_savepoint\")\n    def test_provider():\n        yield test_session\n    app.dependency_overrides[session_provider] = test_provider\n    try:\n        with TestClient(app) as client:\n            yield client, test_session\n    finally:\n        test_session.close()\n        outer_transaction.rollback()\n        connection.close()\n        app.dependency_overrides.clear()\n        app.dependency_overrides.update(original_overrides)\n# TODO: test write/read within one boundary; test target absence in another.\n# Run both execution orders. Never migrate/create schema inside per-test transaction.\n\n# Tests use this fixture and the supplied item. Run both orders.\nimport json\nfrom pathlib import Path\nitem = json.loads(Path('fixtures.json').read_text())['item']\ndef test_writes_item(isolated_client):\n    client, _ = isolated_client\n    assert client.post('/items', json=item).json() == item\n    assert client.get(f\"/items/{item['id']}\").json() == item\ndef test_item_absent(isolated_client):\n    client, _ = isolated_client\n    response = client.get(f\"/items/{item['id']}\")\n    assert response.status_code == 404\n    assert response.json() == {'detail':'Not found'}\n",
+          "reveal": "all",
+          "lineage": {
+            "concept_ids": [
+              "testing.database_state_isolation"
+            ],
+            "fact_ids": [
+              "testing.database_state_isolation#f1",
+              "testing.database_state_isolation#f2",
+              "testing.database_state_isolation#f3",
+              "testing.database_state_isolation#f4"
+            ],
+            "teaching_block_ids": [
+              "testing.database_state_isolation#tb2",
+              "testing.database_state_isolation#tb3",
+              "testing.database_state_isolation#tb4",
+              "testing.database_state_isolation#tb5"
+            ],
+            "anchors": [
+              "testing.database_state_isolation#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_090.s02",
+      "type": "explainer",
+      "concept_ids": [
+        "testing.database_state_isolation"
+      ],
+      "title": "Keep the boundary clear",
+      "lineage": {
+        "teaching_block_ids": [
+          "testing.database_state_isolation#tb4",
+          "testing.database_state_isolation#tb5"
+        ],
+        "fact_ids": [
+          "testing.database_state_isolation#f1",
+          "testing.database_state_isolation#f2",
+          "testing.database_state_isolation#f3",
+          "testing.database_state_isolation#f4"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "eyebrow": "Work the boundary",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "A successful write/read test is not isolation proof. The next test must start without the earlier write and with restored overrides.",
+          "role": "walkthrough",
+          "lineage": {
+            "concept_ids": [
+              "testing.database_state_isolation"
+            ],
+            "fact_ids": [
+              "testing.database_state_isolation#f4"
+            ],
+            "teaching_block_ids": [
+              "testing.database_state_isolation#tb4",
+              "testing.database_state_isolation#tb5"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_090.s03",
+      "type": "video",
+      "concept_ids": [
+        "testing.database_state_isolation"
+      ],
+      "title": "Database test-state isolation",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "testing.database_state_isolation#f1"
+        ],
+        "segment_ids": [
+          "seg_testing.database_state_isolation_9gC3Ot0LoUQ_1385_1461"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "media_group",
+          "segment_ids": [
+            "seg_testing.database_state_isolation_9gC3Ot0LoUQ_1385_1461"
+          ],
+          "segments": [
+            {
+              "segment_id": "seg_testing.database_state_isolation_9gC3Ot0LoUQ_1385_1461",
+              "video_id": "9gC3Ot0LoUQ",
+              "youtube_url": "https://www.youtube.com/watch?v=9gC3Ot0LoUQ",
+              "review_url": "https://www.youtube.com/watch?v=9gC3Ot0LoUQ&t=1385s",
+              "start_seconds": 1385,
+              "end_seconds": 1461,
+              "label": "Use a yield fixture to prepare and clean up a test session",
+              "summary": "A pytest generator fixture combines database preparation and cleanup. It creates tables and test items before yielding a session, then closes the session and drops the tables afterward. Individual operations tests receive the session as a fixture argument; the create-item test uses that session to write an item. This makes the setup and teardown lifecycle explicit, but does not establish the outer-transaction isolation workflow.",
+              "fact_ids": [
+                "f1"
+              ],
+              "transcript_ref": "9gC3Ot0LoUQ:1385-1461"
+            }
+          ],
+          "group_title": "Explicit database fixture setup and teardown",
+          "bridge": {
+            "before": "Watch how yielding the session separates preparation from cleanup. The clip creates and drops tables; Devspace's text instead teaches an outer transaction with a savepoint-bound test session.",
+            "after": "The text supplies what the clip lacks: outer-transaction/savepoint isolation, a TestClient write and same-boundary read, connection cleanup, override restoration, and verification that a subsequent test inherits no written state."
+          },
+          "default_mode": "video"
+        }
+      ]
+    },
+    {
+      "step_id": "tile_090.s04",
+      "type": "check",
+      "concept_ids": [
+        "testing.database_state_isolation"
+      ],
+      "title": "Choose the boundary",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "testing.database_state_isolation#f1",
+          "testing.database_state_isolation#f4"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "testing.database_state_isolation#assessment:detect_incomplete_fixture_teardown"
+        ]
+      },
+      "eyebrow": "Check",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_090.s04",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "testing.database_state_isolation",
+            "capability": "detect_incomplete_fixture_teardown",
+            "fact_ids": [
+              "f1",
+              "f4"
+            ]
+          }
+        ],
+        "anchors": [
+          "testing.database_state_isolation#assessment:detect_incomplete_fixture_teardown"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "A yield fixture performs setup before yield and teardown afterward, making resource cleanup explicit for each test's scope. Close the test session and connection and restore overrides in teardown, verifying that a subsequent test does not inherit the first test's written state."
+          },
+          "incorrect": {
+            "message": "Check this rule: A yield fixture performs setup before yield and teardown afterward, making resource cleanup explicit for each test's scope. Close the test session and connection and restore overrides in teardown, verifying that a subsequent test does not inherit the first test's written state."
+          },
+          "hints": [
+            "Trace the inputs, the decision boundary, and the observable output separately."
+          ],
+          "remediation_step_id": "tile_090.r01"
+        },
+        "public": {
+          "prompt": "A yield fixture binds its session to an outer connection transaction and saves overrides, but teardown only closes the session. What is missing?",
+          "selection": "single",
+          "shuffle": true,
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Roll back the outer transaction, close the connection and restore the saved overrides."
+            },
+            {
+              "option_id": "o2",
+              "text": "Commit the outer transaction so later tests inherit the write."
+            },
+            {
+              "option_id": "o3",
+              "text": "Leave overrides installed because the session has closed."
+            }
+          ]
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "This option applies the taught boundary to the evidence."
+            },
+            "o2": {
+              "message": "Committing preserves state instead of isolating the subsequent test."
+            },
+            "o3": {
+              "message": "Closing a session does not restore dependency overrides or close its connection boundary."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_090.s05",
+      "type": "check",
+      "concept_ids": [
+        "testing.database_state_isolation"
+      ],
+      "title": "Choose the boundary",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "testing.database_state_isolation#f4"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "testing.database_state_isolation#assessment:detect_persistence_leakage_between_tests"
+        ]
+      },
+      "eyebrow": "Check",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_090.s05",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "testing.database_state_isolation",
+            "capability": "detect_persistence_leakage_between_tests",
+            "fact_ids": [
+              "f4"
+            ]
+          }
+        ],
+        "anchors": [
+          "testing.database_state_isolation#assessment:detect_persistence_leakage_between_tests"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Close the test session and connection and restore overrides in teardown, verifying that a subsequent test does not inherit the first test's written state."
+          },
+          "incorrect": {
+            "message": "Check this rule: Close the test session and connection and restore overrides in teardown, verifying that a subsequent test does not inherit the first test's written state."
+          },
+          "hints": [
+            "Trace the inputs, the decision boundary, and the observable output separately."
+          ]
+        },
+        "public": {
+          "prompt": "The write test reads its committed API write through the test session. A separate initially-empty test inherits that row when run second. What conclusion is supported?",
+          "selection": "single",
+          "shuffle": true,
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "State isolation is broken; verify outer rollback and teardown and run both test orders."
+            },
+            {
+              "option_id": "o2",
+              "text": "The inherited row proves both tests are isolated."
+            },
+            {
+              "option_id": "o3",
+              "text": "Reading the write in its own test is itself forbidden."
+            }
+          ]
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "This option applies the taught boundary to the evidence."
+            },
+            "o2": {
+              "message": "Isolation requires a subsequent test not to inherit the first test write."
+            },
+            "o3": {
+              "message": "The writing test must observe its own resulting state through the same boundary."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_090.s06",
+      "type": "hands_on",
+      "concept_ids": [
+        "testing.database_state_isolation"
+      ],
+      "title": "Apply the contract",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "testing.database_state_isolation#f2",
+          "testing.database_state_isolation#f3"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "testing.database_state_isolation#practice",
+          "testing.database_state_isolation#assessment:detect_writes_outside_the_test_database_boundary"
+        ]
+      },
+      "eyebrow": "Practice",
+      "interaction": {
+        "type": "classify",
+        "interaction_id": "ix.tile_090.s06",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "testing.database_state_isolation",
+            "capability": "detect_writes_outside_the_test_database_boundary",
+            "fact_ids": [
+              "f2",
+              "f3"
+            ]
+          }
+        ],
+        "anchors": [
+          "testing.database_state_isolation#practice",
+          "testing.database_state_isolation#assessment:detect_writes_outside_the_test_database_boundary"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Your response respects the stated boundary and the supplied evidence."
+          },
+          "incorrect": {
+            "message": "Recheck which evidence establishes the boundary; a declaration or successful single case is not a substitute for the required checks."
+          },
+          "hints": [
+            "Trace the inputs, the decision boundary, and the observable output separately."
+          ]
+        },
+        "public": {
+          "prompt": "Judge complete transaction-isolation fixtures and checks. Accept only a packet that isolates the actual API database and restores every resource/override. Each excerpt is a hypothetical candidate, not a report of observed execution. Classify every item.",
+          "buckets": [
+            {
+              "bucket_id": "good",
+              "label": "Meets the stated review requirements"
+            },
+            {
+              "bucket_id": "bad",
+              "label": "Fails the stated review requirements"
+            }
+          ],
+          "items": [
+            {
+              "item_id": "i1",
+              "text": "connection = engine.connect()\ntransaction = connection.begin()\nsession = Session(bind=connection, join_transaction_mode='create_savepoint')\nsaved_overrides = app.dependency_overrides.copy()\napp.dependency_overrides[session_provider] = test_session_provider\ntry:\n    yield session\nfinally:\n    session.close()\n    transaction.rollback()\n    connection.close()\n    app.dependency_overrides.clear()\n    app.dependency_overrides.update(saved_overrides)\n# Writer uses TestClient to write then reads through this session.\n# Empty-state test does not inherit that write. Run each ordering with fresh fixtures; both checks pass.\n# Candidate fixture test definitions use the supplied item fixture:\ndef test_writes_item(isolated_client):\n    client,session = isolated_client\n    response = client.post('/items',json={'id': 1})\n    assert response.status_code == 200\n    assert response.json() == {'id': 1}\n    assert session.get(Item,1).id == 1\ndef test_item_absent(isolated_client):\n    client,session = isolated_client\n    response = client.get('/items/1')\n    assert (response.status_code,response.json()) == (404,{'detail':'Not found'})\n    assert session.get(Item,1) is None\n# Run test execution orders independently: [['writes_item', 'item_absent'], ['item_absent', 'writes_item']]\n# Fixture isolated_client yields (TestClient(app), session) from inside the outer boundary. Cleanup runs even when the HTTP assertion fails."
+            },
+            {
+              "item_id": "i2",
+              "text": "test_session = Session(engine)\n# Application session_provider is not overridden.\nyield test_session\ntest_session.close()\n# Writer calls the API, then checks a different session. No outer rollback or override restoration. Empty test relies on running first."
+            }
+          ]
+        },
+        "grading": {
+          "assignments": {
+            "i1": "good",
+            "i2": "bad"
+          },
+          "item_feedback": {
+            "i1": {
+              "message": "The HTTP write and read share the test connection boundary, and teardown restores all resources and overrides."
+            },
+            "i2": {
+              "message": "The API can write outside the test boundary; teardown and execution-order independence are not established."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_090.s07",
+      "type": "recap",
+      "concept_ids": [
+        "testing.database_state_isolation"
+      ],
+      "title": "Take the rule with you",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "A successful write/read test is not isolation proof. The next test must start without the earlier write and with restored overrides.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "testing.database_state_isolation"
+            ],
+            "fact_ids": [
+              "testing.database_state_isolation#f4"
+            ],
+            "teaching_block_ids": [
+              "testing.database_state_isolation#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "up_next",
+          "title": "Established authorization-server integration using authorization code and PKCE where applicable; no resource-owner password grant",
+          "text": "The API needs to accept tokens actually issued by its established authorization server. A locally fabricated token or overridden verifier would not prove that integration."
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "tile_090.r01",
+      "type": "remediation",
+      "title": "Review: Database test-state isolation",
+      "concept_ids": [
+        "testing.database_state_isolation"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "testing.database_state_isolation"
+        ],
+        "fact_ids": [
+          "testing.database_state_isolation#f1",
+          "testing.database_state_isolation#f4"
+        ],
+        "teaching_block_ids": [
+          "testing.database_state_isolation#tb2",
+          "testing.database_state_isolation#tb3",
+          "testing.database_state_isolation#tb4",
+          "testing.database_state_isolation#tb5"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "A yield fixture sets up before yield and tears down afterward, making cleanup explicit for its test scope.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "testing.database_state_isolation"
+            ],
+            "fact_ids": [
+              "testing.database_state_isolation#f1"
+            ],
+            "teaching_block_ids": [
+              "testing.database_state_isolation#tb2",
+              "testing.database_state_isolation#tb4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Close session and connection, restore overrides, and verify a subsequent test does not inherit the earlier write.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "testing.database_state_isolation"
+            ],
+            "fact_ids": [
+              "testing.database_state_isolation#f4"
+            ],
+            "teaching_block_ids": [
+              "testing.database_state_isolation#tb3",
+              "testing.database_state_isolation#tb4",
+              "testing.database_state_isolation#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Write/read the supplied item {\"id\": 1} through the isolated test boundary. Then test its absence in a fresh test. Run both supplied execution orders; a successful first write does not prove the next test starts clean.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "testing.database_state_isolation"
+            ],
+            "fact_ids": [
+              "testing.database_state_isolation#f1",
+              "testing.database_state_isolation#f4"
+            ],
+            "teaching_block_ids": [
+              "testing.database_state_isolation#tb2",
+              "testing.database_state_isolation#tb3",
+              "testing.database_state_isolation#tb4",
+              "testing.database_state_isolation#tb5"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_090.r02",
+      "type": "remediation",
+      "title": "Review: Database test-state isolation",
+      "concept_ids": [
+        "testing.database_state_isolation"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "testing.database_state_isolation"
+        ],
+        "fact_ids": [
+          "testing.database_state_isolation#f4"
+        ],
+        "teaching_block_ids": [
+          "testing.database_state_isolation#tb3",
+          "testing.database_state_isolation#tb4",
+          "testing.database_state_isolation#tb5"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Close session and connection, restore overrides, and verify a subsequent test does not inherit the earlier write.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "testing.database_state_isolation"
+            ],
+            "fact_ids": [
+              "testing.database_state_isolation#f4"
+            ],
+            "teaching_block_ids": [
+              "testing.database_state_isolation#tb3",
+              "testing.database_state_isolation#tb4",
+              "testing.database_state_isolation#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Write/read the supplied item {\"id\": 1} through the isolated test boundary. Then test its absence in a fresh test. Run both supplied execution orders; a successful first write does not prove the next test starts clean.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "testing.database_state_isolation"
+            ],
+            "fact_ids": [
+              "testing.database_state_isolation#f4"
+            ],
+            "teaching_block_ids": [
+              "testing.database_state_isolation#tb3",
+              "testing.database_state_isolation#tb4",
+              "testing.database_state_isolation#tb5"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_090.r03",
+      "type": "remediation",
+      "title": "Review: Database test-state isolation",
+      "concept_ids": [
+        "testing.database_state_isolation"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "testing.database_state_isolation"
+        ],
+        "fact_ids": [
+          "testing.database_state_isolation#f2",
+          "testing.database_state_isolation#f3"
+        ],
+        "teaching_block_ids": [
+          "testing.database_state_isolation#tb3",
+          "testing.database_state_isolation#tb4"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Open an outer connection transaction; bind Session to that connection with join_transaction_mode=\"create_savepoint\". Roll back the outer transaction during teardown.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "testing.database_state_isolation"
+            ],
+            "fact_ids": [
+              "testing.database_state_isolation#f2"
+            ],
+            "teaching_block_ids": [
+              "testing.database_state_isolation#tb3",
+              "testing.database_state_isolation#tb4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Override the application session provider with the test provider. Write through TestClient and read resulting state across the same test database boundary.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "testing.database_state_isolation"
+            ],
+            "fact_ids": [
+              "testing.database_state_isolation#f3"
+            ],
+            "teaching_block_ids": [
+              "testing.database_state_isolation#tb3",
+              "testing.database_state_isolation#tb4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Write/read the supplied item {\"id\": 1} through the isolated test boundary. Then test its absence in a fresh test. Run both supplied execution orders; a successful first write does not prove the next test starts clean.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "testing.database_state_isolation"
+            ],
+            "fact_ids": [
+              "testing.database_state_isolation#f2",
+              "testing.database_state_isolation#f3"
+            ],
+            "teaching_block_ids": [
+              "testing.database_state_isolation#tb3",
+              "testing.database_state_isolation#tb4"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "tile_091"
+  },
+  "content_hash": "d6999645b2d424336790cb4f4b7817df2da586c404c51efa0b05fd2355dac816"
+}

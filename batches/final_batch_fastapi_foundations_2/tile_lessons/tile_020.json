@@ -1,0 +1,1332 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "python_fastapi_backend_developer",
+  "tile_id": "tile_020",
+  "toc_location": {
+    "region_id": "region_foundations",
+    "terrain_id": "terrain_data_lifecycle"
+  },
+  "title": "Declarative field validation constraints / Nested request-data models",
+  "summary": "",
+  "concept_ids": [
+    "pydantic.field_constraints",
+    "pydantic.nested_models"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_python_fastapi_backend_developer",
+    "toc_freeze_hash": "96d245a8da4552263398bda220dd1f88774cc30045abdf029e8d40064881cb7e",
+    "glossary_bundle_hashes": {
+      "pydantic.field_constraints": "063a48181e6b40c8621dd593aa6cc3253d1e4ee194a699a20de6a1791e38ac0c",
+      "pydantic.nested_models": "22116c5477bab5f765a66ebdc38e8c3aba1d6cc142b2f94d2105c379f6903b0b"
+    },
+    "scenario_registry_hash": "bcb51cb3e8ba270562bcb357e92140a632e216c299c879ef7dc9778cffea3b97"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core"
+    ],
+    "block_types": [
+      "code_walkthrough",
+      "media_group",
+      "prose",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "code_exercise"
+    ],
+    "runtimes": [
+      "python_asgi"
+    ],
+    "asset_ids": []
+  },
+  "pacing": {
+    "estimated_minutes": 16.6
+  },
+  "steps": [
+    {
+      "step_id": "tile_020.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "pydantic.field_constraints"
+      ],
+      "title": "Narrow a typed field’s domain",
+      "lineage": {
+        "teaching_block_ids": [
+          "pydantic.field_constraints#tb1",
+          "pydantic.field_constraints#tb2",
+          "pydantic.field_constraints#tb3"
+        ],
+        "fact_ids": [
+          "pydantic.field_constraints#f1",
+          "pydantic.field_constraints#f2",
+          "pydantic.field_constraints#f3"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "pydantic.field_constraints#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "An integer type alone does not express an accepted quantity range. Field uses gt/lt for exclusive bounds, ge/le for inclusive bounds, and multiple_of for divisibility. Strings can use min_length, max_length and pattern for length and regular-expression restrictions. Attach Field(...) to the typed model attribute: its constraints apply when constructing the model.",
+          "lineage": {
+            "concept_ids": [
+              "pydantic.field_constraints"
+            ],
+            "teaching_block_ids": [
+              "pydantic.field_constraints#tb1",
+              "pydantic.field_constraints#tb2",
+              "pydantic.field_constraints#tb3"
+            ],
+            "fact_ids": [
+              "pydantic.field_constraints#f1",
+              "pydantic.field_constraints#f2",
+              "pydantic.field_constraints#f3"
+            ]
+          }
+        },
+        {
+          "type": "code_walkthrough",
+          "language": "python",
+          "code": "from pydantic import BaseModel, Field\n\nclass Order(BaseModel):\n    quantity: int = Field(ge=1, le=20)\n    order_reference: str = Field(min_length=3, max_length=12)\nfrom pydantic import ValidationError\n\n# In each group the other field stays valid. Results are computed, not supplied.\ndef observe():\n    results = []\n    for quantity in (0, 1, 20, 21):\n        data = dict(quantity=quantity, order_reference=\"REF\")\n        try:\n            Order(**data)\n            results.append((data, \"constructed\"))\n        except ValidationError as error:\n            results.append((data, error.errors()))\n    for length in (2, 3, 12, 13):\n        data = dict(quantity=1, order_reference=\"R\" * length)\n        try:\n            Order(**data)\n            results.append((data, \"constructed\"))\n        except ValidationError as error:\n            results.append((data, error.errors()))\n    return results\n\nif __name__ == \"__main__\":\n    print(observe())\n",
+          "annotations": [
+            {
+              "start_line": 4,
+              "end_line": 4,
+              "text": "ge/le express the inclusive quantity bounds."
+            },
+            {
+              "start_line": 5,
+              "end_line": 5,
+              "text": "Length bounds constrain this string; no pattern is imposed."
+            },
+            {
+              "start_line": 9,
+              "end_line": 9,
+              "text": "Each probe keeps the other field valid."
+            },
+            {
+              "start_line": 11,
+              "end_line": 11,
+              "text": "With order_reference valid, construction succeeds for quantities 1 and 20; quantities 0 and 21 fail the inclusive range constraint."
+            },
+            {
+              "start_line": 18,
+              "end_line": 18,
+              "text": "With quantity valid, construction succeeds for reference lengths 3 and 12; lengths 2 and 13 fail the length constraints."
+            }
+          ],
+          "reveal": "all",
+          "lineage": {
+            "teaching_block_ids": [
+              "pydantic.field_constraints#tb1",
+              "pydantic.field_constraints#tb2",
+              "pydantic.field_constraints#tb3"
+            ],
+            "fact_ids": [
+              "pydantic.field_constraints#f1",
+              "pydantic.field_constraints#f2",
+              "pydantic.field_constraints#f3"
+            ],
+            "segment_ids": [],
+            "anchors": [
+              "pydantic.field_constraints#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_020.s02",
+      "type": "explainer",
+      "concept_ids": [
+        "pydantic.field_constraints"
+      ],
+      "title": "Inspect the boundaries",
+      "lineage": {
+        "teaching_block_ids": [
+          "pydantic.field_constraints#tb4"
+        ],
+        "fact_ids": [
+          "pydantic.field_constraints#f1",
+          "pydantic.field_constraints#f2",
+          "pydantic.field_constraints#f3"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "The supplied quantity rule runs from 1 through 20, inclusive. Check boundary and neighboring inputs with the other field held valid. ge/le include their boundary; gt/lt exclude it. multiple_of would add a divisibility condition. String length and pattern are different restrictions: meeting one does not prove the other. These are construction-time validation constraints, not just documentation.",
+          "lineage": {
+            "concept_ids": [
+              "pydantic.field_constraints"
+            ],
+            "teaching_block_ids": [
+              "pydantic.field_constraints#tb4"
+            ],
+            "fact_ids": [
+              "pydantic.field_constraints#f1",
+              "pydantic.field_constraints#f2",
+              "pydantic.field_constraints#f3"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_020.s03",
+      "type": "explainer",
+      "concept_ids": [
+        "pydantic.field_constraints"
+      ],
+      "title": "Translate the rule into Field",
+      "lineage": {
+        "teaching_block_ids": [
+          "pydantic.field_constraints#tb5",
+          "pydantic.field_constraints#tb6"
+        ],
+        "fact_ids": [
+          "pydantic.field_constraints#f1",
+          "pydantic.field_constraints#f2",
+          "pydantic.field_constraints#f3"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "For quantity, use Field(ge=1, le=20) on quantity: int to express the inclusive range. If a boundary were excluded, use gt or lt on that side instead. multiple_of adds divisibility without changing the meaning of the bounds. For order_reference: str, Field(min_length=3, max_length=12) expresses the supplied length rule; pattern would express a separate regular-expression restriction. This example imposes no pattern or divisibility requirement. Construction applies the declared constraints.",
+          "lineage": {
+            "concept_ids": [
+              "pydantic.field_constraints"
+            ],
+            "teaching_block_ids": [
+              "pydantic.field_constraints#tb5"
+            ],
+            "fact_ids": [
+              "pydantic.field_constraints#f1",
+              "pydantic.field_constraints#f2",
+              "pydantic.field_constraints#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Do not swap an exclusive bound for an inclusive bound. Work from the rule to the declaration, then inspect the exact boundary values—not just plausible-looking interior values.",
+          "lineage": {
+            "concept_ids": [
+              "pydantic.field_constraints"
+            ],
+            "teaching_block_ids": [
+              "pydantic.field_constraints#tb6"
+            ],
+            "fact_ids": [
+              "pydantic.field_constraints#f1"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_020.s04",
+      "type": "video",
+      "concept_ids": [
+        "pydantic.field_constraints"
+      ],
+      "title": "Field constraints review",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "pydantic.field_constraints#f2",
+          "pydantic.field_constraints#f3"
+        ],
+        "segment_ids": [
+          "seg_pydantic.field_constraints_9GHxnttXxrA_226_375",
+          "seg_pydantic.field_constraints_M81pfi64eeM_2045_2432"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "media_group",
+          "segment_ids": [
+            "seg_pydantic.field_constraints_9GHxnttXxrA_226_375",
+            "seg_pydantic.field_constraints_M81pfi64eeM_2045_2432"
+          ],
+          "segments": [
+            {
+              "segment_id": "seg_pydantic.field_constraints_9GHxnttXxrA_226_375",
+              "video_id": "9GHxnttXxrA",
+              "youtube_url": "https://www.youtube.com/watch?v=9GHxnttXxrA",
+              "review_url": "https://www.youtube.com/watch?v=9GHxnttXxrA&t=226s",
+              "start_seconds": 226,
+              "end_seconds": 375,
+              "label": "Attach string-length constraints to typed model fields",
+              "summary": "A Pydantic model inherits from BaseModel and declares title, content and author as string attributes. Type annotations support runtime validation, but a string type alone still admits empty strings. Field narrows the accepted values: title requires 1–100 characters, content requires at least one character, and author requires 1–50 characters. These declarations place the length rules alongside the typed attributes.",
+              "fact_ids": [
+                "f3"
+              ],
+              "transcript_ref": "9GHxnttXxrA:226-375"
+            },
+            {
+              "segment_id": "seg_pydantic.field_constraints_M81pfi64eeM_2045_2432",
+              "video_id": "M81pfi64eeM",
+              "youtube_url": "https://www.youtube.com/watch?v=M81pfi64eeM",
+              "review_url": "https://www.youtube.com/watch?v=M81pfi64eeM&t=2045s",
+              "start_seconds": 2045,
+              "end_seconds": 2432,
+              "label": "Apply numeric bounds, string lengths and patterns",
+              "summary": "Field constraints can be attached to typed model attributes through Annotated metadata. A user identifier must be greater than zero, a username must contain 3–20 characters, and age must be between 13 and 130 inclusive. The initial description of gt as inclusive is corrected: gt and lt exclude their boundaries, while ge and le include them. String constraints also limit a title to 1–200 characters and require content to contain at least 10 characters. A slug pattern uses beginning and end anchors to require one or more lowercase letters, digits or hyphens. Constructing a user with identifier zero, a two-character username and age 12 produces three validation errors corresponding to those violated constraints.",
+              "fact_ids": [
+                "f2",
+                "f3"
+              ],
+              "transcript_ref": "M81pfi64eeM:2045-2432"
+            }
+          ],
+          "group_title": "Declare constraints and check accepted values",
+          "bridge": {
+            "before": "Watch how Field narrows typed attributes. The first clip uses direct declarations; the second uses Annotated metadata. The second briefly misstates gt, then correctly distinguishes exclusive and inclusive bounds.",
+            "after": "The first clip omits numeric constraints and patterns; the text covers both. The second covers bounds and patterns but omits multiple_of; the text supplies divisibility and completes the numeric rule."
+          },
+          "default_mode": "video"
+        }
+      ]
+    },
+    {
+      "step_id": "tile_020.s05",
+      "type": "check",
+      "concept_ids": [
+        "pydantic.field_constraints"
+      ],
+      "title": "Check the numeric rule",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "pydantic.field_constraints#f1"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "pydantic.field_constraints#assessment:determine_numeric_constraint_satisfaction"
+        ]
+      },
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_020.s05",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "pydantic.field_constraints",
+            "fact_ids": [
+              "f1"
+            ],
+            "capability": "determine_numeric_constraint_satisfaction"
+          }
+        ],
+        "anchors": [
+          "pydantic.field_constraints#assessment:determine_numeric_constraint_satisfaction"
+        ],
+        "public": {
+          "prompt": "For quantity: int = Field(ge=1, le=20), with all other fields valid, how should construction treat the two quantity endpoints?",
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Reject both endpoints because bounds are always exclusive."
+            },
+            {
+              "option_id": "o2",
+              "text": "Accept the lower endpoint but reject the upper endpoint."
+            },
+            {
+              "option_id": "o3",
+              "text": "Accept both endpoints."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o3"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "ge and le include their respective endpoints; gt and lt are the exclusive bounds."
+            },
+            "o2": {
+              "message": "le includes the upper endpoint just as ge includes the lower one."
+            },
+            "o3": {
+              "message": "ge and le express inclusive lower and upper bounds."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "ge and le express inclusive lower and upper bounds."
+          },
+          "incorrect": {
+            "message": "Compare the chosen option with the rule in the prompt; its feedback explains the specific mismatch."
+          },
+          "hints": [
+            "Check the exact boundary, not only an interior value."
+          ],
+          "remediation_step_id": "tile_020.r01"
+        }
+      }
+    },
+    {
+      "step_id": "tile_020.s06",
+      "type": "hands_on",
+      "concept_ids": [
+        "pydantic.field_constraints"
+      ],
+      "title": "Constrain the two fields",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "pydantic.field_constraints#f2",
+          "pydantic.field_constraints#f3"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "pydantic.field_constraints#practice",
+          "pydantic.field_constraints#assessment:determine_string_constraint_satisfaction",
+          "pydantic.field_constraints#assessment:identify_constraints_applied_at_model_construction"
+        ]
+      },
+      "interaction": {
+        "type": "code_exercise",
+        "interaction_id": "ix.tile_020.s06",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "pydantic.field_constraints",
+            "fact_ids": [
+              "f2"
+            ],
+            "capability": "determine_string_constraint_satisfaction"
+          },
+          {
+            "concept_id": "pydantic.field_constraints",
+            "fact_ids": [
+              "f3"
+            ],
+            "capability": "identify_constraints_applied_at_model_construction"
+          }
+        ],
+        "anchors": [
+          "pydantic.field_constraints#practice",
+          "pydantic.field_constraints#assessment:determine_string_constraint_satisfaction",
+          "pydantic.field_constraints#assessment:identify_constraints_applied_at_model_construction"
+        ],
+        "public": {
+          "prompt": "Add Field declarations to both typed attributes of Order. Accept quantity from 1 through 20 inclusive and order_reference from 3 through 12 characters, with no additional pattern or divisibility restriction. Leave the supplied observe(quantity, order_reference) harness unchanged. Construction must accept both endpoints and reject immediately outside each range with the other field valid.",
+          "runtime": {
+            "kind": "python_asgi",
+            "version": "0.29.5",
+            "packages": [
+              "pydantic"
+            ]
+          },
+          "workspace": {
+            "files": [
+              {
+                "path": "main.py",
+                "role": "editable",
+                "language": "python",
+                "content": "from pydantic import BaseModel, Field\n\nclass Order(BaseModel):\n    # TODO: quantity from 1 through 20 inclusive.\n    quantity: int\n    # TODO: order_reference from 3 through 12 characters.\n    order_reference: str\n\n# Supplied boundary harness: do not edit.\nfrom pydantic import ValidationError\n\ndef observe(quantity, order_reference):\n    try:\n        model = Order(quantity=quantity, order_reference=order_reference)\n        return {\"constructed\": True, \"quantity\": model.quantity,\n                \"order_reference\": model.order_reference}\n    except ValidationError as error:\n        return {\"constructed\": False, \"locations\": [list(e[\"loc\"]) for e in error.errors()]}\n"
+              }
+            ],
+            "entry": "main.py"
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "from pydantic import BaseModel, Field",
+              "class Order(BaseModel):",
+              "int and str attribute annotations",
+              "Field(gt=..., ge=..., lt=..., le=..., multiple_of=...)",
+              "Field(min_length=..., max_length=..., pattern=...)",
+              "integer and string literals",
+              "Order(quantity=..., order_reference=...)"
+            ],
+            "blocked_syntax": [
+              "@field_validator",
+              "@model_validator",
+              "nested BaseModel attributes",
+              "FastAPI()",
+              "@app.post(...)",
+              "Depends(...)",
+              "HTTPException(...)",
+              "BaseSettings",
+              "model_dump(...)",
+              "model_fields_set"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "main.py",
+              "content": "from pydantic import BaseModel, Field\n\nclass Order(BaseModel):\n    # TODO: quantity from 1 through 20 inclusive.\n    quantity: int = Field(ge=1, le=20)\n    # TODO: order_reference from 3 through 12 characters.\n    order_reference: str = Field(min_length=3, max_length=12)\n\n# Supplied boundary harness: do not edit.\nfrom pydantic import ValidationError\n\ndef observe(quantity, order_reference):\n    try:\n        model = Order(quantity=quantity, order_reference=order_reference)\n        return {\"constructed\": True, \"quantity\": model.quantity,\n                \"order_reference\": model.order_reference}\n    except ValidationError as error:\n        return {\"constructed\": False, \"locations\": [list(e[\"loc\"]) for e in error.errors()]}\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "t0",
+              "kind": "function_call",
+              "spec": {
+                "function": "observe",
+                "args": [
+                  0,
+                  "REF"
+                ],
+                "expected": {
+                  "constructed": false,
+                  "locations": [
+                    [
+                      "quantity"
+                    ]
+                  ]
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+            },
+            {
+              "test_id": "t1",
+              "kind": "function_call",
+              "spec": {
+                "function": "observe",
+                "args": [
+                  1,
+                  "REF"
+                ],
+                "expected": {
+                  "constructed": true,
+                  "quantity": 1,
+                  "order_reference": "REF"
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+            },
+            {
+              "test_id": "t2",
+              "kind": "function_call",
+              "spec": {
+                "function": "observe",
+                "args": [
+                  20,
+                  "REF"
+                ],
+                "expected": {
+                  "constructed": true,
+                  "quantity": 20,
+                  "order_reference": "REF"
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+            },
+            {
+              "test_id": "t3",
+              "kind": "function_call",
+              "spec": {
+                "function": "observe",
+                "args": [
+                  21,
+                  "REF"
+                ],
+                "expected": {
+                  "constructed": false,
+                  "locations": [
+                    [
+                      "quantity"
+                    ]
+                  ]
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+            },
+            {
+              "test_id": "t4",
+              "kind": "function_call",
+              "spec": {
+                "function": "observe",
+                "args": [
+                  1,
+                  "RR"
+                ],
+                "expected": {
+                  "constructed": false,
+                  "locations": [
+                    [
+                      "order_reference"
+                    ]
+                  ]
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+            },
+            {
+              "test_id": "t5",
+              "kind": "function_call",
+              "spec": {
+                "function": "observe",
+                "args": [
+                  1,
+                  "RRR"
+                ],
+                "expected": {
+                  "constructed": true,
+                  "quantity": 1,
+                  "order_reference": "RRR"
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+            },
+            {
+              "test_id": "t6",
+              "kind": "function_call",
+              "spec": {
+                "function": "observe",
+                "args": [
+                  1,
+                  "RRRRRRRRRRRR"
+                ],
+                "expected": {
+                  "constructed": true,
+                  "quantity": 1,
+                  "order_reference": "RRRRRRRRRRRR"
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+            },
+            {
+              "test_id": "t7",
+              "kind": "function_call",
+              "spec": {
+                "function": "observe",
+                "args": [
+                  1,
+                  "RRRRRRRRRRRRR"
+                ],
+                "expected": {
+                  "constructed": false,
+                  "locations": [
+                    [
+                      "order_reference"
+                    ]
+                  ]
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "pyodide",
+            "runtime_version": "0.29.5",
+            "solution_sha256": "a3cc4b269a634f4688b55815c955cf15fae321585ce2e5ab48b9a6cc6e8da678",
+            "tests_passed": 8
+          },
+          "hidden_checks": []
+        },
+        "feedback": {
+          "correct": {
+            "message": "Both typed attributes carry Field constraints; inclusive quantity and reference-length boundaries pass while immediately outside values fail."
+          },
+          "incorrect": {
+            "message": "Attach Field to each typed attribute. Do not substitute exclusive bounds for inclusive ones or omit the reference-length constraints."
+          },
+          "hints": [
+            "Check the exact boundary, not only an interior value."
+          ],
+          "remediation_step_id": "tile_020.r02"
+        }
+      }
+    },
+    {
+      "step_id": "tile_020.s07",
+      "type": "explainer",
+      "concept_ids": [
+        "pydantic.nested_models"
+      ],
+      "title": "Compose local models",
+      "lineage": {
+        "teaching_block_ids": [
+          "pydantic.nested_models#tb1",
+          "pydantic.nested_models#tb2",
+          "pydantic.nested_models#tb3"
+        ],
+        "fact_ids": [
+          "pydantic.nested_models#f1",
+          "pydantic.nested_models#f2",
+          "pydantic.nested_models#f3"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "pydantic.nested_models#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "An order can compose smaller models for its address and line items. Annotating address: Address incorporates that submodel’s validation; line_items: list[LineItem] validates the corresponding collection data. Nested validation errors can locate a failed field using enclosing field names and element indexes. Follow the location inward rather than looking only at the order’s outer fields.",
+          "lineage": {
+            "concept_ids": [
+              "pydantic.nested_models"
+            ],
+            "teaching_block_ids": [
+              "pydantic.nested_models#tb1",
+              "pydantic.nested_models#tb2",
+              "pydantic.nested_models#tb3"
+            ],
+            "fact_ids": [
+              "pydantic.nested_models#f1",
+              "pydantic.nested_models#f2",
+              "pydantic.nested_models#f3"
+            ]
+          }
+        },
+        {
+          "type": "code_walkthrough",
+          "language": "python",
+          "code": "from pydantic import BaseModel, ValidationError\n\nclass Address(BaseModel):\n    street: str\n\nclass LineItem(BaseModel):\n    product: str\n    quantity: int\n\nclass Order(BaseModel):\n    address: Address\n    line_items: list[LineItem]\n\nvalid_data = {\n    \"address\": {\"street\": \"7 Sample Lane\"},\n    \"line_items\": [\n        {\"product\": \"Notebook\", \"quantity\": 1},\n        {\"product\": \"Pencil\", \"quantity\": 2},\n    ],\n}\ninvalid_data = {\n    \"address\": {\"street\": \"7 Sample Lane\"},\n    \"line_items\": [\n        {\"product\": \"Notebook\", \"quantity\": 1},\n        {\"product\": \"Pencil\", \"quantity\": \"not-a-number\"},\n    ],\n}\n",
+          "annotations": [
+            {
+              "start_line": 25,
+              "end_line": 25,
+              "text": "Input path: line_items → index 1 → quantity. This is the second item’s invalid quantity, not an outer field."
+            },
+            {
+              "start_line": 11,
+              "end_line": 11,
+              "text": "The address field validates the address input with Address."
+            },
+            {
+              "start_line": 12,
+              "end_line": 12,
+              "text": "The collection validates its input objects with LineItem."
+            },
+            {
+              "start_line": 21,
+              "end_line": 21,
+              "text": "Follow line_items to the second item and then quantity in this input. Error locations can include field names and indexes."
+            }
+          ],
+          "reveal": "all",
+          "lineage": {
+            "teaching_block_ids": [
+              "pydantic.nested_models#tb1",
+              "pydantic.nested_models#tb2",
+              "pydantic.nested_models#tb3"
+            ],
+            "fact_ids": [
+              "pydantic.nested_models#f1",
+              "pydantic.nested_models#f2",
+              "pydantic.nested_models#f3"
+            ],
+            "segment_ids": [],
+            "anchors": [
+              "pydantic.nested_models#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_020.s08",
+      "type": "explainer",
+      "concept_ids": [
+        "pydantic.nested_models"
+      ],
+      "title": "Follow a nested location",
+      "lineage": {
+        "teaching_block_ids": [
+          "pydantic.nested_models#tb4",
+          "pydantic.nested_models#tb5"
+        ],
+        "fact_ids": [
+          "pydantic.nested_models#f1",
+          "pydantic.nested_models#f2",
+          "pydantic.nested_models#f3"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Address declares street; LineItem declares product and quantity. Order composes one Address and a list of LineItem models. In the supplied invalid input, the second item’s quantity is a nonnumeric string. Follow a nested location through line_items, the element index, then quantity to identify that part of the input. Outer-field and nested-field failures both belong to enclosing-model validation, but their locations identify different input parts.",
+          "lineage": {
+            "concept_ids": [
+              "pydantic.nested_models"
+            ],
+            "teaching_block_ids": [
+              "pydantic.nested_models#tb4"
+            ],
+            "fact_ids": [
+              "pydantic.nested_models#f1",
+              "pydantic.nested_models#f2",
+              "pydantic.nested_models#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "An enclosing Order does not make an invalid nested value acceptable. Each submodel’s validation participates in validation of the enclosing model.",
+          "lineage": {
+            "concept_ids": [
+              "pydantic.nested_models"
+            ],
+            "teaching_block_ids": [
+              "pydantic.nested_models#tb5"
+            ],
+            "fact_ids": [
+              "pydantic.nested_models#f1"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_020.s09",
+      "type": "check",
+      "concept_ids": [
+        "pydantic.nested_models"
+      ],
+      "title": "Locate the failed field",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "pydantic.nested_models#f1",
+          "pydantic.nested_models#f3"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "pydantic.nested_models#assessment:locate_failed_fields_in_nested_validation"
+        ]
+      },
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_020.s09",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "pydantic.nested_models",
+            "fact_ids": [
+              "f1",
+              "f3"
+            ],
+            "capability": "locate_failed_fields_in_nested_validation"
+          }
+        ],
+        "anchors": [
+          "pydantic.nested_models#assessment:locate_failed_fields_in_nested_validation"
+        ],
+        "public": {
+          "prompt": "Order uses address: Address and line_items: list[LineItem]. In this input, where does nested validation locate the invalid value?\n{\n  \"address\": {\n    \"street\": \"7 Sample Lane\"\n  },\n  \"line_items\": [\n    {\n      \"product\": \"Notebook\",\n      \"quantity\": 1\n    },\n    {\n      \"product\": \"Pencil\",\n      \"quantity\": \"not-a-number\"\n    }\n  ]\n}",
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "('line_items', 1, 'quantity')"
+            },
+            {
+              "option_id": "o2",
+              "text": "('address', 'street')"
+            },
+            {
+              "option_id": "o3",
+              "text": "No error: enclosing the data in Order makes nested values acceptable."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "The collection path identifies the second item and its failing quantity field."
+            },
+            "o2": {
+              "message": "The supplied address street is valid; the nonnumeric value belongs to a line item, not the address."
+            },
+            "o3": {
+              "message": "Submodel validation participates in enclosing-model validation; an invalid nested value does not become acceptable."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "The collection path identifies the second item and its failing quantity field."
+          },
+          "incorrect": {
+            "message": "Compare the chosen option with the rule in the prompt; its feedback explains the specific mismatch."
+          },
+          "hints": [
+            "Follow the input tree inward: outer field, collection position, then inner field."
+          ],
+          "remediation_step_id": "tile_020.r03"
+        }
+      }
+    },
+    {
+      "step_id": "tile_020.s10",
+      "type": "hands_on",
+      "concept_ids": [
+        "pydantic.nested_models"
+      ],
+      "title": "Compose Address, LineItem and Order",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "pydantic.nested_models#f2",
+          "pydantic.nested_models#f3"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "pydantic.nested_models#practice",
+          "pydantic.nested_models#assessment:interpret_collection_indexes_in_nested_error_paths"
+        ]
+      },
+      "interaction": {
+        "type": "code_exercise",
+        "interaction_id": "ix.tile_020.s10",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "pydantic.nested_models",
+            "fact_ids": [
+              "f2",
+              "f3"
+            ],
+            "capability": "interpret_collection_indexes_in_nested_error_paths"
+          }
+        ],
+        "anchors": [
+          "pydantic.nested_models#practice",
+          "pydantic.nested_models#assessment:interpret_collection_indexes_in_nested_error_paths"
+        ],
+        "public": {
+          "prompt": "Complete Address with street: str and LineItem with product: str and quantity: int. Complete Order with one address submodel and a line_items collection of submodels. Leave observe(data) unchanged. Valid supplied input must construct Order containing Address and LineItem instances and preserve their values. The supplied invalid second item must fail at the collection field, index 1, quantity; the harness returns error locations.",
+          "runtime": {
+            "kind": "python_asgi",
+            "version": "0.29.5",
+            "packages": [
+              "pydantic"
+            ]
+          },
+          "workspace": {
+            "files": [
+              {
+                "path": "main.py",
+                "role": "editable",
+                "language": "python",
+                "content": "from pydantic import BaseModel, ValidationError\n\nclass Address(BaseModel):\n    # TODO: street string field.\n    pass\n\nclass LineItem(BaseModel):\n    # TODO: product string and quantity integer fields.\n    pass\n\nclass Order(BaseModel):\n    # TODO: address submodel and line_items collection of submodels.\n    pass\n\n# Supplied construction/location harness: do not edit.\ndef observe(data):\n    try:\n        model = Order.model_validate(data)\n        return {\"constructed\": True, \"address_type\": type(model.address).__name__,\n                \"item_types\": [type(i).__name__ for i in model.line_items],\n                \"street\": model.address.street,\n                \"items\": [[i.product, i.quantity] for i in model.line_items]}\n    except ValidationError as error:\n        return {\"constructed\": False, \"locations\": [list(e[\"loc\"]) for e in error.errors()]}\n"
+              }
+            ],
+            "entry": "main.py"
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "from pydantic import BaseModel, ValidationError",
+              "class declarations inheriting from BaseModel",
+              "field annotations using str and int",
+              "field annotations using a declared submodel class",
+              "list[Submodel] field annotations",
+              "dictionary, list, string, and integer literals",
+              "model construction with keyword arguments",
+              "Model.model_validate(data)",
+              "variable assignment",
+              "try and except ValidationError as error",
+              "error.errors()",
+              "list indexing and dictionary key access"
+            ],
+            "blocked_syntax": [
+              "FastAPI()",
+              "@app.post(...)",
+              "APIRouter()",
+              "Depends(...)",
+              "HTTPException(...)",
+              "@field_validator(...)",
+              "@model_validator(...)",
+              "model_dump(...)"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "main.py",
+              "content": "from pydantic import BaseModel, ValidationError\n\nclass Address(BaseModel):\n    street: str\n\nclass LineItem(BaseModel):\n    product: str\n    quantity: int\n\nclass Order(BaseModel):\n    address: Address\n    line_items: list[LineItem]\n\n# Supplied construction/location harness: do not edit.\ndef observe(data):\n    try:\n        model = Order.model_validate(data)\n        return {\"constructed\": True, \"address_type\": type(model.address).__name__,\n                \"item_types\": [type(i).__name__ for i in model.line_items],\n                \"street\": model.address.street,\n                \"items\": [[i.product, i.quantity] for i in model.line_items]}\n    except ValidationError as error:\n        return {\"constructed\": False, \"locations\": [list(e[\"loc\"]) for e in error.errors()]}\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "t0",
+              "kind": "function_call",
+              "spec": {
+                "function": "observe",
+                "args": [
+                  {
+                    "address": {
+                      "street": "7 Sample Lane"
+                    },
+                    "line_items": [
+                      {
+                        "product": "Notebook",
+                        "quantity": 1
+                      },
+                      {
+                        "product": "Pencil",
+                        "quantity": 2
+                      }
+                    ]
+                  }
+                ],
+                "expected": {
+                  "constructed": true,
+                  "address_type": "Address",
+                  "item_types": [
+                    "LineItem",
+                    "LineItem"
+                  ],
+                  "street": "7 Sample Lane",
+                  "items": [
+                    [
+                      "Notebook",
+                      1
+                    ],
+                    [
+                      "Pencil",
+                      2
+                    ]
+                  ]
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+            },
+            {
+              "test_id": "t1",
+              "kind": "function_call",
+              "spec": {
+                "function": "observe",
+                "args": [
+                  {
+                    "address": {
+                      "street": "7 Sample Lane"
+                    },
+                    "line_items": [
+                      {
+                        "product": "Notebook",
+                        "quantity": 1
+                      },
+                      {
+                        "product": "Pencil",
+                        "quantity": "not-a-number"
+                      }
+                    ]
+                  }
+                ],
+                "expected": {
+                  "constructed": false,
+                  "locations": [
+                    [
+                      "line_items",
+                      1,
+                      "quantity"
+                    ]
+                  ]
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "pyodide",
+            "runtime_version": "0.29.5",
+            "solution_sha256": "35b9bd6e4be13607d9051610e9bcb71b7dea582d9585ad87b2ba32de8c97e22d",
+            "tests_passed": 2
+          },
+          "hidden_checks": []
+        },
+        "feedback": {
+          "correct": {
+            "message": "The submodel annotations construct valid nested models and locate the invalid second item at its quantity field."
+          },
+          "incorrect": {
+            "message": "Use Address for one nested object and list[LineItem] for the collection; their field annotations participate in enclosing validation."
+          },
+          "hints": [
+            "Follow the input tree inward: outer field, collection position, then inner field."
+          ],
+          "remediation_step_id": "tile_020.r04"
+        }
+      }
+    },
+    {
+      "step_id": "tile_020.s11",
+      "type": "recap",
+      "concept_ids": [
+        "pydantic.field_constraints",
+        "pydantic.nested_models"
+      ],
+      "title": "Constraints and composition",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Field constraints on typed attributes apply during construction. Distinguish inclusive/exclusive bounds, divisibility, string length and pattern.",
+          "lineage": {
+            "concept_ids": [
+              "pydantic.field_constraints"
+            ],
+            "teaching_block_ids": [
+              "pydantic.field_constraints#tb2",
+              "pydantic.field_constraints#tb3"
+            ],
+            "fact_ids": [
+              "pydantic.field_constraints#f1",
+              "pydantic.field_constraints#f2",
+              "pydantic.field_constraints#f3"
+            ]
+          },
+          "role": "takeaway"
+        },
+        {
+          "type": "prose",
+          "text": "Submodel and list-of-submodel annotations compose nested validation. Error locations identify failed fields using names and collection indexes.",
+          "lineage": {
+            "concept_ids": [
+              "pydantic.nested_models"
+            ],
+            "teaching_block_ids": [
+              "pydantic.nested_models#tb2",
+              "pydantic.nested_models#tb3"
+            ],
+            "fact_ids": [
+              "pydantic.nested_models#f1",
+              "pydantic.nested_models#f2",
+              "pydantic.nested_models#f3"
+            ]
+          },
+          "role": "takeaway"
+        },
+        {
+          "type": "up_next",
+          "title": "Resource-oriented REST URLs and CRUD contracts",
+          "text": "Next: resource-oriented URLs and CRUD contracts."
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "tile_020.r01",
+      "type": "remediation",
+      "title": "Inclusive is not exclusive",
+      "concept_ids": [
+        "pydantic.field_constraints"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "pydantic.field_constraints"
+        ],
+        "teaching_block_ids": [
+          "pydantic.field_constraints#tb2",
+          "pydantic.field_constraints#tb4",
+          "pydantic.field_constraints#tb5",
+          "pydantic.field_constraints#tb6"
+        ],
+        "fact_ids": [
+          "pydantic.field_constraints#f1"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "The supplied quantity rule includes its endpoints: Field(ge=1, le=20). ge/le include the boundary, whereas gt/lt exclude it. multiple_of adds divisibility as another numeric restriction rather than changing which bound is inclusive. Compare the rule’s exact endpoint with an interior value before choosing a bound.",
+          "lineage": {
+            "concept_ids": [
+              "pydantic.field_constraints"
+            ],
+            "teaching_block_ids": [
+              "pydantic.field_constraints#tb2",
+              "pydantic.field_constraints#tb4",
+              "pydantic.field_constraints#tb5",
+              "pydantic.field_constraints#tb6"
+            ],
+            "fact_ids": [
+              "pydantic.field_constraints#f1"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_020.r02",
+      "type": "remediation",
+      "title": "Length rule on the typed attribute",
+      "concept_ids": [
+        "pydantic.field_constraints"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "pydantic.field_constraints"
+        ],
+        "teaching_block_ids": [
+          "pydantic.field_constraints#tb3",
+          "pydantic.field_constraints#tb4",
+          "pydantic.field_constraints#tb5"
+        ],
+        "fact_ids": [
+          "pydantic.field_constraints#f2",
+          "pydantic.field_constraints#f3"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "For order_reference: str, attach Field(min_length=3, max_length=12) to the attribute so model construction applies the length constraints. pattern would add a regular-expression restriction; length alone is not proof of a pattern match. The supplied example has a length rule only. A typed attribute without this Field declaration does not express that rule.",
+          "lineage": {
+            "concept_ids": [
+              "pydantic.field_constraints"
+            ],
+            "teaching_block_ids": [
+              "pydantic.field_constraints#tb3",
+              "pydantic.field_constraints#tb4",
+              "pydantic.field_constraints#tb5"
+            ],
+            "fact_ids": [
+              "pydantic.field_constraints#f2",
+              "pydantic.field_constraints#f3"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_020.r03",
+      "type": "remediation",
+      "title": "Read the location inward",
+      "concept_ids": [
+        "pydantic.nested_models"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "pydantic.nested_models"
+        ],
+        "teaching_block_ids": [
+          "pydantic.nested_models#tb2",
+          "pydantic.nested_models#tb3",
+          "pydantic.nested_models#tb4",
+          "pydantic.nested_models#tb5"
+        ],
+        "fact_ids": [
+          "pydantic.nested_models#f1",
+          "pydantic.nested_models#f3"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Order.address incorporates Address validation, and Order.line_items incorporates LineItem validation. Enclosing the data in Order does not make a bad nested value acceptable. For the supplied nonnumeric quantity, follow the collection name to the second item and then the quantity field; a nested location can include both names and indexes.",
+          "lineage": {
+            "concept_ids": [
+              "pydantic.nested_models"
+            ],
+            "teaching_block_ids": [
+              "pydantic.nested_models#tb2",
+              "pydantic.nested_models#tb3",
+              "pydantic.nested_models#tb4",
+              "pydantic.nested_models#tb5"
+            ],
+            "fact_ids": [
+              "pydantic.nested_models#f1",
+              "pydantic.nested_models#f3"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_020.r04",
+      "type": "remediation",
+      "title": "One submodel versus a collection",
+      "concept_ids": [
+        "pydantic.nested_models"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "pydantic.nested_models"
+        ],
+        "teaching_block_ids": [
+          "pydantic.nested_models#tb3",
+          "pydantic.nested_models#tb4"
+        ],
+        "fact_ids": [
+          "pydantic.nested_models#f2",
+          "pydantic.nested_models#f3"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "address: Address validates one nested object; line_items: list[LineItem] validates corresponding collection data. In the supplied invalid input, follow line_items to the second element and its quantity field, not to the address. Nested error locations can use collection element indexes as well as field names.",
+          "lineage": {
+            "concept_ids": [
+              "pydantic.nested_models"
+            ],
+            "teaching_block_ids": [
+              "pydantic.nested_models#tb3",
+              "pydantic.nested_models#tb4"
+            ],
+            "fact_ids": [
+              "pydantic.nested_models#f2",
+              "pydantic.nested_models#f3"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "tile_022"
+  },
+  "content_hash": "11a71a9687b4b9e6b0aa080d110d72eca49828b97068191b797afaf50527cc8c"
+}

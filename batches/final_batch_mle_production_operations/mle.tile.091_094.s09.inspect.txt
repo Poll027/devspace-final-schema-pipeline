@@ -1,0 +1,53 @@
+# fixture support separately
+exec(_fixture_support)
+_argument_0 = load('billing_export')
+_argument_1 = policy
+data = _argument_0
+policy = _argument_1
+lifecycles = verified_lifecycles(load('lifecycle'))
+charges = data
+unusual_threshold = 10.0
+allocated = {'training': {'w1': 0, 'w2': 0}, 'inference': {'w1': 0, 'w2': 0}}
+unallocated = []
+eligible_total = 0
+for r in charges:
+    eligible_total = eligible_total + r['amount']
+    if r['resource_id'] in policy['resource_mapping']:
+        workload = policy['resource_mapping'][r['resource_id']]
+        allocated[workload][r['reporting_window']] = allocated[workload][r['reporting_window']] + r['amount']
+    elif r['charge_category'] == 'shared':
+        for workload in ['training', 'inference']:
+            allocated[workload][r['reporting_window']] = allocated[workload][r['reporting_window']] + r['amount'] * policy['shared_rule'][workload]
+    else:
+        unallocated.append(r)
+summary = {}
+unusual = []
+allocated_total = 0
+for workload in ['training', 'inference']:
+    numeric_values = np.array([allocated[workload]['w1'], allocated[workload]['w2']])
+    works = []
+    unit_costs = []
+    for window in ['w1', 'w2']:
+        amount = allocated[workload][window]
+        allocated_total = allocated_total + amount
+        if amount > unusual_threshold:
+            unusual.append({'workload': workload, 'window': window, 'amount': amount})
+        completed = 0
+        for l in lifecycles:
+            if l['identity'] == workload + '-lab' and l['window'] == window:
+                completed = completed + l['work']
+        works.append(completed)
+        unit = None
+        if completed > 0:
+            unit = amount / completed
+        unit_costs.append(unit)
+    summary[workload] = {'window_costs': numeric_values, 'mean': np.mean(numeric_values), 'std': np.std(numeric_values, ddof=0), 'work': works, 'unit_costs': unit_costs}
+unallocated_amounts = []
+for unallocated_row in unallocated:
+    unallocated_amounts.append(unallocated_row['amount'])
+unallocated_total = sum(unallocated_amounts)
+assert allocated_total + unallocated_total == eligible_total
+result = {'lifecycle_evidence': lifecycles, 'allocations': allocated, 'summaries': summary, 'unallocated': unallocated, 'unusual': unusual, 'allocated_total': allocated_total, 'unallocated_total': unallocated_total, 'eligible_export_total': eligible_total, 'unit': policy['unit']}
+report = result
+report = report
+emit(report)

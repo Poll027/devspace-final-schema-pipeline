@@ -1,0 +1,184 @@
+PROMPT
+Complete the missing statistics in the supplied scaffold, then inspect the report or replay results.
+
+Complete baseline_mean and baseline_std using np.mean and np.std with ddof=0. Retain the supplied indicator, baseline window, mean-plus-margin threshold configuration, owner/response binding, safe YAML round trip and replay assertions unchanged. The replay must alert on the violating fixture and remain quiet on the nonviolating fixture.
+CONSTRAINTS
+{'allowed_syntax': ['import numpy as np', 'import yaml', 'variable assignment', 'numeric and string literals', 'mapping and list literals', 'mapping and list indexing', 'np.mean(numeric_values)', 'np.std(numeric_values, ddof=0)', 'np.std(numeric_values, ddof=1) only when the declared calculation requires the N−1 divisor', 'arithmetic operators', 'comparison operators', 'Boolean operators', 'with open(...) as file_handle', 'yaml.safe_dump(config, file_handle)', 'yaml.safe_load(file_handle)', 'assert predicate', 'calls to the supplied existing-runtime replay helper'], 'blocked_syntax': ['yaml.unsafe_load(...)', 'yaml.load(..., Loader=yaml.UnsafeLoader)', 'invoke_retraining(...)', 'promote_retrained_candidate(...)', 'delete_serving_resources(...)']}
+STARTER
+exec('import csv, json')
+
+exec('import numpy as np')
+
+exec('policy = json.loads(\'{"indicator": "window_mean", "baseline_window": "baseline", "window_rule": "mean(window)>mean(baseline)+4", "ddof": 0, "owner": "order_oncall", "response": "investigate_window", "expected_replays": {"normal": false, "boundary": false, "breached": true}}\')')
+
+exec("alert_observations_rows = list(csv.DictReader(open('alert_observations.csv')))")
+
+exec('alert_observations = {}')
+
+exec("alert_observations['window_id'] = np.array([r['window_id'] for r in alert_observations_rows])")
+
+exec("alert_observations['numeric_values'] = np.array([float(r['numeric_values'] or 'nan') for r in alert_observations_rows])")
+
+exec('import yaml')
+
+exec("baseline = alert_observations['numeric_values'][alert_observations['window_id'] == 'baseline']")
+
+exec("windows = {w: alert_observations['numeric_values'][alert_observations['window_id'] == w] for w in ['normal', 'boundary', 'breached']}")
+
+exec("def replay(config):\n    results = []\n    for w, values in windows.items():\n        crossed = np.mean(values) > config['threshold']\n        results.append({'window': w, 'mean': np.mean(values), 'std': np.std(values, ddof=config['ddof']), 'records': [{'owner': config['owner'], 'action': config['response']}] if crossed else []})\n    return results")
+
+exec("def serializable(config):\n    config = dict(config)\n    config['threshold'] = float(config['threshold'])\n    return config")
+
+baseline_mean = None
+
+baseline_std = None
+
+config = {'indicator': policy['indicator'], 'baseline_window': policy['baseline_window'], 'threshold': baseline_mean + 4, 'ddof': policy['ddof'], 'owner': policy['owner'], 'response': policy['response']}
+
+serializable_config = serializable(config)
+
+serialized_config = yaml.safe_dump(serializable_config)
+
+with open('alert.yaml', 'w') as h:
+    h.write(serialized_config)
+
+with open('alert.yaml') as h:
+    config_text = h.read()
+
+resolved = yaml.safe_load(config_text)
+
+assert resolved == config
+
+result = replay(resolved)
+
+assert result[0]['records'] == []
+
+assert result[1]['records'] == []
+assert result[2]['records'] == [{'owner': resolved['owner'], 'action': resolved['response']}]
+
+SOLUTION
+exec('import csv, json')
+
+exec('import numpy as np')
+
+exec('policy = json.loads(\'{"indicator": "window_mean", "baseline_window": "baseline", "window_rule": "mean(window)>mean(baseline)+4", "ddof": 0, "owner": "order_oncall", "response": "investigate_window", "expected_replays": {"normal": false, "boundary": false, "breached": true}}\')')
+
+exec("alert_observations_rows = list(csv.DictReader(open('alert_observations.csv')))")
+
+exec('alert_observations = {}')
+
+exec("alert_observations['window_id'] = np.array([r['window_id'] for r in alert_observations_rows])")
+
+exec("alert_observations['numeric_values'] = np.array([float(r['numeric_values'] or 'nan') for r in alert_observations_rows])")
+
+exec('import yaml')
+
+exec("baseline = alert_observations['numeric_values'][alert_observations['window_id'] == 'baseline']")
+
+exec("windows = {w: alert_observations['numeric_values'][alert_observations['window_id'] == w] for w in ['normal', 'boundary', 'breached']}")
+
+exec("def replay(config):\n    results = []\n    for w, values in windows.items():\n        crossed = np.mean(values) > config['threshold']\n        results.append({'window': w, 'mean': np.mean(values), 'std': np.std(values, ddof=config['ddof']), 'records': [{'owner': config['owner'], 'action': config['response']}] if crossed else []})\n    return results")
+
+exec("def serializable(config):\n    config = dict(config)\n    config['threshold'] = float(config['threshold'])\n    return config")
+
+baseline_mean = np.mean(baseline)
+
+baseline_std = np.std(baseline, ddof=0)
+
+config = {'indicator': policy['indicator'], 'baseline_window': policy['baseline_window'], 'threshold': baseline_mean + 4, 'ddof': policy['ddof'], 'owner': policy['owner'], 'response': policy['response']}
+
+serializable_config = serializable(config)
+
+serialized_config = yaml.safe_dump(serializable_config)
+
+with open('alert.yaml', 'w') as h:
+    h.write(serialized_config)
+
+with open('alert.yaml') as h:
+    config_text = h.read()
+
+resolved = yaml.safe_load(config_text)
+
+assert resolved == config
+
+result = replay(resolved)
+
+assert result[0]['records'] == []
+
+assert result[1]['records'] == []
+assert result[2]['records'] == [{'owner': resolved['owner'], 'action': resolved['response']}]
+
+TESTS
+[
+  {
+    "test_id": "t1",
+    "kind": "value_equals",
+    "spec": {
+      "expr": "baseline_mean",
+      "expected": 4
+    },
+    "visible": true,
+    "message_on_fail": "The returned record or calculation does not match the declared fixture contract."
+  },
+  {
+    "test_id": "t2",
+    "kind": "value_equals",
+    "spec": {
+      "expr": "baseline_std",
+      "expected": 1.632993161855452
+    },
+    "visible": true,
+    "message_on_fail": "The returned record or calculation does not match the declared fixture contract."
+  },
+  {
+    "test_id": "t3",
+    "kind": "value_equals",
+    "spec": {
+      "expr": "resolved",
+      "expected": {
+        "baseline_window": "baseline",
+        "ddof": 0,
+        "indicator": "window_mean",
+        "owner": "order_oncall",
+        "response": "investigate_window",
+        "threshold": 8
+      }
+    },
+    "visible": true,
+    "message_on_fail": "The returned record or calculation does not match the declared fixture contract."
+  },
+  {
+    "test_id": "t4",
+    "kind": "value_equals",
+    "spec": {
+      "expr": "result",
+      "expected": [
+        {
+          "window": "normal",
+          "mean": 4,
+          "std": 0.816496580927726,
+          "records": []
+        },
+        {
+          "window": "boundary",
+          "mean": 8,
+          "std": 0.816496580927726,
+          "records": []
+        },
+        {
+          "window": "breached",
+          "mean": 10,
+          "std": 0.816496580927726,
+          "records": [
+            {
+              "owner": "order_oncall",
+              "action": "investigate_window"
+            }
+          ]
+        }
+      ]
+    },
+    "visible": true,
+    "message_on_fail": "The returned record or calculation does not match the declared fixture contract."
+  }
+]

@@ -1,0 +1,15 @@
+# The gate treats any module-object attribute as an unallowed generic attr_module in
+# these anchors. Supply those operations as fixed skeletons, keeping constraints intact.
+p,st,so,ts=E['importable_packages']
+p=p.replace('Use the taught direct helper import from orders.costs import cost; assign result = cost(quantity, price)', 'The scaffold also binds cost using the taught direct import from orders.costs import cost. Assign result = cost(quantity, price)')
+st=st.replace('# Import the packaged helper and compute result.',fixed('from orders.costs import cost')+'# Compute and print result.')
+so=so.replace('from orders.costs import cost\nresult =',fixed('from orders.costs import cost')+'result =')
+E['importable_packages']=(p,st,so,ts)
+log_head="detail = 'Detailed quantity calculation'\ncompletion = 'Report complete'\n"+fixed("import logging, io as _io\n_stream = _io.StringIO()\nlogging.root.handlers.clear()\nlogging.root.setLevel(logging.WARNING)\nsupplied_info = logging.INFO\nlogger = logging.getLogger(__name__)\ndef report():\n    logger.debug(detail)\n    logger.info(completion)")
+log_end=fixed("logging.basicConfig(level=level, stream=_stream, format='%(message)s')\nreport()")
+ex('logging','The fixed report helper uses a module logger and emits DEBUG detail and INFO completion without diagnostic prints or redundant handlers. Complete level = supplied_info to select the INFO threshold supplied by logging.INFO. The fixed application configuration and helper call must then include completion exactly once and exclude detail. Leave the inputs and fixed blocks unchanged.',log_head+'level = None\n'+log_end,log_head+'level = supplied_info\n'+log_end,[val("[_stream.getvalue(), len(logger.handlers)]")])
+args_inputs=fixed('input_path_name = "input_path"\nverbose_name = "--verbose"\nboolean_action = "store_true"')
+argbody=fixed('import argparse\nparser = argparse.ArgumentParser()\nparser.add_argument(positional_name)\nparser.add_argument(option_name, action=option_action)\nargs = parser.parse_args()\nprint(args.input_path, args.verbose)')
+arg_start="path_input = 'orders.csv'\n"+fixed(args_scaffold.replace("path_input = 'orders.csv'\n",''))+'# LEARNER SECTION\n'+args_inputs
+arg_end=argbody+'# END LEARNER\n'+fixed(args_tail)
+ex('argparse_command_line','Complete the three argument-definition inputs: positional_name = input_path_name, option_name = verbose_name, and option_action = boolean_action. The supplied strings specify input_path, --verbose, and store_true. The fixed ArgumentParser skeleton declares these arguments, parses into args, and prints args.input_path, args.verbose. Preserve the skeleton and adapter: orders.csv must produce False without the flag and True with it; omitting input_path must report an argparse error and exit 2.',arg_start+'positional_name = None\noption_name = None\noption_action = None\n'+arg_end,arg_start+'positional_name = input_path_name\noption_name = verbose_name\noption_action = boolean_action\n'+arg_end,[('stdout_equals',{}),call('command_case',[['orders.csv']]),call('command_case',[['orders.csv','--verbose']]),call('command_case',[[]])])

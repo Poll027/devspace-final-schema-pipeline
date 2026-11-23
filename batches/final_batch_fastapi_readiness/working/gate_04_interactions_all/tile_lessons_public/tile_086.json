@@ -1,0 +1,711 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "python_fastapi_backend_developer",
+  "tile_id": "tile_086",
+  "toc_location": {
+    "region_id": "region_readiness",
+    "terrain_id": "terrain_release_failures"
+  },
+  "title": "Webhook authenticity verification",
+  "summary": "",
+  "concept_ids": [
+    "integration.webhook_authenticity"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_python_fastapi_backend_developer",
+    "toc_freeze_hash": "96d245a8da4552263398bda220dd1f88774cc30045abdf029e8d40064881cb7e",
+    "glossary_bundle_hashes": {
+      "integration.webhook_authenticity": "d1b2debf026108f746090c923c10f36a4dcb4e47ed624eec45c04dac32a1786b"
+    },
+    "scenario_registry_hash": "8457b835acb638f3087af0988b1e25455e51b5c8a0efda9e9bd119a35f922ffe"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core"
+    ],
+    "block_types": [
+      "code_walkthrough",
+      "comparison",
+      "prose",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "classify"
+    ],
+    "runtimes": [],
+    "asset_ids": []
+  },
+  "pacing": {
+    "estimated_minutes": 3.3
+  },
+  "steps": [
+    {
+      "step_id": "tile_086.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "integration.webhook_authenticity"
+      ],
+      "title": "Webhook authenticity verification",
+      "lineage": {
+        "teaching_block_ids": [
+          "integration.webhook_authenticity#tb1",
+          "integration.webhook_authenticity#tb2",
+          "integration.webhook_authenticity#tb3"
+        ],
+        "fact_ids": [
+          "integration.webhook_authenticity#f1",
+          "integration.webhook_authenticity#f2",
+          "integration.webhook_authenticity#f3",
+          "integration.webhook_authenticity#f4"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "integration.webhook_authenticity#visual"
+        ]
+      },
+      "eyebrow": "Learn the rule",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Acquire raw bytes with await request.body() before parsing or changing the body.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.webhook_authenticity"
+            ],
+            "fact_ids": [
+              "integration.webhook_authenticity#f1"
+            ],
+            "teaching_block_ids": [
+              "integration.webhook_authenticity#tb2"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For every delivery, use the publisher-supported SDK or verifier with those bytes and the endpoint signing secret. Follow its signing format; invent no canonicalization.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.webhook_authenticity"
+            ],
+            "fact_ids": [
+              "integration.webhook_authenticity#f2"
+            ],
+            "teaching_block_ids": [
+              "integration.webhook_authenticity#tb3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Reject absent or invalid signatures before processing. Keep the secret and internal verification details out of responses.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.webhook_authenticity"
+            ],
+            "fact_ids": [
+              "integration.webhook_authenticity#f3"
+            ],
+            "teaching_block_ids": [
+              "integration.webhook_authenticity#tb3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Test valid, modified-body and missing-signature deliveries: only the valid signed delivery may reach processing.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.webhook_authenticity"
+            ],
+            "fact_ids": [
+              "integration.webhook_authenticity#f4"
+            ],
+            "teaching_block_ids": [
+              "integration.webhook_authenticity#tb3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "code_walkthrough",
+          "language": "python",
+          "code": "from fastapi import HTTPException\nimport stripe\nasync def webhook(request, signing_secret, publisher_verifier, signature_header, process_event):\n    raw_body = await request.body()\n    signature = request.headers.get(signature_header)\n    if not signature:\n        raise HTTPException(400, \"Invalid signature\")\n    try:\n        event = publisher_verifier(raw_body, signature, signing_secret)\n    except (ValueError, stripe.error.SignatureVerificationError):\n        raise HTTPException(400, \"Invalid signature\")\n    process_event(event)\n    return {\"received\": True}\n\nfrom scaffold import client, config, raw_body, processed_events\nimport pytest\n@pytest.fixture(autouse=True)\ndef clear_recorder():\n    processed_events.clear()\n@pytest.mark.parametrize('condition', ['valid', 'modified', 'absent'])\ndef test_delivery(condition):\n    body = raw_body if condition != 'modified' else raw_body + b' '\n    headers = {} if condition == 'absent' else {config['signature_header']: config['signature']}\n    with client() as http:\n        # TODO: http.post('/webhook', content=body, headers=headers).\n        # Assert exact status/body and recorder length (one only for valid).\n        raise NotImplementedError('Complete this delivery test')\n",
+          "reveal": "all",
+          "lineage": {
+            "concept_ids": [
+              "integration.webhook_authenticity"
+            ],
+            "fact_ids": [
+              "integration.webhook_authenticity#f1",
+              "integration.webhook_authenticity#f2",
+              "integration.webhook_authenticity#f3",
+              "integration.webhook_authenticity#f4"
+            ],
+            "teaching_block_ids": [
+              "integration.webhook_authenticity#tb2",
+              "integration.webhook_authenticity#tb3",
+              "integration.webhook_authenticity#tb4",
+              "integration.webhook_authenticity#tb5"
+            ],
+            "anchors": [
+              "integration.webhook_authenticity#visual"
+            ]
+          }
+        },
+        {
+          "type": "comparison",
+          "title": "Counts are measured independently after clearing the recorder.",
+          "columns": [
+            {
+              "id": "http",
+              "label": "HTTP outcome"
+            },
+            {
+              "id": "processed",
+              "label": "Processing recorder"
+            }
+          ],
+          "rows": [
+            {
+              "criterion": "Valid signed original bytes",
+              "cells": {
+                "http": "200 {\"received\":true}",
+                "processed": "processed events: 1."
+              }
+            },
+            {
+              "criterion": "Modified bytes with the original signature",
+              "cells": {
+                "http": "400 {\"detail\":\"Invalid signature\"}",
+                "processed": "processed events: 0."
+              }
+            },
+            {
+              "criterion": "Absent signature",
+              "cells": {
+                "http": "400 {\"detail\":\"Invalid signature\"}",
+                "processed": "processed events: 0."
+              }
+            }
+          ],
+          "lineage": {
+            "concept_ids": [
+              "integration.webhook_authenticity"
+            ],
+            "fact_ids": [
+              "integration.webhook_authenticity#f1",
+              "integration.webhook_authenticity#f2",
+              "integration.webhook_authenticity#f3",
+              "integration.webhook_authenticity#f4"
+            ],
+            "teaching_block_ids": [
+              "integration.webhook_authenticity#tb2",
+              "integration.webhook_authenticity#tb3",
+              "integration.webhook_authenticity#tb4",
+              "integration.webhook_authenticity#tb5"
+            ],
+            "anchors": [
+              "integration.webhook_authenticity#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_086.s02",
+      "type": "explainer",
+      "concept_ids": [
+        "integration.webhook_authenticity"
+      ],
+      "title": "Keep the boundary clear",
+      "lineage": {
+        "teaching_block_ids": [
+          "integration.webhook_authenticity#tb4",
+          "integration.webhook_authenticity#tb5"
+        ],
+        "fact_ids": [
+          "integration.webhook_authenticity#f1",
+          "integration.webhook_authenticity#f2",
+          "integration.webhook_authenticity#f3",
+          "integration.webhook_authenticity#f4"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "eyebrow": "Work the boundary",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Modified bytes must fail verification even when the body still parses. Verify first; process only the verified event.",
+          "role": "walkthrough",
+          "lineage": {
+            "concept_ids": [
+              "integration.webhook_authenticity"
+            ],
+            "fact_ids": [
+              "integration.webhook_authenticity#f3",
+              "integration.webhook_authenticity#f4"
+            ],
+            "teaching_block_ids": [
+              "integration.webhook_authenticity#tb4",
+              "integration.webhook_authenticity#tb5"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_086.s03",
+      "type": "check",
+      "concept_ids": [
+        "integration.webhook_authenticity"
+      ],
+      "title": "Choose the boundary",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "integration.webhook_authenticity#f3",
+          "integration.webhook_authenticity#f4"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "integration.webhook_authenticity#assessment:identify_signature_failures_that_must_prevent_event_processing"
+        ]
+      },
+      "eyebrow": "Check",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_086.s03",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "integration.webhook_authenticity",
+            "capability": "identify_signature_failures_that_must_prevent_event_processing",
+            "fact_ids": [
+              "f3",
+              "f4"
+            ]
+          }
+        ],
+        "anchors": [
+          "integration.webhook_authenticity#assessment:identify_signature_failures_that_must_prevent_event_processing"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Reject missing or invalid signatures before processing the event, and do not disclose the verification secret or failure's internal details in the response. Test a valid signed delivery and deliveries with a modified body or absent signature, checking that only the valid delivery reaches event processing."
+          },
+          "incorrect": {
+            "message": "Check this rule: Reject missing or invalid signatures before processing the event, and do not disclose the verification secret or failure's internal details in the response. Test a valid signed delivery and deliveries with a modified body or absent signature, checking that only the valid delivery reaches event processing."
+          },
+          "hints": [
+            "Trace the inputs, the decision boundary, and the observable output separately."
+          ],
+          "remediation_step_id": "tile_086.r01"
+        },
+        "public": {
+          "prompt": "A valid signed delivery is copied, but its raw body bytes are modified while the signature is unchanged. What must the webhook do before processing?",
+          "selection": "single",
+          "shuffle": true,
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Reject the signature failure without exposing secrets or verification internals."
+            },
+            {
+              "option_id": "o2",
+              "text": "Process it because an earlier copy had a valid signature."
+            },
+            {
+              "option_id": "o3",
+              "text": "Process it if its parsed JSON still contains an event identifier."
+            }
+          ]
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "This option applies the taught boundary to the evidence."
+            },
+            "o2": {
+              "message": "Every delivery must be verified against its own raw bytes."
+            },
+            "o3": {
+              "message": "An event identifier does not establish authenticity; failed verification must prevent processing."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_086.s04",
+      "type": "hands_on",
+      "concept_ids": [
+        "integration.webhook_authenticity"
+      ],
+      "title": "Apply the contract",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "integration.webhook_authenticity#f1",
+          "integration.webhook_authenticity#f2",
+          "integration.webhook_authenticity#f3",
+          "integration.webhook_authenticity#f4"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "integration.webhook_authenticity#practice",
+          "integration.webhook_authenticity#assessment:identify_invalid_signatures_for_modified_raw_bytes",
+          "integration.webhook_authenticity#assessment:identify_signature_failures_that_must_prevent_event_processing"
+        ]
+      },
+      "eyebrow": "Practice",
+      "interaction": {
+        "type": "classify",
+        "interaction_id": "ix.tile_086.s04",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "integration.webhook_authenticity",
+            "capability": "identify_invalid_signatures_for_modified_raw_bytes",
+            "fact_ids": [
+              "f1",
+              "f2"
+            ]
+          },
+          {
+            "concept_id": "integration.webhook_authenticity",
+            "capability": "identify_signature_failures_that_must_prevent_event_processing",
+            "fact_ids": [
+              "f3",
+              "f4"
+            ]
+          }
+        ],
+        "anchors": [
+          "integration.webhook_authenticity#practice",
+          "integration.webhook_authenticity#assessment:identify_invalid_signatures_for_modified_raw_bytes",
+          "integration.webhook_authenticity#assessment:identify_signature_failures_that_must_prevent_event_processing"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Your response respects the stated boundary and the supplied evidence."
+          },
+          "incorrect": {
+            "message": "Recheck which evidence establishes the boundary; a declaration or successful single case is not a substitute for the required checks."
+          },
+          "hints": [
+            "Trace the inputs, the decision boundary, and the observable output separately."
+          ]
+        },
+        "public": {
+          "prompt": "Review candidate webhook gates and their test coverage. Accept only a gate where valid signatures reach processing and modified/absent-signature deliveries cannot. Each excerpt is a hypothetical candidate, not a report of observed execution. Classify every item.",
+          "buckets": [
+            {
+              "bucket_id": "good",
+              "label": "Meets the stated review requirements"
+            },
+            {
+              "bucket_id": "bad",
+              "label": "Fails the stated review requirements"
+            }
+          ],
+          "items": [
+            {
+              "item_id": "i1",
+              "text": "raw_body = await request.body()\nsignature = request.headers.get(signature_header)\n# Reject absent signature with fixed 400 {'detail':'Invalid signature'}.\n# publisher_verifier is the supplied publisher-supported SDK verifier.\n# Call publisher_verifier(raw_body, signature, signing_secret); on its documented verification failure return the same fixed 400.\n# Only the verified event reaches process_event.\n# Separate HTTP tests: valid signed body -> processed once; modified bytes with original signature -> rejected, zero calls; absent signature -> rejected, zero calls. Each rejection asserts exact safe body without secret or verifier details.\n# Complete candidate supplied-harness test (config contains a test-only signing fixture):\n@pytest.mark.parametrize('condition',['valid','modified','absent'])\ndef test_delivery(condition):\n    processed_events.clear()\n    body = raw_body if condition != 'modified' else raw_body + b' '\n    headers = {} if condition == 'absent' else {config['signature_header']:config['signature']}\n    with client() as http:\n        response = http.post('/webhook',content=body,headers=headers)\n    if condition == 'valid':\n        assert response.status_code == 200\n        assert len(processed_events) == 1\n    else:\n        assert response.status_code == 400\n        assert response.json() == {'detail':'Invalid signature'}\n        assert len(processed_events) == 0"
+            },
+            {
+              "item_id": "i2",
+              "text": "event = await request.json()\nraw_body = json.dumps(event).encode()\nprocess_event(event)\n# Verify reconstructed bytes afterward. On failure return str(exc).\n# Test only a valid signature."
+            }
+          ]
+        },
+        "grading": {
+          "assignments": {
+            "i1": "good",
+            "i2": "bad"
+          },
+          "item_feedback": {
+            "i1": {
+              "message": "The supported verifier consumes unmodified bytes, gates processing, and the tests cover all three required deliveries."
+            },
+            "i2": {
+              "message": "Reconstruction changes the signing input, processing occurs before verification, error details are disclosed and failure tests are absent."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_086.s05",
+      "type": "recap",
+      "concept_ids": [
+        "integration.webhook_authenticity"
+      ],
+      "title": "Take the rule with you",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Modified bytes must fail verification even when the body still parses. Verify first; process only the verified event.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "integration.webhook_authenticity"
+            ],
+            "fact_ids": [
+              "integration.webhook_authenticity#f1",
+              "integration.webhook_authenticity#f2"
+            ],
+            "teaching_block_ids": [
+              "integration.webhook_authenticity#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "up_next",
+          "title": "Diagnose service failures from emitted and interpreted evidence",
+          "text": "An order endpoint becomes slow and emits failures. Changing code at the endpoint immediately may miss where the first delay or failure actually occurred."
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "tile_086.r01",
+      "type": "remediation",
+      "title": "Review: Webhook authenticity verification",
+      "concept_ids": [
+        "integration.webhook_authenticity"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "integration.webhook_authenticity"
+        ],
+        "fact_ids": [
+          "integration.webhook_authenticity#f3",
+          "integration.webhook_authenticity#f4"
+        ],
+        "teaching_block_ids": [
+          "integration.webhook_authenticity#tb3",
+          "integration.webhook_authenticity#tb4"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Reject absent or invalid signatures before processing. Keep the secret and internal verification details out of responses.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.webhook_authenticity"
+            ],
+            "fact_ids": [
+              "integration.webhook_authenticity#f3"
+            ],
+            "teaching_block_ids": [
+              "integration.webhook_authenticity#tb3",
+              "integration.webhook_authenticity#tb4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Test valid, modified-body and missing-signature deliveries: only the valid signed delivery may reach processing.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.webhook_authenticity"
+            ],
+            "fact_ids": [
+              "integration.webhook_authenticity#f4"
+            ],
+            "teaching_block_ids": [
+              "integration.webhook_authenticity#tb3",
+              "integration.webhook_authenticity#tb4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For the supplied signed delivery, compare unchanged raw bytes with the modified-body case and the absent-signature case. Only verified input reaches process_event; parsing a modified body successfully does not make its signature valid.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "integration.webhook_authenticity"
+            ],
+            "fact_ids": [
+              "integration.webhook_authenticity#f3",
+              "integration.webhook_authenticity#f4"
+            ],
+            "teaching_block_ids": [
+              "integration.webhook_authenticity#tb3",
+              "integration.webhook_authenticity#tb4"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_086.r02",
+      "type": "remediation",
+      "title": "Review: Webhook authenticity verification",
+      "concept_ids": [
+        "integration.webhook_authenticity"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "integration.webhook_authenticity"
+        ],
+        "fact_ids": [
+          "integration.webhook_authenticity#f1",
+          "integration.webhook_authenticity#f2",
+          "integration.webhook_authenticity#f3",
+          "integration.webhook_authenticity#f4"
+        ],
+        "teaching_block_ids": [
+          "integration.webhook_authenticity#tb2",
+          "integration.webhook_authenticity#tb3",
+          "integration.webhook_authenticity#tb4",
+          "integration.webhook_authenticity#tb5"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Acquire raw bytes with await request.body() before parsing or changing the body.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.webhook_authenticity"
+            ],
+            "fact_ids": [
+              "integration.webhook_authenticity#f1"
+            ],
+            "teaching_block_ids": [
+              "integration.webhook_authenticity#tb2",
+              "integration.webhook_authenticity#tb4",
+              "integration.webhook_authenticity#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For every delivery, use the publisher-supported SDK or verifier with those bytes and the endpoint signing secret. Follow its signing format; invent no canonicalization.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.webhook_authenticity"
+            ],
+            "fact_ids": [
+              "integration.webhook_authenticity#f2"
+            ],
+            "teaching_block_ids": [
+              "integration.webhook_authenticity#tb3",
+              "integration.webhook_authenticity#tb4",
+              "integration.webhook_authenticity#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Reject absent or invalid signatures before processing. Keep the secret and internal verification details out of responses.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.webhook_authenticity"
+            ],
+            "fact_ids": [
+              "integration.webhook_authenticity#f3"
+            ],
+            "teaching_block_ids": [
+              "integration.webhook_authenticity#tb3",
+              "integration.webhook_authenticity#tb4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Test valid, modified-body and missing-signature deliveries: only the valid signed delivery may reach processing.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.webhook_authenticity"
+            ],
+            "fact_ids": [
+              "integration.webhook_authenticity#f4"
+            ],
+            "teaching_block_ids": [
+              "integration.webhook_authenticity#tb3",
+              "integration.webhook_authenticity#tb4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For the supplied signed delivery, compare unchanged raw bytes with the modified-body case and the absent-signature case. Only verified input reaches process_event; parsing a modified body successfully does not make its signature valid.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "integration.webhook_authenticity"
+            ],
+            "fact_ids": [
+              "integration.webhook_authenticity#f1",
+              "integration.webhook_authenticity#f2",
+              "integration.webhook_authenticity#f3",
+              "integration.webhook_authenticity#f4"
+            ],
+            "teaching_block_ids": [
+              "integration.webhook_authenticity#tb2",
+              "integration.webhook_authenticity#tb3",
+              "integration.webhook_authenticity#tb4",
+              "integration.webhook_authenticity#tb5"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "tile_087"
+  },
+  "content_hash": "50743efaf79da9228cb9aebacf449be0140e0966569884d5a3623110d00d6f54"
+}

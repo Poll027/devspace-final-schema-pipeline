@@ -1,0 +1,85 @@
+{
+  "concept": "mle.chunked_ingestion",
+  "facts": [
+    {
+      "id": "f1",
+      "statement": "Use pd.read_csv(file_handle, chunksize=row_limit, dtype=declared_types) as an iterator of bounded row chunks, and process it with a for loop rather than retaining the entire dataset."
+    },
+    {
+      "id": "f2",
+      "statement": "For a homogeneous fixed-width feature matrix with F columns and element width W bytes, a chunk of R rows requires R \u00d7 F \u00d7 W element bytes."
+    },
+    {
+      "id": "f3",
+      "statement": "Choose chunksize so the chunk matrix fits the stated array budget and verify each materialized chunk; this element estimate is not a guarantee about total reader or process memory."
+    },
+    {
+      "id": "f4",
+      "statement": "Keep the dataset stream open using a with open(...) block while iterating its chunks."
+    }
+  ],
+  "misconceptions": [],
+  "assess": [
+    {
+      "fact_ids": [
+        "f2",
+        "f3"
+      ],
+      "capability": "choose_chunk_size_within_array_budget"
+    },
+    {
+      "fact_ids": [
+        "f1",
+        "f3",
+        "f4"
+      ],
+      "capability": "verify_bounded_chunk_iteration"
+    }
+  ],
+  "practice": {
+    "type": "live_code",
+    "objective": "Write a Python function with learner-written imports that reads the supplied order dataset through an open file handle and a pandas chunk iterator. Use the supplied declared_types mapping for the fixture's 20 eight-byte feature columns. Calculate a row limit for the 16,000-byte array budget, materialize and verify each chunk's feature matrix, and return the largest observed per-chunk array byte count without retaining previous chunks.",
+    "success": "The function chooses a row limit of 100, keeps the file open throughout iteration, and checks every materialized matrix, including the final short chunk. It calculates element bytes from actual shape and dtype, confirms agreement with the matrix's nbytes, and verifies that each matrix uses at most 16,000 bytes. It reports the largest observed single-chunk array allocation without claiming a bound on total reader or process memory.",
+    "live_code": {
+      "required_skill": "Implement file-backed chunk iteration and verify homogeneous array storage against a declared byte budget.",
+      "allowed_syntax": [
+        "import pandas as pd",
+        "def",
+        "function parameters and calls",
+        "assignment",
+        "return",
+        "with open(...) as file_handle",
+        "pd.read_csv(file_handle, chunksize=row_limit, dtype=declared_types)",
+        "for",
+        "integer and string literals",
+        "dictionary access",
+        "tuple unpacking",
+        "multiplication",
+        "floor division",
+        "comparison operators",
+        "assert",
+        "max",
+        "chunk.to_numpy()",
+        "matrix.shape",
+        "matrix.dtype.itemsize",
+        "matrix.nbytes",
+        "del"
+      ],
+      "blocked_syntax": [
+        "DataFrame.describe()",
+        "DataFrame.drop_duplicates()",
+        "DataFrame.fillna()",
+        "train_test_split()",
+        "StandardScaler()",
+        "OneHotEncoder()",
+        "Pipeline()",
+        "model.fit()",
+        "model.predict()",
+        "torch.tensor()",
+        "DataLoader()"
+      ],
+      "starter_state_intent": "Provide an existing order-dataset CSV path, its declared_types mapping for exactly the supplied 20 feature columns, and a 16,000-byte array budget. Include enough rows for multiple full chunks and a final short chunk. Supply no complete implementation; the learner writes imports and a function, and releases each working matrix before materializing the next.",
+      "observable_success": "Execution reads the complete dataset in bounded chunks while the file context remains open. Every matrix passes the actual-shape, element-width, and nbytes checks. The returned maximum is 16,000 bytes for this fixture, no prior matrices are accumulated, and the result is explicitly limited to single-chunk array element storage."
+    }
+  }
+}

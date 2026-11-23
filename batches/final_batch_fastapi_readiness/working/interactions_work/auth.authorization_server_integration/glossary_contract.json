@@ -1,0 +1,135 @@
+{
+  "concept_id": "auth.authorization_server_integration",
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "The situation",
+      "content": "The API needs to accept tokens actually issued by its established authorization server. A locally fabricated token or overridden verifier would not prove that integration.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "definition",
+      "title": "The rule and its boundary",
+      "content": "Use the supplied established authorization-server client or test harness to obtain an actual issued access token through authorization code with PKCE where applicable; do not add a resource-owner password-grant endpoint.",
+      "fact_ids": [
+        "f1"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "How to use the rule",
+      "content": "Configure the supplied client with its registered client identifier, authorization and token endpoints and redirect URI; complete the code redirect and the separate token POST with the matching PKCE verifier using that client. Configure the existing verifier with the supplied issuer's trusted JWKS URL, expected issuer, allowed algorithms and API audience; resolve a signing key with PyJWKClient and require the intended claims during jwt.decode. Send the issuer's issued access token to the protected endpoint as Authorization: Bearer token so the request executes the real bearer extraction and configured verifier. Execute an HTTP assertion accepting the valid issuer-issued token and another rejecting a tampered token or an issuer-issued token for the wrong API audience; keep authentication and verification dependencies active rather than overriding them or fabricating a locally valid token.",
+      "fact_ids": [
+        "f2",
+        "f3",
+        "f4",
+        "f5"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "walkthrough",
+      "title": "Reason through an example",
+      "content": "Use the supplied registered client or harness with its actual client identifier, issuer endpoints and redirect URI. Complete the code redirect and separate token POST with the matching PKCE verifier where applicable. Configure the API verifier with trusted JWKS URL, issuer, algorithms and audience, resolving the signing key through PyJWKClient and requiring intended claims. Send the issued access token through the protected HTTP endpoint as a bearer credential. Keep extraction and verification active while asserting acceptance, then rejection of a tampered token or an issuer-issued token for the wrong API audience. Trace acquisition and resource-server verification as separate boundaries: the issuer produces authority, while the API accepts it only under its configured trust contract. This exercise requires supplied issuer details; hypothetical endpoint URLs are not a substitute.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "misconception",
+      "title": "Keep this distinction",
+      "content": "Do not override authentication to prove issuer integration or add a password-grant endpoint. Use actual issued tokens through the real configured verifier.",
+      "fact_ids": [
+        "f1",
+        "f4",
+        "f5"
+      ]
+    }
+  ],
+  "visual_anchor": {
+    "type": "process_flow",
+    "purpose": "Make the two trust boundaries visible: the supplied client obtains an access token through the authorization-code redirect and separate token POST with PKCE where applicable; the protected API extracts the bearer token and verifies it using trusted issuer keys, issuer, algorithms, required claims and API audience. Show the HTTP acceptance and rejection results alongside the verification boundary."
+  },
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Integrate the supplied established authorization server with one protected FastAPI endpoint. Configure the supplied registered client or harness, acquire an issued access token through authorization code with PKCE where applicable, configure the existing bearer/JWT verifier, and execute HTTP assertions for acceptance and rejection.",
+    "success": "An actual issuer-issued access token is accepted by the protected endpoint, and a tampered token or an issuer-issued token for the wrong API audience is rejected. Both requests execute the real bearer extraction and configured verifier without authentication overrides or locally fabricated valid tokens.",
+    "live_code": {
+      "required_skill": "Wire supplied authorization-server acquisition and trust settings into an existing FastAPI bearer/JWT verification dependency and verify the integration through HTTP assertions.",
+      "allowed_syntax": [
+        "Python imports, assignments, functions and type annotations",
+        "String literals, lists and dictionaries for supplied client configuration, verifier settings and HTTP headers",
+        "Existing FastAPI route decorators and Depends wiring",
+        "Supplied client or harness calls for authorization-code redirects and token POSTs with the matching PKCE verifier where applicable",
+        "PyJWKClient construction with the trusted JWKS URL",
+        "PyJWKClient.get_signing_key_from_jwt and signing_key.key",
+        "jwt.decode with explicit algorithms, issuer, audience and options requiring intended claims",
+        "Existing bearer-token extraction and JWT verification dependency calls",
+        "TestClient requests or async HTTPX requests with Authorization headers",
+        "Python assert statements checking HTTP response status codes",
+        "String slicing and concatenation to tamper with an issued token"
+      ],
+      "blocked_syntax": [
+        "Endpoint permission or scope enforcement",
+        "Per-object access checks against the authenticated principal",
+        "Custom OpenAPI security declarations or generated-schema inspection",
+        "Webhook deduplication or replay-freshness checks",
+        "Automatic outbound retry loops"
+      ],
+      "starter_state_intent": "Supply one provisioned authorization-server instance, its registered client identifier, authorization and token endpoints, redirect URI, trusted JWKS URL, expected issuer, allowed algorithms and API audience. Include the supplied acquisition client or harness, one protected FastAPI endpoint, the existing bearer/JWT verifier, and an HTTP test scaffold. Leave integration settings and acceptance/rejection assertions for the learner to complete.",
+      "observable_success": "The supplied client completes the code redirect and separate token POST using the matching PKCE verifier where applicable. HTTP assertions show the real endpoint accepting the acquired access token and rejecting a tampered token or an issuer-issued token for the wrong API audience. Authentication and verification dependencies remain active."
+    }
+  },
+  "required_facts": [
+    {
+      "id": "f1",
+      "statement": "Use the supplied established authorization-server client or test harness to obtain an actual issued access token through authorization code with PKCE where applicable; do not add a resource-owner password-grant endpoint.",
+      "source_refs": [
+        "ietf_rfc9700#https://www.rfc-editor.org/rfc/rfc9700.txt#2.1.1",
+        "ietf_rfc9700#https://www.rfc-editor.org/rfc/rfc9700.txt#2.4"
+      ]
+    },
+    {
+      "id": "f2",
+      "statement": "Configure the supplied client with its registered client identifier, authorization and token endpoints and redirect URI; complete the code redirect and the separate token POST with the matching PKCE verifier using that client.",
+      "source_refs": [
+        "ietf_rfc9700#https://www.rfc-editor.org/rfc/rfc6749.html#4.1.1",
+        "ietf_rfc9700#https://www.rfc-editor.org/rfc/rfc6749.html#4.1.3",
+        "ietf_rfc9700#https://www.rfc-editor.org/rfc/rfc9700.txt#2.1.1"
+      ]
+    },
+    {
+      "id": "f3",
+      "statement": "Configure the existing verifier with the supplied issuer's trusted JWKS URL, expected issuer, allowed algorithms and API audience; resolve a signing key with PyJWKClient and require the intended claims during jwt.decode.",
+      "source_refs": [
+        "fastapi_docs_tutorial#https://pyjwt.readthedocs.io/en/latest/usage.html#retrieve-rsa-signing-keys-from-a-jwks-endpoint",
+        "fastapi_docs_tutorial#https://pyjwt.readthedocs.io/en/latest/api.html#jwt.decode"
+      ]
+    },
+    {
+      "id": "f4",
+      "statement": "Send the issuer's issued access token to the protected endpoint as Authorization: Bearer token so the request executes the real bearer extraction and configured verifier.",
+      "source_refs": [
+        "fastapi_docs_advanced#https://fastapi.tiangolo.com/reference/security/#fastapi.security.HTTPBearer",
+        "ietf_rfc9700#https://www.rfc-editor.org/rfc/rfc6749.html#7"
+      ]
+    },
+    {
+      "id": "f5",
+      "statement": "Execute an HTTP assertion accepting the valid issuer-issued token and another rejecting a tampered token or an issuer-issued token for the wrong API audience; keep authentication and verification dependencies active rather than overriding them or fabricating a locally valid token.",
+      "source_refs": [
+        "fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/testing/#using-testclient",
+        "fastapi_docs_tutorial#https://pyjwt.readthedocs.io/en/latest/usage.html#audience-claim-aud",
+        "fastapi_docs_tutorial#https://pyjwt.readthedocs.io/en/latest/usage.html#registered-claim-names"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,912 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "python_fastapi_backend_developer",
+  "tile_id": "tile_096",
+  "toc_location": {
+    "region_id": "region_readiness",
+    "terrain_id": "terrain_security_contract"
+  },
+  "title": "Object-level authorization against the authenticated principal",
+  "summary": "",
+  "concept_ids": [
+    "auth.object_authorization"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_python_fastapi_backend_developer",
+    "toc_freeze_hash": "96d245a8da4552263398bda220dd1f88774cc30045abdf029e8d40064881cb7e",
+    "glossary_bundle_hashes": {
+      "auth.object_authorization": "be3fa6c40820ef6e762d4461c78ebde426419f31fb1e90f1e1def1663ba426fa"
+    },
+    "scenario_registry_hash": "8457b835acb638f3087af0988b1e25455e51b5c8a0efda9e9bd119a35f922ffe"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core",
+      "data"
+    ],
+    "block_types": [
+      "data_table",
+      "prose",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "code_exercise"
+    ],
+    "runtimes": [
+      "python_asgi",
+      "sql"
+    ],
+    "asset_ids": [
+      "ds.orders",
+      "ds.principals"
+    ]
+  },
+  "pacing": {
+    "estimated_minutes": 4.0
+  },
+  "steps": [
+    {
+      "step_id": "tile_096.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "auth.object_authorization"
+      ],
+      "title": "Object-level authorization against the authenticated principal",
+      "lineage": {
+        "teaching_block_ids": [
+          "auth.object_authorization#tb1",
+          "auth.object_authorization#tb2",
+          "auth.object_authorization#tb3",
+          "auth.object_authorization#tb4",
+          "auth.object_authorization#tb5"
+        ],
+        "fact_ids": [
+          "auth.object_authorization#f1",
+          "auth.object_authorization#f2",
+          "auth.object_authorization#f3"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "auth.object_authorization#visual"
+        ]
+      },
+      "eyebrow": "Learn the rule",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Check permission for the specific requested object. A valid identifier plus an authenticated caller does not establish ownership.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "auth.object_authorization"
+            ],
+            "fact_ids": [
+              "auth.object_authorization#f1"
+            ],
+            "teaching_block_ids": [
+              "auth.object_authorization#tb2",
+              "auth.object_authorization#tb4",
+              "auth.object_authorization#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Select by object identity and authorized owner or tenant context together. Do not trust a caller-supplied owner identifier.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "auth.object_authorization"
+            ],
+            "fact_ids": [
+              "auth.object_authorization#f2"
+            ],
+            "teaching_block_ids": [
+              "auth.object_authorization#tb3",
+              "auth.object_authorization#tb4",
+              "auth.object_authorization#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Test distinct authorized contexts: each accesses its permitted object, but substituting the other context’s ID must neither obtain nor change that object.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "auth.object_authorization"
+            ],
+            "fact_ids": [
+              "auth.object_authorization#f3"
+            ],
+            "teaching_block_ids": [
+              "auth.object_authorization#tb3",
+              "auth.object_authorization#tb4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "data_table",
+          "result_of": {
+            "runtime": "sql",
+            "sql": "SELECT p.owner_id AS trusted_caller, o.id AS requested_order_id, CASE WHEN p.owner_id=o.owner_id THEN 'permitted public result' ELSE 'denied; no order data' END AS access_outcome FROM (SELECT DISTINCT owner_id FROM principals WHERE owner_id IN ('caller_a','caller_b')) p CROSS JOIN orders o WHERE o.id IN (101,202) ORDER BY p.owner_id,o.id",
+            "asset_mounts": [
+              {
+                "asset_id": "ds.principals",
+                "mount_path": "principals"
+              },
+              {
+                "asset_id": "ds.orders",
+                "mount_path": "orders"
+              }
+            ]
+          },
+          "caption": "Four trusted-context retrieval combinations. The endpoint must also deny cross-context changes; never take ownership from caller input.",
+          "lineage": {
+            "concept_ids": [
+              "auth.object_authorization"
+            ],
+            "fact_ids": [
+              "auth.object_authorization#f1",
+              "auth.object_authorization#f2",
+              "auth.object_authorization#f3"
+            ],
+            "teaching_block_ids": [
+              "auth.object_authorization#tb2",
+              "auth.object_authorization#tb3",
+              "auth.object_authorization#tb4",
+              "auth.object_authorization#tb5"
+            ],
+            "anchors": [
+              "auth.object_authorization#visual"
+            ]
+          },
+          "result": {
+            "columns": [
+              "trusted_caller",
+              "requested_order_id",
+              "access_outcome"
+            ],
+            "rows": [
+              [
+                "caller_a",
+                101,
+                "permitted public result"
+              ],
+              [
+                "caller_a",
+                202,
+                "denied; no order data"
+              ],
+              [
+                "caller_b",
+                101,
+                "denied; no order data"
+              ],
+              [
+                "caller_b",
+                202,
+                "permitted public result"
+              ]
+            ],
+            "execution_provenance": {
+              "runtime": "duckdb-wasm",
+              "runtime_version": "1.32.0",
+              "sql_sha256": "380b47cfcf7496cf653ef8642e96b1531143b066a88bb0594e4509e7d946e565"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_096.s02",
+      "type": "check",
+      "concept_ids": [
+        "auth.object_authorization"
+      ],
+      "title": "Choose the boundary",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "auth.object_authorization#f1"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "auth.object_authorization#assessment:detect_cross_owner_object_access"
+        ]
+      },
+      "eyebrow": "Check",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_096.s02",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "auth.object_authorization",
+            "capability": "detect_cross_owner_object_access",
+            "fact_ids": [
+              "f1"
+            ]
+          }
+        ],
+        "anchors": [
+          "auth.object_authorization#assessment:detect_cross_owner_object_access"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "An endpoint taking an object identifier must check the caller's permission for that specific object; a valid identifier and authenticated caller do not establish ownership."
+          },
+          "incorrect": {
+            "message": "Check this rule: An endpoint taking an object identifier must check the caller's permission for that specific object; a valid identifier and authenticated caller do not establish ownership."
+          },
+          "hints": [
+            "Trace the inputs, the decision boundary, and the observable output separately."
+          ],
+          "remediation_step_id": "tile_096.r01"
+        },
+        "public": {
+          "prompt": "The protected order lookup selects only Order.id even though a trusted principal supplies owner_id. What permits cross-owner disclosure?",
+          "selection": "single",
+          "shuffle": true,
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "The query lacks the trusted owner-identity predicate."
+            },
+            {
+              "option_id": "o2",
+              "text": "Using the trusted owner-identity predicate prevents the caller retrieving any own order."
+            },
+            {
+              "option_id": "o3",
+              "text": "The request identifier alone proves the caller owns the order."
+            }
+          ]
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "This option applies the taught boundary to the evidence."
+            },
+            "o2": {
+              "message": "Selecting by both identities allows the trusted principal to retrieve its own order."
+            },
+            "o3": {
+              "message": "An object identifier is not evidence of ownership or authorization."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_096.s03",
+      "type": "check",
+      "concept_ids": [
+        "auth.object_authorization"
+      ],
+      "title": "Choose the boundary",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "auth.object_authorization#f3"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "auth.object_authorization#assessment:verify_object_access_isolation"
+        ]
+      },
+      "eyebrow": "Check",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_096.s03",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "auth.object_authorization",
+            "capability": "verify_object_access_isolation",
+            "fact_ids": [
+              "f3"
+            ]
+          }
+        ],
+        "anchors": [
+          "auth.object_authorization#assessment:verify_object_access_isolation"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Create distinct authorized contexts and verify that each can access its permitted object but cannot obtain or change the other context's object by substituting its identifier."
+          },
+          "incorrect": {
+            "message": "Check this rule: Create distinct authorized contexts and verify that each can access its permitted object but cannot obtain or change the other context's object by substituting its identifier."
+          },
+          "hints": [
+            "Trace the inputs, the decision boundary, and the observable output separately."
+          ]
+        },
+        "public": {
+          "prompt": "Which request matrix verifies the object boundary for two trusted contexts with distinct orders?",
+          "selection": "single",
+          "shuffle": true,
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Both own-order requests succeed, both cross-owner requests return unavailable without order data, and caller owner input cannot override the trusted owner."
+            },
+            {
+              "option_id": "o2",
+              "text": "Only one own-order request succeeds; no cross-owner case is sent."
+            },
+            {
+              "option_id": "o3",
+              "text": "Caller-supplied owner_id can switch which owner the query trusts."
+            }
+          ]
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "This option applies the taught boundary to the evidence."
+            },
+            "o2": {
+              "message": "Own-order success alone does not verify cross-owner isolation."
+            },
+            "o3": {
+              "message": "The owner must come from the trusted principal, not caller-controlled ownership input."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_096.s04",
+      "type": "hands_on",
+      "concept_ids": [
+        "auth.object_authorization"
+      ],
+      "title": "Apply the contract",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "auth.object_authorization#f2"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "auth.object_authorization#practice",
+          "auth.object_authorization#assessment:identify_trusted_context_object_filtering"
+        ]
+      },
+      "eyebrow": "Practice",
+      "interaction": {
+        "type": "code_exercise",
+        "interaction_id": "ix.tile_096.s04",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "auth.object_authorization",
+            "capability": "identify_trusted_context_object_filtering",
+            "fact_ids": [
+              "f2"
+            ]
+          }
+        ],
+        "anchors": [
+          "auth.object_authorization#practice",
+          "auth.object_authorization#assessment:identify_trusted_context_object_filtering"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Your response respects the stated boundary and the supplied evidence."
+          },
+          "incorrect": {
+            "message": "Recheck which evidence establishes the boundary; a declaration or successful single case is not a substitute for the required checks."
+          },
+          "hints": [
+            "Trace the inputs, the decision boundary, and the observable output separately."
+          ]
+        },
+        "public": {
+          "prompt": "Complete retrieve_order(order_id, principal, session) using both Order.id and Order.owner_id predicates, taking owner identity only from principal.owner_id. Return await session.scalar(statement), yielding an order or None. The supplied local route returns only {id,status}, or the supplied 404 {detail:\"Not found\"}. Tests use both trusted contexts against both orders and send caller owner_id query inputs attempting override. Own requests must succeed; cross-owner requests must return the unavailable-object response with no order data. Do not alter fixtures, trusted context scaffolding or returned projection.",
+          "runtime": {
+            "kind": "python_asgi",
+            "version": "0.29.5",
+            "packages": [
+              "fastapi",
+              "sqlalchemy"
+            ]
+          },
+          "workspace": {
+            "entry": "main.py",
+            "files": [
+              {
+                "path": "main.py",
+                "role": "editable",
+                "language": "python",
+                "content": "from fastapi import FastAPI, Depends, HTTPException\nfrom sqlalchemy import create_engine, select, String\nfrom sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session\nfrom sqlalchemy.pool import StaticPool\nfrom types import SimpleNamespace\nfixtures = {'principals': [{'owner_id': 'caller_a'}, {'owner_id': 'caller_b'}], 'orders': [{'id': 101, 'owner_id': 'caller_a', 'status': 'pending'}, {'id': 202, 'owner_id': 'caller_b', 'status': 'pending'}], 'pairs': [['caller_a', 101], ['caller_a', 202], ['caller_b', 101], ['caller_b', 202]], 'unavailable_object': {'status': 404, 'body': {'detail': 'Not found'}}}\nclass Base(DeclarativeBase): pass\nclass Order(Base):\n    __tablename__ = 'orders'\n    id: Mapped[int] = mapped_column(primary_key=True)\n    owner_id: Mapped[str] = mapped_column(String)\n    status: Mapped[str] = mapped_column(String)\nengine = create_engine('sqlite://', poolclass=StaticPool, connect_args={'check_same_thread':False})\nBase.metadata.create_all(engine)\nwith Session(engine) as session:\n    session.add_all([Order(**x) for x in fixtures['orders']]); session.commit()\nclass ScalarSession:\n    def __init__(self, session): self.session = session\n    async def scalar(self, statement): return self.session.scalar(statement)\n# Each app substitutes only the trusted principal for object-boundary testing.\n# This is not a token-verification exercise; caller owner_id query input is ignored.\ndef make_app(context):\n    api = FastAPI()\n    def trusted_principal(): return SimpleNamespace(owner_id=context['owner_id'])\n    @api.get('/orders/{order_id}')\n    async def endpoint(order_id:int, principal=Depends(trusted_principal)):\n        with Session(engine) as session:\n            order = await retrieve_order(order_id, principal, ScalarSession(session))\n            if order is None:\n                raise HTTPException(status_code=fixtures['unavailable_object']['status'], detail=fixtures['unavailable_object']['body']['detail'])\n            return {'id':order.id, 'status':order.status}\n    return api\napp = make_app(fixtures['principals'][0])\napp_b = make_app(fixtures['principals'][1])\n# Complete the supplied lookup; do not modify make_app or accept an owner argument.\nasync def retrieve_order(order_id, principal, session):\n    statement = select(Order).where(Order.id == order_id)\n    return await session.scalar(statement)\n"
+              }
+            ],
+            "asset_mounts": []
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "def and async def",
+              "async and await",
+              "Python type annotations",
+              "FastAPI route decorators",
+              "Depends(...)",
+              "Function parameters and attribute access",
+              "SQLAlchemy select(Order).where(...) with order-identity and owner-identity predicates",
+              "await session.execute(...)",
+              "result.scalar_one_or_none()",
+              "if order is None",
+              "raise HTTPException(...)",
+              "return",
+              "Integer and string literals",
+              "TestClient requests",
+              "app.dependency_overrides",
+              "assert statements"
+            ],
+            "blocked_syntax": [
+              "OAuth2 authorization-server security declarations",
+              "app.openapi() contract inspection",
+              "Invalid-token test parametrization"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "main.py",
+              "content": "from fastapi import FastAPI, Depends, HTTPException\nfrom sqlalchemy import create_engine, select, String\nfrom sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session\nfrom sqlalchemy.pool import StaticPool\nfrom types import SimpleNamespace\nfixtures = {'principals': [{'owner_id': 'caller_a'}, {'owner_id': 'caller_b'}], 'orders': [{'id': 101, 'owner_id': 'caller_a', 'status': 'pending'}, {'id': 202, 'owner_id': 'caller_b', 'status': 'pending'}], 'pairs': [['caller_a', 101], ['caller_a', 202], ['caller_b', 101], ['caller_b', 202]], 'unavailable_object': {'status': 404, 'body': {'detail': 'Not found'}}}\nclass Base(DeclarativeBase): pass\nclass Order(Base):\n    __tablename__ = 'orders'\n    id: Mapped[int] = mapped_column(primary_key=True)\n    owner_id: Mapped[str] = mapped_column(String)\n    status: Mapped[str] = mapped_column(String)\nengine = create_engine('sqlite://', poolclass=StaticPool, connect_args={'check_same_thread':False})\nBase.metadata.create_all(engine)\nwith Session(engine) as session:\n    session.add_all([Order(**x) for x in fixtures['orders']]); session.commit()\nclass ScalarSession:\n    def __init__(self, session): self.session = session\n    async def scalar(self, statement): return self.session.scalar(statement)\n# Each app substitutes only the trusted principal for object-boundary testing.\n# This is not a token-verification exercise; caller owner_id query input is ignored.\ndef make_app(context):\n    api = FastAPI()\n    def trusted_principal(): return SimpleNamespace(owner_id=context['owner_id'])\n    @api.get('/orders/{order_id}')\n    async def endpoint(order_id:int, principal=Depends(trusted_principal)):\n        with Session(engine) as session:\n            order = await retrieve_order(order_id, principal, ScalarSession(session))\n            if order is None:\n                raise HTTPException(status_code=fixtures['unavailable_object']['status'], detail=fixtures['unavailable_object']['body']['detail'])\n            return {'id':order.id, 'status':order.status}\n    return api\napp = make_app(fixtures['principals'][0])\napp_b = make_app(fixtures['principals'][1])\n# Complete the supplied lookup; do not modify make_app or accept an owner argument.\nasync def retrieve_order(order_id, principal, session):\n    statement = select(Order).where(Order.id == order_id, Order.owner_id == principal.owner_id)\n    return await session.scalar(statement)\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "pair_0",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "GET",
+                    "path": "/orders/101",
+                    "params": {
+                      "owner_id": "caller_a"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "id": 101,
+                    "status": "pending"
+                  }
+                },
+                "app": "app"
+              },
+              "message_on_fail": "The pair_0 case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "pair_1",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "GET",
+                    "path": "/orders/202",
+                    "params": {
+                      "owner_id": "caller_b"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 404,
+                  "json": {
+                    "detail": "Not found"
+                  }
+                },
+                "app": "app"
+              },
+              "message_on_fail": "The pair_1 case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "pair_2",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "GET",
+                    "path": "/orders/101",
+                    "params": {
+                      "owner_id": "caller_a"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 404,
+                  "json": {
+                    "detail": "Not found"
+                  }
+                },
+                "app": "app_b"
+              },
+              "message_on_fail": "The pair_2 case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "pair_3",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "GET",
+                    "path": "/orders/202",
+                    "params": {
+                      "owner_id": "caller_b"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "id": 202,
+                    "status": "pending"
+                  }
+                },
+                "app": "app_b"
+              },
+              "message_on_fail": "The pair_3 case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "pyodide",
+            "runtime_version": "0.29.5",
+            "solution_sha256": "21dbec206d82b14de2731ab56499833e4d1618b0b032c218be28a3148151ae94",
+            "tests_passed": 4
+          },
+          "hidden_checks": []
+        }
+      }
+    },
+    {
+      "step_id": "tile_096.s05",
+      "type": "recap",
+      "concept_ids": [
+        "auth.object_authorization"
+      ],
+      "title": "Take the rule with you",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Authentication and a real object ID are not enough. Selection must include the trusted context; substituting another owner’s ID must deny access.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "auth.object_authorization"
+            ],
+            "fact_ids": [
+              "auth.object_authorization#f1",
+              "auth.object_authorization#f2"
+            ],
+            "teaching_block_ids": [
+              "auth.object_authorization#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "up_next",
+          "title": "Declaring the deployed bearer-access-token and authorization-server security contract without a password grant",
+          "text": "Public security documentation should describe how the deployed API actually accepts authority, not advertise an undeployed way to acquire tokens."
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "tile_096.r01",
+      "type": "remediation",
+      "title": "Review: Object-level authorization against the authenticated principal",
+      "concept_ids": [
+        "auth.object_authorization"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "auth.object_authorization"
+        ],
+        "fact_ids": [
+          "auth.object_authorization#f1"
+        ],
+        "teaching_block_ids": [
+          "auth.object_authorization#tb2",
+          "auth.object_authorization#tb4",
+          "auth.object_authorization#tb5"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Check permission for the specific requested object. A valid identifier plus an authenticated caller does not establish ownership.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "auth.object_authorization"
+            ],
+            "fact_ids": [
+              "auth.object_authorization#f1"
+            ],
+            "teaching_block_ids": [
+              "auth.object_authorization#tb2",
+              "auth.object_authorization#tb4",
+              "auth.object_authorization#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Authentication and a real object ID are not enough. Selection must include the trusted context; substituting another owner’s ID must deny access.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "auth.object_authorization"
+            ],
+            "fact_ids": [
+              "auth.object_authorization#f1"
+            ],
+            "teaching_block_ids": [
+              "auth.object_authorization#tb2",
+              "auth.object_authorization#tb4",
+              "auth.object_authorization#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.orders",
+            "columns": [
+              "id",
+              "owner_id",
+              "status"
+            ]
+          },
+          "caption": "Order fixtures",
+          "lineage": {
+            "concept_ids": [
+              "auth.object_authorization"
+            ],
+            "fact_ids": [
+              "auth.object_authorization#f1",
+              "auth.object_authorization#f2",
+              "auth.object_authorization#f3"
+            ],
+            "teaching_block_ids": [
+              "auth.object_authorization#tb2",
+              "auth.object_authorization#tb3",
+              "auth.object_authorization#tb4",
+              "auth.object_authorization#tb5"
+            ],
+            "anchors": [
+              "auth.object_authorization#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_096.r02",
+      "type": "remediation",
+      "title": "Review: Object-level authorization against the authenticated principal",
+      "concept_ids": [
+        "auth.object_authorization"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "auth.object_authorization"
+        ],
+        "fact_ids": [
+          "auth.object_authorization#f3"
+        ],
+        "teaching_block_ids": [
+          "auth.object_authorization#tb3",
+          "auth.object_authorization#tb4"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Test distinct authorized contexts: each accesses its permitted object, but substituting the other context’s ID must neither obtain nor change that object.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "auth.object_authorization"
+            ],
+            "fact_ids": [
+              "auth.object_authorization#f3"
+            ],
+            "teaching_block_ids": [
+              "auth.object_authorization#tb3",
+              "auth.object_authorization#tb4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Authentication and a real object ID are not enough. Selection must include the trusted context; substituting another owner’s ID must deny access.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "auth.object_authorization"
+            ],
+            "fact_ids": [
+              "auth.object_authorization#f3"
+            ],
+            "teaching_block_ids": [
+              "auth.object_authorization#tb3",
+              "auth.object_authorization#tb4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.orders",
+            "columns": [
+              "id",
+              "owner_id",
+              "status"
+            ]
+          },
+          "caption": "Order fixtures",
+          "lineage": {
+            "concept_ids": [
+              "auth.object_authorization"
+            ],
+            "fact_ids": [
+              "auth.object_authorization#f1",
+              "auth.object_authorization#f2",
+              "auth.object_authorization#f3"
+            ],
+            "teaching_block_ids": [
+              "auth.object_authorization#tb2",
+              "auth.object_authorization#tb3",
+              "auth.object_authorization#tb4",
+              "auth.object_authorization#tb5"
+            ],
+            "anchors": [
+              "auth.object_authorization#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_096.r03",
+      "type": "remediation",
+      "title": "Review: Object-level authorization against the authenticated principal",
+      "concept_ids": [
+        "auth.object_authorization"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "auth.object_authorization"
+        ],
+        "fact_ids": [
+          "auth.object_authorization#f2"
+        ],
+        "teaching_block_ids": [
+          "auth.object_authorization#tb3",
+          "auth.object_authorization#tb4",
+          "auth.object_authorization#tb5"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Select by object identity and authorized owner or tenant context together. Do not trust a caller-supplied owner identifier.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "auth.object_authorization"
+            ],
+            "fact_ids": [
+              "auth.object_authorization#f2"
+            ],
+            "teaching_block_ids": [
+              "auth.object_authorization#tb3",
+              "auth.object_authorization#tb4",
+              "auth.object_authorization#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Authentication and a real object ID are not enough. Selection must include the trusted context; substituting another owner’s ID must deny access.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "auth.object_authorization"
+            ],
+            "fact_ids": [
+              "auth.object_authorization#f2"
+            ],
+            "teaching_block_ids": [
+              "auth.object_authorization#tb3",
+              "auth.object_authorization#tb4",
+              "auth.object_authorization#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.orders",
+            "columns": [
+              "id",
+              "owner_id",
+              "status"
+            ]
+          },
+          "caption": "Order fixtures",
+          "lineage": {
+            "concept_ids": [
+              "auth.object_authorization"
+            ],
+            "fact_ids": [
+              "auth.object_authorization#f1",
+              "auth.object_authorization#f2",
+              "auth.object_authorization#f3"
+            ],
+            "teaching_block_ids": [
+              "auth.object_authorization#tb2",
+              "auth.object_authorization#tb3",
+              "auth.object_authorization#tb4",
+              "auth.object_authorization#tb5"
+            ],
+            "anchors": [
+              "auth.object_authorization#visual"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "tile_097"
+  },
+  "content_hash": "fde872303a106954b4a832555fd311df4a6dab7604cc9a931404c041304c085b"
+}

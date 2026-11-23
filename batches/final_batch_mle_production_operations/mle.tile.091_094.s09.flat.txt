@@ -1,0 +1,58 @@
+import csv, json
+import numpy as np
+policy = json.loads('{"authorized_identity": "lab.operator", "resource_mapping": {"training-lab": "training", "inference-lab": "inference", "training-disk": "training"}, "shared_rule": {"training": 0.5, "inference": 0.5}, "unmatched_rule": "explicitly unallocated", "unusual_rule": "per-workload per-window allocation >10", "unit": "fictional credits", "reporting_windows": {"w1": ["2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z"], "w2": ["2026-01-03T00:00:00Z", "2026-01-04T00:00:00Z"]}, "direct_interval_rule": "direct_compute rows correspond to the named resource lifecycle/work interval; persistent_disk spans reporting window even after stop", "numeric_values": "Select per-window attributed costs for each workload; do not mix workload series", "ddof": 0}')
+billing_export_rows = list(csv.DictReader(open('billing_export.csv')))
+billing_export = {}
+billing_export['charge_id'] = np.array([r['charge_id'] for r in billing_export_rows])
+billing_export['reporting_window'] = np.array([r['reporting_window'] for r in billing_export_rows])
+billing_export['resource_id'] = np.array([r['resource_id'] for r in billing_export_rows])
+billing_export['charge_category'] = np.array([r['charge_category'] for r in billing_export_rows])
+billing_export['amount'] = np.array([float(r['amount'] or 'nan') for r in billing_export_rows])
+lifecycle_rows = list(csv.DictReader(open('lifecycle.csv')))
+lifecycle = {}
+lifecycle['INSTANCE'] = np.array([r['INSTANCE'] for r in lifecycle_rows])
+lifecycle['ZONE'] = np.array([r['ZONE'] for r in lifecycle_rows])
+lifecycle['workload'] = np.array([r['workload'] for r in lifecycle_rows])
+lifecycle['reporting_window'] = np.array([r['reporting_window'] for r in lifecycle_rows])
+lifecycle['start'] = np.array([r['start'] for r in lifecycle_rows])
+lifecycle['stop'] = np.array([r['stop'] for r in lifecycle_rows])
+lifecycle['before_state'] = np.array([r['before_state'] for r in lifecycle_rows])
+lifecycle['after_state'] = np.array([r['after_state'] for r in lifecycle_rows])
+lifecycle['completed_work'] = np.array([float(r['completed_work'] or 'nan') for r in lifecycle_rows])
+
+charges=[{k:(v[i].item() if hasattr(v[i],'item') else v[i]) for k,v in billing_export.items()} for i in range(len(billing_export_rows))]
+# Existing authorized lifecycle fixture interface, bounded to the two tagged instances.
+def bounded_workloads():
+    return {'identity':policy['authorized_identity'],'actions':['describe','start','ssh','stop','describe'],'records':lifecycle_rows,'verified_stopped':all(r['after_state']=='TERMINATED' for r in lifecycle_rows)}
+lifecycle_record = bounded_workloads()
+
+allocated = {'training':{'w1':0,'w2':0},'inference':{'w1':0,'w2':0}}
+unallocated = 0
+export_total = 0
+unmatched = []
+for row in charges:
+    window = row['reporting_window']
+    amount = row['amount']
+    export_total = export_total+amount
+    if row['charge_category'] == 'shared':
+        allocated['training'][window] = allocated['training'][window]+amount*policy['shared_rule']['training']
+        allocated['inference'][window] = allocated['inference'][window]+amount*policy['shared_rule']['inference']
+    elif row['resource_id'] in policy['resource_mapping']:
+        workload = policy['resource_mapping'][row['resource_id']]
+        allocated[workload][window] = allocated[workload][window]+amount
+    else:
+        unallocated = unallocated+amount
+        unmatched = unmatched+[row['charge_id']]
+training_values=np.array([allocated['training']['w1'],allocated['training']['w2']])
+inference_values=np.array([allocated['inference']['w1'],allocated['inference']['w2']])
+
+training_mean = np.mean(training_values)
+training_std = np.std(training_values,ddof=0)
+inference_mean = np.mean(inference_values)
+inference_std = np.std(inference_values,ddof=0)
+summary = {}
+for workload in ['training','inference']:
+    values = np.array([allocated[workload]['w1'],allocated[workload]['w2']])
+    summary[workload] = {'windows':allocated[workload],'mean':training_mean if workload=='training' else inference_mean,'std':training_std if workload=='training' else inference_std,'unusual_w1':allocated[workload]['w1']>10,'unusual_w2':allocated[workload]['w2']>10}
+result = {'lifecycle':lifecycle_record,'summary':summary,'unmatched_charge_ids':unmatched,'unallocated':unallocated,'allocated_total':sum([allocated['training']['w1'],allocated['training']['w2'],allocated['inference']['w1'],allocated['inference']['w2']]),'export_total':export_total,'unit':policy['unit'],'reporting_windows':policy['reporting_windows'],'ddof':policy['ddof']}
+

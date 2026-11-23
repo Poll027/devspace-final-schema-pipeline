@@ -1,0 +1,47 @@
+_fixture_support
+import csv, json, datetime
+import numpy as np
+SCHEMAS = {'release_evidence': {'release_id': 'string', 'cohort_id': 'string', 'timestamp': 'datetime', 'active_artifact': 'string', 'approved_artifact': 'string', 'active_config': 'string', 'approved_config': 'string', 'schema_pass': 'boolean', 'distribution_distance': 'number', 'matched_eligible_labels': 'integer', 'labeled_errors': 'integer', 'client_impact': 'string', 'hypothesis_test': 'string', 'supported_response': 'string'}}
+def load(name):
+    with open(name+'.csv') as f:
+        data=list(csv.DictReader(f))
+    for r in data:
+        for k,t in SCHEMAS[name].items():
+            v=r[k]
+            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)
+    return data
+def column(data,key):
+    return np.asarray([r[key] for r in data])
+def emit(value):
+    return value
+
+
+policy = {'permitted_responses': ['data_repair', 'approved_rollback', 'gated_retraining'], 'selected_fixture_authorization': 'approved rollback cfg.bad -> cfg.r1 under lab.operator; readiness and bounded prediction gates required', 'quality_denominator': 'matched_eligible_labels; zero means undefined', 'hypothesis': 'configuration mismatch, distinguished by approved-configuration replay'}
+
+def distinguishing_replay(row):
+    return {'bad_config_reproduced':'bad configuration reproduces errors' in row['hypothesis_test'],'rollback_restored':'approved rollback restores baseline' in row['hypothesis_test']}
+
+_supplied_functions
+def supplied_analyze_release(data, policy):
+    results = []
+    for r in data:
+        replay_evidence = distinguishing_replay(r)
+        denominator = r['matched_eligible_labels']
+        rate = None
+        if denominator > 0:
+            rate = r['labeled_errors'] / denominator
+        response = 'none'
+        if denominator == 0:
+            response = 'investigate'
+        elif r['release_id'] == 'r2' and r['cohort_id'] == 'after' and (r['active_config'] != r['approved_config']) and replay_evidence['bad_config_reproduced'] and replay_evidence['rollback_restored']:
+            response = 'approved_rollback'
+        gates = []
+        if response == 'approved_rollback':
+            gates = ['readiness', 'bounded prediction']
+        results.append({'release': r['release_id'], 'cohort': r['cohort_id'], 'time': r['timestamp'], 'impact': r['client_impact'], 'artifact_match': r['active_artifact'] == r['approved_artifact'], 'config_match': r['active_config'] == r['approved_config'], 'schema_pass': r['schema_pass'], 'hypothesis_test': r['hypothesis_test'], 'distribution_distance': r['distribution_distance'], 'denominator': denominator, 'errors': r['labeled_errors'], 'error_proportion': rate, 'response': response, 'gates': gates, 'scope': 'distribution difference alone does not establish quality loss'})
+    return results
+
+_supplied_driver
+policy = {'permitted_responses': ['data_repair', 'approved_rollback', 'gated_retraining'], 'selected_fixture_authorization': 'approved rollback cfg.bad -> cfg.r1 under lab.operator; readiness and bounded prediction gates required', 'quality_denominator': 'matched_eligible_labels; zero means undefined', 'hypothesis': 'configuration mismatch, distinguished by approved-configuration replay'}
+report = analyze_release(load('release_evidence'), policy)
+emit(report)

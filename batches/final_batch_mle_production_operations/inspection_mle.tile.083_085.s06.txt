@@ -1,0 +1,1640 @@
+{
+  "type": "code_exercise",
+  "interaction_id": "ix.mle.tile.083_085.s06",
+  "difficulty": "core",
+  "grading_mode": "client",
+  "standalone": false,
+  "anchors": [
+    "mle.delayed_label_quality#practice"
+  ],
+  "measures": [
+    {
+      "concept_id": "mle.delayed_label_quality",
+      "capability": "preserve_and_join_a_time_bounded_prediction_cohort",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3"
+      ]
+    },
+    {
+      "concept_id": "mle.delayed_label_quality",
+      "capability": "compute_label_maturity_and_scope_quality_estimates",
+      "fact_ids": [
+        "f4",
+        "f5"
+      ]
+    },
+    {
+      "concept_id": "mle.delayed_label_quality",
+      "capability": "compute_mean_and_declared_standard_deviation_of_mature_losses",
+      "fact_ids": [
+        "f6",
+        "f7"
+      ]
+    }
+  ],
+  "public": {
+    "prompt": "Complete loss_mean(losses) and loss_std(losses) using np.mean and np.std with ddof=0. Retain the supplied bounded prediction cohort, label reconciliation, matched-denominator coverage and unresolved-state handling unchanged. Report the matched examples\u2019 loss mean and population standard deviation.",
+    "runtime": {
+      "kind": "python",
+      "version": "0.29.5",
+      "packages": [
+        "numpy"
+      ]
+    },
+    "workspace": {
+      "entry": "learner.py",
+      "files": [
+        {
+          "path": "learner.py",
+          "role": "editable",
+          "language": "python",
+          "content": "# Supplied infrastructure helper (retain unchanged).\nexec('def coverage_calculation(matched, cohort):\\n    return len(matched) / len(cohort)\\n')\n\ndef loss_mean(losses):\n    return None\n\ndef loss_std(losses):\n    return None\n\nimport numpy as np\n\nexec(\"def quality(prediction_rows, label_rows):\\n    cohort = {}\\n    rejected = []\\n    seen_prediction_ids = {}\\n    seen = {}\\n    for row in prediction_rows:\\n        key = row['prediction_id']\\n        if key in seen_prediction_ids:\\n            return {'status': 'duplicate_prediction'}\\n        seen_prediction_ids[key] = row\\n    for row in label_rows:\\n        key = row['prediction_id']\\n        if key in seen:\\n            return {'status': 'duplicate_label'}\\n        seen[key] = row\\n    for row in prediction_rows:\\n        key = row['prediction_id']\\n        if row['eligible'] and row['cohort_id'] == policy['cohort']:\\n            cohort[key] = row\\n    matched = {}\\n    losses = []\\n    errors = []\\n    for row in label_rows:\\n        key = row['prediction_id']\\n        if key in cohort and cohort[key]['prediction_timestamp'] <= cutoff and (row['label_timestamp'] <= policy['label_available_through']):\\n            matched[key] = row\\n            losses.append(row['loss'])\\n            errors.append(cohort[key]['prediction'] != row['label'])\\n        else:\\n            rejected.append(key)\\n    if len(matched) == 0:\\n        return {'status': 'unavailable', 'cohort': cohort, 'matched': matched, 'eligible_ids': len(cohort), 'mature_ids': len(matched), 'coverage': coverage_calculation(matched, cohort) if len(cohort) > 0 else None, 'errors': None, 'error_proportion': None, 'loss_mean': None, 'loss_std': None, 'excluded_label_ids': rejected}\\n    return {'status': 'mature_cohort_only', 'cohort': cohort, 'matched': matched, 'eligible_ids': len(cohort), 'mature_ids': len(matched), 'coverage': coverage_calculation(matched, cohort), 'errors': sum(errors), 'error_proportion': sum(errors) / len(matched), 'loss_mean': loss_mean(losses), 'loss_std': loss_std(losses), 'excluded_label_ids': rejected}\\n\")\n\nexec('import csv, json')\n\nexec('import numpy as np')\n\nexec('policy = json.loads(\\'{\"cohort\": \"fixed_100\", \"analysis_time\": \"2026-01-04T00:00:00Z\", \"minimum_age_hours\": 24, \"label_available_through\": \"2026-01-04T00:00:00Z\", \"duplicate_policy\": \"reject repeated prediction or label ID before dictionary construction\", \"unmatched_policy\": \"exclude and record\", \"outside_cohort_policy\": \"exclude and record\", \"ddof\": 0}\\')')\n\nexec(\"predictions_rows = list(csv.DictReader(open('predictions.csv')))\")\n\nexec('predictions = {}')\n\nexec(\"predictions['prediction_id'] = np.array([r['prediction_id'] for r in predictions_rows])\")\n\nexec(\"predictions['prediction_timestamp'] = np.array([r['prediction_timestamp'] for r in predictions_rows])\")\n\nexec(\"predictions['prediction'] = np.array([r['prediction'] for r in predictions_rows])\")\n\nexec(\"predictions['cohort_id'] = np.array([r['cohort_id'] for r in predictions_rows])\")\n\nexec(\"predictions['eligible'] = np.array([r['eligible'] == 'True' for r in predictions_rows])\")\n\nexec(\"labels_rows = list(csv.DictReader(open('labels.csv')))\")\n\nexec('labels = {}')\n\nexec(\"labels['prediction_id'] = np.array([r['prediction_id'] for r in labels_rows])\")\n\nexec(\"labels['label_timestamp'] = np.array([r['label_timestamp'] for r in labels_rows])\")\n\nexec(\"labels['label'] = np.array([r['label'] for r in labels_rows])\")\n\nexec(\"labels['loss'] = np.array([float(r['loss'] or 'nan') for r in labels_rows])\")\n\nexec('from datetime import datetime, timedelta')\n\nexec(\"def typed_rows(columns):\\n    return [{k: v[i].item() if hasattr(v[i], 'item') else v[i] for k, v in columns.items()} for i in range(len(next(iter(columns.values()))))]\")\n\nexec('prediction_rows = typed_rows(predictions)')\n\nexec('label_rows = typed_rows(labels)')\n\nexec(\"cutoff = (datetime.fromisoformat(policy['analysis_time'].replace('Z', '+00:00')) - timedelta(hours=policy['minimum_age_hours'])).isoformat().replace('+00:00', 'Z')\")\n\nexec('result = quality(prediction_rows, label_rows)')\n\nexec('outside_prediction = dict(prediction_rows[0], eligible=False)')\n\nexec('outside_duplicate_rows = [outside_prediction, dict(outside_prediction)]')\n"
+        }
+      ],
+      "asset_mounts": [
+        {
+          "asset_id": "ds.predictions",
+          "mount_path": "predictions.csv"
+        },
+        {
+          "asset_id": "ds.labels",
+          "mount_path": "labels.csv"
+        }
+      ]
+    },
+    "constraints": {
+      "allowed_syntax": [
+        "import numpy as np",
+        "import statements for required supplied library or client dependencies",
+        "def",
+        "return",
+        "variable assignment",
+        "dictionary literals",
+        "dictionary key lookup and assignment",
+        "for loops",
+        "if and else",
+        "membership tests",
+        "comparison operators",
+        "list literals and append",
+        "len",
+        "sum",
+        "arithmetic operators",
+        "numeric literals",
+        "string literals",
+        "np.mean(numeric_values)",
+        "np.std(numeric_values, ddof=0)",
+        "np.std(numeric_values, ddof=1)"
+      ],
+      "blocked_syntax": []
+    }
+  },
+  "feedback": {
+    "correct": {
+      "message": "The response follows the declared evidence, calculation or authorization rule."
+    },
+    "incorrect": {
+      "message": "Recheck the declared observations, denominator, boundary and required gates; do not substitute evidence for a different claim."
+    },
+    "hints": [
+      "Check duplicate IDs across each complete input before filtering; compare prediction timestamps with cutoff and label timestamps with label_available_through."
+    ]
+  }
+}
+SOLUTION
+{
+  "solution_files": [
+    {
+      "path": "learner.py",
+      "content": "# Supplied infrastructure helper (retain unchanged).\nexec('def coverage_calculation(matched, cohort):\\n    return len(matched) / len(cohort)\\n')\n\ndef loss_mean(losses):\n    return np.mean(losses)\n\ndef loss_std(losses):\n    return np.std(losses, ddof=0)\n\nimport numpy as np\n\nexec(\"def quality(prediction_rows, label_rows):\\n    cohort = {}\\n    rejected = []\\n    seen_prediction_ids = {}\\n    seen = {}\\n    for row in prediction_rows:\\n        key = row['prediction_id']\\n        if key in seen_prediction_ids:\\n            return {'status': 'duplicate_prediction'}\\n        seen_prediction_ids[key] = row\\n    for row in label_rows:\\n        key = row['prediction_id']\\n        if key in seen:\\n            return {'status': 'duplicate_label'}\\n        seen[key] = row\\n    for row in prediction_rows:\\n        key = row['prediction_id']\\n        if row['eligible'] and row['cohort_id'] == policy['cohort']:\\n            cohort[key] = row\\n    matched = {}\\n    losses = []\\n    errors = []\\n    for row in label_rows:\\n        key = row['prediction_id']\\n        if key in cohort and cohort[key]['prediction_timestamp'] <= cutoff and (row['label_timestamp'] <= policy['label_available_through']):\\n            matched[key] = row\\n            losses.append(row['loss'])\\n            errors.append(cohort[key]['prediction'] != row['label'])\\n        else:\\n            rejected.append(key)\\n    if len(matched) == 0:\\n        return {'status': 'unavailable', 'cohort': cohort, 'matched': matched, 'eligible_ids': len(cohort), 'mature_ids': len(matched), 'coverage': coverage_calculation(matched, cohort) if len(cohort) > 0 else None, 'errors': None, 'error_proportion': None, 'loss_mean': None, 'loss_std': None, 'excluded_label_ids': rejected}\\n    return {'status': 'mature_cohort_only', 'cohort': cohort, 'matched': matched, 'eligible_ids': len(cohort), 'mature_ids': len(matched), 'coverage': coverage_calculation(matched, cohort), 'errors': sum(errors), 'error_proportion': sum(errors) / len(matched), 'loss_mean': loss_mean(losses), 'loss_std': loss_std(losses), 'excluded_label_ids': rejected}\\n\")\n\nexec('import csv, json')\n\nexec('import numpy as np')\n\nexec('policy = json.loads(\\'{\"cohort\": \"fixed_100\", \"analysis_time\": \"2026-01-04T00:00:00Z\", \"minimum_age_hours\": 24, \"label_available_through\": \"2026-01-04T00:00:00Z\", \"duplicate_policy\": \"reject repeated prediction or label ID before dictionary construction\", \"unmatched_policy\": \"exclude and record\", \"outside_cohort_policy\": \"exclude and record\", \"ddof\": 0}\\')')\n\nexec(\"predictions_rows = list(csv.DictReader(open('predictions.csv')))\")\n\nexec('predictions = {}')\n\nexec(\"predictions['prediction_id'] = np.array([r['prediction_id'] for r in predictions_rows])\")\n\nexec(\"predictions['prediction_timestamp'] = np.array([r['prediction_timestamp'] for r in predictions_rows])\")\n\nexec(\"predictions['prediction'] = np.array([r['prediction'] for r in predictions_rows])\")\n\nexec(\"predictions['cohort_id'] = np.array([r['cohort_id'] for r in predictions_rows])\")\n\nexec(\"predictions['eligible'] = np.array([r['eligible'] == 'True' for r in predictions_rows])\")\n\nexec(\"labels_rows = list(csv.DictReader(open('labels.csv')))\")\n\nexec('labels = {}')\n\nexec(\"labels['prediction_id'] = np.array([r['prediction_id'] for r in labels_rows])\")\n\nexec(\"labels['label_timestamp'] = np.array([r['label_timestamp'] for r in labels_rows])\")\n\nexec(\"labels['label'] = np.array([r['label'] for r in labels_rows])\")\n\nexec(\"labels['loss'] = np.array([float(r['loss'] or 'nan') for r in labels_rows])\")\n\nexec('from datetime import datetime, timedelta')\n\nexec(\"def typed_rows(columns):\\n    return [{k: v[i].item() if hasattr(v[i], 'item') else v[i] for k, v in columns.items()} for i in range(len(next(iter(columns.values()))))]\")\n\nexec('prediction_rows = typed_rows(predictions)')\n\nexec('label_rows = typed_rows(labels)')\n\nexec(\"cutoff = (datetime.fromisoformat(policy['analysis_time'].replace('Z', '+00:00')) - timedelta(hours=policy['minimum_age_hours'])).isoformat().replace('+00:00', 'Z')\")\n\nexec('result = quality(prediction_rows, label_rows)')\n\nexec('outside_prediction = dict(prediction_rows[0], eligible=False)')\n\nexec('outside_duplicate_rows = [outside_prediction, dict(outside_prediction)]')\n"
+    }
+  ],
+  "tests": [
+    {
+      "test_id": "t1",
+      "kind": "value_equals",
+      "spec": {
+        "expr": "result",
+        "expected": {
+          "status": "mature_cohort_only",
+          "cohort": {
+            "p001": {
+              "prediction_id": "p001",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p002": {
+              "prediction_id": "p002",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p003": {
+              "prediction_id": "p003",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p004": {
+              "prediction_id": "p004",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p005": {
+              "prediction_id": "p005",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p006": {
+              "prediction_id": "p006",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p007": {
+              "prediction_id": "p007",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p008": {
+              "prediction_id": "p008",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p009": {
+              "prediction_id": "p009",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p010": {
+              "prediction_id": "p010",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p011": {
+              "prediction_id": "p011",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p012": {
+              "prediction_id": "p012",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p013": {
+              "prediction_id": "p013",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p014": {
+              "prediction_id": "p014",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p015": {
+              "prediction_id": "p015",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p016": {
+              "prediction_id": "p016",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p017": {
+              "prediction_id": "p017",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p018": {
+              "prediction_id": "p018",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p019": {
+              "prediction_id": "p019",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p020": {
+              "prediction_id": "p020",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p021": {
+              "prediction_id": "p021",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p022": {
+              "prediction_id": "p022",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p023": {
+              "prediction_id": "p023",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p024": {
+              "prediction_id": "p024",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p025": {
+              "prediction_id": "p025",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p026": {
+              "prediction_id": "p026",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p027": {
+              "prediction_id": "p027",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p028": {
+              "prediction_id": "p028",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p029": {
+              "prediction_id": "p029",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p030": {
+              "prediction_id": "p030",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p031": {
+              "prediction_id": "p031",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p032": {
+              "prediction_id": "p032",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p033": {
+              "prediction_id": "p033",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p034": {
+              "prediction_id": "p034",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p035": {
+              "prediction_id": "p035",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p036": {
+              "prediction_id": "p036",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p037": {
+              "prediction_id": "p037",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p038": {
+              "prediction_id": "p038",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p039": {
+              "prediction_id": "p039",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p040": {
+              "prediction_id": "p040",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p041": {
+              "prediction_id": "p041",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p042": {
+              "prediction_id": "p042",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p043": {
+              "prediction_id": "p043",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p044": {
+              "prediction_id": "p044",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p045": {
+              "prediction_id": "p045",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p046": {
+              "prediction_id": "p046",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p047": {
+              "prediction_id": "p047",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p048": {
+              "prediction_id": "p048",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p049": {
+              "prediction_id": "p049",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p050": {
+              "prediction_id": "p050",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p051": {
+              "prediction_id": "p051",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p052": {
+              "prediction_id": "p052",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p053": {
+              "prediction_id": "p053",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p054": {
+              "prediction_id": "p054",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p055": {
+              "prediction_id": "p055",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p056": {
+              "prediction_id": "p056",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p057": {
+              "prediction_id": "p057",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p058": {
+              "prediction_id": "p058",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p059": {
+              "prediction_id": "p059",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p060": {
+              "prediction_id": "p060",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p061": {
+              "prediction_id": "p061",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p062": {
+              "prediction_id": "p062",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p063": {
+              "prediction_id": "p063",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p064": {
+              "prediction_id": "p064",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p065": {
+              "prediction_id": "p065",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p066": {
+              "prediction_id": "p066",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p067": {
+              "prediction_id": "p067",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p068": {
+              "prediction_id": "p068",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p069": {
+              "prediction_id": "p069",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p070": {
+              "prediction_id": "p070",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p071": {
+              "prediction_id": "p071",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p072": {
+              "prediction_id": "p072",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p073": {
+              "prediction_id": "p073",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p074": {
+              "prediction_id": "p074",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p075": {
+              "prediction_id": "p075",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p076": {
+              "prediction_id": "p076",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p077": {
+              "prediction_id": "p077",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p078": {
+              "prediction_id": "p078",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p079": {
+              "prediction_id": "p079",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p080": {
+              "prediction_id": "p080",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p081": {
+              "prediction_id": "p081",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p082": {
+              "prediction_id": "p082",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p083": {
+              "prediction_id": "p083",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p084": {
+              "prediction_id": "p084",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p085": {
+              "prediction_id": "p085",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p086": {
+              "prediction_id": "p086",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p087": {
+              "prediction_id": "p087",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p088": {
+              "prediction_id": "p088",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p089": {
+              "prediction_id": "p089",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p090": {
+              "prediction_id": "p090",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p091": {
+              "prediction_id": "p091",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p092": {
+              "prediction_id": "p092",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p093": {
+              "prediction_id": "p093",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p094": {
+              "prediction_id": "p094",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p095": {
+              "prediction_id": "p095",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p096": {
+              "prediction_id": "p096",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p097": {
+              "prediction_id": "p097",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p098": {
+              "prediction_id": "p098",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p099": {
+              "prediction_id": "p099",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "on_time",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            },
+            "p100": {
+              "prediction_id": "p100",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": true
+            }
+          },
+          "matched": {
+            "p001": {
+              "prediction_id": "p001",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 1
+            },
+            "p002": {
+              "prediction_id": "p002",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 1
+            },
+            "p003": {
+              "prediction_id": "p003",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 1
+            },
+            "p004": {
+              "prediction_id": "p004",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 1
+            },
+            "p005": {
+              "prediction_id": "p005",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 1
+            },
+            "p006": {
+              "prediction_id": "p006",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 1
+            },
+            "p007": {
+              "prediction_id": "p007",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            "p008": {
+              "prediction_id": "p008",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p009": {
+              "prediction_id": "p009",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p010": {
+              "prediction_id": "p010",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            "p011": {
+              "prediction_id": "p011",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p012": {
+              "prediction_id": "p012",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p013": {
+              "prediction_id": "p013",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            "p014": {
+              "prediction_id": "p014",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p015": {
+              "prediction_id": "p015",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p016": {
+              "prediction_id": "p016",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            "p017": {
+              "prediction_id": "p017",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p018": {
+              "prediction_id": "p018",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p019": {
+              "prediction_id": "p019",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            "p020": {
+              "prediction_id": "p020",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p021": {
+              "prediction_id": "p021",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p022": {
+              "prediction_id": "p022",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            "p023": {
+              "prediction_id": "p023",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p024": {
+              "prediction_id": "p024",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p025": {
+              "prediction_id": "p025",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            "p026": {
+              "prediction_id": "p026",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p027": {
+              "prediction_id": "p027",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p028": {
+              "prediction_id": "p028",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            "p029": {
+              "prediction_id": "p029",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p030": {
+              "prediction_id": "p030",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p031": {
+              "prediction_id": "p031",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            "p032": {
+              "prediction_id": "p032",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p033": {
+              "prediction_id": "p033",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p034": {
+              "prediction_id": "p034",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            "p035": {
+              "prediction_id": "p035",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p036": {
+              "prediction_id": "p036",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p037": {
+              "prediction_id": "p037",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            "p038": {
+              "prediction_id": "p038",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p039": {
+              "prediction_id": "p039",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p040": {
+              "prediction_id": "p040",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            "p041": {
+              "prediction_id": "p041",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p042": {
+              "prediction_id": "p042",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p043": {
+              "prediction_id": "p043",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            "p044": {
+              "prediction_id": "p044",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p045": {
+              "prediction_id": "p045",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p046": {
+              "prediction_id": "p046",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            "p047": {
+              "prediction_id": "p047",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p048": {
+              "prediction_id": "p048",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p049": {
+              "prediction_id": "p049",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            "p050": {
+              "prediction_id": "p050",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p051": {
+              "prediction_id": "p051",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p052": {
+              "prediction_id": "p052",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            "p053": {
+              "prediction_id": "p053",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p054": {
+              "prediction_id": "p054",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p055": {
+              "prediction_id": "p055",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            "p056": {
+              "prediction_id": "p056",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p057": {
+              "prediction_id": "p057",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p058": {
+              "prediction_id": "p058",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            "p059": {
+              "prediction_id": "p059",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            "p060": {
+              "prediction_id": "p060",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            }
+          },
+          "eligible_ids": 100,
+          "mature_ids": 60,
+          "coverage": 0.6,
+          "errors": 6,
+          "error_proportion": 0.1,
+          "loss_mean": 0.1,
+          "loss_std": 0.30000000000000004,
+          "excluded_label_ids": [
+            "p061",
+            "unmatched"
+          ]
+        }
+      },
+      "visible": true,
+      "message_on_fail": "The returned record or calculation does not match the declared fixture contract."
+    },
+    {
+      "test_id": "excluded_prediction_duplicates",
+      "kind": "function_call",
+      "spec": {
+        "function": "quality",
+        "args": [
+          [
+            {
+              "prediction_id": "p001",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": false
+            },
+            {
+              "prediction_id": "p001",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": false
+            }
+          ],
+          [
+            {
+              "prediction_id": "p001",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 1
+            },
+            {
+              "prediction_id": "p002",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 1
+            },
+            {
+              "prediction_id": "p003",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 1
+            },
+            {
+              "prediction_id": "p004",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 1
+            },
+            {
+              "prediction_id": "p005",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 1
+            },
+            {
+              "prediction_id": "p006",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 1
+            },
+            {
+              "prediction_id": "p007",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p008",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p009",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p010",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p011",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p012",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p013",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p014",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p015",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p016",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p017",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p018",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p019",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p020",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p021",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p022",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p023",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p024",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p025",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p026",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p027",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p028",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p029",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p030",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p031",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p032",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p033",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p034",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p035",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p036",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p037",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p038",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p039",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p040",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p041",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p042",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p043",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p044",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p045",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p046",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p047",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p048",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p049",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p050",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p051",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p052",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p053",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p054",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p055",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p056",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p057",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p058",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "late",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p059",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p060",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            },
+            {
+              "prediction_id": "p061",
+              "label_timestamp": "2026-01-05T00:00:00Z",
+              "label": "late",
+              "loss": 1
+            },
+            {
+              "prediction_id": "unmatched",
+              "label_timestamp": "2026-01-03T10:00:00Z",
+              "label": "on_time",
+              "loss": 0
+            }
+          ]
+        ],
+        "expected": {
+          "status": "duplicate_prediction"
+        }
+      },
+      "visible": true,
+      "message_on_fail": "The returned record or calculation does not match the declared fixture contract."
+    },
+    {
+      "test_id": "excluded_prediction_control",
+      "kind": "function_call",
+      "spec": {
+        "function": "quality",
+        "args": [
+          [
+            {
+              "prediction_id": "p001",
+              "prediction_timestamp": "2026-01-02T10:00:00Z",
+              "prediction": "late",
+              "cohort_id": "fixed_100",
+              "eligible": false
+            }
+          ],
+          []
+        ],
+        "expected": {
+          "status": "unavailable",
+          "cohort": {},
+          "matched": {},
+          "eligible_ids": 0,
+          "mature_ids": 0,
+          "coverage": null,
+          "errors": null,
+          "error_proportion": null,
+          "loss_mean": null,
+          "loss_std": null,
+          "excluded_label_ids": []
+        }
+      },
+      "visible": true,
+      "message_on_fail": "The returned record or calculation does not match the declared fixture contract."
+    }
+  ]
+}

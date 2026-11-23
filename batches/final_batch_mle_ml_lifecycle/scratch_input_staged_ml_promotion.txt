@@ -1,0 +1,301 @@
+{
+  "type": "live_code",
+  "objective": "Edit and safely parse the supplied staging/production configuration to promote one approved immutable registry version through staging quality and separate authorization gates. Use the configured event trigger and approved credential references, then inspect accepted and unauthorized fixture results without changing the permission policy.",
+  "success": "The reloaded configuration preserves the approved registry version and artifact identity, wires the supplied entry points into explicit stage dependencies, and keeps required gate failures fatal. The accepted fixture reaches production only after compatibility, validation and authorization succeed. The unauthorized fixture does not execute production. The promotion record retains the approval, exact artifact, validation evidence and per-stage results. Credentials are scoped to the needed step, and neither configuration nor captured output contains their values.",
+  "live_code": {
+    "required_skill": "Modify an existing Cloud Build configuration, round-trip it with PyYAML, and verify artifact-bound quality and authorization gates using supplied runtime fixtures.",
+    "allowed_syntax": [
+      "import yaml",
+      "with open(...) as file_handle",
+      "Python mapping and list literals",
+      "String, numeric, Boolean and None literals",
+      "Mapping key access and assignment",
+      "List indexing and iteration",
+      "Function calls to supplied test and gate entry points",
+      "Conditional statements",
+      "Assertions",
+      "import sys",
+      "sys.exit(1)",
+      "yaml.safe_dump(config, file_handle)",
+      "yaml.safe_load(file_handle)",
+      "Cloud Build steps, name, args and script fields",
+      "Cloud Build id and waitFor fields",
+      "availableSecrets.secretManager and secretEnv fields"
+    ],
+    "blocked_syntax": [],
+    "starter_state_intent": "Provide the existing staging/production configuration, declared PyYAML dependency, approved registry name/version and run/artifact link, supplied offline requirements and staged evaluation evidence, gate entry points, authorized build identity, Secret Manager version references, and configured event bindings and filters. Include accepted and unauthorized promotion fixtures and access to captured stage results and output; do not supply literal credential values in the configuration.",
+    "observable_success": "Inspect the safely reloaded fields and actual event-resolved inputs. Confirm that production depends on successful staging quality and separate authorization for the same immutable artifact, with no gate failure exemptions. Verify production executes for the accepted fixture but not the unauthorized fixture, the accountable promotion record is complete, and captured output and serialized configuration disclose no credential values."
+  }
+}
+[
+  {
+    "fact_ids": [
+      "f1",
+      "f3",
+      "f5"
+    ],
+    "capability": "preserve_approved_artifact_identity_and_promotion_evidence"
+  },
+  {
+    "fact_ids": [
+      "f2",
+      "f6",
+      "f7",
+      "f8",
+      "f13"
+    ],
+    "capability": "enforce_staged_quality_and_authorization_dependencies"
+  },
+  {
+    "fact_ids": [
+      "f4",
+      "f11"
+    ],
+    "capability": "record_accountable_promotion_within_authorized_scope"
+  },
+  {
+    "fact_ids": [
+      "f9",
+      "f13"
+    ],
+    "capability": "verify_event_bound_inputs_and_rejected_promotion_results"
+  },
+  {
+    "fact_ids": [
+      "f10",
+      "f12"
+    ],
+    "capability": "verify_scoped_credential_injection_and_non_disclosure"
+  },
+  {
+    "fact_ids": [
+      "f14"
+    ],
+    "capability": "safely_write_reload_and_inspect_promotion_configuration"
+  }
+]
+
+FILE cloudbuild.yaml
+{
+  "steps": [
+    {
+      "id": "compatibility",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "learner.py",
+        "${_CASE}"
+      ],
+      "waitFor": [
+        "-"
+      ]
+    },
+    {
+      "id": "staging_quality",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "learner.py",
+        "${_CASE}"
+      ],
+      "waitFor": []
+    },
+    {
+      "id": "authorization",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "learner.py",
+        "${_CASE}"
+      ],
+      "waitFor": []
+    },
+    {
+      "id": "production",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "downstream_entry.py",
+        "${_ARTIFACT}"
+      ],
+      "waitFor": [],
+      "secretEnv": [
+        "PROMOTION_TOKEN"
+      ]
+    }
+  ],
+  "substitutions": {
+    "_SNAPSHOT": "valid",
+    "_CASE": "accepted",
+    "_ARTIFACT": "A"
+  },
+  "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+  "availableSecrets": {
+    "secretManager": [
+      {
+        "versionName": "projects/fixture-project/secrets/promotion-token/versions/1",
+        "env": "PROMOTION_TOKEN"
+      }
+    ]
+  }
+}
+
+FILE storage_sim.py
+"""Bounded local Cloud Storage interface, never a real cloud client."""
+from pathlib import Path
+class PreconditionFailed(Exception):
+    status_code = 412
+class RecoverableFailure(Exception):
+    pass
+class StorageClient:
+    def __init__(self, initial=None, race=None):
+        self.objects = dict(initial or {})
+        self.race = dict(race or {})
+        self.uploads = []
+        self.requests = []
+    def blob(self, name):
+        return Blob(self, name)
+class Blob:
+    def __init__(self, client, name):
+        self.client, self.name = client, name
+        self.generation = None
+    def exists(self):
+        return self.name in self.client.objects
+    def reload(self):
+        self.generation = self.client.objects[self.name]["generation"]
+    def download_as_bytes(self, if_generation_match):
+        self.client.requests.append((self.name, if_generation_match))
+        obj = self.client.objects[self.name]
+        if obj["generation"] != if_generation_match:
+            raise PreconditionFailed("generation mismatch")
+        return obj["data"]
+    def upload_from_filename(self, path, if_generation_match):
+        if if_generation_match != 0:
+            raise ValueError("fixture contract permits create-only upload")
+        if self.name in self.client.race:
+            self.client.objects[self.name] = self.client.race.pop(self.name)
+            raise PreconditionFailed("412 concurrent creation")
+        if self.exists():
+            raise PreconditionFailed("412 already exists")
+        self.client.objects[self.name] = {"generation": 1, "data": Path(path).read_bytes()}
+        self.client.uploads.append(self.name)
+        self.reload()
+
+FILE fixtures/artifacts.json
+{
+  "A": {
+    "artifact_id": "A",
+    "uri": "gs://fixture-artifacts/A.txt",
+    "generation": 1,
+    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+    "validation_ok": true
+  },
+  "B": {
+    "artifact_id": "B",
+    "uri": "gs://fixture-artifacts/B.txt",
+    "generation": 1,
+    "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+    "validation_ok": true
+  }
+}
+
+FILE fixtures/promotion_cases.json
+{
+  "accepted": {
+    "registry_version": "1",
+    "artifact_id": "A",
+    "run_id": "run.A",
+    "approval": {
+      "approval_id": "approval.A",
+      "registry_version": "1",
+      "artifact_id": "A",
+      "authorized": true,
+      "accountable_identity": "fixture-promoter"
+    },
+    "compatibility_ok": true,
+    "offline_validation_ok": true,
+    "staged_validation_ok": true,
+    "staged_artifact_id": "A"
+  },
+  "unauthorized": {
+    "registry_version": "1",
+    "artifact_id": "A",
+    "run_id": "run.A",
+    "approval": {
+      "approval_id": "approval.A",
+      "registry_version": "1",
+      "artifact_id": "A",
+      "authorized": false,
+      "accountable_identity": "fixture-promoter"
+    },
+    "compatibility_ok": true,
+    "offline_validation_ok": true,
+    "staged_validation_ok": true,
+    "staged_artifact_id": "A"
+  },
+  "wrong_artifact": {
+    "registry_version": "1",
+    "artifact_id": "B",
+    "run_id": "run.A",
+    "approval": {
+      "approval_id": "approval.A",
+      "registry_version": "1",
+      "artifact_id": "A",
+      "authorized": true,
+      "accountable_identity": "fixture-promoter"
+    },
+    "compatibility_ok": true,
+    "offline_validation_ok": true,
+    "staged_validation_ok": true,
+    "staged_artifact_id": "A"
+  },
+  "failed_staging": {
+    "registry_version": "1",
+    "artifact_id": "A",
+    "run_id": "run.A",
+    "approval": {
+      "approval_id": "approval.A",
+      "registry_version": "1",
+      "artifact_id": "A",
+      "authorized": true,
+      "accountable_identity": "fixture-promoter"
+    },
+    "compatibility_ok": true,
+    "offline_validation_ok": true,
+    "staged_validation_ok": false,
+    "staged_artifact_id": "A"
+  }
+}
+
+FILE fixtures/registry.json
+{
+  "1": {
+    "model_name": "fixture_model",
+    "version": "1",
+    "artifact_id": "A",
+    "artifact_source": "gs://fixture-artifacts/A.txt",
+    "generation": 1,
+    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+    "run_id": "run.A"
+  }
+}
+
+FILE fixtures/promotion_contract.json
+{
+  "scope": "fixture-promoter may promote approved artifact A, registry version 1, only",
+  "required_results": [
+    "compatibility",
+    "offline_validation",
+    "staged_validation",
+    "authorization"
+  ],
+  "record_fields": [
+    "approval",
+    "accountable_identity",
+    "registry_version",
+    "run_id",
+    "artifact_id",
+    "per_stage_results"
+  ],
+  "secret_reference_only": "PROMOTION_TOKEN is provided only by the authorized runtime to production. Do not serialize or echo it; inspect captured output without displaying its value. The local adapter never supplies real credentials."
+}

@@ -1,0 +1,217 @@
+import numpy as np
+
+def admit(event, coordinator, executor):
+    claim = coordinator.atomic_admit(event['run_key'], event['pipeline'])
+    if claim['status'] == 'busy':
+        return {'status': statuses['busy_response'], 'job_id': claim['job_id']}
+    elif claim['completed']:
+        return {'status': statuses['completed_response'], 'job_id': claim['job_id']}
+    elif claim['status'] == 'accepted':
+        response = executor.launch(claim['job_id'])
+        if response == None:
+            executor.attach(claim['job_id'])
+    else:
+        executor.attach(claim['job_id'])
+    if executor.status(claim['job_id']) == 'terminal':
+        coordinator.confirm_terminal_and_release(event['run_key'], claim['job_id'])
+    return {'status': claim['status'], 'job_id': claim['job_id']}
+
+
+event_run_key = 'K'
+
+import yaml
+
+status_config = 'busy_response: defer\ncompleted_response: completed\n'
+
+loaded_statuses = yaml.safe_load(status_config)
+
+statuses = None
+
+policy = {'event': {'run_key': 'K', 'pipeline': 'order-retrain-lab'}, 'busy_policy': 'defer', 'coordinator_contract': {'atomic_admit(run_key,pipeline)': 'Atomically reserve unique run key AND pipeline slot and persist job_id. Return accepted, duplicate or busy plus persisted identity; durable coordinator is external to learner process.', 'inspect(run_key)': 'Read durable record; completed records retained.', 'confirm_terminal_and_release(run_key,job_id)': 'Release active slot only after executor confirms terminal; retain completed key.'}, 'executor_contract': {'launch(job_id)': 'Idempotent executor token; at most one logical job per job_id. Unknown response must be reconciled with same token.', 'attach(job_id)': 'Resume or reconcile existing identity.', 'status(job_id)': 'Return running or confirmed terminal.'}, 'test_scenarios': ['concurrent_same_key', 'concurrent_different_key', 'restart_after_reservation', 'restart_after_launch', 'unknown_launch_response', 'completed_duplicate'], 'fatal_dependencies': ['admission', 'function_test', 'execute']}
+
+import os, json
+
+class Coordinator:
+
+    def __init__(self):
+        self.path = 'coordinator.json'
+        if not os.path.exists(self.path):
+            self.write({'claims': {}, 'slots': {}, 'jobs': {}})
+
+    def read(self):
+        with open(self.path) as f:
+            return json.load(f)
+
+    def write(self, state):
+        with open(self.path + '.tmp', 'w') as f:
+            json.dump(state, f)
+        os.replace(self.path + '.tmp', self.path)
+
+    def atomic_admit(self, key, pipeline):
+        try:
+            os.mkdir('coordinator.lock')
+        except FileExistsError:
+            return {'status': 'busy', 'job_id': None, 'completed': False}
+        try:
+            state = self.read()
+            if key in state['claims']:
+                row = state['claims'][key]
+                return {'status': 'duplicate', 'job_id': row['job_id'], 'completed': row['completed']}
+            if pipeline in state['slots']:
+                return {'status': 'busy', 'job_id': None, 'completed': False}
+            job = 'J.' + key
+            state['claims'][key] = {'pipeline': pipeline, 'job_id': job, 'completed': False}
+            state['slots'][pipeline] = key
+            self.write(state)
+            return {'status': 'accepted', 'job_id': job, 'completed': False}
+        finally:
+            os.rmdir('coordinator.lock')
+            hook = getattr(self, 'overlap_hook', None)
+            self.overlap_hook = None
+            if hook is not None:
+                hook()
+
+    def confirm_terminal_and_release(self, key, job):
+        try:
+            os.mkdir('coordinator.lock')
+        except FileExistsError:
+            return False
+        try:
+            state = self.read()
+            if state['jobs'].get(job) != 'terminal':
+                return False
+            row = state['claims'][key]
+            if row['job_id'] != job:
+                return False
+            row['completed'] = True
+            if state['slots'].get(row['pipeline']) == key:
+                del state['slots'][row['pipeline']]
+            self.write(state)
+            return True
+        finally:
+            os.rmdir('coordinator.lock')
+
+    def finish_jobs(self):
+        state = self.read()
+        state['jobs'] = {j: 'terminal' for j in state['jobs']}
+        self.write(state)
+
+class Executor:
+
+    def __init__(self, coordinator):
+        self.coordinator = coordinator
+
+    def launch(self, job):
+        try:
+            os.mkdir('coordinator.lock')
+        except FileExistsError:
+            return job
+        try:
+            state = self.coordinator.read()
+            state['jobs'].setdefault(job, 'running')
+            self.coordinator.write(state)
+            if getattr(self, 'unknown_once', False):
+                self.unknown_once = False
+                return None
+            return job
+        finally:
+            os.rmdir('coordinator.lock')
+
+    def attach(self, job):
+        return self.launch(job)
+
+    def status(self, job):
+        return self.coordinator.read()['jobs'].get(job, 'unknown')
+
+def fresh():
+    c = Coordinator()
+    return (c, Executor(c))
+
+def reset():
+    c, e = fresh()
+    c.write({'claims': {}, 'slots': {}, 'jobs': {}})
+
+def durable_state():
+    c, e = fresh()
+    return c.read()
+
+def run_fixtures(admit, config):
+    event = policy['event']
+    key = event['run_key']
+    pipeline = event['pipeline']
+    out = {}
+    reset()
+    c1, e1 = fresh()
+    c2, e2 = fresh()
+    second = []
+    c1.overlap_hook = lambda: second.append(admit(event, c2, e2))
+    a = admit(event, c1, e1)
+    b = second[0]
+    state = durable_state()
+    out['same_key'] = {'results': [a, b], 'state': state}
+    out['same_key']['logical_job_count'] = len(state['jobs'])
+    reset()
+    c1, e1 = fresh()
+    c2, e2 = fresh()
+    second = []
+    c1.overlap_hook = lambda: second.append(admit({'run_key': key + '2', 'pipeline': pipeline}, c2, e2))
+    a = admit(event, c1, e1)
+    b2 = second[0]
+    state = durable_state()
+    out['different_key'] = {'result': b2, 'state': state, 'logical_job_count': len(state['jobs'])}
+    reset()
+    c, e = fresh()
+    reservation = c.atomic_admit(key, pipeline)
+    c2, e2 = fresh()
+    out['restart_reservation'] = {'result': admit(event, c2, e2), 'state': durable_state()}
+    reset()
+    c, e = fresh()
+    r = c.atomic_admit(key, pipeline)
+    e.launch(r['job_id'])
+    c2, e2 = fresh()
+    out['restart_launch'] = {'result': admit(event, c2, e2), 'state': durable_state()}
+    reset()
+    c3, e3 = fresh()
+    e3.unknown_once = True
+    uncertain = admit(event, c3, e3)
+    c4, e4 = fresh()
+    out['unknown_response'] = {'result': admit(event, c4, e4), 'state': durable_state()}
+    c.finish_jobs()
+    out['completion_release'] = admit(event, c3, e3)
+    out['completed_duplicate'] = {'result': admit(event, *fresh()), 'state': durable_state()}
+    fatal = all((not s.get('allowFailure', False) and (not s.get('allowExitCodes')) for s in config['steps']))
+    deps = config['steps'][1]['waitFor'] == ['entry'] and config['steps'][2]['waitFor'] == ['function_test']
+    out['pipeline'] = {'resolved': config, 'accepted': {'entry': 'success', 'function_test': 'success', 'execute': 'success'} if fatal and deps else {}, 'rejected': {'entry': 'failed', 'function_test': 'blocked', 'execute': 'blocked'}, 'resolved_inputs': event}
+    return out
+
+policy['event']['run_key'] = event_run_key
+
+config = {'steps': [{'id': 'entry', 'name': 'python:3.11', 'args': ['python3', 'entry_fixture.py']}, {'id': 'function_test', 'name': 'python:3.11', 'waitFor': ['entry'], 'args': ['python3', 'learner.py']}, {'id': 'execute', 'name': 'python:3.11', 'waitFor': ['function_test'], 'args': ['python3', 'execution_fixture.py']}]}
+
+with open('build.yaml', 'w') as handle:
+    yaml.safe_dump(config, handle)
+
+with open('build.yaml') as handle:
+    resolved = yaml.safe_load(handle)
+
+result = run_fixtures(admit, resolved)
+
+assert result['same_key']['results'][0]['job_id'] == result['same_key']['results'][1]['job_id']
+
+assert result['same_key']['logical_job_count'] == 1
+
+assert result['different_key']['result']['status'] == 'defer'
+
+assert result['different_key']['logical_job_count'] == 1
+
+assert result['restart_reservation']['result']['job_id'] == result['restart_launch']['result']['job_id']
+
+assert result['restart_reservation']['state']['jobs'] == result['restart_launch']['state']['jobs']
+
+assert result['completed_duplicate']['result']['status'] == 'completed'
+
+assert result['completed_duplicate']['state']['slots'] == {}
+
+logical_job_counts = {name: result[name].pop('logical_job_count') for name in ['same_key', 'different_key']}
+
+assert result['unknown_response']['result']['job_id'] == result['restart_launch']['result']['job_id'] and result['unknown_response']['state']['jobs'] == result['restart_launch']['state']['jobs']

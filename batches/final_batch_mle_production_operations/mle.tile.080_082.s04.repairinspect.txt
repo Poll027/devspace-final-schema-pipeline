@@ -1,0 +1,364 @@
+{
+  "type": "code_exercise",
+  "public": {
+    "prompt": "Complete the operation bindings marked TODO. Bind each name to the NumPy operation for its role: asarray_operation (asarray), histogram_operation (histogram), sum_operation (sum), mean_operation (mean), std_operation (std). The supplied orchestration applies these operations to the mounted data, supplies the declared eligibility rules and denominators, and constructs the existing report. Keep population standard deviations (ddof=0) and the supplied record fields and ordering. Do not replace the report with constants. The graded output remains `report`, with the supplied structure and ordering.",
+    "runtime": {
+      "kind": "python",
+      "version": "0.29.5",
+      "packages": [
+        "numpy"
+      ]
+    },
+    "workspace": {
+      "entry": "main.py",
+      "files": [
+        {
+          "path": "main.py",
+          "role": "editable",
+          "language": "python",
+          "content": "# Complete only the TODO operation/calculation/serialization lines described in the prompt.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'reference': {'numeric_values': 'number', 'category': 'string', 'predicted_class': 'string'}, 'production': {'numeric_values': 'number', 'category': 'string', 'predicted_class': 'string'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\npolicy = {'reference_id': 'reference', 'production_window': {'start': '2026-01-02T10:00:00Z', 'end': '2026-01-02T11:00:00Z'}, 'fixed_edges': [0, 5, 10], 'eligible_numeric_range': [0, 10], 'declared_categories': ['short_distance', 'long_distance', 'not_reported'], 'declared_classes': ['on_time', 'late', 'abstain'], 'ddof': 0, 'window_membership': 'All rows of production.csv are in the declared bounded window; reference.csv is the approved reference. Alternate fixtures are independent windows.', 'summary_client': 'from summary_client import emit; emit(record) appends a single JSON record to summary.jsonl'}\\nemitted_records = []\\ndef emit(record):\\n    def plain(x):\\n        if isinstance(x, dict): return {k:plain(v) for k,v in x.items()}\\n        if isinstance(x, (list,tuple)): return [plain(v) for v in x]\\n        if isinstance(x, np.ndarray): return x.tolist()\\n        if isinstance(x, np.generic): return x.item()\\n        return x\\n    value=plain(record)\\n    emitted_records.append(value)\\n    with open('summary.jsonl','a') as f: f.write(json.dumps(value)+'\\\\n')\\n    return value\\n\\n\\n# Supplied orchestration; operations are selected by the learner.\\ndef summarize(reference_rows, production_rows, policy):\\n    reference = reference_rows\\n    production = production_rows\\n    r = column(reference, 'numeric_values')\\n    p = column(production, 'numeric_values')\\n    low = policy['eligible_numeric_range'][0]\\n    high = policy['eligible_numeric_range'][1]\\n    r = r[(r >= low) & (r <= high)]\\n    p = p[(p >= low) & (p <= high)]\\n    rc = column(reference, 'category')\\n    pc = column(production, 'category')\\n    rpred = column(reference, 'predicted_class')\\n    ppred = column(production, 'predicted_class')\\n    fixed_edges = asarray_operation(policy['fixed_edges'])\\n    category_names = asarray_operation(policy['declared_categories'])\\n    class_names = asarray_operation(policy['declared_classes'])\\n    r_count = len(r)\\n    p_count = len(p)\\n    r_bins = histogram_operation(r, bins=fixed_edges)[0] / r_count\\n    p_bins = histogram_operation(p, bins=fixed_edges)[0] / p_count\\n    r_category = sum_operation(rc[:, None] == category_names, axis=0) / len(rc)\\n    p_category = sum_operation(pc[:, None] == category_names, axis=0) / len(pc)\\n    r_class = sum_operation(rpred[:, None] == class_names, axis=0) / len(rpred)\\n    p_class = sum_operation(ppred[:, None] == class_names, axis=0) / len(ppred)\\n    r_mean = mean_operation(r)\\n    p_mean = mean_operation(p)\\n    r_std = std_operation(r, ddof=0)\\n    p_std = std_operation(p, ddof=0)\\n    report = {'definitions': policy, 'reference': {'eligible': r_count, 'bins': r_bins, 'category': r_category, 'classes': r_class, 'mean': r_mean, 'std': r_std}, 'production': {'eligible': p_count, 'bins': p_bins, 'category': p_category, 'classes': p_class, 'mean': p_mean, 'std': p_std}}\\n    return report\\n\"\nexec(_fixture_support)\nasarray_operation = None  # TODO: complete this binding or calculation\nhistogram_operation = None  # TODO: complete this binding or calculation\nsum_operation = None  # TODO: complete this binding or calculation\nmean_operation = None  # TODO: complete this binding or calculation\nstd_operation = None  # TODO: complete this binding or calculation\nreport = emit(summarize(load('reference'), load('production'), policy))\n"
+        }
+      ],
+      "asset_mounts": [
+        {
+          "asset_id": "ds.reference",
+          "mount_path": "reference.csv"
+        },
+        {
+          "asset_id": "ds.production",
+          "mount_path": "production.csv"
+        }
+      ]
+    },
+    "constraints": {
+      "allowed_syntax": [
+        "import numpy as np",
+        "imports for client dependencies identified by the supplied scaffolding",
+        "def",
+        "return",
+        "variable assignment",
+        "function parameters and calls",
+        "for loops",
+        "if statements",
+        "lists and dictionaries",
+        "numeric and string literals",
+        "array indexing and Boolean masks",
+        "array comparisons",
+        "arithmetic operators",
+        "len",
+        "np.asarray",
+        "np.histogram(values, bins=fixed_edges)",
+        "np.mean(numeric_values)",
+        "np.std(numeric_values, ddof=0)",
+        "np.std(numeric_values, ddof=1)",
+        "np.sum",
+        "summary-emission calls defined by the supplied client contract"
+      ],
+      "blocked_syntax": [
+        "scipy.stats.ks_2samp",
+        "scipy.stats.chisquare",
+        "scipy.stats.wasserstein_distance"
+      ]
+    }
+  },
+  "grading": {
+    "solution_files": [
+      {
+        "path": "main.py",
+        "content": "_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'reference': {'numeric_values': 'number', 'category': 'string', 'predicted_class': 'string'}, 'production': {'numeric_values': 'number', 'category': 'string', 'predicted_class': 'string'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\npolicy = {'reference_id': 'reference', 'production_window': {'start': '2026-01-02T10:00:00Z', 'end': '2026-01-02T11:00:00Z'}, 'fixed_edges': [0, 5, 10], 'eligible_numeric_range': [0, 10], 'declared_categories': ['short_distance', 'long_distance', 'not_reported'], 'declared_classes': ['on_time', 'late', 'abstain'], 'ddof': 0, 'window_membership': 'All rows of production.csv are in the declared bounded window; reference.csv is the approved reference. Alternate fixtures are independent windows.', 'summary_client': 'from summary_client import emit; emit(record) appends a single JSON record to summary.jsonl'}\\nemitted_records = []\\ndef emit(record):\\n    def plain(x):\\n        if isinstance(x, dict): return {k:plain(v) for k,v in x.items()}\\n        if isinstance(x, (list,tuple)): return [plain(v) for v in x]\\n        if isinstance(x, np.ndarray): return x.tolist()\\n        if isinstance(x, np.generic): return x.item()\\n        return x\\n    value=plain(record)\\n    emitted_records.append(value)\\n    with open('summary.jsonl','a') as f: f.write(json.dumps(value)+'\\\\n')\\n    return value\\n\\n\\n# Supplied orchestration; operations are selected by the learner.\\ndef summarize(reference_rows, production_rows, policy):\\n    reference = reference_rows\\n    production = production_rows\\n    r = column(reference, 'numeric_values')\\n    p = column(production, 'numeric_values')\\n    low = policy['eligible_numeric_range'][0]\\n    high = policy['eligible_numeric_range'][1]\\n    r = r[(r >= low) & (r <= high)]\\n    p = p[(p >= low) & (p <= high)]\\n    rc = column(reference, 'category')\\n    pc = column(production, 'category')\\n    rpred = column(reference, 'predicted_class')\\n    ppred = column(production, 'predicted_class')\\n    fixed_edges = asarray_operation(policy['fixed_edges'])\\n    category_names = asarray_operation(policy['declared_categories'])\\n    class_names = asarray_operation(policy['declared_classes'])\\n    r_count = len(r)\\n    p_count = len(p)\\n    r_bins = histogram_operation(r, bins=fixed_edges)[0] / r_count\\n    p_bins = histogram_operation(p, bins=fixed_edges)[0] / p_count\\n    r_category = sum_operation(rc[:, None] == category_names, axis=0) / len(rc)\\n    p_category = sum_operation(pc[:, None] == category_names, axis=0) / len(pc)\\n    r_class = sum_operation(rpred[:, None] == class_names, axis=0) / len(rpred)\\n    p_class = sum_operation(ppred[:, None] == class_names, axis=0) / len(ppred)\\n    r_mean = mean_operation(r)\\n    p_mean = mean_operation(p)\\n    r_std = std_operation(r, ddof=0)\\n    p_std = std_operation(p, ddof=0)\\n    report = {'definitions': policy, 'reference': {'eligible': r_count, 'bins': r_bins, 'category': r_category, 'classes': r_class, 'mean': r_mean, 'std': r_std}, 'production': {'eligible': p_count, 'bins': p_bins, 'category': p_category, 'classes': p_class, 'mean': p_mean, 'std': p_std}}\\n    return report\\n\"\nexec(_fixture_support)\nasarray_operation = np.asarray\nhistogram_operation = np.histogram\nsum_operation = np.sum\nmean_operation = np.mean\nstd_operation = np.std\nreport = emit(summarize(load('reference'), load('production'), policy))\n"
+      }
+    ],
+    "tests": [
+      {
+        "test_id": "report",
+        "kind": "value_equals",
+        "spec": {
+          "expr": "report",
+          "expected": {
+            "definitions": {
+              "reference_id": "reference",
+              "production_window": {
+                "start": "2026-01-02T10:00:00Z",
+                "end": "2026-01-02T11:00:00Z"
+              },
+              "fixed_edges": [
+                0,
+                5,
+                10
+              ],
+              "eligible_numeric_range": [
+                0,
+                10
+              ],
+              "declared_categories": [
+                "short_distance",
+                "long_distance",
+                "not_reported"
+              ],
+              "declared_classes": [
+                "on_time",
+                "late",
+                "abstain"
+              ],
+              "ddof": 0,
+              "window_membership": "All rows of production.csv are in the declared bounded window; reference.csv is the approved reference. Alternate fixtures are independent windows.",
+              "summary_client": "from summary_client import emit; emit(record) appends a single JSON record to summary.jsonl"
+            },
+            "reference": {
+              "eligible": 100,
+              "bins": [
+                0.45,
+                0.55
+              ],
+              "category": [
+                0.6,
+                0.4,
+                0
+              ],
+              "classes": [
+                0.75,
+                0.25,
+                0
+              ],
+              "mean": 4.96,
+              "std": 2.5996922894835075
+            },
+            "production": {
+              "eligible": 100,
+              "bins": [
+                0.45,
+                0.55
+              ],
+              "category": [
+                0.3,
+                0.7,
+                0
+              ],
+              "classes": [
+                0.75,
+                0.25,
+                0
+              ],
+              "mean": 4.96,
+              "std": 2.5996922894835075
+            }
+          }
+        },
+        "message_on_fail": "The report differs from the declared fixture contract. Recheck execution order, scope, definitions and required evidence."
+      },
+      {
+        "test_id": "single_emission",
+        "kind": "value_equals",
+        "spec": {
+          "expr": "emitted_records",
+          "expected": [
+            {
+              "definitions": {
+                "reference_id": "reference",
+                "production_window": {
+                  "start": "2026-01-02T10:00:00Z",
+                  "end": "2026-01-02T11:00:00Z"
+                },
+                "fixed_edges": [
+                  0,
+                  5,
+                  10
+                ],
+                "eligible_numeric_range": [
+                  0,
+                  10
+                ],
+                "declared_categories": [
+                  "short_distance",
+                  "long_distance",
+                  "not_reported"
+                ],
+                "declared_classes": [
+                  "on_time",
+                  "late",
+                  "abstain"
+                ],
+                "ddof": 0,
+                "window_membership": "All rows of production.csv are in the declared bounded window; reference.csv is the approved reference. Alternate fixtures are independent windows.",
+                "summary_client": "from summary_client import emit; emit(record) appends a single JSON record to summary.jsonl"
+              },
+              "reference": {
+                "eligible": 100,
+                "bins": [
+                  0.45,
+                  0.55
+                ],
+                "category": [
+                  0.6,
+                  0.4,
+                  0
+                ],
+                "classes": [
+                  0.75,
+                  0.25,
+                  0
+                ],
+                "mean": 4.96,
+                "std": 2.5996922894835075
+              },
+              "production": {
+                "eligible": 100,
+                "bins": [
+                  0.45,
+                  0.55
+                ],
+                "category": [
+                  0.3,
+                  0.7,
+                  0
+                ],
+                "classes": [
+                  0.75,
+                  0.25,
+                  0
+                ],
+                "mean": 4.96,
+                "std": 2.5996922894835075
+              }
+            }
+          ]
+        },
+        "message_on_fail": "Recheck the named report fields and fixture-specific verification evidence."
+      },
+      {
+        "test_id": "emitted_jsonl",
+        "kind": "value_equals",
+        "spec": {
+          "expr": "[json.loads(line) for line in open('summary.jsonl')]",
+          "expected": [
+            {
+              "definitions": {
+                "reference_id": "reference",
+                "production_window": {
+                  "start": "2026-01-02T10:00:00Z",
+                  "end": "2026-01-02T11:00:00Z"
+                },
+                "fixed_edges": [
+                  0,
+                  5,
+                  10
+                ],
+                "eligible_numeric_range": [
+                  0,
+                  10
+                ],
+                "declared_categories": [
+                  "short_distance",
+                  "long_distance",
+                  "not_reported"
+                ],
+                "declared_classes": [
+                  "on_time",
+                  "late",
+                  "abstain"
+                ],
+                "ddof": 0,
+                "window_membership": "All rows of production.csv are in the declared bounded window; reference.csv is the approved reference. Alternate fixtures are independent windows.",
+                "summary_client": "from summary_client import emit; emit(record) appends a single JSON record to summary.jsonl"
+              },
+              "reference": {
+                "eligible": 100,
+                "bins": [
+                  0.45,
+                  0.55
+                ],
+                "category": [
+                  0.6,
+                  0.4,
+                  0
+                ],
+                "classes": [
+                  0.75,
+                  0.25,
+                  0
+                ],
+                "mean": 4.96,
+                "std": 2.5996922894835075
+              },
+              "production": {
+                "eligible": 100,
+                "bins": [
+                  0.45,
+                  0.55
+                ],
+                "category": [
+                  0.3,
+                  0.7,
+                  0
+                ],
+                "classes": [
+                  0.75,
+                  0.25,
+                  0
+                ],
+                "mean": 4.96,
+                "std": 2.5996922894835075
+              }
+            }
+          ]
+        },
+        "message_on_fail": "Recheck the named report fields and fixture-specific verification evidence."
+      }
+    ]
+  },
+  "interaction_id": "ix.mle.tile.080_082.s04",
+  "difficulty": "core",
+  "grading_mode": "client",
+  "standalone": true,
+  "measures": [
+    {
+      "concept_id": "mle.distribution_monitoring",
+      "capability": "define_and_record_comparable_production_windows",
+      "fact_ids": [
+        "f1",
+        "f4"
+      ]
+    },
+    {
+      "concept_id": "mle.distribution_monitoring",
+      "capability": "calculate_aligned_numerical_bin_proportions",
+      "fact_ids": [
+        "f2"
+      ]
+    },
+    {
+      "concept_id": "mle.distribution_monitoring",
+      "capability": "calculate_declared_category_and_prediction_probabilities",
+      "fact_ids": [
+        "f3"
+      ]
+    },
+    {
+      "concept_id": "mle.distribution_monitoring",
+      "capability": "calculate_windowed_mean_and_standard_deviation",
+      "fact_ids": [
+        "f5",
+        "f6"
+      ]
+    }
+  ],
+  "anchors": [
+    "mle.distribution_monitoring#practice",
+    "mle.distribution_monitoring#assessment:define_and_record_comparable_production_windows",
+    "mle.distribution_monitoring#assessment:calculate_aligned_numerical_bin_proportions",
+    "mle.distribution_monitoring#assessment:calculate_declared_category_and_prediction_probabilities",
+    "mle.distribution_monitoring#assessment:calculate_windowed_mean_and_standard_deviation"
+  ],
+  "feedback": {
+    "correct": {
+      "message": "Each window uses the declared eligible values and population spread."
+    },
+    "incorrect": {
+      "message": "Recheck range eligibility, fixed bins and the category/class denominators."
+    },
+    "hints": [
+      "Use each window\u2019s own eligible denominator.",
+      "Keep the fixed edges and declared category/class order, including absent categories."
+    ]
+  }
+}

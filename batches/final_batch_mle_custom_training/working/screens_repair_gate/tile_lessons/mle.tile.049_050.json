@@ -1,0 +1,1855 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "machine_learning_engineer",
+  "tile_id": "mle.tile.049_050",
+  "toc_location": {
+    "region_id": "mle.region.custom_training",
+    "terrain_id": "mle.terrain.training_resources"
+  },
+  "title": "Profile training compute and data-loading bottlenecks / Choose CPU or GPU capacity for a bounded training workload",
+  "summary": "",
+  "concept_ids": [
+    "mle.training_bottleneck_profiling",
+    "mle.training_hardware_selection"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_machine_learning_engineer",
+    "toc_freeze_hash": "f38fc7a62df329118a32053d1557dcc9a74ada7a9c52269ee9a0c50d28a67a36",
+    "glossary_bundle_hashes": {
+      "mle.training_bottleneck_profiling": "0f7274b325249f0fd848af8699d32f48e9a7f5c9cda15ef8545bf132621cb1f2",
+      "mle.training_hardware_selection": "a8f58a1264907adeb8a2a08b3856aba1700bde36d61e6bda0c931a69f9035823"
+    },
+    "scenario_registry_hash": "47180d4314306d6e20c3b05167ed92b60ac29422068d33e3e42fb23c4e968d16"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core",
+      "data"
+    ],
+    "block_types": [
+      "code_walkthrough",
+      "data_table",
+      "prose",
+      "side_by_side",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "classify"
+    ],
+    "runtimes": [],
+    "asset_ids": [
+      "ds.hardware_comparison"
+    ]
+  },
+  "pacing": {
+    "estimated_minutes": 9.1
+  },
+  "steps": [
+    {
+      "step_id": "mle.tile.049_050.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.training_bottleneck_profiling"
+      ],
+      "title": "Profile training compute and data-loading bottlenecks",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.training_bottleneck_profiling"
+        ],
+        "teaching_block_ids": [
+          "mle.training_bottleneck_profiling#tb1",
+          "mle.training_bottleneck_profiling#tb2",
+          "mle.training_bottleneck_profiling#tb3"
+        ],
+        "fact_ids": [
+          "mle.training_bottleneck_profiling#f1",
+          "mle.training_bottleneck_profiling#f2",
+          "mle.training_bottleneck_profiling#f3",
+          "mle.training_bottleneck_profiling#f4",
+          "mle.training_bottleneck_profiling#f5",
+          "mle.training_bottleneck_profiling#f6"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.training_bottleneck_profiling#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Locate the slow region, then verify any change with matched, unprofiled timing.",
+          "role": "intro",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_bottleneck_profiling"
+            ],
+            "teaching_block_ids": [
+              "mle.training_bottleneck_profiling#tb1"
+            ],
+            "fact_ids": [],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Use a PyTorch profiler context around the measured computation. Label data-loading and model-computation regions with record_function. Inspect key_averages().table(...) or the trace to attribute elapsed operator and labeled-region work to the observed bottleneck. Warm up before comparing steady-state execution. For the final timing comparison, run unprofiled to remove profiler overhead.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_bottleneck_profiling"
+            ],
+            "teaching_block_ids": [
+              "mle.training_bottleneck_profiling#tb2"
+            ],
+            "fact_ids": [
+              "mle.training_bottleneck_profiling#f1",
+              "mle.training_bottleneck_profiling#f2",
+              "mle.training_bottleneck_profiling#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "CUDA work is asynchronous, so CPU clock timings require synchronization at the measurement boundaries to include completed accelerator work. Change one supported bottleneck factor and remeasure the same bounded workload. A code edit alone does not demonstrate improvement. Inspect CPU and memory measurements and running process state during the profiled interval, using docker stats and docker top for a containerized run, to distinguish resource limits from stage timing evidence.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_bottleneck_profiling"
+            ],
+            "teaching_block_ids": [
+              "mle.training_bottleneck_profiling#tb3"
+            ],
+            "fact_ids": [
+              "mle.training_bottleneck_profiling#f4",
+              "mle.training_bottleneck_profiling#f5",
+              "mle.training_bottleneck_profiling#f6"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "side_by_side",
+          "left": {
+            "type": "code_walkthrough",
+            "language": "python",
+            "code": "import torch\nfrom torch.profiler import profile, record_function\nwarm_up_workload()\nwith profile(activities=declared_activities) as prof:\n    with record_function(\"data_loading\"):\n        features, targets = next(iterator)\n    with record_function(\"model_computation\"):\n        run_bounded_model_computation(features, targets)\ninspect_profile(prof.key_averages().table())\n# During a containerized interval, inspect docker stats and docker top.",
+            "reveal": "all",
+            "lineage": {
+              "concept_ids": [
+                "mle.training_bottleneck_profiling"
+              ],
+              "teaching_block_ids": [
+                "mle.training_bottleneck_profiling#tb1",
+                "mle.training_bottleneck_profiling#tb2",
+                "mle.training_bottleneck_profiling#tb3"
+              ],
+              "fact_ids": [
+                "mle.training_bottleneck_profiling#f1",
+                "mle.training_bottleneck_profiling#f2",
+                "mle.training_bottleneck_profiling#f3",
+                "mle.training_bottleneck_profiling#f4",
+                "mle.training_bottleneck_profiling#f5",
+                "mle.training_bottleneck_profiling#f6"
+              ],
+              "segment_ids": [],
+              "anchors": [
+                "mle.training_bottleneck_profiling#visual"
+              ]
+            }
+          },
+          "right": {
+            "type": "code_walkthrough",
+            "language": "python",
+            "code": "# Final comparison: same workload, no profiler overhead.\napply_one_supported_bottleneck_change()\nwarm_up_workload()\nif using_cuda:\n    torch.cuda.synchronize()\nstart = clock()\nrun_same_bounded_workload()\nif using_cuda:\n    torch.cuda.synchronize()\nelapsed = clock() - start\ncompare_with_matched_reference(elapsed)",
+            "reveal": "all",
+            "lineage": {
+              "concept_ids": [
+                "mle.training_bottleneck_profiling"
+              ],
+              "teaching_block_ids": [
+                "mle.training_bottleneck_profiling#tb1",
+                "mle.training_bottleneck_profiling#tb2",
+                "mle.training_bottleneck_profiling#tb3"
+              ],
+              "fact_ids": [
+                "mle.training_bottleneck_profiling#f1",
+                "mle.training_bottleneck_profiling#f2",
+                "mle.training_bottleneck_profiling#f3",
+                "mle.training_bottleneck_profiling#f4",
+                "mle.training_bottleneck_profiling#f5",
+                "mle.training_bottleneck_profiling#f6"
+              ],
+              "segment_ids": [],
+              "anchors": [
+                "mle.training_bottleneck_profiling#visual"
+              ]
+            }
+          },
+          "left_label": "Attribute observed work",
+          "right_label": "Verify unprofiled completion time",
+          "takeaway": "Synchronize accelerator timing boundaries.",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_bottleneck_profiling"
+            ],
+            "teaching_block_ids": [
+              "mle.training_bottleneck_profiling#tb1",
+              "mle.training_bottleneck_profiling#tb2",
+              "mle.training_bottleneck_profiling#tb3"
+            ],
+            "fact_ids": [
+              "mle.training_bottleneck_profiling#f1",
+              "mle.training_bottleneck_profiling#f2",
+              "mle.training_bottleneck_profiling#f3",
+              "mle.training_bottleneck_profiling#f4",
+              "mle.training_bottleneck_profiling#f5",
+              "mle.training_bottleneck_profiling#f6"
+            ],
+            "segment_ids": [],
+            "anchors": [
+              "mle.training_bottleneck_profiling#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.049_050.s02",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.training_bottleneck_profiling"
+      ],
+      "title": "Profile training compute and data-loading bottlenecks",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.training_bottleneck_profiling"
+        ],
+        "teaching_block_ids": [
+          "mle.training_bottleneck_profiling#tb4"
+        ],
+        "fact_ids": [
+          "mle.training_bottleneck_profiling#f1",
+          "mle.training_bottleneck_profiling#f2",
+          "mle.training_bottleneck_profiling#f3",
+          "mle.training_bottleneck_profiling#f4",
+          "mle.training_bottleneck_profiling#f5",
+          "mle.training_bottleneck_profiling#f6"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Warm up the bounded workload, then profile its labeled regions. If the trace attributes most measured work to loading, test one supported loading factor rather than immediately changing model computation. Inspect CPU, memory and process state during the same interval; for the container fixture, docker stats and docker top provide that supporting evidence. After the change, compare the same bounded workload again without profiler overhead in the final timing. On CUDA, synchronize measurement boundaries so a CPU clock includes completed accelerator work.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_bottleneck_profiling"
+            ],
+            "teaching_block_ids": [
+              "mle.training_bottleneck_profiling#tb4"
+            ],
+            "fact_ids": [
+              "mle.training_bottleneck_profiling#f1",
+              "mle.training_bottleneck_profiling#f2",
+              "mle.training_bottleneck_profiling#f3",
+              "mle.training_bottleneck_profiling#f4",
+              "mle.training_bottleneck_profiling#f5",
+              "mle.training_bottleneck_profiling#f6"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Keep the profiling attribution separate from the final unprofiled performance comparison, since they answer related but different questions.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_bottleneck_profiling"
+            ],
+            "teaching_block_ids": [
+              "mle.training_bottleneck_profiling#tb4"
+            ],
+            "fact_ids": [
+              "mle.training_bottleneck_profiling#f1",
+              "mle.training_bottleneck_profiling#f2",
+              "mle.training_bottleneck_profiling#f3",
+              "mle.training_bottleneck_profiling#f4",
+              "mle.training_bottleneck_profiling#f5",
+              "mle.training_bottleneck_profiling#f6"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.049_050.s03",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.training_bottleneck_profiling"
+      ],
+      "title": "Profile training compute and data-loading bottlenecks",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.training_bottleneck_profiling"
+        ],
+        "teaching_block_ids": [
+          "mle.training_bottleneck_profiling#tb5"
+        ],
+        "fact_ids": [
+          "mle.training_bottleneck_profiling#f3",
+          "mle.training_bottleneck_profiling#f4",
+          "mle.training_bottleneck_profiling#f5"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "A code edit is not a speed result. Synchronize accelerator timing boundaries and exclude profiler overhead from the final comparison.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_bottleneck_profiling"
+            ],
+            "teaching_block_ids": [
+              "mle.training_bottleneck_profiling#tb5"
+            ],
+            "fact_ids": [
+              "mle.training_bottleneck_profiling#f3",
+              "mle.training_bottleneck_profiling#f4",
+              "mle.training_bottleneck_profiling#f5"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.049_050.s04",
+      "type": "check",
+      "concept_ids": [
+        "mle.training_bottleneck_profiling"
+      ],
+      "title": "Check: Profile a bounded training workload and verify one bottleneck-oriented improvement.",
+      "eyebrow": "Check",
+      "lineage": {
+        "concept_ids": [
+          "mle.training_bottleneck_profiling"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.training_bottleneck_profiling#f3",
+          "mle.training_bottleneck_profiling#f4"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.training_bottleneck_profiling#assessment:distinguish_steady_state_timing_from_measurement_artifacts"
+        ]
+      },
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.mle.tile.049_050.s04",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.training_bottleneck_profiling",
+            "capability": "distinguish_steady_state_timing_from_measurement_artifacts",
+            "fact_ids": [
+              "f3",
+              "f4"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.training_bottleneck_profiling#assessment:distinguish_steady_state_timing_from_measurement_artifacts"
+        ],
+        "public": {
+          "prompt": "Which final timing comparison supports a steady-state CUDA performance claim?",
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Warm up both runs, time the same workload without profiler overhead, and synchronize accelerator completion at both measurement boundaries."
+            },
+            {
+              "option_id": "o2",
+              "text": "Time only CPU submission of CUDA work without synchronization."
+            },
+            {
+              "option_id": "o3",
+              "text": "Compare a cold profiled baseline with a warm unprofiled changed run."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "This follows the stated contract."
+            },
+            "o2": {
+              "message": "Asynchronous submission timing can omit accelerator completion."
+            },
+            "o3": {
+              "message": "Warm-up and profiler overhead differences confound the effect of the isolated change."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "Correct. Warm up both runs, time the same workload without profiler overhead, and synchronize accelerator completion at both measurement boundaries."
+          },
+          "incorrect": {
+            "message": "Recheck the stated contract. Asynchronous submission timing can omit accelerator completion. Warm-up and profiler overhead differences confound the effect of the isolated change."
+          },
+          "hints": [
+            "Match measurement conditions as carefully as workload conditions."
+          ],
+          "remediation_step_id": "mle.tile.049_050.r01"
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.049_050.s05",
+      "type": "hands_on",
+      "concept_ids": [
+        "mle.training_bottleneck_profiling"
+      ],
+      "title": "Apply: Profile a bounded training workload and verify one bottleneck-oriented improvement.",
+      "eyebrow": "Apply",
+      "lineage": {
+        "concept_ids": [
+          "mle.training_bottleneck_profiling"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.training_bottleneck_profiling#f1",
+          "mle.training_bottleneck_profiling#f2",
+          "mle.training_bottleneck_profiling#f5",
+          "mle.training_bottleneck_profiling#f6"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.training_bottleneck_profiling#practice",
+          "mle.training_bottleneck_profiling#assessment:localize_loading_compute_or_transfer_bottleneck",
+          "mle.training_bottleneck_profiling#assessment:corroborate_stage_attribution_with_process_resource_evidence",
+          "mle.training_bottleneck_profiling#assessment:verify_dominant_stage_diagnosis_with_one_factor_comparison"
+        ]
+      },
+      "interaction": {
+        "type": "classify",
+        "interaction_id": "ix.mle.tile.049_050.s05",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.training_bottleneck_profiling",
+            "capability": "localize_loading_compute_or_transfer_bottleneck",
+            "fact_ids": [
+              "f1",
+              "f2"
+            ]
+          },
+          {
+            "concept_id": "mle.training_bottleneck_profiling",
+            "capability": "corroborate_stage_attribution_with_process_resource_evidence",
+            "fact_ids": [
+              "f6"
+            ]
+          },
+          {
+            "concept_id": "mle.training_bottleneck_profiling",
+            "capability": "verify_dominant_stage_diagnosis_with_one_factor_comparison",
+            "fact_ids": [
+              "f5"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.training_bottleneck_profiling#practice",
+          "mle.training_bottleneck_profiling#assessment:localize_loading_compute_or_transfer_bottleneck",
+          "mle.training_bottleneck_profiling#assessment:corroborate_stage_attribution_with_process_resource_evidence",
+          "mle.training_bottleneck_profiling#assessment:verify_dominant_stage_diagnosis_with_one_factor_comparison"
+        ],
+        "public": {
+          "prompt": "Inspect evidence for the same bounded containerized order-training workload. Attribute the dominant stage from labeled profiler work with contemporaneous process evidence, then judge an isolated change using steady-state completion timings. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+          "buckets": [
+            {
+              "bucket_id": "supported",
+              "label": "Supported by the contract"
+            },
+            {
+              "bucket_id": "defective",
+              "label": "Defective claim or implementation"
+            }
+          ],
+          "items": [
+            {
+              "item_id": "e1",
+              "text": "# Warm-up complete; non-overlapping profiler labeled-region milliseconds:\n# {'loading': 60, 'transfer': 10, 'compute': 20}. Loading region encloses only loading, compute only computation.\n# Loading share of attributed region time=0.666667.\n# Same-window docker stats: loader process saturates its allotted CPU;\n# docker top confirms that process was running throughout the loading interval.\n# Reproduce the limitation; change only the supported loading factor.\n# Same bounded unprofiled CUDA work after warm-up on both runs, synchronized\n# at start/end: completed elapsed before=100 ms, after=80 ms.\n# Report loading as dominant; measured elapsed reduction=0.200000."
+            },
+            {
+              "item_id": "e2",
+              "text": "# Profile labels show loading dominates; process evidence agrees.\n# Change loading and model architecture together.\n# Attribute any faster result solely to loading."
+            },
+            {
+              "item_id": "e3",
+              "text": "# CPU timer starts, submits CUDA work, then stops immediately.\n# No synchronize at either boundary.\n# Claim: the elapsed interval is completed accelerator computation."
+            }
+          ]
+        },
+        "grading": {
+          "assignments": {
+            "e1": "supported",
+            "e2": "defective",
+            "e3": "defective"
+          },
+          "item_feedback": {
+            "e1": {
+              "message": "The loading-region attribution and contemporaneous loader CPU/process evidence agree. A one-factor matched unprofiled completion measurement supports the reported improvement."
+            },
+            "e2": {
+              "message": "The diagnosis must be checked with one isolated supported change, not two simultaneous changes."
+            },
+            "e3": {
+              "message": "CPU submission without completion boundaries does not measure completed asynchronous CUDA work."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+          },
+          "incorrect": {
+            "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+          },
+          "hints": [
+            "Use profiling for attribution and a matched unprofiled rerun for the performance comparison."
+          ],
+          "remediation_step_id": "mle.tile.049_050.r02"
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.049_050.s06",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.training_hardware_selection"
+      ],
+      "title": "Choose CPU or GPU capacity for a bounded training workload",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.training_hardware_selection"
+        ],
+        "teaching_block_ids": [
+          "mle.training_hardware_selection#tb1",
+          "mle.training_hardware_selection#tb2",
+          "mle.training_hardware_selection#tb3"
+        ],
+        "fact_ids": [
+          "mle.training_hardware_selection#f1",
+          "mle.training_hardware_selection#f2",
+          "mle.training_hardware_selection#f3",
+          "mle.training_hardware_selection#f4",
+          "mle.training_hardware_selection#f5",
+          "mle.training_hardware_selection#f6"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.training_hardware_selection#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Compare the same workload on authorized options using quality, memory, timing and billing scope.",
+          "role": "intro",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb1"
+            ],
+            "fact_ids": [],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "CPU and accelerator execution require the model and minibatches to be placed on the selected device, with accelerator availability checked first. Benchmark the same bounded workload and task quality requirements on the compared devices, including relevant data movement and warm-up in the declared measurement interpretation. Compute billing continues while a VM runs. Stopping ends compute billing, but persistent disk and other charges can remain.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb2"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f1",
+              "mle.training_hardware_selection#f2",
+              "mle.training_hardware_selection#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Estimate compute execution cost from the measured runtime and the applicable supplied rate, retaining the billing scope rather than assuming utilization alone is cost. For an authorized supplied Compute Engine VM, gcloud compute instances start INSTANCE --zone=ZONE and gcloud compute instances stop INSTANCE --zone=ZONE change its lifecycle state; wait for the operation and inspect the resulting state. Connect to the running authorized VM with gcloud compute ssh INSTANCE --zone=ZONE to execute the workload.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb3"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f4",
+              "mle.training_hardware_selection#f5",
+              "mle.training_hardware_selection#f6"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "side_by_side",
+          "left": {
+            "type": "data_table",
+            "asset_ref": {
+              "asset_id": "ds.hardware_comparison",
+              "columns": [
+                "option",
+                "model_device",
+                "feature_device",
+                "target_device",
+                "completed",
+                "task_quality_requirement_met",
+                "observed_memory_bytes",
+                "memory_limit_bytes",
+                "execution_seconds"
+              ]
+            },
+            "caption": "CPU and accelerator cost comparison",
+            "lineage": {
+              "concept_ids": [
+                "mle.training_hardware_selection"
+              ],
+              "teaching_block_ids": [
+                "mle.training_hardware_selection#tb1",
+                "mle.training_hardware_selection#tb2",
+                "mle.training_hardware_selection#tb3"
+              ],
+              "fact_ids": [
+                "mle.training_hardware_selection#f1",
+                "mle.training_hardware_selection#f2",
+                "mle.training_hardware_selection#f3",
+                "mle.training_hardware_selection#f4",
+                "mle.training_hardware_selection#f5",
+                "mle.training_hardware_selection#f6"
+              ],
+              "segment_ids": [],
+              "anchors": [
+                "mle.training_hardware_selection#visual"
+              ]
+            }
+          },
+          "right": {
+            "type": "data_table",
+            "asset_ref": {
+              "asset_id": "ds.hardware_comparison",
+              "columns": [
+                "option",
+                "rate_per_second",
+                "execution_compute_cost",
+                "lifecycle_seconds",
+                "lifecycle_compute_cost",
+                "billing_scope",
+                "stopped_state_verified",
+                "final_instance_state",
+                "remaining_charge_note"
+              ]
+            },
+            "caption": "CPU and accelerator cost comparison",
+            "lineage": {
+              "concept_ids": [
+                "mle.training_hardware_selection"
+              ],
+              "teaching_block_ids": [
+                "mle.training_hardware_selection#tb1",
+                "mle.training_hardware_selection#tb2",
+                "mle.training_hardware_selection#tb3"
+              ],
+              "fact_ids": [
+                "mle.training_hardware_selection#f1",
+                "mle.training_hardware_selection#f2",
+                "mle.training_hardware_selection#f3",
+                "mle.training_hardware_selection#f4",
+                "mle.training_hardware_selection#f5",
+                "mle.training_hardware_selection#f6"
+              ],
+              "segment_ids": [],
+              "anchors": [
+                "mle.training_hardware_selection#visual"
+              ]
+            }
+          },
+          "left_label": "Matched workload eligibility",
+          "right_label": "Measured billing scope",
+          "takeaway": "Compare eligible completion with scoped compute cost.",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb1",
+              "mle.training_hardware_selection#tb2",
+              "mle.training_hardware_selection#tb3"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f1",
+              "mle.training_hardware_selection#f2",
+              "mle.training_hardware_selection#f3",
+              "mle.training_hardware_selection#f4",
+              "mle.training_hardware_selection#f5",
+              "mle.training_hardware_selection#f6"
+            ],
+            "segment_ids": [],
+            "anchors": [
+              "mle.training_hardware_selection#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.049_050.s07",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.training_hardware_selection"
+      ],
+      "title": "Choose CPU or GPU capacity for a bounded training workload",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.training_hardware_selection"
+        ],
+        "teaching_block_ids": [
+          "mle.training_hardware_selection#tb4",
+          "mle.training_hardware_selection#tb5"
+        ],
+        "fact_ids": [
+          "mle.training_hardware_selection#f10",
+          "mle.training_hardware_selection#f7",
+          "mle.training_hardware_selection#f8",
+          "mle.training_hardware_selection#f9"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Stop the authorized supplied VM when the bounded training measurement finishes, then verify it is stopped and retain the measured runtime/cost record. Use gcloud compute instances describe INSTANCE --zone=ZONE to inspect the instance status and identity before and after the authorized lifecycle action. Record observed memory and whether each CPU/GPU instance option completes the same bounded matrix workload within its fixed limits.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb4"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f7",
+              "mle.training_hardware_selection#f8",
+              "mle.training_hardware_selection#f9"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "After both benchmarks, stop both authorized options and verify their lifecycle states. Base billing calculations on measured lifecycle durations.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb5"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f10"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.049_050.s08",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.training_hardware_selection"
+      ],
+      "title": "Choose CPU or GPU capacity for a bounded training workload",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.training_hardware_selection"
+        ],
+        "teaching_block_ids": [
+          "mle.training_hardware_selection#tb6",
+          "mle.training_hardware_selection#tb7"
+        ],
+        "fact_ids": [
+          "mle.training_hardware_selection#f1",
+          "mle.training_hardware_selection#f10",
+          "mle.training_hardware_selection#f2",
+          "mle.training_hardware_selection#f3",
+          "mle.training_hardware_selection#f4",
+          "mle.training_hardware_selection#f5",
+          "mle.training_hardware_selection#f6",
+          "mle.training_hardware_selection#f7",
+          "mle.training_hardware_selection#f8",
+          "mle.training_hardware_selection#f9"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "In the supplied fixture, the CPU option completes the bounded workload in 60 seconds at a supplied rate of 0.01 currency units per second; its measured compute execution cost is 0.60. An accelerator option taking 20 seconds at 0.04 per second has cost 0.80 under that same simplified rate interpretation. Check both against the task-quality and memory limits, retaining relevant movement and warm-up interpretation. Start, connect to and inspect only the authorized instances. After both measurements, stop both and verify the lifecycle states.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb6"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f1",
+              "mle.training_hardware_selection#f2",
+              "mle.training_hardware_selection#f3",
+              "mle.training_hardware_selection#f4",
+              "mle.training_hardware_selection#f5",
+              "mle.training_hardware_selection#f6",
+              "mle.training_hardware_selection#f7",
+              "mle.training_hardware_selection#f8",
+              "mle.training_hardware_selection#f9",
+              "mle.training_hardware_selection#f10"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Record lifecycle durations for billing interpretation as well as the bounded execution measurements. Persistent disks or other charges can remain even after compute stops.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb6"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f1",
+              "mle.training_hardware_selection#f2",
+              "mle.training_hardware_selection#f3",
+              "mle.training_hardware_selection#f4",
+              "mle.training_hardware_selection#f5",
+              "mle.training_hardware_selection#f6",
+              "mle.training_hardware_selection#f7",
+              "mle.training_hardware_selection#f8",
+              "mle.training_hardware_selection#f9",
+              "mle.training_hardware_selection#f10"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Faster need not mean cheaper or eligible. Stopping compute can leave disk and other charges; keep the billing scope.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb7"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f2",
+              "mle.training_hardware_selection#f3",
+              "mle.training_hardware_selection#f4"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.049_050.s09",
+      "type": "check",
+      "concept_ids": [
+        "mle.training_hardware_selection"
+      ],
+      "title": "Check: Choose between authorized CPU/GPU instances using matched runtime, memory and billing evidence.",
+      "eyebrow": "Check",
+      "lineage": {
+        "concept_ids": [
+          "mle.training_hardware_selection"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.training_hardware_selection#f10",
+          "mle.training_hardware_selection#f3",
+          "mle.training_hardware_selection#f7",
+          "mle.training_hardware_selection#f8"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.training_hardware_selection#assessment:verify_both_instances_stopped_and_retain_billing_evidence"
+        ]
+      },
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.mle.tile.049_050.s09",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.training_hardware_selection",
+            "capability": "verify_both_instances_stopped_and_retain_billing_evidence",
+            "fact_ids": [
+              "f3",
+              "f7",
+              "f8",
+              "f10"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.training_hardware_selection#assessment:verify_both_instances_stopped_and_retain_billing_evidence"
+        ],
+        "public": {
+          "prompt": "Both authorized options finish benchmarking. Which record establishes the required shutdown and billing interpretation?",
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Stop the chosen option only, leaving the rejected benchmark VM running."
+            },
+            {
+              "option_id": "o2",
+              "text": "Verify both resulting stopped states; retain measured lifecycle durations and compute billing scope, acknowledging possible continuing disk charges."
+            },
+            {
+              "option_id": "o3",
+              "text": "Retain only bounded execution times and assume all charges stopped."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o2"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "Both authorized benchmark options must be stopped and their resulting states verified."
+            },
+            "o2": {
+              "message": "This follows the stated contract."
+            },
+            "o3": {
+              "message": "Execution time is not lifecycle-billed duration, and persistent disks or other charges may remain."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "Correct. Verify both resulting stopped states; retain measured lifecycle durations and compute billing scope, acknowledging possible continuing disk charges."
+          },
+          "incorrect": {
+            "message": "Recheck the stated contract. Execution time is not lifecycle-billed duration, and persistent disks or other charges may remain. Both authorized benchmark options must be stopped and their resulting states verified."
+          },
+          "hints": [
+            "A rejected option still has a lifecycle and billing record."
+          ],
+          "remediation_step_id": "mle.tile.049_050.r03"
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.049_050.s10",
+      "type": "hands_on",
+      "concept_ids": [
+        "mle.training_hardware_selection"
+      ],
+      "title": "Apply: Choose between authorized CPU/GPU instances using matched runtime, memory and billing evidence.",
+      "eyebrow": "Apply",
+      "lineage": {
+        "concept_ids": [
+          "mle.training_hardware_selection"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.training_hardware_selection#f1",
+          "mle.training_hardware_selection#f10",
+          "mle.training_hardware_selection#f2",
+          "mle.training_hardware_selection#f3",
+          "mle.training_hardware_selection#f4",
+          "mle.training_hardware_selection#f5",
+          "mle.training_hardware_selection#f6",
+          "mle.training_hardware_selection#f7",
+          "mle.training_hardware_selection#f8",
+          "mle.training_hardware_selection#f9"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.training_hardware_selection#practice",
+          "mle.training_hardware_selection#assessment:establish_a_matched_device_benchmark",
+          "mle.training_hardware_selection#assessment:choose_feasible_capacity_under_memory_time_and_cost_limits",
+          "mle.training_hardware_selection#assessment:start_inspect_and_connect_to_authorized_instances",
+          "mle.training_hardware_selection#assessment:verify_both_instances_stopped_and_retain_billing_evidence"
+        ]
+      },
+      "interaction": {
+        "type": "classify",
+        "interaction_id": "ix.mle.tile.049_050.s10",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.training_hardware_selection",
+            "capability": "establish_a_matched_device_benchmark",
+            "fact_ids": [
+              "f1",
+              "f2"
+            ]
+          },
+          {
+            "concept_id": "mle.training_hardware_selection",
+            "capability": "choose_feasible_capacity_under_memory_time_and_cost_limits",
+            "fact_ids": [
+              "f2",
+              "f4",
+              "f9",
+              "f10"
+            ]
+          },
+          {
+            "concept_id": "mle.training_hardware_selection",
+            "capability": "start_inspect_and_connect_to_authorized_instances",
+            "fact_ids": [
+              "f5",
+              "f6",
+              "f8"
+            ]
+          },
+          {
+            "concept_id": "mle.training_hardware_selection",
+            "capability": "verify_both_instances_stopped_and_retain_billing_evidence",
+            "fact_ids": [
+              "f3",
+              "f7",
+              "f8",
+              "f10"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.training_hardware_selection#practice",
+          "mle.training_hardware_selection#assessment:establish_a_matched_device_benchmark",
+          "mle.training_hardware_selection#assessment:choose_feasible_capacity_under_memory_time_and_cost_limits",
+          "mle.training_hardware_selection#assessment:start_inspect_and_connect_to_authorized_instances",
+          "mle.training_hardware_selection#assessment:verify_both_instances_stopped_and_retain_billing_evidence"
+        ],
+        "public": {
+          "prompt": "Review CPU/GPU capacity selection on two already authorized supplied VMs. Both must use the same bounded matrix workload, meet fixed completion/quality/memory/time/cost limits and finish in verified stopped states. Keep execution cost distinct from lifecycle-billed compute cost. The fixed limits are {'memory': 20000, 'execution_seconds': 70, 'lifecycle_compute_cost': 2}. Both complete the same quality-accepted workload. Select the eligible option with minimum lifecycle-billed compute cost under the supplied per-second rates; billable lifecycle durations are given below. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+          "buckets": [
+            {
+              "bucket_id": "supported",
+              "label": "Supported by the contract"
+            },
+            {
+              "bucket_id": "defective",
+              "label": "Defective claim or implementation"
+            }
+          ],
+          "items": [
+            {
+              "item_id": "e1",
+              "text": "# Each supplied authorized identity/zone is confirmed by describe.\n# Both initially TERMINATED; start operations complete; describe RUNNING;\n# authorized gcloud compute ssh connects. Availability and compatible\n# model/input/target placement checked; matched task and quality criterion.\n# Warm-up and relevant movement included per fixed execution protocol.\n# CPU: execution=60 s, billable lifecycle=100 s, rate=0.01 currency/s, observed memory=8000 bytes, execution cost=0.6, lifecycle compute cost=1.0, eligible=True\n# GPU: execution=20 s, billable lifecycle=40 s, rate=0.04 currency/s, observed memory=12000 bytes, execution cost=0.8, lifecycle compute cost=1.6, eligible=True\n# Choose CPU by the declared lifecycle-cost rule.\n# Stop BOTH authorized VMs, wait for completion; describe confirms matching\n# identities in TERMINATED state. Retain lifecycle/cost records and continuing\n# disk/other charge scope separately."
+            },
+            {
+              "item_id": "e2",
+              "text": "# GPU execution is faster but its measured memory exceeds the fixed bound.\n# CPU completes and meets all fixed requirements.\n# Select GPU solely because execution is faster."
+            },
+            {
+              "item_id": "e3",
+              "text": "# Both options completed. Use execution_seconds*rate as the full\n# lifecycle-billed compute cost, although measured running lifecycle\n# durations are longer; declare all disk charges ended after stop."
+            }
+          ]
+        },
+        "grading": {
+          "assignments": {
+            "e1": "supported",
+            "e2": "defective",
+            "e3": "defective"
+          },
+          "item_feedback": {
+            "e1": {
+              "message": "Both options satisfy the fixed eligibility checks; the CPU has the lower lifecycle compute cost under the supplied durations and rates. Both authorized VM states are verified stopped without claiming all other charges ended."
+            },
+            "e2": {
+              "message": "Speed does not make an over-bound option eligible."
+            },
+            "e3": {
+              "message": "Billing uses the measured lifecycle scope, not just execution, and stopped compute does not establish that disk or other charges ended."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+          },
+          "incorrect": {
+            "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+          },
+          "hints": [
+            "Separate eligibility, execution performance and billed lifecycle scope."
+          ],
+          "remediation_step_id": "mle.tile.049_050.r04"
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.049_050.s11",
+      "type": "recap",
+      "concept_ids": [
+        "mle.training_bottleneck_profiling",
+        "mle.training_hardware_selection"
+      ],
+      "title": "Keep these contracts together",
+      "eyebrow": "Takeaways",
+      "lineage": {
+        "concept_ids": [
+          "mle.training_bottleneck_profiling",
+          "mle.training_hardware_selection"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Attribute observed bottlenecks, verify matched unprofiled timing, and compare hardware using task quality, memory and scoped billing evidence.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_bottleneck_profiling",
+              "mle.training_hardware_selection"
+            ],
+            "fact_ids": [
+              "mle.training_bottleneck_profiling#f1",
+              "mle.training_bottleneck_profiling#f2",
+              "mle.training_bottleneck_profiling#f3",
+              "mle.training_bottleneck_profiling#f4",
+              "mle.training_bottleneck_profiling#f5",
+              "mle.training_bottleneck_profiling#f6",
+              "mle.training_hardware_selection#f1",
+              "mle.training_hardware_selection#f2",
+              "mle.training_hardware_selection#f3",
+              "mle.training_hardware_selection#f4",
+              "mle.training_hardware_selection#f5",
+              "mle.training_hardware_selection#f6",
+              "mle.training_hardware_selection#f7",
+              "mle.training_hardware_selection#f8",
+              "mle.training_hardware_selection#f9",
+              "mle.training_hardware_selection#f10"
+            ],
+            "teaching_block_ids": [
+              "mle.training_bottleneck_profiling#tb2",
+              "mle.training_bottleneck_profiling#tb3",
+              "mle.training_hardware_selection#tb2",
+              "mle.training_hardware_selection#tb3",
+              "mle.training_hardware_selection#tb4",
+              "mle.training_hardware_selection#tb5"
+            ]
+          }
+        },
+        {
+          "type": "up_next",
+          "title": "Task specific pretrained weight fine tuning",
+          "text": "Next: mle.tile.051_051"
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "mle.tile.049_050.r01",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.training_bottleneck_profiling"
+      ],
+      "title": "Recheck: Profile a bounded training workload and verify one bottleneck-oriented improvement.",
+      "eyebrow": "One clear contrast",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Warm up the workload before comparing steady-state execution and remove profiler overhead when making the final unprofiled timing comparison.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_bottleneck_profiling"
+            ],
+            "teaching_block_ids": [
+              "mle.training_bottleneck_profiling#tb2"
+            ],
+            "fact_ids": [
+              "mle.training_bottleneck_profiling#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "CUDA work is asynchronous, so CPU clock timings require synchronization at the measurement boundaries to include completed accelerator work.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_bottleneck_profiling"
+            ],
+            "teaching_block_ids": [
+              "mle.training_bottleneck_profiling#tb3"
+            ],
+            "fact_ids": [
+              "mle.training_bottleneck_profiling#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A code edit is not a speed result. Synchronize accelerator timing boundaries and exclude profiler overhead from the final comparison.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_bottleneck_profiling"
+            ],
+            "teaching_block_ids": [
+              "mle.training_bottleneck_profiling#tb5"
+            ],
+            "fact_ids": [
+              "mle.training_bottleneck_profiling#f3",
+              "mle.training_bottleneck_profiling#f4",
+              "mle.training_bottleneck_profiling#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Warm up the bounded workload, then profile its labeled regions.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_bottleneck_profiling"
+            ],
+            "teaching_block_ids": [
+              "mle.training_bottleneck_profiling#tb4"
+            ],
+            "fact_ids": [
+              "mle.training_bottleneck_profiling#f1",
+              "mle.training_bottleneck_profiling#f2",
+              "mle.training_bottleneck_profiling#f3",
+              "mle.training_bottleneck_profiling#f4",
+              "mle.training_bottleneck_profiling#f5",
+              "mle.training_bottleneck_profiling#f6"
+            ],
+            "anchors": []
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.training_bottleneck_profiling"
+        ],
+        "teaching_block_ids": [
+          "mle.training_bottleneck_profiling#tb2",
+          "mle.training_bottleneck_profiling#tb3"
+        ],
+        "fact_ids": [
+          "mle.training_bottleneck_profiling#f3",
+          "mle.training_bottleneck_profiling#f4"
+        ],
+        "anchors": []
+      }
+    },
+    {
+      "step_id": "mle.tile.049_050.r02",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.training_hardware_selection"
+      ],
+      "title": "Recheck: Choose between authorized CPU/GPU instances using matched runtime, memory and billing evidence.",
+      "eyebrow": "One clear contrast",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "After benchmarking both authorized options, stop both and verify their resulting lifecycle states; use measured lifecycle durations in the billing calculation.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb5"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f10"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A running VM is billed for compute usage; stopping it ends compute billing but can leave persistent disk and other charges.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb2"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Stop the authorized supplied VM when the bounded training measurement finishes, then verify it is stopped and retain the measured runtime/cost record.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb4"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f7"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Use gcloud compute instances describe INSTANCE --zone=ZONE to inspect the instance status and identity before and after the authorized lifecycle action.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb4"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f8"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Faster need not mean cheaper or eligible. Stopping compute can leave disk and other charges; keep the billing scope.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb7"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f2",
+              "mle.training_hardware_selection#f3",
+              "mle.training_hardware_selection#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "In the supplied fixture, the CPU option completes the bounded workload in 60 seconds at a supplied rate of 0.01 currency units per second; its measured compute execution cost is 0.60.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb6"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f1",
+              "mle.training_hardware_selection#f2",
+              "mle.training_hardware_selection#f3",
+              "mle.training_hardware_selection#f4",
+              "mle.training_hardware_selection#f5",
+              "mle.training_hardware_selection#f6",
+              "mle.training_hardware_selection#f7",
+              "mle.training_hardware_selection#f8",
+              "mle.training_hardware_selection#f9",
+              "mle.training_hardware_selection#f10"
+            ],
+            "anchors": []
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.training_hardware_selection"
+        ],
+        "teaching_block_ids": [
+          "mle.training_hardware_selection#tb2",
+          "mle.training_hardware_selection#tb4",
+          "mle.training_hardware_selection#tb5"
+        ],
+        "fact_ids": [
+          "mle.training_hardware_selection#f10",
+          "mle.training_hardware_selection#f3",
+          "mle.training_hardware_selection#f7",
+          "mle.training_hardware_selection#f8"
+        ],
+        "anchors": []
+      }
+    },
+    {
+      "step_id": "mle.tile.049_050.r03",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.training_bottleneck_profiling"
+      ],
+      "title": "Recheck: Profile a bounded training workload and verify one bottleneck-oriented improvement.",
+      "eyebrow": "One clear contrast",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Wrap the measured computation in the PyTorch profiler context and mark data-loading and model-computation regions with record_function labels.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_bottleneck_profiling"
+            ],
+            "teaching_block_ids": [
+              "mle.training_bottleneck_profiling#tb2"
+            ],
+            "fact_ids": [
+              "mle.training_bottleneck_profiling#f1"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Inspect key_averages().table(...) or the trace to attribute elapsed operator and labeled-region work to the observed bottleneck.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_bottleneck_profiling"
+            ],
+            "teaching_block_ids": [
+              "mle.training_bottleneck_profiling#tb2"
+            ],
+            "fact_ids": [
+              "mle.training_bottleneck_profiling#f2"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Change one supported bottleneck factor and compare the same bounded workload again rather than inferring improvement only from a code change.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_bottleneck_profiling"
+            ],
+            "teaching_block_ids": [
+              "mle.training_bottleneck_profiling#tb3"
+            ],
+            "fact_ids": [
+              "mle.training_bottleneck_profiling#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Inspect CPU and memory measurements and running process state during the profiled interval, using docker stats and docker top for a containerized run, to distinguish resource limits from stage timing evidence.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_bottleneck_profiling"
+            ],
+            "teaching_block_ids": [
+              "mle.training_bottleneck_profiling#tb3"
+            ],
+            "fact_ids": [
+              "mle.training_bottleneck_profiling#f6"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A code edit is not a speed result. Synchronize accelerator timing boundaries and exclude profiler overhead from the final comparison.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_bottleneck_profiling"
+            ],
+            "teaching_block_ids": [
+              "mle.training_bottleneck_profiling#tb5"
+            ],
+            "fact_ids": [
+              "mle.training_bottleneck_profiling#f3",
+              "mle.training_bottleneck_profiling#f4",
+              "mle.training_bottleneck_profiling#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Warm up the bounded workload, then profile its labeled regions.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_bottleneck_profiling"
+            ],
+            "teaching_block_ids": [
+              "mle.training_bottleneck_profiling#tb4"
+            ],
+            "fact_ids": [
+              "mle.training_bottleneck_profiling#f1",
+              "mle.training_bottleneck_profiling#f2",
+              "mle.training_bottleneck_profiling#f3",
+              "mle.training_bottleneck_profiling#f4",
+              "mle.training_bottleneck_profiling#f5",
+              "mle.training_bottleneck_profiling#f6"
+            ],
+            "anchors": []
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.training_bottleneck_profiling"
+        ],
+        "teaching_block_ids": [
+          "mle.training_bottleneck_profiling#tb2",
+          "mle.training_bottleneck_profiling#tb3"
+        ],
+        "fact_ids": [
+          "mle.training_bottleneck_profiling#f1",
+          "mle.training_bottleneck_profiling#f2",
+          "mle.training_bottleneck_profiling#f5",
+          "mle.training_bottleneck_profiling#f6"
+        ],
+        "anchors": []
+      }
+    },
+    {
+      "step_id": "mle.tile.049_050.r04",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.training_hardware_selection"
+      ],
+      "title": "Recheck: Choose between authorized CPU/GPU instances using matched runtime, memory and billing evidence.",
+      "eyebrow": "One clear contrast",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "CPU and accelerator execution require the model and minibatches to be placed on the selected device, with accelerator availability checked first.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb2"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f1"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "After benchmarking both authorized options, stop both and verify their resulting lifecycle states; use measured lifecycle durations in the billing calculation.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb5"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f10"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Benchmark the same bounded workload and task quality requirements on the compared devices, including relevant data movement and warm-up in the declared measurement interpretation.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb2"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f2"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A running VM is billed for compute usage; stopping it ends compute billing but can leave persistent disk and other charges.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb2"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Estimate compute execution cost from the measured runtime and the applicable supplied rate, retaining the billing scope rather than assuming utilization alone is cost.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb3"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For an authorized supplied Compute Engine VM, gcloud compute instances start INSTANCE --zone=ZONE and gcloud compute instances stop INSTANCE --zone=ZONE change its lifecycle state; wait for the operation and inspect the resulting state.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb3"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Connect to the running authorized VM with gcloud compute ssh INSTANCE --zone=ZONE to execute the workload.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb3"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f6"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Stop the authorized supplied VM when the bounded training measurement finishes, then verify it is stopped and retain the measured runtime/cost record.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb4"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f7"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Use gcloud compute instances describe INSTANCE --zone=ZONE to inspect the instance status and identity before and after the authorized lifecycle action.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb4"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f8"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Record observed memory and whether each CPU/GPU instance option completes the same bounded matrix workload within its fixed limits.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb4"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f9"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Faster need not mean cheaper or eligible. Stopping compute can leave disk and other charges; keep the billing scope.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb7"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f2",
+              "mle.training_hardware_selection#f3",
+              "mle.training_hardware_selection#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "In the supplied fixture, the CPU option completes the bounded workload in 60 seconds at a supplied rate of 0.01 currency units per second; its measured compute execution cost is 0.60.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_hardware_selection"
+            ],
+            "teaching_block_ids": [
+              "mle.training_hardware_selection#tb6"
+            ],
+            "fact_ids": [
+              "mle.training_hardware_selection#f1",
+              "mle.training_hardware_selection#f2",
+              "mle.training_hardware_selection#f3",
+              "mle.training_hardware_selection#f4",
+              "mle.training_hardware_selection#f5",
+              "mle.training_hardware_selection#f6",
+              "mle.training_hardware_selection#f7",
+              "mle.training_hardware_selection#f8",
+              "mle.training_hardware_selection#f9",
+              "mle.training_hardware_selection#f10"
+            ],
+            "anchors": []
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.training_hardware_selection"
+        ],
+        "teaching_block_ids": [
+          "mle.training_hardware_selection#tb2",
+          "mle.training_hardware_selection#tb3",
+          "mle.training_hardware_selection#tb4",
+          "mle.training_hardware_selection#tb5"
+        ],
+        "fact_ids": [
+          "mle.training_hardware_selection#f1",
+          "mle.training_hardware_selection#f10",
+          "mle.training_hardware_selection#f2",
+          "mle.training_hardware_selection#f3",
+          "mle.training_hardware_selection#f4",
+          "mle.training_hardware_selection#f5",
+          "mle.training_hardware_selection#f6",
+          "mle.training_hardware_selection#f7",
+          "mle.training_hardware_selection#f8",
+          "mle.training_hardware_selection#f9"
+        ],
+        "anchors": []
+      }
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "mle.tile.051_051"
+  },
+  "content_hash": "6c42e6dbdc1dbf1672a798f637467504ad303e8ef4da0b5aca7b03f5789ae29b"
+}

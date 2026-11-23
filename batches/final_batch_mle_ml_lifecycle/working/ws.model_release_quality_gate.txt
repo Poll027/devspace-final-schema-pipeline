@@ -1,0 +1,429 @@
+
+FILE README.md
+# Fictional lifecycle fixture runtime
+All rows, limits, identities, bucket/project names and events here are authored examples, not production claims. This is a bounded local simulator of an existing configured pipeline; no cloud requests or policy changes are authorized. A hosted exercise must replace the simulator adapter with its existing authorized runtime before describing results as actual Cloud Build results.
+
+Python 3, numpy and PyYAML are declared dependencies. Files under fixtures/ are inputs and contracts, not answer implementations. learner.py deliberately contains no imports, assertions or gate implementation. Keep protected-test observations out of fitting and tuning. Do not introduce hard-coded fixture verdicts.
+
+Existing build configuration uses the declared step IDs, execution images and entry points. Learners wire the assigned entry point, waitFor edges and fatal gate handling, then safe_dump/safe_load and inspect resolved fields. Existing triggers.json supplies bounded repository-commit and Pub/Sub bindings/filters: do not create triggers or alter filters. Accepted/rejected events are inputs, never captured run output. runtime_sim.py executes Python entry points and captures statuses, resolved args and output; results must be produced by running it, not invented. Required stages cannot use allowFailure or allowed failing exit codes.
+
+Object storage is explicitly simulated by storage_sim.py. It supports exists/reload/generation/download_as_bytes(if_generation_match=...) and upload_from_filename(if_generation_match=0), raises PreconditionFailed with status 412, and records uploads. Injected 412 is a race that creates an output before the failing call returns; recovery must reload and verify. Required validation is supplied per artifact in fixture records; a hash match does not imply a validation pass. No credential values are stored here.
+
+
+FILE requirements.txt
+numpy
+PyYAML
+
+
+FILE learner.py
+"""Assignment: Implement a fail-closed, event-triggered candidate release gate from fixed validation and operating evidence."""
+# Write the required imports, implementation, assertions and fatal CLI entry point.
+raise NotImplementedError("Learner entry point is intentionally unwritten")
+
+
+FILE cloudbuild.yaml
+{
+  "steps": [
+    {
+      "id": "release_gate",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "learner.py",
+        "${_CASE}",
+        "${_ARTIFACT}"
+      ],
+      "waitFor": [
+        "-"
+      ]
+    },
+    {
+      "id": "promotion",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "downstream_entry.py",
+        "${_ARTIFACT}"
+      ],
+      "waitFor": []
+    }
+  ],
+  "substitutions": {
+    "_SNAPSHOT": "valid",
+    "_CASE": "A",
+    "_ARTIFACT": "A"
+  },
+  "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com"
+}
+
+
+FILE triggers.json
+{
+  "repository_commit": {
+    "id": "fixture-commit-trigger",
+    "repository": "local_repo",
+    "branch_filter": "^main$",
+    "bindings": {
+      "_SNAPSHOT": "snapshot_id"
+    },
+    "fixtures": [
+      {
+        "branch": "main",
+        "snapshot_id": "valid"
+      },
+      {
+        "branch": "main",
+        "snapshot_id": "missing_required_feature"
+      },
+      {
+        "branch": "other",
+        "snapshot_id": "valid"
+      }
+    ]
+  },
+  "pubsub": {
+    "id": "fixture-artifact-trigger",
+    "topic": "projects/fixture-project/topics/artifacts",
+    "bindings": {
+      "_CASE": "case_id",
+      "_ARTIFACT": "artifact_id"
+    },
+    "filters": {
+      "event_type": "artifact_ready"
+    },
+    "fixtures": [
+      {
+        "event_type": "artifact_ready",
+        "case_id": "A",
+        "artifact_id": "A"
+      },
+      {
+        "event_type": "artifact_ready",
+        "case_id": "B",
+        "artifact_id": "B"
+      },
+      {
+        "event_type": "unrelated",
+        "case_id": "A",
+        "artifact_id": "A"
+      }
+    ]
+  }
+}
+
+
+FILE runtime_sim.py
+"""Offline execution adapter. Statuses are generated, never fixture answers."""
+import json
+import subprocess
+import sys
+import yaml
+from pathlib import Path
+
+def run_build(config_path, trigger_kind, event):
+    config = yaml.safe_load(Path(config_path).read_text())
+    triggers = json.loads(Path("triggers.json").read_text())
+    trigger = triggers[trigger_kind]
+    if trigger_kind == "repository_commit":
+        import re
+        if re.fullmatch(trigger["branch_filter"], event.get("branch", "")) is None:
+            return {"triggered": False, "steps": []}
+    elif any(event.get(k) != v for k, v in trigger["filters"].items()):
+        return {"triggered": False, "steps": []}
+    bindings = dict(config.get("substitutions", {}))
+    bindings.update({k: event[field] for k, field in trigger["bindings"].items()})
+    results, by_id = [], {}
+    pending = list(config["steps"])
+    while pending:
+        progress = False
+        for step in list(pending):
+            i = config["steps"].index(step)
+            dependencies = step.get("waitFor") or [s["id"] for s in config["steps"][:i]]
+            dependencies = [d for d in dependencies if d != "-"]
+            if any(d not in by_id for d in dependencies):
+                continue
+            args = [str(a) for a in step.get("args", [])]
+            for j, arg in enumerate(args):
+                for key, value in bindings.items():
+                    arg = arg.replace("${" + key + "}", str(value)).replace(key, str(value))
+                args[j] = arg
+            record = {"id": step["id"], "name": step["name"], "resolved_args": args, "waitFor": dependencies}
+            if any(by_id[d]["status"] != "SUCCESS" for d in dependencies):
+                record.update(status="NOT_STARTED", exit_code=None, output="")
+            else:
+                if step.get("allowFailure") or any(x != 0 for x in step.get("allowExitCodes", [])):
+                    raise ValueError("required gate failures must be fatal")
+                if not args or args[0] != "python":
+                    raise ValueError("bounded adapter only supports declared Python entry points")
+                p = subprocess.run([sys.executable] + args[1:], text=True, capture_output=True)
+                record.update(status="SUCCESS" if p.returncode == 0 else "FAILURE", exit_code=p.returncode, output=p.stdout+p.stderr)
+            results.append(record); by_id[step["id"]] = record
+            pending.remove(step); progress = True
+        if not progress:
+            raise ValueError("missing dependency or cycle")
+    return {"triggered": True, "resolved_inputs": bindings, "steps": results}
+
+
+FILE storage_sim.py
+"""Bounded local Cloud Storage interface, never a real cloud client."""
+from pathlib import Path
+class PreconditionFailed(Exception):
+    status_code = 412
+class RecoverableFailure(Exception):
+    pass
+class StorageClient:
+    def __init__(self, initial=None, race=None):
+        self.objects = dict(initial or {})
+        self.race = dict(race or {})
+        self.uploads = []
+        self.requests = []
+    def blob(self, name):
+        return Blob(self, name)
+class Blob:
+    def __init__(self, client, name):
+        self.client, self.name = client, name
+        self.generation = None
+    def exists(self):
+        return self.name in self.client.objects
+    def reload(self):
+        self.generation = self.client.objects[self.name]["generation"]
+    def download_as_bytes(self, if_generation_match):
+        self.client.requests.append((self.name, if_generation_match))
+        obj = self.client.objects[self.name]
+        if obj["generation"] != if_generation_match:
+            raise PreconditionFailed("generation mismatch")
+        return obj["data"]
+    def upload_from_filename(self, path, if_generation_match):
+        if if_generation_match != 0:
+            raise ValueError("fixture contract permits create-only upload")
+        if self.name in self.client.race:
+            self.client.objects[self.name] = self.client.race.pop(self.name)
+            raise PreconditionFailed("412 concurrent creation")
+        if self.exists():
+            raise PreconditionFailed("412 already exists")
+        self.client.objects[self.name] = {"generation": 1, "data": Path(path).read_bytes()}
+        self.client.uploads.append(self.name)
+        self.reload()
+
+
+FILE fixtures/anchor_contract.json
+{
+  "type": "live_code",
+  "objective": "Implement a learner-defined Python acceptance function in the supplied artifact-triggered Cloud Build pipeline, writing the required imports yourself. Read the supplied candidate and accepted-reference evidence, calculate validation expected error cost from the declared probabilities and costs, and evaluate every required quality and operating predicate. Reject failed or incomplete evidence with explicit exceptions identifying the affected predicates. Write assertions for passing and failing evidence, safely write and reload the existing configuration, wire the assigned gate entry point and required step dependencies, and trigger accepted and rejected fixtures through the configured Pub/Sub event trigger.",
+  "success": "Assertions confirm acceptance only when all required predicates are complete and passing, and confirm explicit rejection for failed or incomplete evidence, including undefined rates from empty conditioning groups. The reloaded configuration retains the required image, command, step IDs and waitFor dependencies without failure-tolerant gate settings. Actual resolved inputs identify the intended candidate fixtures. The accepted run passes the gate and reaches promotion; the rejected run exits unsuccessfully at the gate and does not execute promotion.",
+  "live_code": {
+    "required_skill": "Implement and test a fail-closed Python acceptance function, then connect its entry point to the assigned stage of an existing event-triggered release pipeline.",
+    "allowed_syntax": [
+      "import statements for yaml and required supplied-runtime library or client dependencies",
+      "def statements, parameters, function calls and return statements",
+      "dictionary and list literals, indexing and membership checks",
+      "variable assignment and arithmetic expressions",
+      "comparison operators and Boolean expressions",
+      "if, elif and else statements",
+      "for loops over required acceptance predicates",
+      "raise statements with explicit exception messages",
+      "try and except statements for asserting expected rejection without suppressing runtime gate failures",
+      "assert statements",
+      "with open(...) as file_handle",
+      "yaml.safe_dump(config, file_handle)",
+      "yaml.safe_load(file_handle)",
+      "existing pipeline mapping/list fields: steps, name, args or script, id and waitFor"
+    ],
+    "blocked_syntax": [],
+    "starter_state_intent": "Provide incomplete function and test entry points, the supplied candidate and accepted-reference evidence fixtures, predeclared acceptance requirements, deployment class probabilities, error costs and fixed operating limits. Include the existing Cloud Build configuration, declared PyYAML dependency, assigned gate and promotion stages, and configured event payload bindings and filters. Retain only the supplied fixture field names; do not provide a complete implementation or require creation of a new pipeline or trigger.",
+    "observable_success": "The learner's assertions distinguish accepted, failed and incomplete evidence. Configuration inspection confirms the required resolved fields and fatal dependency chain. Recorded results from both configured event-triggered runs show the intended inputs, successful gate execution for accepted evidence, and unsuccessful gate execution with an identified predicate and blocked promotion for rejected evidence."
+  }
+}
+
+
+FILE fixtures/visual_intent.json
+{
+  "type": "comparison",
+  "purpose": "Make accepted and rejected fixture runs visible side by side: candidate identity, required predicate results, calculated expected error cost, fixed operating checks, gate exit status, resolved stage inputs and whether promotion executed. Show that a passing cost check cannot compensate for a failed latency check."
+}
+
+
+FILE training_entry.py
+"""Existing training entry point, kept unchanged by dataset-gate exercises."""
+import json
+import sys
+from pathlib import Path
+if __name__ == "__main__":
+    snapshot_id = sys.argv[1]
+    Path("training_invocation.json").write_text(json.dumps({"snapshot_id": snapshot_id, "started": True}))
+
+
+FILE downstream_entry.py
+"""Supplied downstream execution marker; no gate bypass."""
+import json
+import sys
+from pathlib import Path
+if __name__ == "__main__":
+    Path("downstream_invocation.json").write_text(json.dumps({"artifact_id": sys.argv[1], "started": True}))
+
+
+FILE outputs/A.txt
+fictional fitted package A
+preprocess: divide feature by 5
+threshold: 0.4
+
+
+FILE outputs/B.txt
+fictional fitted package B
+preprocess: divide feature by 5
+threshold: 0.5
+
+
+FILE fixtures/artifacts.json
+{
+  "A": {
+    "artifact_id": "A",
+    "uri": "gs://fixture-artifacts/A.txt",
+    "generation": 1,
+    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+    "validation_ok": true
+  },
+  "B": {
+    "artifact_id": "B",
+    "uri": "gs://fixture-artifacts/B.txt",
+    "generation": 1,
+    "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+    "validation_ok": true
+  }
+}
+
+
+FILE release_evidence.csv
+candidate_id,FP,TN,FN,TP,latency_ms,operating_ok,evidence_complete
+reference,10,90,10,90,18,True,True
+A,5,95,5,95,20,True,True
+B,4,96,4,96,21,True,True
+boundary,10,90,10,90,20,True,True
+empty_negatives,0,0,5,95,15,True,True
+empty_positives,5,95,0,0,15,True,True
+incomplete,5,95,5,95,,True,False
+cost_failure,40,60,40,60,15,True,True
+operating_failure,5,95,5,95,15,False,True
+
+
+FILE fixtures/release_cases.json
+{
+  "reference": {
+    "candidate_id": "reference",
+    "FP": 10,
+    "TN": 90,
+    "FN": 10,
+    "TP": 90,
+    "latency_ms": 18,
+    "operating_ok": true,
+    "evidence_complete": true
+  },
+  "A": {
+    "candidate_id": "A",
+    "FP": 5,
+    "TN": 95,
+    "FN": 5,
+    "TP": 95,
+    "latency_ms": 20,
+    "operating_ok": true,
+    "evidence_complete": true
+  },
+  "B": {
+    "candidate_id": "B",
+    "FP": 4,
+    "TN": 96,
+    "FN": 4,
+    "TP": 96,
+    "latency_ms": 21,
+    "operating_ok": true,
+    "evidence_complete": true
+  },
+  "boundary": {
+    "candidate_id": "boundary",
+    "FP": 10,
+    "TN": 90,
+    "FN": 10,
+    "TP": 90,
+    "latency_ms": 20,
+    "operating_ok": true,
+    "evidence_complete": true
+  },
+  "empty_negatives": {
+    "candidate_id": "empty_negatives",
+    "FP": 0,
+    "TN": 0,
+    "FN": 5,
+    "TP": 95,
+    "latency_ms": 15,
+    "operating_ok": true,
+    "evidence_complete": true
+  },
+  "empty_positives": {
+    "candidate_id": "empty_positives",
+    "FP": 5,
+    "TN": 95,
+    "FN": 0,
+    "TP": 0,
+    "latency_ms": 15,
+    "operating_ok": true,
+    "evidence_complete": true
+  },
+  "incomplete": {
+    "candidate_id": "incomplete",
+    "FP": 5,
+    "TN": 95,
+    "FN": 5,
+    "TP": 95,
+    "latency_ms": null,
+    "operating_ok": true,
+    "evidence_complete": false
+  },
+  "cost_failure": {
+    "candidate_id": "cost_failure",
+    "FP": 40,
+    "TN": 60,
+    "FN": 40,
+    "TP": 60,
+    "latency_ms": 15,
+    "operating_ok": true,
+    "evidence_complete": true
+  },
+  "operating_failure": {
+    "candidate_id": "operating_failure",
+    "FP": 5,
+    "TN": 95,
+    "FN": 5,
+    "TP": 95,
+    "latency_ms": 15,
+    "operating_ok": false,
+    "evidence_complete": true
+  }
+}
+
+
+FILE fixtures/release_contract.json
+{
+  "probabilities": {
+    "P(Y=0)": 0.8,
+    "P(Y=1)": 0.2
+  },
+  "costs": {
+    "cost_FP": 1,
+    "cost_FN": 4,
+    "correct_prediction": 0
+  },
+  "max_expected_error_cost": 0.16,
+  "max_latency_ms": 20,
+  "accepted_reference": "reference",
+  "requirements": [
+    "all evidence fields present",
+    "nonnegative integer counts",
+    "both actual-class denominators nonempty",
+    "candidate identity matches event",
+    "expected error cost <= fixed maximum and <= accepted reference cost",
+    "latency_ms <= fixed maximum",
+    "operating_ok is True",
+    "evidence_complete is True"
+  ],
+  "protected_test_use": "Never fit, select, or tune using protected-test observations."
+}

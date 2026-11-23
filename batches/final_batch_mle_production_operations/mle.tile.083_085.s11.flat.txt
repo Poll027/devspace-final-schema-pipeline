@@ -1,0 +1,32 @@
+import csv, json
+import numpy as np
+policy = json.loads('{"indicator": "window_mean", "baseline_window": "baseline", "window_rule": "mean(window)>mean(baseline)+4", "ddof": 0, "owner": "order_oncall", "response": "investigate_window", "expected_replays": {"normal": false, "boundary": false, "breached": true}}')
+alert_observations_rows = list(csv.DictReader(open('alert_observations.csv')))
+alert_observations = {}
+alert_observations['window_id'] = np.array([r['window_id'] for r in alert_observations_rows])
+alert_observations['numeric_values'] = np.array([float(r['numeric_values'] or 'nan') for r in alert_observations_rows])
+
+import yaml
+baseline = alert_observations['numeric_values'][alert_observations['window_id']=='baseline']
+windows = {w:alert_observations['numeric_values'][alert_observations['window_id']==w] for w in ['normal','boundary','breached']}
+def replay(config):
+    results=[]
+    for w,values in windows.items():
+        crossed=np.mean(values)>config['threshold']
+        results.append({'window':w,'mean':np.mean(values),'std':np.std(values,ddof=config['ddof']), 'records':[{'owner':config['owner'],'action':config['response']}] if crossed else []})
+    return results
+
+normal_valid=np.mean(windows['normal'])<=np.mean(baseline)+4
+boundary_valid=np.mean(windows['boundary'])<=np.mean(baseline)+4
+breach_valid=np.mean(windows['breached'])>np.mean(baseline)+4
+
+baseline_mean = np.mean(baseline)
+baseline_std = np.std(baseline,ddof=0)
+assert normal_valid
+assert boundary_valid
+assert breach_valid
+resolved={'indicator':policy['indicator'],'baseline_window':policy['baseline_window'],'threshold':float(baseline_mean+4) if baseline_mean is not None else None,'ddof':policy['ddof'],'owner':policy['owner'],'response':policy['response']}
+with open('alert.yaml','w') as h: yaml.safe_dump(resolved,h)
+with open('alert.yaml') as h: resolved=yaml.safe_load(h)
+result=replay(resolved) if resolved['threshold'] is not None else None
+

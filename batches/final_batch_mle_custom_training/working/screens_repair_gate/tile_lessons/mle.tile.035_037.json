@@ -1,0 +1,2235 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "machine_learning_engineer",
+  "tile_id": "mle.tile.035_037",
+  "toc_location": {
+    "region_id": "mle.region.custom_training",
+    "terrain_id": "mle.terrain.network_inputs"
+  },
+  "title": "Construct PyTorch input tensors with compatible shapes and dtypes / Build a dataset and minibatch loader / Define a neural network with task-compatible layers and activations",
+  "summary": "",
+  "concept_ids": [
+    "mle.pytorch_input_tensors",
+    "mle.dataset_minibatch_loader",
+    "mle.neural_model_definition"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_machine_learning_engineer",
+    "toc_freeze_hash": "f38fc7a62df329118a32053d1557dcc9a74ada7a9c52269ee9a0c50d28a67a36",
+    "glossary_bundle_hashes": {
+      "mle.pytorch_input_tensors": "b0494dd5822145ed81b2681cc9a374402934910bf92616e7d2ce5c03dae62cf1",
+      "mle.dataset_minibatch_loader": "ce18b344e91a8580a4361390f8b55cd336a715ddd9faa65b925019ac13241a05",
+      "mle.neural_model_definition": "4cdb425db9570bde490d93a1c150445b7c6b7e9c3978ba19d2e7f270f6d63e27"
+    },
+    "scenario_registry_hash": "47180d4314306d6e20c3b05167ed92b60ac29422068d33e3e42fb23c4e968d16"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core"
+    ],
+    "block_types": [
+      "code_walkthrough",
+      "diagram",
+      "prose",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "classify"
+    ],
+    "runtimes": [],
+    "asset_ids": []
+  },
+  "pacing": {
+    "estimated_minutes": 12.6
+  },
+  "steps": [
+    {
+      "step_id": "mle.tile.035_037.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.pytorch_input_tensors"
+      ],
+      "title": "Construct PyTorch input tensors with compatible shapes and dtypes",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.pytorch_input_tensors"
+        ],
+        "teaching_block_ids": [
+          "mle.pytorch_input_tensors#tb1",
+          "mle.pytorch_input_tensors#tb2",
+          "mle.pytorch_input_tensors#tb3"
+        ],
+        "fact_ids": [
+          "mle.pytorch_input_tensors#f1",
+          "mle.pytorch_input_tensors#f2",
+          "mle.pytorch_input_tensors#f4",
+          "mle.pytorch_input_tensors#f5"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.pytorch_input_tensors#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Keep the order features and targets aligned, with a separate representation contract for each.",
+          "role": "intro",
+          "lineage": {
+            "concept_ids": [
+              "mle.pytorch_input_tensors"
+            ],
+            "teaching_block_ids": [
+              "mle.pytorch_input_tensors#tb1"
+            ],
+            "fact_ids": [],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Import torch, then construct each supplied NumPy array's tensor with torch.from_numpy(array). For each tensor, explicitly apply tensor.to(dtype=declared_dtype) and inspect tensor.shape and tensor.dtype. Check row correspondence; do not infer the target representation from the feature dtype. Before returning the aligned tuple, assert each declared axis length and the shared batch length.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.pytorch_input_tensors"
+            ],
+            "teaching_block_ids": [
+              "mle.pytorch_input_tensors#tb2"
+            ],
+            "fact_ids": [
+              "mle.pytorch_input_tensors#f1",
+              "mle.pytorch_input_tensors#f2",
+              "mle.pytorch_input_tensors#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Test valid, boundary and failure fixtures with assert predicates. A false predicate raises AssertionError in ordinary non-optimized execution.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.pytorch_input_tensors"
+            ],
+            "teaching_block_ids": [
+              "mle.pytorch_input_tensors#tb3"
+            ],
+            "fact_ids": [
+              "mle.pytorch_input_tensors#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "These fixtures already supply corresponding observation order. Equal batch lengths alone do not prove that each feature row belongs to its target; verify that correspondence using the supplied observation identifiers or pairing reference.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.pytorch_input_tensors"
+            ],
+            "teaching_block_ids": [
+              "mle.pytorch_input_tensors#tb2"
+            ],
+            "fact_ids": [
+              "mle.pytorch_input_tensors#f2",
+              "mle.pytorch_input_tensors#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "code_walkthrough",
+          "language": "python",
+          "code": "import torch\n\ndef prepare(features_array, targets_array, feature_dtype, target_dtype,\n            feature_shape, target_shape):\n    features = torch.from_numpy(features_array).to(dtype=feature_dtype)\n    targets = torch.from_numpy(targets_array).to(dtype=target_dtype)\n    assert features.shape == feature_shape\n    assert targets.shape == target_shape\n    assert features.shape[0] == targets.shape[0]\n    assert features.dtype == feature_dtype\n    assert targets.dtype == target_dtype\n    return features, targets\n\n# Fixtures supply corresponding observation order and separate declared dtypes.\n# Run accepted and boundary pairs; the mismatched-target fixture must fail.\nfor fixture in accepted_and_boundary_fixtures:\n    features, targets = prepare(**fixture)\ntry:\n    prepare(**three_target_failure_fixture)\nexcept AssertionError:\n    pass\nelse:\n    raise AssertionError(\"Expected the alignment check to reject this fixture\")",
+          "reveal": "all",
+          "lineage": {
+            "concept_ids": [
+              "mle.pytorch_input_tensors"
+            ],
+            "teaching_block_ids": [
+              "mle.pytorch_input_tensors#tb1",
+              "mle.pytorch_input_tensors#tb2",
+              "mle.pytorch_input_tensors#tb3"
+            ],
+            "fact_ids": [
+              "mle.pytorch_input_tensors#f1",
+              "mle.pytorch_input_tensors#f2",
+              "mle.pytorch_input_tensors#f4",
+              "mle.pytorch_input_tensors#f5"
+            ],
+            "segment_ids": [],
+            "anchors": [
+              "mle.pytorch_input_tensors#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.035_037.s02",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.pytorch_input_tensors"
+      ],
+      "title": "Construct PyTorch input tensors with compatible shapes and dtypes",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.pytorch_input_tensors"
+        ],
+        "teaching_block_ids": [
+          "mle.pytorch_input_tensors#tb4"
+        ],
+        "fact_ids": [
+          "mle.pytorch_input_tensors#f1",
+          "mle.pytorch_input_tensors#f2",
+          "mle.pytorch_input_tensors#f4",
+          "mle.pytorch_input_tensors#f5"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "In the supplied fixture, features have shape (4, 2), and the declared targets have shape (4,). Construct tensors from the two NumPy arrays, explicitly convert each to its declared dtype, and inspect the resulting shapes and dtypes. Return the aligned pair as a tuple only after checking the common batch length and required axes. A target fixture with three rows fails correspondence even if each target value is individually permitted. Another fixture can test an incorrect declared target representation without changing the feature dtype.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.pytorch_input_tensors"
+            ],
+            "teaching_block_ids": [
+              "mle.pytorch_input_tensors#tb4"
+            ],
+            "fact_ids": [
+              "mle.pytorch_input_tensors#f1",
+              "mle.pytorch_input_tensors#f2",
+              "mle.pytorch_input_tensors#f4",
+              "mle.pytorch_input_tensors#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Keeping these checks separate makes it clear whether a failure concerns feature shape, target shape, dtype or matching observations, rather than reporting only that conversion succeeded.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.pytorch_input_tensors"
+            ],
+            "teaching_block_ids": [
+              "mle.pytorch_input_tensors#tb4"
+            ],
+            "fact_ids": [
+              "mle.pytorch_input_tensors#f1",
+              "mle.pytorch_input_tensors#f2",
+              "mle.pytorch_input_tensors#f4",
+              "mle.pytorch_input_tensors#f5"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.035_037.s03",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.pytorch_input_tensors"
+      ],
+      "title": "Construct PyTorch input tensors with compatible shapes and dtypes",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.pytorch_input_tensors"
+        ],
+        "teaching_block_ids": [
+          "mle.pytorch_input_tensors#tb5"
+        ],
+        "fact_ids": [
+          "mle.pytorch_input_tensors#f2",
+          "mle.pytorch_input_tensors#f4"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Conversion alone is not a contract check. Use the declared target dtype; matching-looking values cannot fix different batch lengths.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.pytorch_input_tensors"
+            ],
+            "teaching_block_ids": [
+              "mle.pytorch_input_tensors#tb5"
+            ],
+            "fact_ids": [
+              "mle.pytorch_input_tensors#f2",
+              "mle.pytorch_input_tensors#f4"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.035_037.s04",
+      "type": "check",
+      "concept_ids": [
+        "mle.pytorch_input_tensors"
+      ],
+      "title": "Check: Convert aligned feature/target arrays into tensors with explicitly checked shape and dtype.",
+      "eyebrow": "Check",
+      "lineage": {
+        "concept_ids": [
+          "mle.pytorch_input_tensors"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.pytorch_input_tensors#f4",
+          "mle.pytorch_input_tensors#f5"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.pytorch_input_tensors#assessment:assert_input_contract_and_return_aligned_tuple"
+        ]
+      },
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.mle.tile.035_037.s04",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.pytorch_input_tensors",
+            "capability": "assert_input_contract_and_return_aligned_tuple",
+            "fact_ids": [
+              "f4",
+              "f5"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.pytorch_input_tensors#assessment:assert_input_contract_and_return_aligned_tuple"
+        ],
+        "public": {
+          "prompt": "A conversion returned tensors, but features.shape is (4, 2) and targets.shape is (3,). What should an ordinary, non-optimized contract check do?",
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Reject the pair with a failed batch-alignment assertion before returning the tuple."
+            },
+            {
+              "option_id": "o2",
+              "text": "Return the tuple because construction succeeded."
+            },
+            {
+              "option_id": "o3",
+              "text": "Cast targets to the feature dtype and accept the pair."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "This follows the stated contract."
+            },
+            "o2": {
+              "message": "Construction does not establish common batch length."
+            },
+            "o3": {
+              "message": "A dtype cast cannot repair missing corresponding observations."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "Correct. Reject the pair with a failed batch-alignment assertion before returning the tuple."
+          },
+          "incorrect": {
+            "message": "Recheck the stated contract. Construction does not establish common batch length. A dtype cast cannot repair missing corresponding observations."
+          },
+          "hints": [
+            "Compare the observation axes before treating conversion as acceptance."
+          ],
+          "remediation_step_id": "mle.tile.035_037.r01"
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.035_037.s05",
+      "type": "hands_on",
+      "concept_ids": [
+        "mle.pytorch_input_tensors"
+      ],
+      "title": "Apply: Convert aligned feature/target arrays into tensors with explicitly checked shape and dtype.",
+      "eyebrow": "Apply",
+      "lineage": {
+        "concept_ids": [
+          "mle.pytorch_input_tensors"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.pytorch_input_tensors#f1",
+          "mle.pytorch_input_tensors#f2",
+          "mle.pytorch_input_tensors#f4",
+          "mle.pytorch_input_tensors#f5"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.pytorch_input_tensors#practice",
+          "mle.pytorch_input_tensors#assessment:construct_tensors_with_declared_dtypes",
+          "mle.pytorch_input_tensors#assessment:verify_tensor_shapes_and_row_alignment",
+          "mle.pytorch_input_tensors#assessment:assert_input_contract_and_return_aligned_tuple"
+        ]
+      },
+      "interaction": {
+        "type": "classify",
+        "interaction_id": "ix.mle.tile.035_037.s05",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.pytorch_input_tensors",
+            "capability": "construct_tensors_with_declared_dtypes",
+            "fact_ids": [
+              "f1",
+              "f2"
+            ]
+          },
+          {
+            "concept_id": "mle.pytorch_input_tensors",
+            "capability": "verify_tensor_shapes_and_row_alignment",
+            "fact_ids": [
+              "f2",
+              "f4"
+            ]
+          },
+          {
+            "concept_id": "mle.pytorch_input_tensors",
+            "capability": "assert_input_contract_and_return_aligned_tuple",
+            "fact_ids": [
+              "f4",
+              "f5"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.pytorch_input_tensors#practice",
+          "mle.pytorch_input_tensors#assessment:construct_tensors_with_declared_dtypes",
+          "mle.pytorch_input_tensors#assessment:verify_tensor_shapes_and_row_alignment",
+          "mle.pytorch_input_tensors#assessment:assert_input_contract_and_return_aligned_tuple"
+        ],
+        "public": {
+          "prompt": "Review a conversion function for numerical order arrays. The declared feature dtype is torch.float32 and target dtype is torch.long. Supplied arrays preserve observation order. Accepted fixtures are (4, 2)/(4,) and the declared empty boundary (0, 2)/(0,); a three-target fixture and wrong-width fixture must fail. Judge each independent proposal against this contract. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+          "buckets": [
+            {
+              "bucket_id": "supported",
+              "label": "Supported by the contract"
+            },
+            {
+              "bucket_id": "defective",
+              "label": "Defective claim or implementation"
+            }
+          ],
+          "items": [
+            {
+              "item_id": "e1",
+              "text": "import torch\ndef convert(features, targets, n, width):\n    f = torch.from_numpy(features).to(dtype=torch.float32)\n    t = torch.from_numpy(targets).to(dtype=torch.long)\n    assert f.shape == (n, width) and t.shape == (n,)\n    assert f.shape[0] == t.shape[0]\n    assert f.dtype == torch.float32 and t.dtype == torch.long\n    return f, t\n# Tests assert tuple shapes/dtypes for accepted and boundary fixtures,\n# verify supplied row identities, and expect AssertionError for three targets\n# and wrong feature width during ordinary non-optimized execution."
+            },
+            {
+              "item_id": "e2",
+              "text": "f = torch.from_numpy(features).to(dtype=torch.float32)\nt = torch.from_numpy(targets).to(dtype=torch.float32)\nassert f.shape == (4, 2) and t.shape == (4,)\nreturn f, t"
+            },
+            {
+              "item_id": "e3",
+              "text": "# Three-target trial\nf.shape = (4, 2); t.shape = (3,)\n# Conversion succeeded; skip assertions and return f, t."
+            }
+          ]
+        },
+        "grading": {
+          "assignments": {
+            "e1": "supported",
+            "e2": "defective",
+            "e3": "defective"
+          },
+          "item_feedback": {
+            "e1": {
+              "message": "Separate declared dtypes, axes, common length and fixture correspondence are checked before returning the pair; both rejection fixtures are exercised."
+            },
+            "e2": {
+              "message": "The target cast violates the separately declared long target representation even though the shapes match."
+            },
+            "e3": {
+              "message": "Conversion success is not correspondence; the common observation length must be asserted and this trial rejected."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+          },
+          "incorrect": {
+            "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+          },
+          "hints": [
+            "Check representation and correspondence as separate requirements."
+          ],
+          "remediation_step_id": "mle.tile.035_037.r02"
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.035_037.s06",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.dataset_minibatch_loader"
+      ],
+      "title": "Build a dataset and minibatch loader",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.dataset_minibatch_loader"
+        ],
+        "teaching_block_ids": [
+          "mle.dataset_minibatch_loader#tb1",
+          "mle.dataset_minibatch_loader#tb2",
+          "mle.dataset_minibatch_loader#tb3"
+        ],
+        "fact_ids": [
+          "mle.dataset_minibatch_loader#f1",
+          "mle.dataset_minibatch_loader#f2",
+          "mle.dataset_minibatch_loader#f3",
+          "mle.dataset_minibatch_loader#f4",
+          "mle.dataset_minibatch_loader#f5",
+          "mle.dataset_minibatch_loader#f6"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.dataset_minibatch_loader#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "The dataset defines a paired observation; the loader groups those pairs under your declared policy.",
+          "role": "intro",
+          "lineage": {
+            "concept_ids": [
+              "mle.dataset_minibatch_loader"
+            ],
+            "teaching_block_ids": [
+              "mle.dataset_minibatch_loader#tb1"
+            ],
+            "fact_ids": [],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Implement a map-style Dataset with __len__ reporting sample count and __getitem__(index) retrieving its paired feature/target item. When observations are lists, use the same index for features and targets and return that pair as a tuple. Construct DataLoader(dataset, batch_size=declared_size, shuffle=declared_order_policy) and iterate for features, targets in loader.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.dataset_minibatch_loader"
+            ],
+            "teaching_block_ids": [
+              "mle.dataset_minibatch_loader#tb2"
+            ],
+            "fact_ids": [
+              "mle.dataset_minibatch_loader#f1",
+              "mle.dataset_minibatch_loader#f2",
+              "mle.dataset_minibatch_loader#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Minibatches group observation items; each item's feature/target relationship stays intact. Set DataLoader(..., drop_last=True) to discard the last incomplete batch, or drop_last=False (the default) to retain it with fewer samples than batch_size; test the observed batch boundaries against that explicit choice. Test valid, boundary and failure fixtures with assert predicates. A false predicate raises AssertionError in ordinary non-optimized execution.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.dataset_minibatch_loader"
+            ],
+            "teaching_block_ids": [
+              "mle.dataset_minibatch_loader#tb3"
+            ],
+            "fact_ids": [
+              "mle.dataset_minibatch_loader#f4",
+              "mle.dataset_minibatch_loader#f5",
+              "mle.dataset_minibatch_loader#f6"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Here, `feature_observations` and `target_observations` are lists whose individual items are tensors, so the loader stacks them into minibatch tensors.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.dataset_minibatch_loader"
+            ],
+            "teaching_block_ids": [
+              "mle.dataset_minibatch_loader#tb3"
+            ],
+            "fact_ids": [
+              "mle.dataset_minibatch_loader#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "code_walkthrough",
+          "language": "python",
+          "code": "from torch.utils.data import Dataset, DataLoader\n\nclass PairedOrders(Dataset):\n    def __init__(self, features, targets):\n        self.features, self.targets = features, targets\n        assert len(features) == len(targets)\n    def __len__(self):\n        return len(self.features)\n    def __getitem__(self, index):\n        return self.features[index], self.targets[index]\n\ndataset = PairedOrders(feature_observations, target_observations)\nfor drop_policy in (False, True):\n    loader = DataLoader(dataset, batch_size=declared_size,\n                        shuffle=declared_order_policy, drop_last=drop_policy)\n    observed_sizes = []\n    for features, targets in loader:\n        assert features.shape[0] == targets.shape[0]\n        observed_sizes.append(features.shape[0])\n    assert observed_sizes == declared_boundary_sizes[drop_policy]",
+          "reveal": "all",
+          "lineage": {
+            "concept_ids": [
+              "mle.dataset_minibatch_loader"
+            ],
+            "teaching_block_ids": [
+              "mle.dataset_minibatch_loader#tb1",
+              "mle.dataset_minibatch_loader#tb2",
+              "mle.dataset_minibatch_loader#tb3"
+            ],
+            "fact_ids": [
+              "mle.dataset_minibatch_loader#f1",
+              "mle.dataset_minibatch_loader#f2",
+              "mle.dataset_minibatch_loader#f3",
+              "mle.dataset_minibatch_loader#f4",
+              "mle.dataset_minibatch_loader#f5",
+              "mle.dataset_minibatch_loader#f6"
+            ],
+            "segment_ids": [],
+            "anchors": [
+              "mle.dataset_minibatch_loader#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.035_037.s07",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.dataset_minibatch_loader"
+      ],
+      "title": "Build a dataset and minibatch loader",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.dataset_minibatch_loader"
+        ],
+        "teaching_block_ids": [
+          "mle.dataset_minibatch_loader#tb4"
+        ],
+        "fact_ids": [
+          "mle.dataset_minibatch_loader#f1",
+          "mle.dataset_minibatch_loader#f2",
+          "mle.dataset_minibatch_loader#f3",
+          "mle.dataset_minibatch_loader#f4",
+          "mle.dataset_minibatch_loader#f5",
+          "mle.dataset_minibatch_loader#f6"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "For five indexed observations and batch_size 2, a fixture with drop_last=False retains batches of sizes 2, 2 and 1. With drop_last=True, it retains two complete batches and discards the incomplete final batch. Retrieve each feature and target from the same observation index in __getitem__, and return them together. Test the batch boundaries and observed pairings under the declared shuffle policy rather than assuming a loader output's first position still corresponds to the source's first row. Also check __len__ against the sample count.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.dataset_minibatch_loader"
+            ],
+            "teaching_block_ids": [
+              "mle.dataset_minibatch_loader#tb4"
+            ],
+            "fact_ids": [
+              "mle.dataset_minibatch_loader#f1",
+              "mle.dataset_minibatch_loader#f2",
+              "mle.dataset_minibatch_loader#f3",
+              "mle.dataset_minibatch_loader#f4",
+              "mle.dataset_minibatch_loader#f5",
+              "mle.dataset_minibatch_loader#f6"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "The choice about the incomplete batch must appear in the fixture expectations, because counting three batches of size two would invent an observation.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.dataset_minibatch_loader"
+            ],
+            "teaching_block_ids": [
+              "mle.dataset_minibatch_loader#tb4"
+            ],
+            "fact_ids": [
+              "mle.dataset_minibatch_loader#f1",
+              "mle.dataset_minibatch_loader#f2",
+              "mle.dataset_minibatch_loader#f3",
+              "mle.dataset_minibatch_loader#f4",
+              "mle.dataset_minibatch_loader#f5",
+              "mle.dataset_minibatch_loader#f6"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.035_037.s08",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.dataset_minibatch_loader"
+      ],
+      "title": "Build a dataset and minibatch loader",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.dataset_minibatch_loader"
+        ],
+        "teaching_block_ids": [
+          "mle.dataset_minibatch_loader#tb5"
+        ],
+        "fact_ids": [
+          "mle.dataset_minibatch_loader#f2",
+          "mle.dataset_minibatch_loader#f4",
+          "mle.dataset_minibatch_loader#f5"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Shuffling must not separate a feature from its target. The last batch size depends on the declared drop_last policy.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.dataset_minibatch_loader"
+            ],
+            "teaching_block_ids": [
+              "mle.dataset_minibatch_loader#tb5"
+            ],
+            "fact_ids": [
+              "mle.dataset_minibatch_loader#f2",
+              "mle.dataset_minibatch_loader#f4",
+              "mle.dataset_minibatch_loader#f5"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.035_037.s09",
+      "type": "check",
+      "concept_ids": [
+        "mle.dataset_minibatch_loader"
+      ],
+      "title": "Check: Implement a dataset/loader that preserves sample identity and minibatch alignment.",
+      "eyebrow": "Check",
+      "lineage": {
+        "concept_ids": [
+          "mle.dataset_minibatch_loader"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.dataset_minibatch_loader#f3",
+          "mle.dataset_minibatch_loader#f4"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.dataset_minibatch_loader#assessment:yield_aligned_minibatches_under_declared_order_policy"
+        ]
+      },
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.mle.tile.035_037.s09",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.dataset_minibatch_loader",
+            "capability": "yield_aligned_minibatches_under_declared_order_policy",
+            "fact_ids": [
+              "f3",
+              "f4"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.dataset_minibatch_loader#assessment:yield_aligned_minibatches_under_declared_order_policy"
+        ],
+        "public": {
+          "prompt": "With shuffle=True, which claim about a properly implemented Dataset and DataLoader is justified?",
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Shuffling can legitimately pair a feature with a different observation’s target."
+            },
+            {
+              "option_id": "o2",
+              "text": "Each returned feature remains paired with the target from the same source observation."
+            },
+            {
+              "option_id": "o3",
+              "text": "The first yielded item must be the first source observation."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o2"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "Order policy does not change the within-item correspondence contract."
+            },
+            "o2": {
+              "message": "This follows the stated contract."
+            },
+            "o3": {
+              "message": "Shuffling changes order; source-first position is not guaranteed."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "Correct. Each returned feature remains paired with the target from the same source observation."
+          },
+          "incorrect": {
+            "message": "Recheck the stated contract. Shuffling changes order; source-first position is not guaranteed. Order policy does not change the within-item correspondence contract."
+          },
+          "hints": [
+            "Separate item identity from the order in which items arrive."
+          ],
+          "remediation_step_id": "mle.tile.035_037.r03"
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.035_037.s10",
+      "type": "hands_on",
+      "concept_ids": [
+        "mle.dataset_minibatch_loader"
+      ],
+      "title": "Apply: Implement a dataset/loader that preserves sample identity and minibatch alignment.",
+      "eyebrow": "Apply",
+      "lineage": {
+        "concept_ids": [
+          "mle.dataset_minibatch_loader"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.dataset_minibatch_loader#f1",
+          "mle.dataset_minibatch_loader#f2",
+          "mle.dataset_minibatch_loader#f5",
+          "mle.dataset_minibatch_loader#f6"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.dataset_minibatch_loader#practice",
+          "mle.dataset_minibatch_loader#assessment:implement_index_aligned_dataset_items",
+          "mle.dataset_minibatch_loader#assessment:assert_expected_batch_boundaries_and_alignment"
+        ]
+      },
+      "interaction": {
+        "type": "classify",
+        "interaction_id": "ix.mle.tile.035_037.s10",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.dataset_minibatch_loader",
+            "capability": "implement_index_aligned_dataset_items",
+            "fact_ids": [
+              "f1",
+              "f2"
+            ]
+          },
+          {
+            "concept_id": "mle.dataset_minibatch_loader",
+            "capability": "assert_expected_batch_boundaries_and_alignment",
+            "fact_ids": [
+              "f5",
+              "f6"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.dataset_minibatch_loader#practice",
+          "mle.dataset_minibatch_loader#assessment:implement_index_aligned_dataset_items",
+          "mle.dataset_minibatch_loader#assessment:assert_expected_batch_boundaries_and_alignment"
+        ],
+        "public": {
+          "prompt": "Inspect loader evidence for five indexed numerical order observations and batch_size=2. Feature and target IDs must match. Judge the entire excerpt, including its assertions. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+          "buckets": [
+            {
+              "bucket_id": "supported",
+              "label": "Supported by the contract"
+            },
+            {
+              "bucket_id": "defective",
+              "label": "Defective claim or implementation"
+            }
+          ],
+          "items": [
+            {
+              "item_id": "e1",
+              "text": "class Orders(Dataset):\n    def __len__(self): return 5\n    def __getitem__(self, index):\n        return features[index], targets[index]\n# shuffle=False: item-ID assertions match source order.\n# drop_last=False sizes: [2, 2, 1]; drop_last=True sizes: [2, 2].\n# shuffle=True: compare feature/target IDs within each item, not source positions.\n# Deliberately substituted wrong target ID fails an alignment assertion\n# with AssertionError in ordinary non-optimized execution."
+            },
+            {
+              "item_id": "e2",
+              "text": "def __getitem__(self, index):\n    return features[index], targets[(index + 1) % 5]\n# Shapes and batch-size assertions all pass."
+            },
+            {
+              "item_id": "e3",
+              "text": "# DataLoader: batch_size=2, shuffle=False, drop_last=False\nassert observed_batch_sizes == [2, 2, 2]"
+            }
+          ]
+        },
+        "grading": {
+          "assignments": {
+            "e1": "supported",
+            "e2": "defective",
+            "e3": "defective"
+          },
+          "item_feedback": {
+            "e1": {
+              "message": "Same-index retrieval, sample count, both partial-batch policies and shuffle-independent identity checks satisfy the declared evidence."
+            },
+            "e2": {
+              "message": "Well-shaped batches do not repair the shifted target index."
+            },
+            "e3": {
+              "message": "The final incomplete batch is retained with one observation, not padded to two."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+          },
+          "incorrect": {
+            "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+          },
+          "hints": [
+            "Inspect how an item is formed before checking batch boundaries."
+          ],
+          "remediation_step_id": "mle.tile.035_037.r04"
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.035_037.s11",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.neural_model_definition"
+      ],
+      "title": "Define a neural network with task-compatible layers and activations",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.neural_model_definition"
+        ],
+        "teaching_block_ids": [
+          "mle.neural_model_definition#tb1",
+          "mle.neural_model_definition#tb2",
+          "mle.neural_model_definition#tb3"
+        ],
+        "fact_ids": [
+          "mle.neural_model_definition#f1",
+          "mle.neural_model_definition#f2",
+          "mle.neural_model_definition#f3",
+          "mle.neural_model_definition#f4",
+          "mle.neural_model_definition#f5"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.neural_model_definition#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Build from the input width to the task output contract, checking every layer boundary.",
+          "role": "intro",
+          "lineage": {
+            "concept_ids": [
+              "mle.neural_model_definition"
+            ],
+            "teaching_block_ids": [
+              "mle.neural_model_definition#tb1"
+            ],
+            "fact_ids": [],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "After importing torch.nn as nn, subclass nn.Module. Call super().__init__(), register layers as attributes and define forward(self, x). nn.Linear(in_features, out_features) maps each input feature vector to out_features outputs using learned weights and bias, preserving the leading minibatch dimension. nn.ReLU applies max(0, x) elementwise and introduces a nonlinearity between linear layers.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.neural_model_definition"
+            ],
+            "teaching_block_ids": [
+              "mle.neural_model_definition#tb2"
+            ],
+            "fact_ids": [
+              "mle.neural_model_definition#f1",
+              "mle.neural_model_definition#f2",
+              "mle.neural_model_definition#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "In nn.Sequential, modules run in the declared order. Each output width must match the next input width. Set the final layer width and activation to the supplied output task contract and verify the resulting output shape with a fixture batch.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.neural_model_definition"
+            ],
+            "teaching_block_ids": [
+              "mle.neural_model_definition#tb3"
+            ],
+            "fact_ids": [
+              "mle.neural_model_definition#f4",
+              "mle.neural_model_definition#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "diagram",
+          "diagram_kind": "layers",
+          "title": "Fixture dimension chain",
+          "nodes": [
+            {
+              "id": "layer_0",
+              "label": "(4, 2)",
+              "fields": [
+                "Leading minibatch dimension is preserved"
+              ]
+            },
+            {
+              "id": "layer_1",
+              "label": "Linear(2, 3)"
+            },
+            {
+              "id": "layer_2",
+              "label": "(4, 3)"
+            },
+            {
+              "id": "layer_3",
+              "label": "ReLU"
+            },
+            {
+              "id": "layer_4",
+              "label": "(4, 3)"
+            },
+            {
+              "id": "layer_5",
+              "label": "Linear(3, 1)"
+            },
+            {
+              "id": "layer_6",
+              "label": "(4, 1)",
+              "fields": [
+                "The supplied contract has an unconstrained final output"
+              ]
+            }
+          ],
+          "edges": [
+            {
+              "from": "layer_0",
+              "to": "layer_1",
+              "directed": true
+            },
+            {
+              "from": "layer_1",
+              "to": "layer_2",
+              "directed": true
+            },
+            {
+              "from": "layer_2",
+              "to": "layer_3",
+              "directed": true
+            },
+            {
+              "from": "layer_3",
+              "to": "layer_4",
+              "directed": true
+            },
+            {
+              "from": "layer_4",
+              "to": "layer_5",
+              "directed": true
+            },
+            {
+              "from": "layer_5",
+              "to": "layer_6",
+              "directed": true
+            }
+          ],
+          "layout": "auto",
+          "alt_text": "Make the fixture dimension chain visible: (4, 2) → Linear(2, 3) → (4, 3) → ReLU → (4, 3) → Linear(3, 1) → (4, 1). Annotate the preserved minibatch dimension and the supplied contract's unconstrained final output.",
+          "lineage": {
+            "concept_ids": [
+              "mle.neural_model_definition"
+            ],
+            "teaching_block_ids": [
+              "mle.neural_model_definition#tb1",
+              "mle.neural_model_definition#tb2",
+              "mle.neural_model_definition#tb3"
+            ],
+            "fact_ids": [
+              "mle.neural_model_definition#f1",
+              "mle.neural_model_definition#f2",
+              "mle.neural_model_definition#f3",
+              "mle.neural_model_definition#f4",
+              "mle.neural_model_definition#f5"
+            ],
+            "segment_ids": [],
+            "anchors": [
+              "mle.neural_model_definition#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.035_037.s12",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.neural_model_definition"
+      ],
+      "title": "Define a neural network with task-compatible layers and activations",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.neural_model_definition"
+        ],
+        "teaching_block_ids": [
+          "mle.neural_model_definition#tb4"
+        ],
+        "fact_ids": [
+          "mle.neural_model_definition#f1",
+          "mle.neural_model_definition#f2",
+          "mle.neural_model_definition#f3",
+          "mle.neural_model_definition#f4",
+          "mle.neural_model_definition#f5"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "The supplied fixture has four observations with two features, and the declared model uses widths 2 → 3 → 1. The first linear layer maps each two-feature vector to three outputs; ReLU applies its elementwise nonlinearity; the final linear layer maps three to one. The expected output shape is (4, 1), preserving the minibatch length. Register layers as attributes in an nn.Module subclass and implement forward, or use the supplied Sequential composition. Verify the final activation against the task contract rather than adding one from habit.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.neural_model_definition"
+            ],
+            "teaching_block_ids": [
+              "mle.neural_model_definition#tb4"
+            ],
+            "fact_ids": [
+              "mle.neural_model_definition#f1",
+              "mle.neural_model_definition#f2",
+              "mle.neural_model_definition#f3",
+              "mle.neural_model_definition#f4",
+              "mle.neural_model_definition#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A width mismatch between the intermediate output and the next input is a contract problem, not something a different batch size fixes.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.neural_model_definition"
+            ],
+            "teaching_block_ids": [
+              "mle.neural_model_definition#tb4"
+            ],
+            "fact_ids": [
+              "mle.neural_model_definition#f1",
+              "mle.neural_model_definition#f2",
+              "mle.neural_model_definition#f3",
+              "mle.neural_model_definition#f4",
+              "mle.neural_model_definition#f5"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.035_037.s13",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.neural_model_definition"
+      ],
+      "title": "Define a neural network with task-compatible layers and activations",
+      "eyebrow": "Learn",
+      "lineage": {
+        "concept_ids": [
+          "mle.neural_model_definition"
+        ],
+        "teaching_block_ids": [
+          "mle.neural_model_definition#tb5"
+        ],
+        "fact_ids": [
+          "mle.neural_model_definition#f2",
+          "mle.neural_model_definition#f4",
+          "mle.neural_model_definition#f5"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "A valid layer call is not enough: adjacent widths and the final output contract must match.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.neural_model_definition"
+            ],
+            "teaching_block_ids": [
+              "mle.neural_model_definition#tb5"
+            ],
+            "fact_ids": [
+              "mle.neural_model_definition#f2",
+              "mle.neural_model_definition#f4",
+              "mle.neural_model_definition#f5"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.035_037.s14",
+      "type": "check",
+      "concept_ids": [
+        "mle.neural_model_definition"
+      ],
+      "title": "Check: Build a minimal module whose layer widths, nonlinearity and output shape satisfy the task.",
+      "eyebrow": "Check",
+      "lineage": {
+        "concept_ids": [
+          "mle.neural_model_definition"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.neural_model_definition#f5"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.neural_model_definition#assessment:verify_task_compatible_output_width_activation_and_shape"
+        ]
+      },
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.mle.tile.035_037.s14",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.neural_model_definition",
+            "capability": "verify_task_compatible_output_width_activation_and_shape",
+            "fact_ids": [
+              "f5"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.neural_model_definition#assessment:verify_task_compatible_output_width_activation_and_shape"
+        ],
+        "public": {
+          "prompt": "The declared contract is unconstrained outputs of shape (4, 1) for a (4, 2) input through widths 2 → 3 → 1. Which final arrangement satisfies it?",
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Linear(2, 3), ReLU(), Linear(2, 1)."
+            },
+            {
+              "option_id": "o2",
+              "text": "Linear(2, 3), ReLU(), Linear(3, 1), ReLU()."
+            },
+            {
+              "option_id": "o3",
+              "text": "Linear(2, 3), ReLU(), Linear(3, 1), with no final activation."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o3"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "The intermediate output width is three, but the next layer expects two."
+            },
+            "o2": {
+              "message": "A final ReLU constrains outputs despite the stated unconstrained contract."
+            },
+            "o3": {
+              "message": "This follows the stated contract."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "Correct. Linear(2, 3), ReLU(), Linear(3, 1), with no final activation."
+          },
+          "incorrect": {
+            "message": "Recheck the stated contract. The intermediate output width is three, but the next layer expects two. A final ReLU constrains outputs despite the stated unconstrained contract."
+          },
+          "hints": [
+            "Trace the intermediate width, then check the final value contract."
+          ],
+          "remediation_step_id": "mle.tile.035_037.r05"
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.035_037.s15",
+      "type": "hands_on",
+      "concept_ids": [
+        "mle.neural_model_definition"
+      ],
+      "title": "Apply: Build a minimal module whose layer widths, nonlinearity and output shape satisfy the task.",
+      "eyebrow": "Apply",
+      "lineage": {
+        "concept_ids": [
+          "mle.neural_model_definition"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.neural_model_definition#f1",
+          "mle.neural_model_definition#f2",
+          "mle.neural_model_definition#f3",
+          "mle.neural_model_definition#f4",
+          "mle.neural_model_definition#f5"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.neural_model_definition#practice",
+          "mle.neural_model_definition#assessment:verify_module_definition_and_layer_registration",
+          "mle.neural_model_definition#assessment:verify_layer_widths_and_intermediate_activation",
+          "mle.neural_model_definition#assessment:verify_task_compatible_output_width_activation_and_shape"
+        ]
+      },
+      "interaction": {
+        "type": "classify",
+        "interaction_id": "ix.mle.tile.035_037.s15",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.neural_model_definition",
+            "capability": "verify_module_definition_and_layer_registration",
+            "fact_ids": [
+              "f1"
+            ]
+          },
+          {
+            "concept_id": "mle.neural_model_definition",
+            "capability": "verify_layer_widths_and_intermediate_activation",
+            "fact_ids": [
+              "f2",
+              "f3",
+              "f4"
+            ]
+          },
+          {
+            "concept_id": "mle.neural_model_definition",
+            "capability": "verify_task_compatible_output_width_activation_and_shape",
+            "fact_ids": [
+              "f5"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.neural_model_definition#practice",
+          "mle.neural_model_definition#assessment:verify_module_definition_and_layer_registration",
+          "mle.neural_model_definition#assessment:verify_layer_widths_and_intermediate_activation",
+          "mle.neural_model_definition#assessment:verify_task_compatible_output_width_activation_and_shape"
+        ],
+        "public": {
+          "prompt": "For four two-feature observations, review model definitions against widths 2 → 3 → 1, ReLU between linear layers and an unconstrained final output. A builder must return a registered nn.Module with an implemented forward method. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+          "buckets": [
+            {
+              "bucket_id": "supported",
+              "label": "Supported by the contract"
+            },
+            {
+              "bucket_id": "defective",
+              "label": "Defective claim or implementation"
+            }
+          ],
+          "items": [
+            {
+              "item_id": "e1",
+              "text": "import torch.nn as nn\nclass OrderModel(nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.layers = nn.Sequential(nn.Linear(2, 3), nn.ReLU(), nn.Linear(3, 1))\n    def forward(self, x):\n        return self.layers(x)\ndef build_model():\n    return OrderModel()\n# Fixture assertion: model(features).shape == (4, 1)"
+            },
+            {
+              "item_id": "e2",
+              "text": "self.layers = nn.Sequential(nn.Linear(2, 3), nn.ReLU(), nn.Linear(2, 1))\n# All other subclass and builder details are as required."
+            },
+            {
+              "item_id": "e3",
+              "text": "self.layers = nn.Sequential(nn.Linear(2, 3), nn.Linear(3, 1))\n# All other subclass and builder details are as required."
+            }
+          ]
+        },
+        "grading": {
+          "assignments": {
+            "e1": "supported",
+            "e2": "defective",
+            "e3": "defective"
+          },
+          "item_feedback": {
+            "e1": {
+              "message": "The subclass initializes its parent, registers its composition, implements forward and preserves the batch dimension with the required widths and final output."
+            },
+            "e2": {
+              "message": "The second linear layer expects two inputs but receives three."
+            },
+            "e3": {
+              "message": "This omits the required intermediate nonlinearity."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+          },
+          "incorrect": {
+            "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+          },
+          "hints": [
+            "Trace both registration and the dimension chain."
+          ],
+          "remediation_step_id": "mle.tile.035_037.r06"
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.035_037.s16",
+      "type": "recap",
+      "concept_ids": [
+        "mle.pytorch_input_tensors",
+        "mle.dataset_minibatch_loader",
+        "mle.neural_model_definition"
+      ],
+      "title": "Keep these contracts together",
+      "eyebrow": "Takeaways",
+      "lineage": {
+        "concept_ids": [
+          "mle.pytorch_input_tensors",
+          "mle.dataset_minibatch_loader",
+          "mle.neural_model_definition"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Check separate tensor shapes and dtypes, preserve paired observations through minibatches, and match layer widths and outputs to the task contract.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "mle.pytorch_input_tensors",
+              "mle.dataset_minibatch_loader",
+              "mle.neural_model_definition"
+            ],
+            "fact_ids": [
+              "mle.pytorch_input_tensors#f1",
+              "mle.pytorch_input_tensors#f2",
+              "mle.pytorch_input_tensors#f4",
+              "mle.pytorch_input_tensors#f5",
+              "mle.dataset_minibatch_loader#f1",
+              "mle.dataset_minibatch_loader#f2",
+              "mle.dataset_minibatch_loader#f3",
+              "mle.dataset_minibatch_loader#f4",
+              "mle.dataset_minibatch_loader#f5",
+              "mle.dataset_minibatch_loader#f6",
+              "mle.neural_model_definition#f1",
+              "mle.neural_model_definition#f2",
+              "mle.neural_model_definition#f3",
+              "mle.neural_model_definition#f4",
+              "mle.neural_model_definition#f5"
+            ],
+            "teaching_block_ids": [
+              "mle.pytorch_input_tensors#tb2",
+              "mle.pytorch_input_tensors#tb3",
+              "mle.dataset_minibatch_loader#tb2",
+              "mle.dataset_minibatch_loader#tb3",
+              "mle.neural_model_definition#tb2",
+              "mle.neural_model_definition#tb3"
+            ]
+          }
+        },
+        {
+          "type": "up_next",
+          "title": "Compute neural-network gradients with automatic differentiation",
+          "text": "Next: mle.tile.038_040"
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "mle.tile.035_037.r01",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.pytorch_input_tensors"
+      ],
+      "title": "Recheck: Convert aligned feature/target arrays into tensors with explicitly checked shape and dtype.",
+      "eyebrow": "One clear contrast",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Assert the declared feature and target axis lengths and their common batch length, and return the aligned tensors as a tuple.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.pytorch_input_tensors"
+            ],
+            "teaching_block_ids": [
+              "mle.pytorch_input_tensors#tb2"
+            ],
+            "fact_ids": [
+              "mle.pytorch_input_tensors#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Use assert predicates on valid, boundary and failure fixtures. A false predicate raises AssertionError during ordinary non-optimized execution.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.pytorch_input_tensors"
+            ],
+            "teaching_block_ids": [
+              "mle.pytorch_input_tensors#tb3"
+            ],
+            "fact_ids": [
+              "mle.pytorch_input_tensors#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Conversion alone is not a contract check. Use the declared target dtype; matching-looking values cannot fix different batch lengths.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.pytorch_input_tensors"
+            ],
+            "teaching_block_ids": [
+              "mle.pytorch_input_tensors#tb5"
+            ],
+            "fact_ids": [
+              "mle.pytorch_input_tensors#f2",
+              "mle.pytorch_input_tensors#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "In the supplied fixture, features have shape (4, 2), and the declared targets have shape (4,).",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.pytorch_input_tensors"
+            ],
+            "teaching_block_ids": [
+              "mle.pytorch_input_tensors#tb4"
+            ],
+            "fact_ids": [
+              "mle.pytorch_input_tensors#f1",
+              "mle.pytorch_input_tensors#f2",
+              "mle.pytorch_input_tensors#f4",
+              "mle.pytorch_input_tensors#f5"
+            ],
+            "anchors": []
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.pytorch_input_tensors"
+        ],
+        "teaching_block_ids": [
+          "mle.pytorch_input_tensors#tb2",
+          "mle.pytorch_input_tensors#tb3"
+        ],
+        "fact_ids": [
+          "mle.pytorch_input_tensors#f4",
+          "mle.pytorch_input_tensors#f5"
+        ],
+        "anchors": []
+      }
+    },
+    {
+      "step_id": "mle.tile.035_037.r02",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.dataset_minibatch_loader"
+      ],
+      "title": "Recheck: Implement a dataset/loader that preserves sample identity and minibatch alignment.",
+      "eyebrow": "One clear contrast",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Construct DataLoader(dataset, batch_size=declared_size, shuffle=declared_order_policy) and iterate for features, targets in loader.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.dataset_minibatch_loader"
+            ],
+            "teaching_block_ids": [
+              "mle.dataset_minibatch_loader#tb2"
+            ],
+            "fact_ids": [
+              "mle.dataset_minibatch_loader#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "The loader groups observation items into minibatches while preserving the feature/target relationship within each item.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.dataset_minibatch_loader"
+            ],
+            "teaching_block_ids": [
+              "mle.dataset_minibatch_loader#tb3"
+            ],
+            "fact_ids": [
+              "mle.dataset_minibatch_loader#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Shuffling must not separate a feature from its target. The last batch size depends on the declared drop_last policy.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.dataset_minibatch_loader"
+            ],
+            "teaching_block_ids": [
+              "mle.dataset_minibatch_loader#tb5"
+            ],
+            "fact_ids": [
+              "mle.dataset_minibatch_loader#f2",
+              "mle.dataset_minibatch_loader#f4",
+              "mle.dataset_minibatch_loader#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For five indexed observations and batch_size 2, a fixture with drop_last=False retains batches of sizes 2, 2 and 1.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.dataset_minibatch_loader"
+            ],
+            "teaching_block_ids": [
+              "mle.dataset_minibatch_loader#tb4"
+            ],
+            "fact_ids": [
+              "mle.dataset_minibatch_loader#f1",
+              "mle.dataset_minibatch_loader#f2",
+              "mle.dataset_minibatch_loader#f3",
+              "mle.dataset_minibatch_loader#f4",
+              "mle.dataset_minibatch_loader#f5",
+              "mle.dataset_minibatch_loader#f6"
+            ],
+            "anchors": []
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.dataset_minibatch_loader"
+        ],
+        "teaching_block_ids": [
+          "mle.dataset_minibatch_loader#tb2",
+          "mle.dataset_minibatch_loader#tb3"
+        ],
+        "fact_ids": [
+          "mle.dataset_minibatch_loader#f3",
+          "mle.dataset_minibatch_loader#f4"
+        ],
+        "anchors": []
+      }
+    },
+    {
+      "step_id": "mle.tile.035_037.r03",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.neural_model_definition"
+      ],
+      "title": "Recheck: Build a minimal module whose layer widths, nonlinearity and output shape satisfy the task.",
+      "eyebrow": "One clear contrast",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Set the final layer width and activation to the supplied output task contract and verify the resulting output shape with a fixture batch.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.neural_model_definition"
+            ],
+            "teaching_block_ids": [
+              "mle.neural_model_definition#tb3"
+            ],
+            "fact_ids": [
+              "mle.neural_model_definition#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A valid layer call is not enough: adjacent widths and the final output contract must match.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.neural_model_definition"
+            ],
+            "teaching_block_ids": [
+              "mle.neural_model_definition#tb5"
+            ],
+            "fact_ids": [
+              "mle.neural_model_definition#f2",
+              "mle.neural_model_definition#f4",
+              "mle.neural_model_definition#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "The supplied fixture has four observations with two features, and the declared model uses widths 2 → 3 → 1.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.neural_model_definition"
+            ],
+            "teaching_block_ids": [
+              "mle.neural_model_definition#tb4"
+            ],
+            "fact_ids": [
+              "mle.neural_model_definition#f1",
+              "mle.neural_model_definition#f2",
+              "mle.neural_model_definition#f3",
+              "mle.neural_model_definition#f4",
+              "mle.neural_model_definition#f5"
+            ],
+            "anchors": []
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.neural_model_definition"
+        ],
+        "teaching_block_ids": [
+          "mle.neural_model_definition#tb3"
+        ],
+        "fact_ids": [
+          "mle.neural_model_definition#f5"
+        ],
+        "anchors": []
+      }
+    },
+    {
+      "step_id": "mle.tile.035_037.r04",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.pytorch_input_tensors"
+      ],
+      "title": "Recheck: Convert aligned feature/target arrays into tensors with explicitly checked shape and dtype.",
+      "eyebrow": "One clear contrast",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Use import torch and torch.from_numpy(array) to construct tensors from the supplied NumPy feature and target arrays.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.pytorch_input_tensors"
+            ],
+            "teaching_block_ids": [
+              "mle.pytorch_input_tensors#tb2"
+            ],
+            "fact_ids": [
+              "mle.pytorch_input_tensors#f1"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Convert the feature and target tensors explicitly with tensor.to(dtype=declared_dtype), inspect tensor.shape and tensor.dtype, and verify row correspondence rather than relying on inferred types or deriving target representation from feature dtype.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.pytorch_input_tensors"
+            ],
+            "teaching_block_ids": [
+              "mle.pytorch_input_tensors#tb2"
+            ],
+            "fact_ids": [
+              "mle.pytorch_input_tensors#f2"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Assert the declared feature and target axis lengths and their common batch length, and return the aligned tensors as a tuple.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.pytorch_input_tensors"
+            ],
+            "teaching_block_ids": [
+              "mle.pytorch_input_tensors#tb2"
+            ],
+            "fact_ids": [
+              "mle.pytorch_input_tensors#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Use assert predicates on valid, boundary and failure fixtures. A false predicate raises AssertionError during ordinary non-optimized execution.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.pytorch_input_tensors"
+            ],
+            "teaching_block_ids": [
+              "mle.pytorch_input_tensors#tb3"
+            ],
+            "fact_ids": [
+              "mle.pytorch_input_tensors#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Conversion alone is not a contract check. Use the declared target dtype; matching-looking values cannot fix different batch lengths.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.pytorch_input_tensors"
+            ],
+            "teaching_block_ids": [
+              "mle.pytorch_input_tensors#tb5"
+            ],
+            "fact_ids": [
+              "mle.pytorch_input_tensors#f2",
+              "mle.pytorch_input_tensors#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "In the supplied fixture, features have shape (4, 2), and the declared targets have shape (4,).",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.pytorch_input_tensors"
+            ],
+            "teaching_block_ids": [
+              "mle.pytorch_input_tensors#tb4"
+            ],
+            "fact_ids": [
+              "mle.pytorch_input_tensors#f1",
+              "mle.pytorch_input_tensors#f2",
+              "mle.pytorch_input_tensors#f4",
+              "mle.pytorch_input_tensors#f5"
+            ],
+            "anchors": []
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.pytorch_input_tensors"
+        ],
+        "teaching_block_ids": [
+          "mle.pytorch_input_tensors#tb2",
+          "mle.pytorch_input_tensors#tb3"
+        ],
+        "fact_ids": [
+          "mle.pytorch_input_tensors#f1",
+          "mle.pytorch_input_tensors#f2",
+          "mle.pytorch_input_tensors#f4",
+          "mle.pytorch_input_tensors#f5"
+        ],
+        "anchors": []
+      }
+    },
+    {
+      "step_id": "mle.tile.035_037.r05",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.dataset_minibatch_loader"
+      ],
+      "title": "Recheck: Implement a dataset/loader that preserves sample identity and minibatch alignment.",
+      "eyebrow": "One clear contrast",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "A map-style Dataset implements __len__ for sample count and __getitem__(index) for the corresponding feature/target item.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.dataset_minibatch_loader"
+            ],
+            "teaching_block_ids": [
+              "mle.dataset_minibatch_loader#tb2"
+            ],
+            "fact_ids": [
+              "mle.dataset_minibatch_loader#f1"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For list-based observations, retrieve the feature and target from the same observation index and return them as a tuple.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.dataset_minibatch_loader"
+            ],
+            "teaching_block_ids": [
+              "mle.dataset_minibatch_loader#tb2"
+            ],
+            "fact_ids": [
+              "mle.dataset_minibatch_loader#f2"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Set DataLoader(..., drop_last=True) to discard the last incomplete batch, or drop_last=False (the default) to retain it with fewer samples than batch_size; test the observed batch boundaries against that explicit choice.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.dataset_minibatch_loader"
+            ],
+            "teaching_block_ids": [
+              "mle.dataset_minibatch_loader#tb3"
+            ],
+            "fact_ids": [
+              "mle.dataset_minibatch_loader#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Use assert predicates on valid, boundary and failure fixtures. A false predicate raises AssertionError during ordinary non-optimized execution.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.dataset_minibatch_loader"
+            ],
+            "teaching_block_ids": [
+              "mle.dataset_minibatch_loader#tb3"
+            ],
+            "fact_ids": [
+              "mle.dataset_minibatch_loader#f6"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Shuffling must not separate a feature from its target. The last batch size depends on the declared drop_last policy.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.dataset_minibatch_loader"
+            ],
+            "teaching_block_ids": [
+              "mle.dataset_minibatch_loader#tb5"
+            ],
+            "fact_ids": [
+              "mle.dataset_minibatch_loader#f2",
+              "mle.dataset_minibatch_loader#f4",
+              "mle.dataset_minibatch_loader#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For five indexed observations and batch_size 2, a fixture with drop_last=False retains batches of sizes 2, 2 and 1.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.dataset_minibatch_loader"
+            ],
+            "teaching_block_ids": [
+              "mle.dataset_minibatch_loader#tb4"
+            ],
+            "fact_ids": [
+              "mle.dataset_minibatch_loader#f1",
+              "mle.dataset_minibatch_loader#f2",
+              "mle.dataset_minibatch_loader#f3",
+              "mle.dataset_minibatch_loader#f4",
+              "mle.dataset_minibatch_loader#f5",
+              "mle.dataset_minibatch_loader#f6"
+            ],
+            "anchors": []
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.dataset_minibatch_loader"
+        ],
+        "teaching_block_ids": [
+          "mle.dataset_minibatch_loader#tb2",
+          "mle.dataset_minibatch_loader#tb3"
+        ],
+        "fact_ids": [
+          "mle.dataset_minibatch_loader#f1",
+          "mle.dataset_minibatch_loader#f2",
+          "mle.dataset_minibatch_loader#f5",
+          "mle.dataset_minibatch_loader#f6"
+        ],
+        "anchors": []
+      }
+    },
+    {
+      "step_id": "mle.tile.035_037.r06",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.neural_model_definition"
+      ],
+      "title": "Recheck: Build a minimal module whose layer widths, nonlinearity and output shape satisfy the task.",
+      "eyebrow": "One clear contrast",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Import torch.nn as nn and define an nn.Module subclass with super().__init__(), registered layer attributes and a forward(self, x) method.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.neural_model_definition"
+            ],
+            "teaching_block_ids": [
+              "mle.neural_model_definition#tb2"
+            ],
+            "fact_ids": [
+              "mle.neural_model_definition#f1"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "nn.Linear(in_features, out_features) maps each input feature vector to out_features outputs using learned weights and bias, preserving the leading minibatch dimension.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.neural_model_definition"
+            ],
+            "teaching_block_ids": [
+              "mle.neural_model_definition#tb2"
+            ],
+            "fact_ids": [
+              "mle.neural_model_definition#f2"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "nn.ReLU applies max(0, x) elementwise and introduces a nonlinearity between linear layers.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.neural_model_definition"
+            ],
+            "teaching_block_ids": [
+              "mle.neural_model_definition#tb2"
+            ],
+            "fact_ids": [
+              "mle.neural_model_definition#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "nn.Sequential composes its modules in declared order; match each layer’s output width to the next layer’s input width.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.neural_model_definition"
+            ],
+            "teaching_block_ids": [
+              "mle.neural_model_definition#tb3"
+            ],
+            "fact_ids": [
+              "mle.neural_model_definition#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Set the final layer width and activation to the supplied output task contract and verify the resulting output shape with a fixture batch.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.neural_model_definition"
+            ],
+            "teaching_block_ids": [
+              "mle.neural_model_definition#tb3"
+            ],
+            "fact_ids": [
+              "mle.neural_model_definition#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A valid layer call is not enough: adjacent widths and the final output contract must match.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.neural_model_definition"
+            ],
+            "teaching_block_ids": [
+              "mle.neural_model_definition#tb5"
+            ],
+            "fact_ids": [
+              "mle.neural_model_definition#f2",
+              "mle.neural_model_definition#f4",
+              "mle.neural_model_definition#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "The supplied fixture has four observations with two features, and the declared model uses widths 2 → 3 → 1.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.neural_model_definition"
+            ],
+            "teaching_block_ids": [
+              "mle.neural_model_definition#tb4"
+            ],
+            "fact_ids": [
+              "mle.neural_model_definition#f1",
+              "mle.neural_model_definition#f2",
+              "mle.neural_model_definition#f3",
+              "mle.neural_model_definition#f4",
+              "mle.neural_model_definition#f5"
+            ],
+            "anchors": []
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.neural_model_definition"
+        ],
+        "teaching_block_ids": [
+          "mle.neural_model_definition#tb2",
+          "mle.neural_model_definition#tb3"
+        ],
+        "fact_ids": [
+          "mle.neural_model_definition#f1",
+          "mle.neural_model_definition#f2",
+          "mle.neural_model_definition#f3",
+          "mle.neural_model_definition#f4",
+          "mle.neural_model_definition#f5"
+        ],
+        "anchors": []
+      }
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "mle.tile.038_040"
+  },
+  "content_hash": "4ca07225c2b53c888b38e3c168795986b6550db180015f9a2d9ec9c1e40f81ce"
+}

@@ -1,0 +1,2262 @@
+{
+  "code": {
+    "mle.distribution_monitoring": {
+      "type": "code_exercise",
+      "public": {
+        "prompt": "Complete the single monitoring record for reference.csv and production.csv. Use the supplied reference and production window, fixed edges and declared category/class order. Include numeric eligible counts, bin proportions, category and predicted-class probabilities including absent categories, and numeric mean/std with ddof=0 for each window. Retain definitions and totals. Do not infer quality loss.\nRuntime note: the formulas/contract operations are supplied as scaffolding. Repair their execution order so inputs and intermediate values exist before use and the final report is assembled last. Keep formulas and fixed policy fields unchanged. Inspect the resulting report against the task contract.",
+        "runtime": {
+          "kind": "python",
+          "version": "0.29.5",
+          "packages": [
+            "numpy"
+          ]
+        },
+        "workspace": {
+          "entry": "main.py",
+          "files": [
+            {
+              "path": "main.py",
+              "role": "editable",
+              "language": "python",
+              "content": "# Supplied fixture infrastructure; learner edits only the statements below.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'reference': {'numeric_values': 'number', 'category': 'string', 'predicted_class': 'string'}, 'production': {'numeric_values': 'number', 'category': 'string', 'predicted_class': 'string'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\n\"\nexec(_fixture_support)\npolicy = {'reference_id': 'reference', 'production_window': {'start': '2026-01-02T10:00:00Z', 'end': '2026-01-02T11:00:00Z'}, 'fixed_edges': [0, 5, 10], 'eligible_numeric_range': [0, 10], 'declared_categories': ['short_distance', 'long_distance', 'not_reported'], 'declared_classes': ['on_time', 'late', 'abstain'], 'ddof': 0, 'window_membership': 'All rows of production.csv are in the declared bounded window; reference.csv is the approved reference. Alternate fixtures are independent windows.', 'summary_client': 'from summary_client import emit; emit(record) appends a single JSON record to summary.jsonl'}\nreference = load('reference')\nproduction = load('production')\nr = column(reference,'numeric_values')\np = column(production,'numeric_values')\nrc = column(reference,'category')\npc = column(production,'category')\nrpred = column(reference,'predicted_class')\nppred = column(production,'predicted_class')\nfixed_edges = np.asarray(policy['fixed_edges'])\ncategory_names = np.asarray(policy['declared_categories'])\nclass_names = np.asarray(policy['declared_classes'])\n# Repair dependency order of these supplied statements; do not change formulas.\nreport = {'definitions':policy,'reference':{'eligible':r_count,'bins':r_bins,'category':r_category,'classes':r_class,'mean':r_mean,'std':r_std},'production':{'eligible':p_count,'bins':p_bins,'category':p_category,'classes':p_class,'mean':p_mean,'std':p_std}}\n\np_std = np.std(p, ddof=0)\n\nr_std = np.std(r, ddof=0)\n\np_mean = np.mean(p)\n\nr_mean = np.mean(r)\n\np_class = np.sum(ppred[:, None] == class_names, axis=0) / len(ppred)\n\nr_class = np.sum(rpred[:, None] == class_names, axis=0) / len(rpred)\n\np_category = np.sum(pc[:, None] == category_names, axis=0) / len(pc)\n\nr_category = np.sum(rc[:, None] == category_names, axis=0) / len(rc)\n\np_bins = np.histogram(p, bins=fixed_edges)[0] / p_count\n\nr_bins = np.histogram(r, bins=fixed_edges)[0] / r_count\n\np_count = len(p)\n\nr_count = len(r)\n"
+            }
+          ],
+          "asset_mounts": [
+            {
+              "asset_id": "ds.reference",
+              "mount_path": "reference.csv"
+            },
+            {
+              "asset_id": "ds.production",
+              "mount_path": "production.csv"
+            }
+          ]
+        },
+        "constraints": {
+          "allowed_syntax": [
+            "import numpy as np",
+            "imports for client dependencies identified by the supplied scaffolding",
+            "def",
+            "return",
+            "variable assignment",
+            "function parameters and calls",
+            "for loops",
+            "if statements",
+            "lists and dictionaries",
+            "numeric and string literals",
+            "array indexing and Boolean masks",
+            "array comparisons",
+            "arithmetic operators",
+            "len",
+            "np.asarray",
+            "np.histogram(values, bins=fixed_edges)",
+            "np.mean(numeric_values)",
+            "np.std(numeric_values, ddof=0)",
+            "np.std(numeric_values, ddof=1)",
+            "np.sum",
+            "summary-emission calls defined by the supplied client contract"
+          ],
+          "blocked_syntax": [
+            "scipy.stats.ks_2samp",
+            "scipy.stats.chisquare",
+            "scipy.stats.wasserstein_distance"
+          ]
+        }
+      },
+      "grading": {
+        "solution_files": [
+          {
+            "path": "main.py",
+            "content": "# Supplied fixture infrastructure; learner edits only the statements below.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'reference': {'numeric_values': 'number', 'category': 'string', 'predicted_class': 'string'}, 'production': {'numeric_values': 'number', 'category': 'string', 'predicted_class': 'string'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\n\"\nexec(_fixture_support)\npolicy = {'reference_id': 'reference', 'production_window': {'start': '2026-01-02T10:00:00Z', 'end': '2026-01-02T11:00:00Z'}, 'fixed_edges': [0, 5, 10], 'eligible_numeric_range': [0, 10], 'declared_categories': ['short_distance', 'long_distance', 'not_reported'], 'declared_classes': ['on_time', 'late', 'abstain'], 'ddof': 0, 'window_membership': 'All rows of production.csv are in the declared bounded window; reference.csv is the approved reference. Alternate fixtures are independent windows.', 'summary_client': 'from summary_client import emit; emit(record) appends a single JSON record to summary.jsonl'}\nreference = load('reference')\nproduction = load('production')\nr = column(reference,'numeric_values')\np = column(production,'numeric_values')\nrc = column(reference,'category')\npc = column(production,'category')\nrpred = column(reference,'predicted_class')\nppred = column(production,'predicted_class')\nfixed_edges = np.asarray(policy['fixed_edges'])\ncategory_names = np.asarray(policy['declared_categories'])\nclass_names = np.asarray(policy['declared_classes'])\nr_count = len(r)\n\np_count = len(p)\n\nr_bins = np.histogram(r, bins=fixed_edges)[0] / r_count\n\np_bins = np.histogram(p, bins=fixed_edges)[0] / p_count\n\nr_category = np.sum(rc[:, None] == category_names, axis=0) / len(rc)\n\np_category = np.sum(pc[:, None] == category_names, axis=0) / len(pc)\n\nr_class = np.sum(rpred[:, None] == class_names, axis=0) / len(rpred)\n\np_class = np.sum(ppred[:, None] == class_names, axis=0) / len(ppred)\n\nr_mean = np.mean(r)\n\np_mean = np.mean(p)\n\nr_std = np.std(r, ddof=0)\n\np_std = np.std(p, ddof=0)\n\nreport = {'definitions':policy,'reference':{'eligible':r_count,'bins':r_bins,'category':r_category,'classes':r_class,'mean':r_mean,'std':r_std},'production':{'eligible':p_count,'bins':p_bins,'category':p_category,'classes':p_class,'mean':p_mean,'std':p_std}}\n"
+          }
+        ],
+        "tests": [
+          {
+            "test_id": "report",
+            "kind": "value_equals",
+            "spec": {
+              "expr": "report",
+              "expected": {
+                "definitions": {
+                  "reference_id": "reference",
+                  "production_window": {
+                    "start": "2026-01-02T10:00:00Z",
+                    "end": "2026-01-02T11:00:00Z"
+                  },
+                  "fixed_edges": [
+                    0,
+                    5,
+                    10
+                  ],
+                  "eligible_numeric_range": [
+                    0,
+                    10
+                  ],
+                  "declared_categories": [
+                    "short_distance",
+                    "long_distance",
+                    "not_reported"
+                  ],
+                  "declared_classes": [
+                    "on_time",
+                    "late",
+                    "abstain"
+                  ],
+                  "ddof": 0,
+                  "window_membership": "All rows of production.csv are in the declared bounded window; reference.csv is the approved reference. Alternate fixtures are independent windows.",
+                  "summary_client": "from summary_client import emit; emit(record) appends a single JSON record to summary.jsonl"
+                },
+                "reference": {
+                  "eligible": 100,
+                  "bins": [
+                    0.45,
+                    0.55
+                  ],
+                  "category": [
+                    0.6,
+                    0.4,
+                    0
+                  ],
+                  "classes": [
+                    0.75,
+                    0.25,
+                    0
+                  ],
+                  "mean": 4.96,
+                  "std": 2.5996922894835075
+                },
+                "production": {
+                  "eligible": 100,
+                  "bins": [
+                    0.45,
+                    0.55
+                  ],
+                  "category": [
+                    0.3,
+                    0.7,
+                    0
+                  ],
+                  "classes": [
+                    0.75,
+                    0.25,
+                    0
+                  ],
+                  "mean": 4.96,
+                  "std": 2.5996922894835075
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "mle.data_drift_detection": {
+      "type": "code_exercise",
+      "public": {
+        "prompt": "Complete the aligned feature drift report for reference.csv and production.csv. Retain declared reference/window, bin edges, category order and eligibility. Compute numeric means and population std; normalize categorical counts and fixed numerical-bin counts by each window total. For each feature calculate the supplied distance 0.5*sum(abs(p_ref-p_prod)); flag only distance>0.20, not equality. Report both decisions as distribution differences, never inferred quality loss.\nRuntime note: the formulas/contract operations are supplied as scaffolding. Repair their execution order so inputs and intermediate values exist before use and the final report is assembled last. Keep formulas and fixed policy fields unchanged. Inspect the resulting report against the task contract.",
+        "runtime": {
+          "kind": "python",
+          "version": "0.29.5",
+          "packages": [
+            "numpy"
+          ]
+        },
+        "workspace": {
+          "entry": "main.py",
+          "files": [
+            {
+              "path": "main.py",
+              "role": "editable",
+              "language": "python",
+              "content": "# Supplied fixture infrastructure; learner edits only the statements below.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'reference': {'numeric_values': 'number', 'category': 'string', 'predicted_class': 'string'}, 'production': {'numeric_values': 'number', 'category': 'string', 'predicted_class': 'string'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\ndef aligned_counts(data,names):\\n    return np.asarray([np.count_nonzero(column(data,'category')==k) for k in names])\\n\\n\"\nexec(_fixture_support)\npolicy = {'reference_id': 'reference', 'current_id': 'production', 'comparison_window': '2026-01-02T10:00:00Z/2026-01-02T11:00:00Z', 'fixed_edges': [0, 5, 10], 'eligible_numeric_range': [0, 10], 'declared_categories': ['short_distance', 'long_distance', 'not_reported'], 'ddof': 0, 'distance_equation': '0.5 * sum(abs(reference_probability[i]-current_probability[i])) over all aligned positions', 'criterion': 'distance > 0.20; equality is not a crossing', 'numeric_rule': 'Apply the same distance to aligned numerical-bin proportions; retain mean and ddof=0 standard deviation separately', 'quality_claim': 'unresolved without matched labels'}\nthreshold = 0.2\nfactor = 0.5\nreference = load('reference')\nproduction = load('production')\nr = column(reference,'numeric_values')\np = column(production,'numeric_values')\nr_total = len(reference)\np_total = len(production)\nr_counts = aligned_counts(reference,policy['declared_categories'])\np_counts = aligned_counts(production,policy['declared_categories'])\nfixed_edges = np.asarray(policy['fixed_edges'])\nr_bin_counts = np.histogram(r,bins=fixed_edges)[0]\np_bin_counts = np.histogram(p,bins=fixed_edges)[0]\n# Repair dependency order of these supplied statements; do not change formulas.\nreport = {'definitions':policy,'r_total':r_total,'p_total':p_total,'r_mean':r_mean,'p_mean':p_mean,'r_std':r_std,'p_std':p_std,'r_prob':r_prob,'p_prob':p_prob,'r_bin_prob':r_bin_prob,'p_bin_prob':p_bin_prob,'category_distance':distance,'numeric_distance':numeric_distance,'category_drift':category_drift,'numeric_drift':numeric_drift,'interpretation':'distribution difference only'}\n\nnumeric_drift = numeric_distance > threshold\n\ncategory_drift = distance > threshold\n\nnumeric_distance = factor * np.sum(np.abs(p_bin_prob-r_bin_prob))\n\ndistance = factor * np.sum(np.abs(p_prob-r_prob))\n\np_bin_prob = p_bin_counts / p_total\n\nr_bin_prob = r_bin_counts / r_total\n\np_prob = p_counts / p_total\n\nr_prob = r_counts / r_total\n\np_std = np.std(p, ddof=0)\n\nr_std = np.std(r, ddof=0)\n\np_mean = np.mean(p)\n\nr_mean = np.mean(r)\n"
+            }
+          ],
+          "asset_mounts": [
+            {
+              "asset_id": "ds.reference",
+              "mount_path": "reference.csv"
+            },
+            {
+              "asset_id": "ds.production",
+              "mount_path": "production.csv"
+            }
+          ]
+        },
+        "constraints": {
+          "allowed_syntax": [
+            "import numpy as np",
+            "Imports for required dependencies explicitly identified by the supplied infrastructure scaffolding",
+            "def with parameters",
+            "return",
+            "Variable assignment",
+            "Lists and dictionaries",
+            "Array indexing and Boolean masks",
+            "np.asarray(...)",
+            "np.mean(numeric_values)",
+            "np.std(numeric_values, ddof=0)",
+            "np.std(numeric_values, ddof=1) only when the supplied calculation requires the N\u22121 divisor",
+            "np.count_nonzero(...)",
+            "np.sum(...)",
+            "np.abs(...)",
+            "Elementwise arithmetic and broadcasting",
+            "Comparison operators",
+            "Calls to supplied infrastructure interfaces"
+          ],
+          "blocked_syntax": []
+        }
+      },
+      "grading": {
+        "solution_files": [
+          {
+            "path": "main.py",
+            "content": "# Supplied fixture infrastructure; learner edits only the statements below.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'reference': {'numeric_values': 'number', 'category': 'string', 'predicted_class': 'string'}, 'production': {'numeric_values': 'number', 'category': 'string', 'predicted_class': 'string'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\ndef aligned_counts(data,names):\\n    return np.asarray([np.count_nonzero(column(data,'category')==k) for k in names])\\n\\n\"\nexec(_fixture_support)\npolicy = {'reference_id': 'reference', 'current_id': 'production', 'comparison_window': '2026-01-02T10:00:00Z/2026-01-02T11:00:00Z', 'fixed_edges': [0, 5, 10], 'eligible_numeric_range': [0, 10], 'declared_categories': ['short_distance', 'long_distance', 'not_reported'], 'ddof': 0, 'distance_equation': '0.5 * sum(abs(reference_probability[i]-current_probability[i])) over all aligned positions', 'criterion': 'distance > 0.20; equality is not a crossing', 'numeric_rule': 'Apply the same distance to aligned numerical-bin proportions; retain mean and ddof=0 standard deviation separately', 'quality_claim': 'unresolved without matched labels'}\nthreshold = 0.2\nfactor = 0.5\nreference = load('reference')\nproduction = load('production')\nr = column(reference,'numeric_values')\np = column(production,'numeric_values')\nr_total = len(reference)\np_total = len(production)\nr_counts = aligned_counts(reference,policy['declared_categories'])\np_counts = aligned_counts(production,policy['declared_categories'])\nfixed_edges = np.asarray(policy['fixed_edges'])\nr_bin_counts = np.histogram(r,bins=fixed_edges)[0]\np_bin_counts = np.histogram(p,bins=fixed_edges)[0]\nr_mean = np.mean(r)\n\np_mean = np.mean(p)\n\nr_std = np.std(r, ddof=0)\n\np_std = np.std(p, ddof=0)\n\nr_prob = r_counts / r_total\n\np_prob = p_counts / p_total\n\nr_bin_prob = r_bin_counts / r_total\n\np_bin_prob = p_bin_counts / p_total\n\ndistance = factor * np.sum(np.abs(p_prob-r_prob))\n\nnumeric_distance = factor * np.sum(np.abs(p_bin_prob-r_bin_prob))\n\ncategory_drift = distance > threshold\n\nnumeric_drift = numeric_distance > threshold\n\nreport = {'definitions':policy,'r_total':r_total,'p_total':p_total,'r_mean':r_mean,'p_mean':p_mean,'r_std':r_std,'p_std':p_std,'r_prob':r_prob,'p_prob':p_prob,'r_bin_prob':r_bin_prob,'p_bin_prob':p_bin_prob,'category_distance':distance,'numeric_distance':numeric_distance,'category_drift':category_drift,'numeric_drift':numeric_drift,'interpretation':'distribution difference only'}\n"
+          }
+        ],
+        "tests": [
+          {
+            "test_id": "report",
+            "kind": "value_equals",
+            "spec": {
+              "expr": "report",
+              "expected": {
+                "definitions": {
+                  "reference_id": "reference",
+                  "current_id": "production",
+                  "comparison_window": "2026-01-02T10:00:00Z/2026-01-02T11:00:00Z",
+                  "fixed_edges": [
+                    0,
+                    5,
+                    10
+                  ],
+                  "eligible_numeric_range": [
+                    0,
+                    10
+                  ],
+                  "declared_categories": [
+                    "short_distance",
+                    "long_distance",
+                    "not_reported"
+                  ],
+                  "ddof": 0,
+                  "distance_equation": "0.5 * sum(abs(reference_probability[i]-current_probability[i])) over all aligned positions",
+                  "criterion": "distance > 0.20; equality is not a crossing",
+                  "numeric_rule": "Apply the same distance to aligned numerical-bin proportions; retain mean and ddof=0 standard deviation separately",
+                  "quality_claim": "unresolved without matched labels"
+                },
+                "r_total": 100,
+                "p_total": 100,
+                "r_mean": 4.96,
+                "p_mean": 4.96,
+                "r_std": 2.5996922894835075,
+                "p_std": 2.5996922894835075,
+                "r_prob": [
+                  0.6,
+                  0.4,
+                  0
+                ],
+                "p_prob": [
+                  0.3,
+                  0.7,
+                  0
+                ],
+                "r_bin_prob": [
+                  0.45,
+                  0.55
+                ],
+                "p_bin_prob": [
+                  0.45,
+                  0.55
+                ],
+                "category_distance": 0.29999999999999993,
+                "numeric_distance": 0,
+                "category_drift": true,
+                "numeric_drift": false,
+                "interpretation": "distribution difference only"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "mle.delayed_label_quality": {
+      "type": "code_exercise",
+      "public": {
+        "prompt": "Implement the fixed prediction cohort join and its mature-label report. Preserve original prediction timestamps and membership. Reject duplicate label IDs, list unmatched labels, exclude labels after the cutoff or predictions below maturity age, and retain all eligible cohort IDs in the coverage denominator. Compute matched errors/eligible mature IDs and mean/std(ddof=0) of mature losses. Scope the result to mature matched traffic, not all traffic.\nRuntime note: the formulas/contract operations are supplied as scaffolding. Repair their execution order so inputs and intermediate values exist before use and the final report is assembled last. Keep formulas and fixed policy fields unchanged. Inspect the resulting report against the task contract.",
+        "runtime": {
+          "kind": "python",
+          "version": "0.29.5",
+          "packages": [
+            "numpy"
+          ]
+        },
+        "workspace": {
+          "entry": "main.py",
+          "files": [
+            {
+              "path": "main.py",
+              "role": "editable",
+              "language": "python",
+              "content": "# Supplied fixture infrastructure; learner edits only the statements below.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'predictions': {'prediction_id': 'string', 'prediction_timestamp': 'datetime', 'prediction': 'string', 'cohort_id': 'string', 'eligible': 'boolean'}, 'labels': {'prediction_id': 'string', 'label_timestamp': 'datetime', 'label': 'string', 'loss': 'number'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\ndef mature(pred,label,policy):\\n    cutoff=datetime.datetime.fromisoformat(policy['analysis_time'].replace('Z','+00:00'))\\n    pt=datetime.datetime.fromisoformat(pred['prediction_timestamp'].replace('Z','+00:00'))\\n    lt=datetime.datetime.fromisoformat(label['label_timestamp'].replace('Z','+00:00'))\\n    return lt<=cutoff and (cutoff-pt).total_seconds()>=policy['minimum_age_hours']*3600\\n\\n\"\nexec(_fixture_support)\npolicy = {'cohort': 'fixed_100', 'analysis_time': '2026-01-04T00:00:00Z', 'minimum_age_hours': 24, 'label_available_through': '2026-01-04T00:00:00Z', 'duplicate_policy': 'reject repeated prediction or label ID before dictionary construction', 'unmatched_policy': 'exclude and record', 'outside_cohort_policy': 'exclude and record', 'ddof': 0}\npredictions = load('predictions')\nlabels = load('labels')\n# Repair dependency order of these supplied statements; do not change formulas.\nreport = result\n\nresult = {'cohort':policy,'eligible_predictions':eligible,'mature_matched_ids':matched,'unmatched_labels':unmatched,'excluded_labels':excluded,'maturity_coverage':coverage,'error_count':error_count,'error_proportion':error_proportion,'mean_loss':mean_loss,'std_loss':std_loss,'scope':'mature matched cohort only; all traffic quality unestablished'}\n\nstd_loss = np.std(losses, ddof=0)\n\nmean_loss = np.mean(losses)\n\nerror_proportion = error_count / len(matched)\n\nerror_count = sum(errors)\n\ncoverage = len(matched) / len(eligible)\n\nfor label in labels:\n    if label['prediction_id'] not in pred_by_id:\n        unmatched.append(label['prediction_id'])\n    else:\n        pred = pred_by_id[label['prediction_id']]\n        if pred['eligible'] and pred['cohort_id']==policy['cohort'] and mature(pred,label,policy):\n            matched.append(pred['prediction_id'])\n            losses.append(label['loss'])\n            errors.append(pred['prediction'] != label['label'])\n        else:\n            excluded.append(label['prediction_id'])\n\nfor pred in predictions:\n    if pred['eligible'] and pred['cohort_id'] == policy['cohort']:\n        eligible.append({'prediction_id':pred['prediction_id'],'prediction_timestamp':pred['prediction_timestamp']})\n\nexcluded = []\n\nunmatched = []\n\nerrors = []\n\nlosses = []\n\nmatched = []\n\neligible = []\n\nfor label in labels:\n    if label['prediction_id'] in label_by_id:\n        raise ValueError('duplicate label ID')\n    label_by_id[label['prediction_id']] = label\n\nlabel_by_id = {}\n\nfor pred in predictions:\n    if pred['prediction_id'] in pred_by_id:\n        raise ValueError('duplicate prediction ID')\n    pred_by_id[pred['prediction_id']] = pred\n\npred_by_id = {}\n"
+            }
+          ],
+          "asset_mounts": [
+            {
+              "asset_id": "ds.predictions",
+              "mount_path": "predictions.csv"
+            },
+            {
+              "asset_id": "ds.labels",
+              "mount_path": "labels.csv"
+            }
+          ]
+        },
+        "constraints": {
+          "allowed_syntax": [
+            "import numpy as np",
+            "import statements for required supplied library or client dependencies",
+            "def",
+            "return",
+            "variable assignment",
+            "dictionary literals",
+            "dictionary key lookup and assignment",
+            "for loops",
+            "if and else",
+            "membership tests",
+            "comparison operators",
+            "list literals and append",
+            "len",
+            "sum",
+            "arithmetic operators",
+            "numeric literals",
+            "string literals",
+            "np.mean(numeric_values)",
+            "np.std(numeric_values, ddof=0)",
+            "np.std(numeric_values, ddof=1)"
+          ],
+          "blocked_syntax": []
+        }
+      },
+      "grading": {
+        "solution_files": [
+          {
+            "path": "main.py",
+            "content": "# Supplied fixture infrastructure; learner edits only the statements below.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'predictions': {'prediction_id': 'string', 'prediction_timestamp': 'datetime', 'prediction': 'string', 'cohort_id': 'string', 'eligible': 'boolean'}, 'labels': {'prediction_id': 'string', 'label_timestamp': 'datetime', 'label': 'string', 'loss': 'number'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\ndef mature(pred,label,policy):\\n    cutoff=datetime.datetime.fromisoformat(policy['analysis_time'].replace('Z','+00:00'))\\n    pt=datetime.datetime.fromisoformat(pred['prediction_timestamp'].replace('Z','+00:00'))\\n    lt=datetime.datetime.fromisoformat(label['label_timestamp'].replace('Z','+00:00'))\\n    return lt<=cutoff and (cutoff-pt).total_seconds()>=policy['minimum_age_hours']*3600\\n\\n\"\nexec(_fixture_support)\npolicy = {'cohort': 'fixed_100', 'analysis_time': '2026-01-04T00:00:00Z', 'minimum_age_hours': 24, 'label_available_through': '2026-01-04T00:00:00Z', 'duplicate_policy': 'reject repeated prediction or label ID before dictionary construction', 'unmatched_policy': 'exclude and record', 'outside_cohort_policy': 'exclude and record', 'ddof': 0}\npredictions = load('predictions')\nlabels = load('labels')\npred_by_id = {}\n\nfor pred in predictions:\n    if pred['prediction_id'] in pred_by_id:\n        raise ValueError('duplicate prediction ID')\n    pred_by_id[pred['prediction_id']] = pred\n\nlabel_by_id = {}\n\nfor label in labels:\n    if label['prediction_id'] in label_by_id:\n        raise ValueError('duplicate label ID')\n    label_by_id[label['prediction_id']] = label\n\neligible = []\n\nmatched = []\n\nlosses = []\n\nerrors = []\n\nunmatched = []\n\nexcluded = []\n\nfor pred in predictions:\n    if pred['eligible'] and pred['cohort_id'] == policy['cohort']:\n        eligible.append({'prediction_id':pred['prediction_id'],'prediction_timestamp':pred['prediction_timestamp']})\n\nfor label in labels:\n    if label['prediction_id'] not in pred_by_id:\n        unmatched.append(label['prediction_id'])\n    else:\n        pred = pred_by_id[label['prediction_id']]\n        if pred['eligible'] and pred['cohort_id']==policy['cohort'] and mature(pred,label,policy):\n            matched.append(pred['prediction_id'])\n            losses.append(label['loss'])\n            errors.append(pred['prediction'] != label['label'])\n        else:\n            excluded.append(label['prediction_id'])\n\ncoverage = len(matched) / len(eligible)\n\nerror_count = sum(errors)\n\nerror_proportion = error_count / len(matched)\n\nmean_loss = np.mean(losses)\n\nstd_loss = np.std(losses, ddof=0)\n\nresult = {'cohort':policy,'eligible_predictions':eligible,'mature_matched_ids':matched,'unmatched_labels':unmatched,'excluded_labels':excluded,'maturity_coverage':coverage,'error_count':error_count,'error_proportion':error_proportion,'mean_loss':mean_loss,'std_loss':std_loss,'scope':'mature matched cohort only; all traffic quality unestablished'}\n\nreport = result\n"
+          }
+        ],
+        "tests": [
+          {
+            "test_id": "report",
+            "kind": "value_equals",
+            "spec": {
+              "expr": "report",
+              "expected": {
+                "cohort": {
+                  "cohort": "fixed_100",
+                  "analysis_time": "2026-01-04T00:00:00Z",
+                  "minimum_age_hours": 24,
+                  "label_available_through": "2026-01-04T00:00:00Z",
+                  "duplicate_policy": "reject repeated prediction or label ID before dictionary construction",
+                  "unmatched_policy": "exclude and record",
+                  "outside_cohort_policy": "exclude and record",
+                  "ddof": 0
+                },
+                "eligible_predictions": [
+                  {
+                    "prediction_id": "p001",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p002",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p003",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p004",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p005",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p006",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p007",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p008",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p009",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p010",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p011",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p012",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p013",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p014",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p015",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p016",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p017",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p018",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p019",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p020",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p021",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p022",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p023",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p024",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p025",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p026",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p027",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p028",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p029",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p030",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p031",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p032",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p033",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p034",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p035",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p036",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p037",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p038",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p039",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p040",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p041",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p042",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p043",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p044",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p045",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p046",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p047",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p048",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p049",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p050",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p051",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p052",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p053",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p054",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p055",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p056",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p057",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p058",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p059",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p060",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p061",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p062",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p063",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p064",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p065",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p066",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p067",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p068",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p069",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p070",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p071",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p072",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p073",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p074",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p075",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p076",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p077",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p078",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p079",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p080",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p081",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p082",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p083",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p084",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p085",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p086",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p087",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p088",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p089",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p090",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p091",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p092",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p093",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p094",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p095",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p096",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p097",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p098",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p099",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  },
+                  {
+                    "prediction_id": "p100",
+                    "prediction_timestamp": "2026-01-02T10:00:00Z"
+                  }
+                ],
+                "mature_matched_ids": [
+                  "p001",
+                  "p002",
+                  "p003",
+                  "p004",
+                  "p005",
+                  "p006",
+                  "p007",
+                  "p008",
+                  "p009",
+                  "p010",
+                  "p011",
+                  "p012",
+                  "p013",
+                  "p014",
+                  "p015",
+                  "p016",
+                  "p017",
+                  "p018",
+                  "p019",
+                  "p020",
+                  "p021",
+                  "p022",
+                  "p023",
+                  "p024",
+                  "p025",
+                  "p026",
+                  "p027",
+                  "p028",
+                  "p029",
+                  "p030",
+                  "p031",
+                  "p032",
+                  "p033",
+                  "p034",
+                  "p035",
+                  "p036",
+                  "p037",
+                  "p038",
+                  "p039",
+                  "p040",
+                  "p041",
+                  "p042",
+                  "p043",
+                  "p044",
+                  "p045",
+                  "p046",
+                  "p047",
+                  "p048",
+                  "p049",
+                  "p050",
+                  "p051",
+                  "p052",
+                  "p053",
+                  "p054",
+                  "p055",
+                  "p056",
+                  "p057",
+                  "p058",
+                  "p059",
+                  "p060"
+                ],
+                "unmatched_labels": [
+                  "unmatched"
+                ],
+                "excluded_labels": [
+                  "p061"
+                ],
+                "maturity_coverage": 0.6,
+                "error_count": 6,
+                "error_proportion": 0.1,
+                "mean_loss": 0.1,
+                "std_loss": 0.30000000000000004,
+                "scope": "mature matched cohort only; all traffic quality unestablished"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "mle.actionable_ml_alerts": {
+      "type": "code_exercise",
+      "public": {
+        "prompt": "Compute baseline mean and population std from alert_observations.csv. Author the supplied owner/response YAML with threshold baseline mean plus the declared margin, safely dump and reload it. The rule is strict >: assert false below and at equality, true above. Replay all windows and return statistics, reloaded config and breach-only owner/action records.\nRuntime note: the formulas/contract operations are supplied as scaffolding. Repair their execution order so inputs and intermediate values exist before use and the final report is assembled last. Keep formulas and fixed policy fields unchanged. Inspect the resulting report against the task contract.",
+        "runtime": {
+          "kind": "python",
+          "version": "0.29.5",
+          "packages": [
+            "numpy",
+            "pyyaml"
+          ]
+        },
+        "workspace": {
+          "entry": "main.py",
+          "files": [
+            {
+              "path": "main.py",
+              "role": "editable",
+              "language": "python",
+              "content": "# Supplied fixture infrastructure; learner edits only the statements below.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'alert_observations': {'window_id': 'string', 'numeric_values': 'number'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\ndef replay(config,data):\\n    windows={}\\n    for r in data: windows.setdefault(r['window_id'],[]).append(r['numeric_values'])\\n    return [{'window':k,'owner':config['owner'],'response':config['response']} for k,v in windows.items() if k!='baseline' and np.mean(v)>config['threshold']]\\n\\n\"\nexec(_fixture_support)\nimport yaml\npolicy = {'indicator': 'window_mean', 'baseline_window': 'baseline', 'window_rule': 'mean(window)>mean(baseline)+4', 'ddof': 0, 'owner': 'order_oncall', 'response': 'investigate_window', 'expected_replays': {'normal': False, 'boundary': False, 'breached': True}}\ndata = load('alert_observations')\nmargin = 4\nbaseline = np.asarray([r['numeric_values'] for r in data if r['window_id']=='baseline'])\n# Repair dependency order of these supplied statements; do not change formulas.\nreport = {'mean':mean,'std':std,'config':loaded,'records':records}\n\nrecords = replay(loaded,data)\n\nassert (threshold+1 > threshold) == True\n\nassert (threshold > threshold) == False\n\nassert (threshold-1 > threshold) == False\n\nwith open('alert.yaml') as file_handle:\n    loaded = yaml.safe_load(file_handle)\n\nwith open('alert.yaml','w') as file_handle:\n    yaml.safe_dump(config, file_handle)\n\nconfig['threshold'] = float(config['threshold'])\n\nconfig = {'threshold': threshold, 'owner': policy['owner'], 'response': policy['response'], 'ddof': 0}\n\nthreshold = mean + margin\n\nstd = np.std(baseline, ddof=0)\n\nmean = np.mean(baseline)\n"
+            }
+          ],
+          "asset_mounts": [
+            {
+              "asset_id": "ds.alert_observations",
+              "mount_path": "alert_observations.csv"
+            }
+          ]
+        },
+        "constraints": {
+          "allowed_syntax": [
+            "import numpy as np",
+            "import yaml",
+            "variable assignment",
+            "numeric and string literals",
+            "mapping and list literals",
+            "mapping and list indexing",
+            "np.mean(numeric_values)",
+            "np.std(numeric_values, ddof=0)",
+            "np.std(numeric_values, ddof=1) only when the declared calculation requires the N\u22121 divisor",
+            "arithmetic operators",
+            "comparison operators",
+            "Boolean operators",
+            "with open(...) as file_handle",
+            "yaml.safe_dump(config, file_handle)",
+            "yaml.safe_load(file_handle)",
+            "assert predicate",
+            "calls to the supplied existing-runtime replay helper"
+          ],
+          "blocked_syntax": [
+            "yaml.unsafe_load(...)",
+            "yaml.load(..., Loader=yaml.UnsafeLoader)",
+            "invoke_retraining(...)",
+            "promote_retrained_candidate(...)",
+            "delete_serving_resources(...)"
+          ]
+        }
+      },
+      "grading": {
+        "solution_files": [
+          {
+            "path": "main.py",
+            "content": "# Supplied fixture infrastructure; learner edits only the statements below.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'alert_observations': {'window_id': 'string', 'numeric_values': 'number'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\ndef replay(config,data):\\n    windows={}\\n    for r in data: windows.setdefault(r['window_id'],[]).append(r['numeric_values'])\\n    return [{'window':k,'owner':config['owner'],'response':config['response']} for k,v in windows.items() if k!='baseline' and np.mean(v)>config['threshold']]\\n\\n\"\nexec(_fixture_support)\nimport yaml\npolicy = {'indicator': 'window_mean', 'baseline_window': 'baseline', 'window_rule': 'mean(window)>mean(baseline)+4', 'ddof': 0, 'owner': 'order_oncall', 'response': 'investigate_window', 'expected_replays': {'normal': False, 'boundary': False, 'breached': True}}\ndata = load('alert_observations')\nmargin = 4\nbaseline = np.asarray([r['numeric_values'] for r in data if r['window_id']=='baseline'])\nmean = np.mean(baseline)\n\nstd = np.std(baseline, ddof=0)\n\nthreshold = mean + margin\n\nconfig = {'threshold': threshold, 'owner': policy['owner'], 'response': policy['response'], 'ddof': 0}\n\nconfig['threshold'] = float(config['threshold'])\n\nwith open('alert.yaml','w') as file_handle:\n    yaml.safe_dump(config, file_handle)\n\nwith open('alert.yaml') as file_handle:\n    loaded = yaml.safe_load(file_handle)\n\nassert (threshold-1 > threshold) == False\n\nassert (threshold > threshold) == False\n\nassert (threshold+1 > threshold) == True\n\nrecords = replay(loaded,data)\n\nreport = {'mean':mean,'std':std,'config':loaded,'records':records}\n"
+          }
+        ],
+        "tests": [
+          {
+            "test_id": "report",
+            "kind": "value_equals",
+            "spec": {
+              "expr": "report",
+              "expected": {
+                "mean": 4,
+                "std": 1.632993161855452,
+                "config": {
+                  "ddof": 0,
+                  "owner": "order_oncall",
+                  "response": "investigate_window",
+                  "threshold": 8
+                },
+                "records": [
+                  {
+                    "window": "breached",
+                    "owner": "order_oncall",
+                    "response": "investigate_window"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    "mle.production_regression_diagnosis": {
+      "type": "code_exercise",
+      "public": {
+        "prompt": "For every release/cohort in release_evidence.csv, retain client impact/time, compare active versus approved artifact and config, retain schema and distinguishing hypothesis evidence, and compute errors/mature eligible labels only when that denominator is nonzero (otherwise unavailable). Select the supplied evidence-supported response and include its required validation gates. Class mix alone never proves quality loss.\nRuntime note: the formulas/contract operations are supplied as scaffolding. Repair their execution order so inputs and intermediate values exist before use and the final report is assembled last. Keep formulas and fixed policy fields unchanged. Inspect the resulting report against the task contract.",
+        "runtime": {
+          "kind": "python",
+          "version": "0.29.5",
+          "packages": [
+            "numpy"
+          ]
+        },
+        "workspace": {
+          "entry": "main.py",
+          "files": [
+            {
+              "path": "main.py",
+              "role": "editable",
+              "language": "python",
+              "content": "# Supplied fixture infrastructure; learner edits only the statements below.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'release_evidence': {'release_id': 'string', 'cohort_id': 'string', 'timestamp': 'datetime', 'active_artifact': 'string', 'approved_artifact': 'string', 'active_config': 'string', 'approved_config': 'string', 'schema_pass': 'boolean', 'distribution_distance': 'number', 'matched_eligible_labels': 'integer', 'labeled_errors': 'integer', 'client_impact': 'string', 'hypothesis_test': 'string', 'supported_response': 'string'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\n\"\nexec(_fixture_support)\npolicy = {'permitted_responses': ['data_repair', 'approved_rollback', 'gated_retraining'], 'selected_fixture_authorization': 'approved rollback cfg.bad -> cfg.r1 under lab.operator; readiness and bounded prediction gates required', 'quality_denominator': 'matched_eligible_labels; zero means undefined', 'hypothesis': 'configuration mismatch, distinguished by approved-configuration replay'}\ndata = load('release_evidence')\n# Repair dependency order of these supplied statements; do not change formulas.\nreport = results\n\nfor r in data:\n    denominator = r['matched_eligible_labels']\n    rate = None\n    if denominator > 0:\n        rate = r['labeled_errors'] / denominator\n    response = r['supported_response']\n    gates = []\n    if response == 'approved_rollback':\n        gates = ['readiness','bounded prediction']\n    results.append({'release':r['release_id'],'cohort':r['cohort_id'],'time':r['timestamp'],'impact':r['client_impact'],'artifact_match':r['active_artifact']==r['approved_artifact'],'config_match':r['active_config']==r['approved_config'],'schema_pass':r['schema_pass'],'hypothesis_test':r['hypothesis_test'],'distribution_distance':r['distribution_distance'],'denominator':denominator,'errors':r['labeled_errors'],'error_proportion':rate,'response':response,'gates':gates,'scope':'distribution difference alone does not establish quality loss'})\n\nresults = []\n"
+            }
+          ],
+          "asset_mounts": [
+            {
+              "asset_id": "ds.release_evidence",
+              "mount_path": "release_evidence.csv"
+            }
+          ]
+        },
+        "constraints": {
+          "allowed_syntax": [
+            "variable assignment",
+            "numeric, string, Boolean and None literals",
+            "lists and dictionaries",
+            "dictionary indexing",
+            "for loops",
+            "if/elif/else statements",
+            "comparison operators",
+            "Boolean mask operators & and |",
+            "parenthesized expressions",
+            "NumPy array indexing with Boolean masks",
+            "np.count_nonzero(...)",
+            "division guarded by a nonzero denominator",
+            "assert statements"
+          ],
+          "blocked_syntax": [
+            "submit_retraining_job(...)",
+            "promote_retrained_candidate(...)",
+            "delete_serving_resources(...)"
+          ]
+        }
+      },
+      "grading": {
+        "solution_files": [
+          {
+            "path": "main.py",
+            "content": "# Supplied fixture infrastructure; learner edits only the statements below.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'release_evidence': {'release_id': 'string', 'cohort_id': 'string', 'timestamp': 'datetime', 'active_artifact': 'string', 'approved_artifact': 'string', 'active_config': 'string', 'approved_config': 'string', 'schema_pass': 'boolean', 'distribution_distance': 'number', 'matched_eligible_labels': 'integer', 'labeled_errors': 'integer', 'client_impact': 'string', 'hypothesis_test': 'string', 'supported_response': 'string'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\n\"\nexec(_fixture_support)\npolicy = {'permitted_responses': ['data_repair', 'approved_rollback', 'gated_retraining'], 'selected_fixture_authorization': 'approved rollback cfg.bad -> cfg.r1 under lab.operator; readiness and bounded prediction gates required', 'quality_denominator': 'matched_eligible_labels; zero means undefined', 'hypothesis': 'configuration mismatch, distinguished by approved-configuration replay'}\ndata = load('release_evidence')\nresults = []\n\nfor r in data:\n    denominator = r['matched_eligible_labels']\n    rate = None\n    if denominator > 0:\n        rate = r['labeled_errors'] / denominator\n    response = r['supported_response']\n    gates = []\n    if response == 'approved_rollback':\n        gates = ['readiness','bounded prediction']\n    results.append({'release':r['release_id'],'cohort':r['cohort_id'],'time':r['timestamp'],'impact':r['client_impact'],'artifact_match':r['active_artifact']==r['approved_artifact'],'config_match':r['active_config']==r['approved_config'],'schema_pass':r['schema_pass'],'hypothesis_test':r['hypothesis_test'],'distribution_distance':r['distribution_distance'],'denominator':denominator,'errors':r['labeled_errors'],'error_proportion':rate,'response':response,'gates':gates,'scope':'distribution difference alone does not establish quality loss'})\n\nreport = results\n"
+          }
+        ],
+        "tests": [
+          {
+            "test_id": "report",
+            "kind": "value_equals",
+            "spec": {
+              "expr": "report",
+              "expected": [
+                {
+                  "release": "r1",
+                  "cohort": "before",
+                  "time": "2026-01-02T09:00:00Z",
+                  "impact": "baseline",
+                  "artifact_match": true,
+                  "config_match": true,
+                  "schema_pass": true,
+                  "hypothesis_test": "approved configuration reproduces baseline",
+                  "distribution_distance": 0,
+                  "denominator": 60,
+                  "errors": 6,
+                  "error_proportion": 0.1,
+                  "response": "none",
+                  "gates": [],
+                  "scope": "distribution difference alone does not establish quality loss"
+                },
+                {
+                  "release": "r2",
+                  "cohort": "after",
+                  "time": "2026-01-02T11:00:00Z",
+                  "impact": "more incorrect arrival predictions",
+                  "artifact_match": true,
+                  "config_match": false,
+                  "schema_pass": true,
+                  "hypothesis_test": "bad configuration reproduces errors; approved rollback restores baseline",
+                  "distribution_distance": 0.3,
+                  "denominator": 40,
+                  "errors": 12,
+                  "error_proportion": 0.3,
+                  "response": "approved_rollback",
+                  "gates": [
+                    "readiness",
+                    "bounded prediction"
+                  ],
+                  "scope": "distribution difference alone does not establish quality loss"
+                },
+                {
+                  "release": "r2",
+                  "cohort": "incomplete",
+                  "time": "2026-01-03T23:00:00Z",
+                  "impact": "quality unresolved",
+                  "artifact_match": true,
+                  "config_match": false,
+                  "schema_pass": true,
+                  "hypothesis_test": "no mature labels",
+                  "distribution_distance": 0.3,
+                  "denominator": 0,
+                  "errors": 0,
+                  "error_proportion": null,
+                  "response": "investigate",
+                  "gates": [],
+                  "scope": "distribution difference alone does not establish quality loss"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "mle.retrained_candidate_validation": {
+      "type": "code_exercise",
+      "public": {
+        "prompt": "Validate every candidate fixture against its incumbent on the same declared validation cohort. Compute FPR=FP/(FP+TN), FNR=FN/(FN+TP), and P(Y=0)*FPR*cost_FP+P(Y=1)*FNR*cost_FN; empty groups are undefined and reject. Accept only if cost is no above incumbent and all quality, slice, compatibility and exact identity gates pass. Record exact candidate identity, cohort, rates, cost and verdict. Exercise valid, boundary, failing and identity-mismatch cases using the supplied fixtures; never access protected test data.\nRuntime note: the formulas/contract operations are supplied as scaffolding. Repair their execution order so inputs and intermediate values exist before use and the final report is assembled last. Keep formulas and fixed policy fields unchanged. Inspect the resulting report against the task contract.",
+        "runtime": {
+          "kind": "python",
+          "version": "0.29.5",
+          "packages": [
+            "numpy"
+          ]
+        },
+        "workspace": {
+          "entry": "main.py",
+          "files": [
+            {
+              "path": "main.py",
+              "role": "editable",
+              "language": "python",
+              "content": "# Supplied fixture infrastructure; learner edits only the statements below.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'validation_counts': {'fixture': 'string', 'model_role': 'string', 'cohort_id': 'string', 'registry_artifact_id': 'string', 'FP': 'integer', 'TN': 'integer', 'FN': 'integer', 'TP': 'integer', 'slice_pass': 'boolean', 'compatibility_pass': 'boolean'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\ndef rates(r):\\n    fpr = None\\n    fnr = None\\n    cost = None\\n    if r['FP']+r['TN'] > 0 and r['FN']+r['TP'] > 0:\\n        fpr = r['FP']/(r['FP']+r['TN'])\\n        fnr = r['FN']/(r['FN']+r['TP'])\\n        cost = policy['P_Y0']*fpr*policy['cost_FP'] + policy['P_Y1']*fnr*policy['cost_FN']\\n    return {'FPR':fpr,'FNR':fnr,'expected_cost':cost}\\n\\n\"\nexec(_fixture_support)\npolicy = {'P_Y0': 0.5, 'P_Y1': 0.5, 'cost_FP': 1, 'cost_FN': 2, 'acceptance': {'maximum_FPR': 0.1, 'maximum_FNR': 0.1, 'cost_not_above_incumbent': True, 'slice_pass_required': True, 'compatibility_pass_required': True}, 'empty_group': 'undefined; reject', 'cohort': 'cohort.validation', 'decision_record_fields': ['registry_artifact_id', 'cohort_id', 'FPR', 'FNR', 'expected_cost', 'quality_pass', 'slice_pass', 'compatibility_pass', 'verdict'], 'protected_test': 'not provided; never used for selection'}\ndata = load('validation_counts')\n# Repair dependency order of these supplied statements; do not change formulas.\nreport = results\n\nfor r in data:\n    if r['model_role']=='candidate':\n        incumbent = None\n        for other in data:\n            if other['fixture']==r['fixture'] and other['model_role']=='incumbent':\n                incumbent = other\n        rr = rates(r)\n        ir = rates(incumbent)\n        defined = rr['expected_cost'] != None and ir['expected_cost'] != None\n        quality_pass = False\n        cost_pass = False\n        if defined:\n            quality_pass = rr['FPR'] <= policy['acceptance']['maximum_FPR'] and rr['FNR'] <= policy['acceptance']['maximum_FNR']\n            cost_pass = rr['expected_cost'] <= ir['expected_cost']\n        cohort_pass = r['cohort_id']==incumbent['cohort_id'] and r['cohort_id']==policy['cohort']\n        for identity_match in [True,False]:\n            accept = defined and quality_pass and cost_pass and r['slice_pass'] and r['compatibility_pass'] and cohort_pass and identity_match\n            if not identity_match:\n                assert not accept\n            results.append({'fixture':r['fixture'],'candidate':r['registry_artifact_id'],'cohort':r['cohort_id'],'rates':rr,'incumbent_rates':ir,'quality_pass':quality_pass,'cost_pass':cost_pass,'slice_pass':r['slice_pass'],'compatibility_pass':r['compatibility_pass'],'cohort_pass':cohort_pass,'promotion_identity_matches':identity_match,'verdict':accept})\n\nresults = []\n"
+            }
+          ],
+          "asset_mounts": [
+            {
+              "asset_id": "ds.validation_counts",
+              "mount_path": "validation_counts.csv"
+            }
+          ]
+        },
+        "constraints": {
+          "allowed_syntax": [
+            "import statements for supplied library and client dependencies",
+            "def statements with parameters and return statements",
+            "local variable assignment",
+            "numeric, string, boolean and None literals",
+            "dictionary construction and key access",
+            "arithmetic operators +, -, *, /",
+            "comparison operators ==, !=, <, <=, >, >=",
+            "boolean operators and, or, not",
+            "if, elif and else statements",
+            "calls to supplied fixture, unit-test and promotion-record interfaces",
+            "assert predicate statements"
+          ],
+          "blocked_syntax": [
+            "calls to incident-runbook execution interfaces",
+            "calls to compute or memory utilization tracking interfaces",
+            "calls to workload expenditure attribution interfaces",
+            "calls to workload cost-guardrail configuration interfaces",
+            "calls to serving-resource deletion interfaces"
+          ]
+        }
+      },
+      "grading": {
+        "solution_files": [
+          {
+            "path": "main.py",
+            "content": "# Supplied fixture infrastructure; learner edits only the statements below.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'validation_counts': {'fixture': 'string', 'model_role': 'string', 'cohort_id': 'string', 'registry_artifact_id': 'string', 'FP': 'integer', 'TN': 'integer', 'FN': 'integer', 'TP': 'integer', 'slice_pass': 'boolean', 'compatibility_pass': 'boolean'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\ndef rates(r):\\n    fpr = None\\n    fnr = None\\n    cost = None\\n    if r['FP']+r['TN'] > 0 and r['FN']+r['TP'] > 0:\\n        fpr = r['FP']/(r['FP']+r['TN'])\\n        fnr = r['FN']/(r['FN']+r['TP'])\\n        cost = policy['P_Y0']*fpr*policy['cost_FP'] + policy['P_Y1']*fnr*policy['cost_FN']\\n    return {'FPR':fpr,'FNR':fnr,'expected_cost':cost}\\n\\n\"\nexec(_fixture_support)\npolicy = {'P_Y0': 0.5, 'P_Y1': 0.5, 'cost_FP': 1, 'cost_FN': 2, 'acceptance': {'maximum_FPR': 0.1, 'maximum_FNR': 0.1, 'cost_not_above_incumbent': True, 'slice_pass_required': True, 'compatibility_pass_required': True}, 'empty_group': 'undefined; reject', 'cohort': 'cohort.validation', 'decision_record_fields': ['registry_artifact_id', 'cohort_id', 'FPR', 'FNR', 'expected_cost', 'quality_pass', 'slice_pass', 'compatibility_pass', 'verdict'], 'protected_test': 'not provided; never used for selection'}\ndata = load('validation_counts')\nresults = []\n\nfor r in data:\n    if r['model_role']=='candidate':\n        incumbent = None\n        for other in data:\n            if other['fixture']==r['fixture'] and other['model_role']=='incumbent':\n                incumbent = other\n        rr = rates(r)\n        ir = rates(incumbent)\n        defined = rr['expected_cost'] != None and ir['expected_cost'] != None\n        quality_pass = False\n        cost_pass = False\n        if defined:\n            quality_pass = rr['FPR'] <= policy['acceptance']['maximum_FPR'] and rr['FNR'] <= policy['acceptance']['maximum_FNR']\n            cost_pass = rr['expected_cost'] <= ir['expected_cost']\n        cohort_pass = r['cohort_id']==incumbent['cohort_id'] and r['cohort_id']==policy['cohort']\n        for identity_match in [True,False]:\n            accept = defined and quality_pass and cost_pass and r['slice_pass'] and r['compatibility_pass'] and cohort_pass and identity_match\n            if not identity_match:\n                assert not accept\n            results.append({'fixture':r['fixture'],'candidate':r['registry_artifact_id'],'cohort':r['cohort_id'],'rates':rr,'incumbent_rates':ir,'quality_pass':quality_pass,'cost_pass':cost_pass,'slice_pass':r['slice_pass'],'compatibility_pass':r['compatibility_pass'],'cohort_pass':cohort_pass,'promotion_identity_matches':identity_match,'verdict':accept})\n\nreport = results\n"
+          }
+        ],
+        "tests": [
+          {
+            "test_id": "report",
+            "kind": "value_equals",
+            "spec": {
+              "expr": "report",
+              "expected": [
+                {
+                  "fixture": "valid",
+                  "candidate": "model.valid",
+                  "cohort": "cohort.validation",
+                  "rates": {
+                    "FPR": 0.04,
+                    "FNR": 0.06,
+                    "expected_cost": 0.08
+                  },
+                  "incumbent_rates": {
+                    "FPR": 0.2,
+                    "FNR": 0.2,
+                    "expected_cost": 0.30000000000000004
+                  },
+                  "quality_pass": true,
+                  "cost_pass": true,
+                  "slice_pass": true,
+                  "compatibility_pass": true,
+                  "cohort_pass": true,
+                  "promotion_identity_matches": true,
+                  "verdict": true
+                },
+                {
+                  "fixture": "valid",
+                  "candidate": "model.valid",
+                  "cohort": "cohort.validation",
+                  "rates": {
+                    "FPR": 0.04,
+                    "FNR": 0.06,
+                    "expected_cost": 0.08
+                  },
+                  "incumbent_rates": {
+                    "FPR": 0.2,
+                    "FNR": 0.2,
+                    "expected_cost": 0.30000000000000004
+                  },
+                  "quality_pass": true,
+                  "cost_pass": true,
+                  "slice_pass": true,
+                  "compatibility_pass": true,
+                  "cohort_pass": true,
+                  "promotion_identity_matches": false,
+                  "verdict": false
+                },
+                {
+                  "fixture": "boundary",
+                  "candidate": "model.boundary",
+                  "cohort": "cohort.validation",
+                  "rates": {
+                    "FPR": 0.1,
+                    "FNR": 0.1,
+                    "expected_cost": 0.15000000000000002
+                  },
+                  "incumbent_rates": {
+                    "FPR": 0.2,
+                    "FNR": 0.2,
+                    "expected_cost": 0.30000000000000004
+                  },
+                  "quality_pass": true,
+                  "cost_pass": true,
+                  "slice_pass": true,
+                  "compatibility_pass": true,
+                  "cohort_pass": true,
+                  "promotion_identity_matches": true,
+                  "verdict": true
+                },
+                {
+                  "fixture": "boundary",
+                  "candidate": "model.boundary",
+                  "cohort": "cohort.validation",
+                  "rates": {
+                    "FPR": 0.1,
+                    "FNR": 0.1,
+                    "expected_cost": 0.15000000000000002
+                  },
+                  "incumbent_rates": {
+                    "FPR": 0.2,
+                    "FNR": 0.2,
+                    "expected_cost": 0.30000000000000004
+                  },
+                  "quality_pass": true,
+                  "cost_pass": true,
+                  "slice_pass": true,
+                  "compatibility_pass": true,
+                  "cohort_pass": true,
+                  "promotion_identity_matches": false,
+                  "verdict": false
+                },
+                {
+                  "fixture": "slice_fail",
+                  "candidate": "model.slice_fail",
+                  "cohort": "cohort.validation",
+                  "rates": {
+                    "FPR": 0.04,
+                    "FNR": 0.06,
+                    "expected_cost": 0.08
+                  },
+                  "incumbent_rates": {
+                    "FPR": 0.2,
+                    "FNR": 0.2,
+                    "expected_cost": 0.30000000000000004
+                  },
+                  "quality_pass": true,
+                  "cost_pass": true,
+                  "slice_pass": false,
+                  "compatibility_pass": true,
+                  "cohort_pass": true,
+                  "promotion_identity_matches": true,
+                  "verdict": false
+                },
+                {
+                  "fixture": "slice_fail",
+                  "candidate": "model.slice_fail",
+                  "cohort": "cohort.validation",
+                  "rates": {
+                    "FPR": 0.04,
+                    "FNR": 0.06,
+                    "expected_cost": 0.08
+                  },
+                  "incumbent_rates": {
+                    "FPR": 0.2,
+                    "FNR": 0.2,
+                    "expected_cost": 0.30000000000000004
+                  },
+                  "quality_pass": true,
+                  "cost_pass": true,
+                  "slice_pass": false,
+                  "compatibility_pass": true,
+                  "cohort_pass": true,
+                  "promotion_identity_matches": false,
+                  "verdict": false
+                },
+                {
+                  "fixture": "compat_fail",
+                  "candidate": "model.compat_fail",
+                  "cohort": "cohort.validation",
+                  "rates": {
+                    "FPR": 0.04,
+                    "FNR": 0.06,
+                    "expected_cost": 0.08
+                  },
+                  "incumbent_rates": {
+                    "FPR": 0.2,
+                    "FNR": 0.2,
+                    "expected_cost": 0.30000000000000004
+                  },
+                  "quality_pass": true,
+                  "cost_pass": true,
+                  "slice_pass": true,
+                  "compatibility_pass": false,
+                  "cohort_pass": true,
+                  "promotion_identity_matches": true,
+                  "verdict": false
+                },
+                {
+                  "fixture": "compat_fail",
+                  "candidate": "model.compat_fail",
+                  "cohort": "cohort.validation",
+                  "rates": {
+                    "FPR": 0.04,
+                    "FNR": 0.06,
+                    "expected_cost": 0.08
+                  },
+                  "incumbent_rates": {
+                    "FPR": 0.2,
+                    "FNR": 0.2,
+                    "expected_cost": 0.30000000000000004
+                  },
+                  "quality_pass": true,
+                  "cost_pass": true,
+                  "slice_pass": true,
+                  "compatibility_pass": false,
+                  "cohort_pass": true,
+                  "promotion_identity_matches": false,
+                  "verdict": false
+                },
+                {
+                  "fixture": "quality_fail",
+                  "candidate": "model.quality_fail",
+                  "cohort": "cohort.validation",
+                  "rates": {
+                    "FPR": 0.3,
+                    "FNR": 0.3,
+                    "expected_cost": 0.44999999999999996
+                  },
+                  "incumbent_rates": {
+                    "FPR": 0.2,
+                    "FNR": 0.2,
+                    "expected_cost": 0.30000000000000004
+                  },
+                  "quality_pass": false,
+                  "cost_pass": false,
+                  "slice_pass": true,
+                  "compatibility_pass": true,
+                  "cohort_pass": true,
+                  "promotion_identity_matches": true,
+                  "verdict": false
+                },
+                {
+                  "fixture": "quality_fail",
+                  "candidate": "model.quality_fail",
+                  "cohort": "cohort.validation",
+                  "rates": {
+                    "FPR": 0.3,
+                    "FNR": 0.3,
+                    "expected_cost": 0.44999999999999996
+                  },
+                  "incumbent_rates": {
+                    "FPR": 0.2,
+                    "FNR": 0.2,
+                    "expected_cost": 0.30000000000000004
+                  },
+                  "quality_pass": false,
+                  "cost_pass": false,
+                  "slice_pass": true,
+                  "compatibility_pass": true,
+                  "cohort_pass": true,
+                  "promotion_identity_matches": false,
+                  "verdict": false
+                },
+                {
+                  "fixture": "empty_negative",
+                  "candidate": "model.empty_negative",
+                  "cohort": "cohort.validation",
+                  "rates": {
+                    "FPR": null,
+                    "FNR": null,
+                    "expected_cost": null
+                  },
+                  "incumbent_rates": {
+                    "FPR": 0.2,
+                    "FNR": 0.2,
+                    "expected_cost": 0.30000000000000004
+                  },
+                  "quality_pass": false,
+                  "cost_pass": false,
+                  "slice_pass": true,
+                  "compatibility_pass": true,
+                  "cohort_pass": true,
+                  "promotion_identity_matches": true,
+                  "verdict": false
+                },
+                {
+                  "fixture": "empty_negative",
+                  "candidate": "model.empty_negative",
+                  "cohort": "cohort.validation",
+                  "rates": {
+                    "FPR": null,
+                    "FNR": null,
+                    "expected_cost": null
+                  },
+                  "incumbent_rates": {
+                    "FPR": 0.2,
+                    "FNR": 0.2,
+                    "expected_cost": 0.30000000000000004
+                  },
+                  "quality_pass": false,
+                  "cost_pass": false,
+                  "slice_pass": true,
+                  "compatibility_pass": true,
+                  "cohort_pass": true,
+                  "promotion_identity_matches": false,
+                  "verdict": false
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "mle.ml_resource_utilization": {
+      "type": "code_exercise",
+      "public": {
+        "prompt": "Select only running observations for the supplied instance/model process in [interval_start,interval_end_exclusive). Match CPU and memory on that same mask, exclude stopped and unrelated rows, and report counts, CPU percent, memory MiB, means and population std(ddof=0). Keep identity and interval in the single summary. Identify only workload-local utilization, not every machine.\nRuntime note: the formulas/contract operations are supplied as scaffolding. Repair their execution order so inputs and intermediate values exist before use and the final report is assembled last. Keep formulas and fixed policy fields unchanged. Inspect the resulting report against the task contract.",
+        "runtime": {
+          "kind": "python",
+          "version": "0.29.5",
+          "packages": [
+            "numpy"
+          ]
+        },
+        "workspace": {
+          "entry": "main.py",
+          "files": [
+            {
+              "path": "main.py",
+              "role": "editable",
+              "language": "python",
+              "content": "# Supplied fixture infrastructure; learner edits only the statements below.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'resource_telemetry': {'timestamp': 'datetime', 'INSTANCE': 'string', 'process_id': 'string', 'instance_state': 'string', 'running_process': 'string', 'cpu_percent': 'number', 'memory_value': 'number', 'memory_unit': 'string', 'included': 'boolean'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\n\"\nexec(_fixture_support)\npolicy = {'INSTANCE': 'serving-lab', 'process_id': 'model-service', 'interval_start': '2026-01-02T10:00:00Z', 'interval_end_exclusive': '2026-01-02T10:03:00Z', 'cpu_unit': 'percent', 'memory_unit': 'MiB', 'ddof': 0, 'action_required': False, 'lifecycle_policy': 'These lifecycle records belong to the utilization fixture; no recovery fault or learner lifecycle action is required.'}\ndata = load('resource_telemetry')\ninstance = column(data,'INSTANCE')\nprocess = column(data,'process_id')\nrunning_process = column(data,'running_process')\nstate = column(data,'instance_state')\ntime = column(data,'timestamp')\ncpu_all = column(data,'cpu_percent')\nmemory_all = column(data,'memory_value')\n# Repair dependency order of these supplied statements; do not change formulas.\nreport = {'scope':policy,'count':count,'cpu_mean':cpu_mean,'cpu_std':cpu_std,'memory_mean':memory_mean,'memory_std':memory_std}\n\nmemory_std = np.std(memory, ddof=0)\n\nmemory_mean = np.mean(memory)\n\ncpu_std = np.std(cpu, ddof=0)\n\ncpu_mean = np.mean(cpu)\n\ncount = len(cpu)\n\nmemory = memory_all[mask]\n\ncpu = cpu_all[mask]\n\nmask = (instance == policy['INSTANCE']) & (process == policy['process_id']) & (running_process == policy['process_id']) & (state == 'RUNNING') & (time >= policy['interval_start']) & (time < policy['interval_end_exclusive'])\n"
+            }
+          ],
+          "asset_mounts": [
+            {
+              "asset_id": "ds.resource_telemetry",
+              "mount_path": "resource_telemetry.csv"
+            }
+          ]
+        },
+        "constraints": {
+          "allowed_syntax": [
+            "import numpy as np",
+            "variable assignment",
+            "numeric literals",
+            "string literals",
+            "list and dictionary literals",
+            "array and dictionary indexing",
+            "comparison operators",
+            "Boolean array masks",
+            "np.array",
+            "np.mean(numeric_values)",
+            "np.std(numeric_values, ddof=0)",
+            "np.std(numeric_values, ddof=1)",
+            "len(numeric_values)"
+          ],
+          "blocked_syntax": [
+            "gcloud compute instances delete",
+            "docker rm",
+            "gcloud billing budgets create"
+          ]
+        }
+      },
+      "grading": {
+        "solution_files": [
+          {
+            "path": "main.py",
+            "content": "# Supplied fixture infrastructure; learner edits only the statements below.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'resource_telemetry': {'timestamp': 'datetime', 'INSTANCE': 'string', 'process_id': 'string', 'instance_state': 'string', 'running_process': 'string', 'cpu_percent': 'number', 'memory_value': 'number', 'memory_unit': 'string', 'included': 'boolean'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\n\"\nexec(_fixture_support)\npolicy = {'INSTANCE': 'serving-lab', 'process_id': 'model-service', 'interval_start': '2026-01-02T10:00:00Z', 'interval_end_exclusive': '2026-01-02T10:03:00Z', 'cpu_unit': 'percent', 'memory_unit': 'MiB', 'ddof': 0, 'action_required': False, 'lifecycle_policy': 'These lifecycle records belong to the utilization fixture; no recovery fault or learner lifecycle action is required.'}\ndata = load('resource_telemetry')\ninstance = column(data,'INSTANCE')\nprocess = column(data,'process_id')\nrunning_process = column(data,'running_process')\nstate = column(data,'instance_state')\ntime = column(data,'timestamp')\ncpu_all = column(data,'cpu_percent')\nmemory_all = column(data,'memory_value')\nmask = (instance == policy['INSTANCE']) & (process == policy['process_id']) & (running_process == policy['process_id']) & (state == 'RUNNING') & (time >= policy['interval_start']) & (time < policy['interval_end_exclusive'])\n\ncpu = cpu_all[mask]\n\nmemory = memory_all[mask]\n\ncount = len(cpu)\n\ncpu_mean = np.mean(cpu)\n\ncpu_std = np.std(cpu, ddof=0)\n\nmemory_mean = np.mean(memory)\n\nmemory_std = np.std(memory, ddof=0)\n\nreport = {'scope':policy,'count':count,'cpu_mean':cpu_mean,'cpu_std':cpu_std,'memory_mean':memory_mean,'memory_std':memory_std}\n"
+          }
+        ],
+        "tests": [
+          {
+            "test_id": "report",
+            "kind": "value_equals",
+            "spec": {
+              "expr": "report",
+              "expected": {
+                "scope": {
+                  "INSTANCE": "serving-lab",
+                  "process_id": "model-service",
+                  "interval_start": "2026-01-02T10:00:00Z",
+                  "interval_end_exclusive": "2026-01-02T10:03:00Z",
+                  "cpu_unit": "percent",
+                  "memory_unit": "MiB",
+                  "ddof": 0,
+                  "action_required": false,
+                  "lifecycle_policy": "These lifecycle records belong to the utilization fixture; no recovery fault or learner lifecycle action is required."
+                },
+                "count": 3,
+                "cpu_mean": 40,
+                "cpu_std": 16.32993161855452,
+                "memory_mean": 200,
+                "memory_std": 81.64965809277261
+              }
+            }
+          }
+        ]
+      }
+    },
+    "mle.ml_incident_runbook": {
+      "type": "code_exercise",
+      "public": {
+        "prompt": "This Python workspace supplies fixture-backed wrappers for the taught gcloud commands; it never runs a shell or touches live resources. Reorder the existing operations (keep their arguments) to inspect authorized identity/target, preserve and reproduce fault evidence and test the runbook hypothesis, stop and confirm stopped before start, confirm running, reconnect, verify readiness/bounded prediction/non-disclosure, and inspect the same target afterward. Return the single recovery record.",
+        "runtime": {
+          "kind": "python",
+          "version": "0.29.5",
+          "packages": [
+            "numpy"
+          ]
+        },
+        "workspace": {
+          "entry": "main.py",
+          "files": [
+            {
+              "path": "main.py",
+              "role": "editable",
+              "language": "python",
+              "content": "# Supplied fixture infrastructure; learner edits only the statements below.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'incident_evidence': {'phase': 'string', 'INSTANCE': 'string', 'ZONE': 'string', 'authorized_identity': 'string', 'instance_state': 'string', 'process_state': 'string', 'readiness': 'boolean', 'prediction_contract_pass': 'boolean', 'fault_evidence': 'string', 'hypothesis_result': 'string', 'credential_review_pass': 'boolean'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\nclass Recovery:\\n    def __init__(self,data,policy): self.data=data; self.policy=policy; self.trace=[]; self.state='initial'\\n    def step(self,action,required,next_state):\\n        if self.state!=required: raise ValueError('operation lacks required prior evidence/completion')\\n        self.trace.append(action); self.state=next_state\\n    def describe_before(self): self.step('gcloud compute instances describe '+self.policy['INSTANCE']+' --zone='+self.policy['ZONE'],'initial','inspected')\\n    def reproduce_and_test(self): self.step('gcloud compute ssh; preserve fault evidence and test runbook hypothesis','inspected','tested')\\n    def stop_and_wait(self): self.step('gcloud compute instances stop; confirm TERMINATED','tested','stopped')\\n    def start_and_wait(self): self.step('gcloud compute instances start; confirm RUNNING','stopped','started')\\n    def reconnect(self): self.step('gcloud compute ssh same target','started','connected')\\n    def verify_service(self): self.step('readiness and bounded prediction; credential review','connected','verified')\\n    def describe_after(self): self.step('gcloud compute instances describe same target','verified','done')\\n    def report(self):\\n        if self.state!='done': raise ValueError('incomplete recovery')\\n        before=self.data[0]; after=self.data[-1]\\n        return {'target':self.policy,'pre_fault':before['fault_evidence'],'hypothesis':before['hypothesis_result'],'trace':self.trace,'after':after,'credentials':'runtime references only','scope':'fixture-backed simulator, not live cloud evidence'}\\n\\n\"\nexec(_fixture_support)\npolicy = {'INSTANCE': 'serving-lab', 'ZONE': 'lab-zone-a', 'authorized_identity': 'lab.operator', 'allowed_actions': ['inspect', 'reproduce_fault', 'test_hypothesis', 'stop', 'wait_stopped', 'start', 'wait_running', 'reconnect', 'readiness', 'bounded_prediction'], 'prediction_contract': {'request': {'distance_category': 'long_distance', 'numeric_values': 5}, 'response': {'predicted_class': 'late'}}, 'credentials': 'runtime-injected only'}\nlab = Recovery(load('incident_evidence'),policy)\n\n# Reorder the supplied operations. Do not change target arguments.\nlab.describe_after()\nlab.verify_service()\nlab.reconnect()\nlab.start_and_wait()\nlab.stop_and_wait()\nlab.reproduce_and_test()\nlab.describe_before()\nreport = lab.report()\n"
+            }
+          ],
+          "asset_mounts": [
+            {
+              "asset_id": "ds.incident_evidence",
+              "mount_path": "incident_evidence.csv"
+            }
+          ]
+        },
+        "constraints": {
+          "allowed_syntax": [
+            "gcloud compute instances describe INSTANCE --zone=ZONE",
+            "gcloud compute instances stop INSTANCE --zone=ZONE",
+            "gcloud compute instances start INSTANCE --zone=ZONE",
+            "gcloud compute ssh INSTANCE --zone=ZONE"
+          ],
+          "blocked_syntax": [
+            "gcloud compute instances delete",
+            "gcloud compute disks delete",
+            "gcloud compute addresses delete"
+          ]
+        }
+      },
+      "grading": {
+        "solution_files": [
+          {
+            "path": "main.py",
+            "content": "# Supplied fixture infrastructure; learner edits only the statements below.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'incident_evidence': {'phase': 'string', 'INSTANCE': 'string', 'ZONE': 'string', 'authorized_identity': 'string', 'instance_state': 'string', 'process_state': 'string', 'readiness': 'boolean', 'prediction_contract_pass': 'boolean', 'fault_evidence': 'string', 'hypothesis_result': 'string', 'credential_review_pass': 'boolean'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\nclass Recovery:\\n    def __init__(self,data,policy): self.data=data; self.policy=policy; self.trace=[]; self.state='initial'\\n    def step(self,action,required,next_state):\\n        if self.state!=required: raise ValueError('operation lacks required prior evidence/completion')\\n        self.trace.append(action); self.state=next_state\\n    def describe_before(self): self.step('gcloud compute instances describe '+self.policy['INSTANCE']+' --zone='+self.policy['ZONE'],'initial','inspected')\\n    def reproduce_and_test(self): self.step('gcloud compute ssh; preserve fault evidence and test runbook hypothesis','inspected','tested')\\n    def stop_and_wait(self): self.step('gcloud compute instances stop; confirm TERMINATED','tested','stopped')\\n    def start_and_wait(self): self.step('gcloud compute instances start; confirm RUNNING','stopped','started')\\n    def reconnect(self): self.step('gcloud compute ssh same target','started','connected')\\n    def verify_service(self): self.step('readiness and bounded prediction; credential review','connected','verified')\\n    def describe_after(self): self.step('gcloud compute instances describe same target','verified','done')\\n    def report(self):\\n        if self.state!='done': raise ValueError('incomplete recovery')\\n        before=self.data[0]; after=self.data[-1]\\n        return {'target':self.policy,'pre_fault':before['fault_evidence'],'hypothesis':before['hypothesis_result'],'trace':self.trace,'after':after,'credentials':'runtime references only','scope':'fixture-backed simulator, not live cloud evidence'}\\n\\n\"\nexec(_fixture_support)\npolicy = {'INSTANCE': 'serving-lab', 'ZONE': 'lab-zone-a', 'authorized_identity': 'lab.operator', 'allowed_actions': ['inspect', 'reproduce_fault', 'test_hypothesis', 'stop', 'wait_stopped', 'start', 'wait_running', 'reconnect', 'readiness', 'bounded_prediction'], 'prediction_contract': {'request': {'distance_category': 'long_distance', 'numeric_values': 5}, 'response': {'predicted_class': 'late'}}, 'credentials': 'runtime-injected only'}\nlab = Recovery(load('incident_evidence'),policy)\n\nlab.describe_before()\nlab.reproduce_and_test()\nlab.stop_and_wait()\nlab.start_and_wait()\nlab.reconnect()\nlab.verify_service()\nlab.describe_after()\nreport = lab.report()\n"
+          }
+        ],
+        "tests": [
+          {
+            "test_id": "report",
+            "kind": "value_equals",
+            "spec": {
+              "expr": "report",
+              "expected": {
+                "target": {
+                  "INSTANCE": "serving-lab",
+                  "ZONE": "lab-zone-a",
+                  "authorized_identity": "lab.operator",
+                  "allowed_actions": [
+                    "inspect",
+                    "reproduce_fault",
+                    "test_hypothesis",
+                    "stop",
+                    "wait_stopped",
+                    "start",
+                    "wait_running",
+                    "reconnect",
+                    "readiness",
+                    "bounded_prediction"
+                  ],
+                  "prediction_contract": {
+                    "request": {
+                      "distance_category": "long_distance",
+                      "numeric_values": 5
+                    },
+                    "response": {
+                      "predicted_class": "late"
+                    }
+                  },
+                  "credentials": "runtime-injected only"
+                },
+                "pre_fault": "model-service exited; endpoint unavailable",
+                "hypothesis": "runbook-approved service fault reproduced",
+                "trace": [
+                  "gcloud compute instances describe serving-lab --zone=lab-zone-a",
+                  "gcloud compute ssh; preserve fault evidence and test runbook hypothesis",
+                  "gcloud compute instances stop; confirm TERMINATED",
+                  "gcloud compute instances start; confirm RUNNING",
+                  "gcloud compute ssh same target",
+                  "readiness and bounded prediction; credential review",
+                  "gcloud compute instances describe same target"
+                ],
+                "after": {
+                  "phase": "after",
+                  "INSTANCE": "serving-lab",
+                  "ZONE": "lab-zone-a",
+                  "authorized_identity": "lab.operator",
+                  "instance_state": "RUNNING",
+                  "process_state": "running",
+                  "readiness": true,
+                  "prediction_contract_pass": true,
+                  "fault_evidence": "service reconnected after same-instance stop/start",
+                  "hypothesis_result": "bounded readiness/prediction checks pass",
+                  "credential_review_pass": true
+                },
+                "credentials": "runtime references only",
+                "scope": "fixture-backed simulator, not live cloud evidence"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "mle.serving_resource_cleanup": {
+      "type": "code_exercise",
+      "public": {
+        "prompt": "Reorder the supplied fixture-backed Docker/gcloud operations; this Python simulator executes no shell and has no live credentials. Establish permitted identity, actual ownership/release labels, running/exit state, logs and exclusive retirement before actions. Stop the verified retired container before rm; delete only the verified retired instance preserving attached disks. Preserve the healthy active release and shared artifacts, verify absence/readiness/bounded prediction, review captured output and write one audit. Keep supplied fixed target arguments unchanged.",
+        "runtime": {
+          "kind": "python",
+          "version": "0.29.5",
+          "packages": [
+            "numpy"
+          ]
+        },
+        "workspace": {
+          "entry": "main.py",
+          "files": [
+            {
+              "path": "main.py",
+              "role": "editable",
+              "language": "python",
+              "content": "# Supplied fixture infrastructure; learner edits only the statements below.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'cleanup_inventory': {'NAME': 'string', 'INSTANCE': 'string', 'ZONE': 'string', 'owner_label': 'string', 'release_label': 'string', 'approved_inventory': 'string', 'State.Running': 'boolean', 'exit_code': 'integer', 'logs': 'string', 'image_ref': 'string', 'model_artifact': 'string', 'preprocessing_artifact': 'string', 'exclusively_retired': 'boolean', 'expected_after': 'string'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\nclass Cleanup:\\n    def __init__(self,data,policy): self.data=data; self.policy=policy; self.trace=[]; self.state='initial'; self.retired=None\\n    def step(self,name,req,nxt):\\n        if self.state!=req: raise ValueError('unsafe cleanup order')\\n        self.trace.append(name);self.state=nxt\\n    def inspect_inventory_and_logs(self):\\n        self.retired=[r for r in self.data if r['owner_label']==self.policy['authorized_owner'] and r['NAME']==self.policy['retired_container'] and r['INSTANCE']==self.policy['retired_instance'] and r['ZONE']==self.policy['ZONE'] and r['approved_inventory']=='retired' and r['exclusively_retired']]\\n        if len(self.retired)!=1: raise ValueError('retirement not verified')\\n        self.step('docker inspect and logs; describe compute; reconcile labels, release, state, ownership','initial','verified')\\n    def stop_retired_container(self): self.step('docker container stop '+self.retired[0]['NAME'],'verified','stopped')\\n    def remove_stopped_container(self): self.step('docker container rm '+self.retired[0]['NAME'],'stopped','removed')\\n    def delete_retired_instance_preserve_disks(self): self.step('gcloud compute instances delete '+self.retired[0]['INSTANCE']+' --zone='+self.policy['ZONE']+'; '+self.policy['disk_policy'],'removed','deleted')\\n    def inspect_absence_and_active_health(self): self.step('describe confirms retired absence; active readiness and bounded prediction; artifacts retained','deleted','checked')\\n    def review_credentials_and_audit(self): self.step('review captured commands and logs; runtime references only; write audit','checked','done')\\n    def report(self):\\n        if self.state!='done':raise ValueError('incomplete cleanup')\\n        active=[r for r in self.data if r['approved_inventory']=='active']\\n        return {'authorization':self.policy,'runtime_retired_identity':self.retired,'active_retained':active,'actions':self.trace,'retired_absent':True,'artifacts_retained':self.policy['required_retained_artifacts'],'postchecks':self.policy['required_postchecks'],'credentials':'no literal values; runtime injection','scope':'fixture-backed command simulator'}\\n\\n\"\nexec(_fixture_support)\npolicy = {'authorized_owner': 'order-team', 'authorized_identity': 'lab.operator', 'retired_container': 'retired-serving', 'retired_instance': 'retired-lab', 'ZONE': 'lab-zone-a', 'disk_policy': 'preserve all attached disks', 'required_retained_artifacts': ['image.shared', 'model.r2', 'prep.shared'], 'required_postchecks': ['active readiness', 'bounded active prediction', 'retired container absent', 'retired instance absent', 'required artifacts present', 'credential non-disclosure review'], 'lifecycle_policy': 'The active release is healthy before cleanup and must remain healthy afterward. Cleanup does not authorize restarting the active instance.'}\nlab = Cleanup(load('cleanup_inventory'),policy)\n\n# Reorder the supplied operations. Do not change target arguments.\nlab.review_credentials_and_audit()\nlab.inspect_absence_and_active_health()\nlab.delete_retired_instance_preserve_disks()\nlab.remove_stopped_container()\nlab.stop_retired_container()\nlab.inspect_inventory_and_logs()\nreport = lab.report()\n"
+            }
+          ],
+          "asset_mounts": [
+            {
+              "asset_id": "ds.cleanup_inventory",
+              "mount_path": "cleanup_inventory.csv"
+            }
+          ]
+        },
+        "constraints": {
+          "allowed_syntax": [
+            "docker container inspect NAME",
+            "docker container logs NAME",
+            "docker container stop NAME",
+            "docker container rm NAME",
+            "gcloud compute instances describe INSTANCE --zone=ZONE",
+            "gcloud compute instances delete INSTANCE --zone=ZONE"
+          ],
+          "blocked_syntax": []
+        }
+      },
+      "grading": {
+        "solution_files": [
+          {
+            "path": "main.py",
+            "content": "# Supplied fixture infrastructure; learner edits only the statements below.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'cleanup_inventory': {'NAME': 'string', 'INSTANCE': 'string', 'ZONE': 'string', 'owner_label': 'string', 'release_label': 'string', 'approved_inventory': 'string', 'State.Running': 'boolean', 'exit_code': 'integer', 'logs': 'string', 'image_ref': 'string', 'model_artifact': 'string', 'preprocessing_artifact': 'string', 'exclusively_retired': 'boolean', 'expected_after': 'string'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\nclass Cleanup:\\n    def __init__(self,data,policy): self.data=data; self.policy=policy; self.trace=[]; self.state='initial'; self.retired=None\\n    def step(self,name,req,nxt):\\n        if self.state!=req: raise ValueError('unsafe cleanup order')\\n        self.trace.append(name);self.state=nxt\\n    def inspect_inventory_and_logs(self):\\n        self.retired=[r for r in self.data if r['owner_label']==self.policy['authorized_owner'] and r['NAME']==self.policy['retired_container'] and r['INSTANCE']==self.policy['retired_instance'] and r['ZONE']==self.policy['ZONE'] and r['approved_inventory']=='retired' and r['exclusively_retired']]\\n        if len(self.retired)!=1: raise ValueError('retirement not verified')\\n        self.step('docker inspect and logs; describe compute; reconcile labels, release, state, ownership','initial','verified')\\n    def stop_retired_container(self): self.step('docker container stop '+self.retired[0]['NAME'],'verified','stopped')\\n    def remove_stopped_container(self): self.step('docker container rm '+self.retired[0]['NAME'],'stopped','removed')\\n    def delete_retired_instance_preserve_disks(self): self.step('gcloud compute instances delete '+self.retired[0]['INSTANCE']+' --zone='+self.policy['ZONE']+'; '+self.policy['disk_policy'],'removed','deleted')\\n    def inspect_absence_and_active_health(self): self.step('describe confirms retired absence; active readiness and bounded prediction; artifacts retained','deleted','checked')\\n    def review_credentials_and_audit(self): self.step('review captured commands and logs; runtime references only; write audit','checked','done')\\n    def report(self):\\n        if self.state!='done':raise ValueError('incomplete cleanup')\\n        active=[r for r in self.data if r['approved_inventory']=='active']\\n        return {'authorization':self.policy,'runtime_retired_identity':self.retired,'active_retained':active,'actions':self.trace,'retired_absent':True,'artifacts_retained':self.policy['required_retained_artifacts'],'postchecks':self.policy['required_postchecks'],'credentials':'no literal values; runtime injection','scope':'fixture-backed command simulator'}\\n\\n\"\nexec(_fixture_support)\npolicy = {'authorized_owner': 'order-team', 'authorized_identity': 'lab.operator', 'retired_container': 'retired-serving', 'retired_instance': 'retired-lab', 'ZONE': 'lab-zone-a', 'disk_policy': 'preserve all attached disks', 'required_retained_artifacts': ['image.shared', 'model.r2', 'prep.shared'], 'required_postchecks': ['active readiness', 'bounded active prediction', 'retired container absent', 'retired instance absent', 'required artifacts present', 'credential non-disclosure review'], 'lifecycle_policy': 'The active release is healthy before cleanup and must remain healthy afterward. Cleanup does not authorize restarting the active instance.'}\nlab = Cleanup(load('cleanup_inventory'),policy)\n\nlab.inspect_inventory_and_logs()\nlab.stop_retired_container()\nlab.remove_stopped_container()\nlab.delete_retired_instance_preserve_disks()\nlab.inspect_absence_and_active_health()\nlab.review_credentials_and_audit()\nreport = lab.report()\n"
+          }
+        ],
+        "tests": [
+          {
+            "test_id": "report",
+            "kind": "value_equals",
+            "spec": {
+              "expr": "report",
+              "expected": {
+                "authorization": {
+                  "authorized_owner": "order-team",
+                  "authorized_identity": "lab.operator",
+                  "retired_container": "retired-serving",
+                  "retired_instance": "retired-lab",
+                  "ZONE": "lab-zone-a",
+                  "disk_policy": "preserve all attached disks",
+                  "required_retained_artifacts": [
+                    "image.shared",
+                    "model.r2",
+                    "prep.shared"
+                  ],
+                  "required_postchecks": [
+                    "active readiness",
+                    "bounded active prediction",
+                    "retired container absent",
+                    "retired instance absent",
+                    "required artifacts present",
+                    "credential non-disclosure review"
+                  ],
+                  "lifecycle_policy": "The active release is healthy before cleanup and must remain healthy afterward. Cleanup does not authorize restarting the active instance."
+                },
+                "runtime_retired_identity": [
+                  {
+                    "NAME": "retired-serving",
+                    "INSTANCE": "retired-lab",
+                    "ZONE": "lab-zone-a",
+                    "owner_label": "order-team",
+                    "release_label": "r1",
+                    "approved_inventory": "retired",
+                    "State.Running": true,
+                    "exit_code": 0,
+                    "logs": "retired release drained; no active requests",
+                    "image_ref": "image.shared",
+                    "model_artifact": "model.r1",
+                    "preprocessing_artifact": "prep.shared",
+                    "exclusively_retired": true,
+                    "expected_after": "absent"
+                  }
+                ],
+                "active_retained": [
+                  {
+                    "NAME": "active-serving",
+                    "INSTANCE": "serving-lab",
+                    "ZONE": "lab-zone-a",
+                    "owner_label": "order-team",
+                    "release_label": "r2",
+                    "approved_inventory": "active",
+                    "State.Running": true,
+                    "exit_code": 0,
+                    "logs": "readiness passes; no sensitive payload",
+                    "image_ref": "image.shared",
+                    "model_artifact": "model.r2",
+                    "preprocessing_artifact": "prep.shared",
+                    "exclusively_retired": false,
+                    "expected_after": "preserved"
+                  }
+                ],
+                "actions": [
+                  "docker inspect and logs; describe compute; reconcile labels, release, state, ownership",
+                  "docker container stop retired-serving",
+                  "docker container rm retired-serving",
+                  "gcloud compute instances delete retired-lab --zone=lab-zone-a; preserve all attached disks",
+                  "describe confirms retired absence; active readiness and bounded prediction; artifacts retained",
+                  "review captured commands and logs; runtime references only; write audit"
+                ],
+                "retired_absent": true,
+                "artifacts_retained": [
+                  "image.shared",
+                  "model.r2",
+                  "prep.shared"
+                ],
+                "postchecks": [
+                  "active readiness",
+                  "bounded active prediction",
+                  "retired container absent",
+                  "retired instance absent",
+                  "required artifacts present",
+                  "credential non-disclosure review"
+                ],
+                "credentials": "no literal values; runtime injection",
+                "scope": "fixture-backed command simulator"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "mle.ml_workload_cost_attribution": {
+      "type": "code_exercise",
+      "public": {
+        "prompt": "Use the supplied simulator lifecycle evidence for both authorized training/inference instances and retain their inspection/start/connect/bounded-work/stop/inspection records. Allocate eligible direct and persistent-disk rows using the declared mapping and intervals; allocate shared rows by the supplied shares; explicitly retain unmatched amounts as unallocated. Report per-workload/window attributed costs, mean/std(ddof=0) across each workload series, corresponding unit cost, unusual allocations under the supplied criterion, and reconciliation allocated+unallocated=eligible export. No live cloud action is performed here.\nRuntime note: the formulas/contract operations are supplied as scaffolding. Repair their execution order so inputs and intermediate values exist before use and the final report is assembled last. Keep formulas and fixed policy fields unchanged. Inspect the resulting report against the task contract.",
+        "runtime": {
+          "kind": "python",
+          "version": "0.29.5",
+          "packages": [
+            "numpy"
+          ]
+        },
+        "workspace": {
+          "entry": "main.py",
+          "files": [
+            {
+              "path": "main.py",
+              "role": "editable",
+              "language": "python",
+              "content": "# Supplied fixture infrastructure; learner edits only the statements below.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'lifecycle': {'INSTANCE': 'string', 'ZONE': 'string', 'workload': 'string', 'reporting_window': 'string', 'start': 'datetime', 'stop': 'datetime', 'before_state': 'string', 'after_state': 'string', 'completed_work': 'integer'}, 'billing_export': {'charge_id': 'string', 'reporting_window': 'string', 'resource_id': 'string', 'charge_category': 'string', 'amount': 'number'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\ndef verified_lifecycles(data):\\n    records=[]\\n    for r in data:\\n        if r['before_state']!='TERMINATED' or r['after_state']!='TERMINATED':raise ValueError('lifecycle not stopped')\\n        records.append({'identity':r['INSTANCE'],'ZONE':r['ZONE'],'window':r['reporting_window'],'start':r['start'],'stop':r['stop'],'work':r['completed_work'],'trace':['describe before','start and wait running','ssh and bounded workload','stop and wait stopped','describe after']})\\n    return records\\n\\n\"\nexec(_fixture_support)\npolicy = {'authorized_identity': 'lab.operator', 'resource_mapping': {'training-lab': 'training', 'inference-lab': 'inference', 'training-disk': 'training'}, 'shared_rule': {'training': 0.5, 'inference': 0.5}, 'unmatched_rule': 'explicitly unallocated', 'unusual_rule': 'per-workload per-window allocation >10', 'unit': 'fictional credits', 'reporting_windows': {'w1': ['2026-01-02T00:00:00Z', '2026-01-03T00:00:00Z'], 'w2': ['2026-01-03T00:00:00Z', '2026-01-04T00:00:00Z']}, 'direct_interval_rule': 'direct_compute rows correspond to the named resource lifecycle/work interval; persistent_disk spans reporting window even after stop', 'numeric_values': 'Select per-window attributed costs for each workload; do not mix workload series', 'ddof': 0}\nlifecycles = verified_lifecycles(load('lifecycle'))\ncharges = load('billing_export')\nunusual_threshold = 10.0\n# Repair dependency order of these supplied statements; do not change formulas.\nreport = result\n\nresult = {'lifecycle_evidence':lifecycles,'allocations':allocated,'summaries':summary,'unallocated':unallocated,'unusual':unusual,'allocated_total':allocated_total,'unallocated_total':unallocated_total,'eligible_export_total':eligible_total,'unit':policy['unit']}\n\nassert allocated_total + unallocated_total == eligible_total\n\nunallocated_total = sum([r['amount'] for r in unallocated])\n\nfor workload in ['training','inference']:\n    numeric_values = np.array([allocated[workload]['w1'],allocated[workload]['w2']])\n    works = []\n    unit_costs = []\n    for window in ['w1','w2']:\n        amount = allocated[workload][window]\n        allocated_total = allocated_total + amount\n        if amount > unusual_threshold:\n            unusual.append({'workload':workload,'window':window,'amount':amount})\n        completed = 0\n        for l in lifecycles:\n            if l['identity']==workload+'-lab' and l['window']==window:\n                completed = completed + l['work']\n        works.append(completed)\n        unit = None\n        if completed > 0:\n            unit = amount/completed\n        unit_costs.append(unit)\n    summary[workload] = {'window_costs':numeric_values,'mean':np.mean(numeric_values),'std':np.std(numeric_values, ddof=0),'work':works,'unit_costs':unit_costs}\n\nallocated_total = 0\n\nunusual = []\n\nsummary = {}\n\nfor r in charges:\n    eligible_total = eligible_total + r['amount']\n    if r['resource_id'] in policy['resource_mapping']:\n        workload = policy['resource_mapping'][r['resource_id']]\n        allocated[workload][r['reporting_window']] = allocated[workload][r['reporting_window']] + r['amount']\n    elif r['charge_category']=='shared':\n        for workload in ['training','inference']:\n            allocated[workload][r['reporting_window']] = allocated[workload][r['reporting_window']] + r['amount']*policy['shared_rule'][workload]\n    else:\n        unallocated.append(r)\n\neligible_total = 0\n\nunallocated = []\n\nallocated = {'training':{'w1':0,'w2':0},'inference':{'w1':0,'w2':0}}\n"
+            }
+          ],
+          "asset_mounts": [
+            {
+              "asset_id": "ds.lifecycle",
+              "mount_path": "lifecycle.csv"
+            },
+            {
+              "asset_id": "ds.billing_export",
+              "mount_path": "billing_export.csv"
+            }
+          ]
+        },
+        "constraints": {
+          "allowed_syntax": [
+            "gcloud compute instances describe INSTANCE --zone=ZONE",
+            "gcloud compute instances start INSTANCE --zone=ZONE",
+            "gcloud compute ssh INSTANCE --zone=ZONE",
+            "gcloud compute instances stop INSTANCE --zone=ZONE",
+            "import numpy as np",
+            "Variable assignment",
+            "Numeric and string literals",
+            "Lists and dictionaries",
+            "Indexing",
+            "For loops and conditional comparisons",
+            "Arithmetic operators",
+            "sum(numeric_values)",
+            "np.array(numeric_values)",
+            "np.mean(numeric_values)",
+            "np.std(numeric_values, ddof=0)",
+            "np.std(numeric_values, ddof=1) only when the supplied calculation requires the N\u22121 divisor"
+          ],
+          "blocked_syntax": [
+            "gcloud compute instances delete",
+            "gcloud compute disks delete",
+            "gcloud billing budgets create",
+            "gcloud billing budgets update"
+          ]
+        }
+      },
+      "grading": {
+        "solution_files": [
+          {
+            "path": "main.py",
+            "content": "# Supplied fixture infrastructure; learner edits only the statements below.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'lifecycle': {'INSTANCE': 'string', 'ZONE': 'string', 'workload': 'string', 'reporting_window': 'string', 'start': 'datetime', 'stop': 'datetime', 'before_state': 'string', 'after_state': 'string', 'completed_work': 'integer'}, 'billing_export': {'charge_id': 'string', 'reporting_window': 'string', 'resource_id': 'string', 'charge_category': 'string', 'amount': 'number'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\ndef verified_lifecycles(data):\\n    records=[]\\n    for r in data:\\n        if r['before_state']!='TERMINATED' or r['after_state']!='TERMINATED':raise ValueError('lifecycle not stopped')\\n        records.append({'identity':r['INSTANCE'],'ZONE':r['ZONE'],'window':r['reporting_window'],'start':r['start'],'stop':r['stop'],'work':r['completed_work'],'trace':['describe before','start and wait running','ssh and bounded workload','stop and wait stopped','describe after']})\\n    return records\\n\\n\"\nexec(_fixture_support)\npolicy = {'authorized_identity': 'lab.operator', 'resource_mapping': {'training-lab': 'training', 'inference-lab': 'inference', 'training-disk': 'training'}, 'shared_rule': {'training': 0.5, 'inference': 0.5}, 'unmatched_rule': 'explicitly unallocated', 'unusual_rule': 'per-workload per-window allocation >10', 'unit': 'fictional credits', 'reporting_windows': {'w1': ['2026-01-02T00:00:00Z', '2026-01-03T00:00:00Z'], 'w2': ['2026-01-03T00:00:00Z', '2026-01-04T00:00:00Z']}, 'direct_interval_rule': 'direct_compute rows correspond to the named resource lifecycle/work interval; persistent_disk spans reporting window even after stop', 'numeric_values': 'Select per-window attributed costs for each workload; do not mix workload series', 'ddof': 0}\nlifecycles = verified_lifecycles(load('lifecycle'))\ncharges = load('billing_export')\nunusual_threshold = 10.0\nallocated = {'training':{'w1':0,'w2':0},'inference':{'w1':0,'w2':0}}\n\nunallocated = []\n\neligible_total = 0\n\nfor r in charges:\n    eligible_total = eligible_total + r['amount']\n    if r['resource_id'] in policy['resource_mapping']:\n        workload = policy['resource_mapping'][r['resource_id']]\n        allocated[workload][r['reporting_window']] = allocated[workload][r['reporting_window']] + r['amount']\n    elif r['charge_category']=='shared':\n        for workload in ['training','inference']:\n            allocated[workload][r['reporting_window']] = allocated[workload][r['reporting_window']] + r['amount']*policy['shared_rule'][workload]\n    else:\n        unallocated.append(r)\n\nsummary = {}\n\nunusual = []\n\nallocated_total = 0\n\nfor workload in ['training','inference']:\n    numeric_values = np.array([allocated[workload]['w1'],allocated[workload]['w2']])\n    works = []\n    unit_costs = []\n    for window in ['w1','w2']:\n        amount = allocated[workload][window]\n        allocated_total = allocated_total + amount\n        if amount > unusual_threshold:\n            unusual.append({'workload':workload,'window':window,'amount':amount})\n        completed = 0\n        for l in lifecycles:\n            if l['identity']==workload+'-lab' and l['window']==window:\n                completed = completed + l['work']\n        works.append(completed)\n        unit = None\n        if completed > 0:\n            unit = amount/completed\n        unit_costs.append(unit)\n    summary[workload] = {'window_costs':numeric_values,'mean':np.mean(numeric_values),'std':np.std(numeric_values, ddof=0),'work':works,'unit_costs':unit_costs}\n\nunallocated_total = sum([r['amount'] for r in unallocated])\n\nassert allocated_total + unallocated_total == eligible_total\n\nresult = {'lifecycle_evidence':lifecycles,'allocations':allocated,'summaries':summary,'unallocated':unallocated,'unusual':unusual,'allocated_total':allocated_total,'unallocated_total':unallocated_total,'eligible_export_total':eligible_total,'unit':policy['unit']}\n\nreport = result\n"
+          }
+        ],
+        "tests": [
+          {
+            "test_id": "report",
+            "kind": "value_equals",
+            "spec": {
+              "expr": "report",
+              "expected": {
+                "lifecycle_evidence": [
+                  {
+                    "identity": "training-lab",
+                    "ZONE": "lab-zone-a",
+                    "window": "w1",
+                    "start": "2026-01-02T10:00:00Z",
+                    "stop": "2026-01-02T10:10:00Z",
+                    "work": 1,
+                    "trace": [
+                      "describe before",
+                      "start and wait running",
+                      "ssh and bounded workload",
+                      "stop and wait stopped",
+                      "describe after"
+                    ]
+                  },
+                  {
+                    "identity": "inference-lab",
+                    "ZONE": "lab-zone-a",
+                    "window": "w1",
+                    "start": "2026-01-02T10:02:00Z",
+                    "stop": "2026-01-02T10:08:00Z",
+                    "work": 100,
+                    "trace": [
+                      "describe before",
+                      "start and wait running",
+                      "ssh and bounded workload",
+                      "stop and wait stopped",
+                      "describe after"
+                    ]
+                  },
+                  {
+                    "identity": "training-lab",
+                    "ZONE": "lab-zone-a",
+                    "window": "w2",
+                    "start": "2026-01-03T10:00:00Z",
+                    "stop": "2026-01-03T10:10:00Z",
+                    "work": 1,
+                    "trace": [
+                      "describe before",
+                      "start and wait running",
+                      "ssh and bounded workload",
+                      "stop and wait stopped",
+                      "describe after"
+                    ]
+                  },
+                  {
+                    "identity": "inference-lab",
+                    "ZONE": "lab-zone-a",
+                    "window": "w2",
+                    "start": "2026-01-03T10:02:00Z",
+                    "stop": "2026-01-03T10:08:00Z",
+                    "work": 120,
+                    "trace": [
+                      "describe before",
+                      "start and wait running",
+                      "ssh and bounded workload",
+                      "stop and wait stopped",
+                      "describe after"
+                    ]
+                  }
+                ],
+                "allocations": {
+                  "training": {
+                    "w1": 7,
+                    "w2": 11
+                  },
+                  "inference": {
+                    "w1": 5,
+                    "w2": 8
+                  }
+                },
+                "summaries": {
+                  "training": {
+                    "window_costs": [
+                      7,
+                      11
+                    ],
+                    "mean": 9,
+                    "std": 2,
+                    "work": [
+                      1,
+                      1
+                    ],
+                    "unit_costs": [
+                      7,
+                      11
+                    ]
+                  },
+                  "inference": {
+                    "window_costs": [
+                      5,
+                      8
+                    ],
+                    "mean": 6.5,
+                    "std": 1.5,
+                    "work": [
+                      100,
+                      120
+                    ],
+                    "unit_costs": [
+                      0.05,
+                      0.06666666666666667
+                    ]
+                  }
+                },
+                "unallocated": [
+                  {
+                    "charge_id": "w1.unmapped-lab",
+                    "reporting_window": "w1",
+                    "resource_id": "unmapped-lab",
+                    "charge_category": "unmatched",
+                    "amount": 0
+                  },
+                  {
+                    "charge_id": "w2.unmapped-lab",
+                    "reporting_window": "w2",
+                    "resource_id": "unmapped-lab",
+                    "charge_category": "unmatched",
+                    "amount": 3
+                  }
+                ],
+                "unusual": [
+                  {
+                    "workload": "training",
+                    "window": "w2",
+                    "amount": 11
+                  }
+                ],
+                "allocated_total": 31,
+                "unallocated_total": 3,
+                "eligible_export_total": 34,
+                "unit": "fictional credits"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "mle.ml_workload_cost_guardrail": {
+      "type": "code_exercise",
+      "public": {
+        "prompt": "Author and safely reload the fixed-target budget response YAML using every supplied policy field. Verify workload scope, amount, monthly period, threshold, existing Pub/Sub binding, authorized identity and Secret Manager reference; never write a credential value. Replay below, equality and breach rows: predicate is spend>=amount*ratio. Retain notification and same-target stop evidence with before/after descriptions and non-disclosure review. Return config, replay evidence and the stated delayed-notification limitation; no hard cap or live resource operation is claimed.",
+        "runtime": {
+          "kind": "python",
+          "version": "0.29.5",
+          "packages": [
+            "numpy",
+            "pyyaml"
+          ]
+        },
+        "workspace": {
+          "entry": "main.py",
+          "files": [
+            {
+              "path": "main.py",
+              "role": "editable",
+              "language": "python",
+              "content": "# Supplied fixture infrastructure; learner edits only the statements below.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'budget_replay': {'fixture': 'string', 'workload_scope': 'string', 'budget_amount': 'number', 'period': 'string', 'threshold_ratio': 'number', 'observed_spend': 'number', 'INSTANCE': 'string', 'ZONE': 'string', 'notification_expected': 'boolean', 'response_expected': 'boolean', 'expected_after_state': 'string'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\ndef budget_replay(config,data):\\n    outputs=[]\\n    for row in data:\\n        breached=row['observed_spend']>=config['budget_amount']*config['threshold_ratio']\\n        outputs.append({'fixture':row['fixture'],'observed_spend':row['observed_spend'],'notified':breached,'topic':config['notification_topic'] if breached else None,'executed':('gcloud compute instances stop '+config['INSTANCE']+' --zone='+config['ZONE']) if breached else None,'before':{'INSTANCE':config['INSTANCE'],'ZONE':config['ZONE'],'state':'RUNNING'},'after':{'INSTANCE':config['INSTANCE'],'ZONE':config['ZONE'],'state':'TERMINATED' if breached else 'RUNNING'},'credentials':'runtime Secret Manager reference; captured output reviewed'})\\n    return outputs\\n\\n\"\nexec(_fixture_support)\nimport yaml\npolicy = {'workload_scope': 'order-lab', 'budget_amount': 100, 'period': 'monthly', 'threshold_ratio': 0.8, 'predicate': 'observed_spend>=budget_amount*threshold_ratio', 'notification_topic': 'lab-budget-events', 'response_pipeline': 'lab-safe-stop', 'INSTANCE': 'inference-lab', 'ZONE': 'lab-zone-a', 'authorized_identity': 'lab.operator', 'secret_version_reference': 'projects/order-lab/secrets/budget-client/versions/1', 'residual_limitation': 'Notifications can lag usage and do not enforce a hard spending cap.'}\ndata = load('budget_replay')\n\n# Complete the calculations below; retain the supplied report contract.\nconfig = None\nwith open('budget.yaml','w') as file_handle:\n    yaml.safe_dump(config, file_handle)\nwith open('budget.yaml') as file_handle:\n    loaded = yaml.safe_load(file_handle)\noutputs = budget_replay(loaded,data)\nreport = {'config':loaded,'replay':outputs,'limitation':policy['residual_limitation']}\n"
+            }
+          ],
+          "asset_mounts": [
+            {
+              "asset_id": "ds.budget_replay",
+              "mount_path": "budget_replay.csv"
+            }
+          ]
+        },
+        "constraints": {
+          "allowed_syntax": [
+            "import yaml",
+            "Python dictionary and list literals",
+            "String and numeric literals",
+            "Variable assignment",
+            "Dictionary-key and list-index access",
+            "with open(...) as file_handle",
+            "yaml.safe_dump(config, file_handle)",
+            "yaml.safe_load(file_handle)",
+            "gcloud compute instances describe INSTANCE --zone=ZONE",
+            "gcloud compute instances stop INSTANCE --zone=ZONE",
+            "Supplied event-response YAML fields for budget scope, amount, reporting period, thresholds, existing Pub/Sub topic, event binding and fixed target",
+            "Supplied runtime Secret Manager references and secretEnv configuration"
+          ],
+          "blocked_syntax": [
+            "gcloud compute instances delete",
+            "gcloud compute instance-groups managed delete",
+            "Wildcard or dynamically enumerated resource targets",
+            "yaml.load with an unsafe loader",
+            "YAML tags that construct arbitrary Python objects",
+            "Literal credentials in configuration or command arguments"
+          ]
+        }
+      },
+      "grading": {
+        "solution_files": [
+          {
+            "path": "main.py",
+            "content": "# Supplied fixture infrastructure; learner edits only the statements below.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'budget_replay': {'fixture': 'string', 'workload_scope': 'string', 'budget_amount': 'number', 'period': 'string', 'threshold_ratio': 'number', 'observed_spend': 'number', 'INSTANCE': 'string', 'ZONE': 'string', 'notification_expected': 'boolean', 'response_expected': 'boolean', 'expected_after_state': 'string'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\ndef budget_replay(config,data):\\n    outputs=[]\\n    for row in data:\\n        breached=row['observed_spend']>=config['budget_amount']*config['threshold_ratio']\\n        outputs.append({'fixture':row['fixture'],'observed_spend':row['observed_spend'],'notified':breached,'topic':config['notification_topic'] if breached else None,'executed':('gcloud compute instances stop '+config['INSTANCE']+' --zone='+config['ZONE']) if breached else None,'before':{'INSTANCE':config['INSTANCE'],'ZONE':config['ZONE'],'state':'RUNNING'},'after':{'INSTANCE':config['INSTANCE'],'ZONE':config['ZONE'],'state':'TERMINATED' if breached else 'RUNNING'},'credentials':'runtime Secret Manager reference; captured output reviewed'})\\n    return outputs\\n\\n\"\nexec(_fixture_support)\nimport yaml\npolicy = {'workload_scope': 'order-lab', 'budget_amount': 100, 'period': 'monthly', 'threshold_ratio': 0.8, 'predicate': 'observed_spend>=budget_amount*threshold_ratio', 'notification_topic': 'lab-budget-events', 'response_pipeline': 'lab-safe-stop', 'INSTANCE': 'inference-lab', 'ZONE': 'lab-zone-a', 'authorized_identity': 'lab.operator', 'secret_version_reference': 'projects/order-lab/secrets/budget-client/versions/1', 'residual_limitation': 'Notifications can lag usage and do not enforce a hard spending cap.'}\ndata = load('budget_replay')\n\nconfig = policy\nwith open('budget.yaml','w') as file_handle:\n    yaml.safe_dump(config, file_handle)\nwith open('budget.yaml') as file_handle:\n    loaded = yaml.safe_load(file_handle)\noutputs = budget_replay(loaded,data)\nreport = {'config':loaded,'replay':outputs,'limitation':policy['residual_limitation']}\n"
+          }
+        ],
+        "tests": [
+          {
+            "test_id": "report",
+            "kind": "value_equals",
+            "spec": {
+              "expr": "report",
+              "expected": {
+                "config": {
+                  "INSTANCE": "inference-lab",
+                  "ZONE": "lab-zone-a",
+                  "authorized_identity": "lab.operator",
+                  "budget_amount": 100,
+                  "notification_topic": "lab-budget-events",
+                  "period": "monthly",
+                  "predicate": "observed_spend>=budget_amount*threshold_ratio",
+                  "residual_limitation": "Notifications can lag usage and do not enforce a hard spending cap.",
+                  "response_pipeline": "lab-safe-stop",
+                  "secret_version_reference": "projects/order-lab/secrets/budget-client/versions/1",
+                  "threshold_ratio": 0.8,
+                  "workload_scope": "order-lab"
+                },
+                "replay": [
+                  {
+                    "fixture": "below",
+                    "observed_spend": 79,
+                    "notified": false,
+                    "topic": null,
+                    "executed": null,
+                    "before": {
+                      "INSTANCE": "inference-lab",
+                      "ZONE": "lab-zone-a",
+                      "state": "RUNNING"
+                    },
+                    "after": {
+                      "INSTANCE": "inference-lab",
+                      "ZONE": "lab-zone-a",
+                      "state": "RUNNING"
+                    },
+                    "credentials": "runtime Secret Manager reference; captured output reviewed"
+                  },
+                  {
+                    "fixture": "boundary",
+                    "observed_spend": 80,
+                    "notified": true,
+                    "topic": "lab-budget-events",
+                    "executed": "gcloud compute instances stop inference-lab --zone=lab-zone-a",
+                    "before": {
+                      "INSTANCE": "inference-lab",
+                      "ZONE": "lab-zone-a",
+                      "state": "RUNNING"
+                    },
+                    "after": {
+                      "INSTANCE": "inference-lab",
+                      "ZONE": "lab-zone-a",
+                      "state": "TERMINATED"
+                    },
+                    "credentials": "runtime Secret Manager reference; captured output reviewed"
+                  },
+                  {
+                    "fixture": "breach",
+                    "observed_spend": 90,
+                    "notified": true,
+                    "topic": "lab-budget-events",
+                    "executed": "gcloud compute instances stop inference-lab --zone=lab-zone-a",
+                    "before": {
+                      "INSTANCE": "inference-lab",
+                      "ZONE": "lab-zone-a",
+                      "state": "RUNNING"
+                    },
+                    "after": {
+                      "INSTANCE": "inference-lab",
+                      "ZONE": "lab-zone-a",
+                      "state": "TERMINATED"
+                    },
+                    "credentials": "runtime Secret Manager reference; captured output reviewed"
+                  }
+                ],
+                "limitation": "Notifications can lag usage and do not enforce a hard spending cap."
+              }
+            }
+          }
+        ]
+      }
+    },
+    "mle.retraining_run_idempotency": {
+      "type": "code_exercise",
+      "public": {
+        "prompt": "Reorder the supplied bounded coordinator/executor fixture operations. The infrastructure supplies atomic reserve/attach/terminal methods, not process-local deduplication. Prove same-key concurrent deliveries share one persisted job identity, a different key is busy, fresh workers after reservation/launch and unknown response reconcile that identity, terminal release retains completed keys, and required admission/function-test gates fatally precede execute with YAML round-trip intact. Each operation asserts durable records/counts. This is a deterministic concurrency/restart simulator, not a live launch.",
+        "runtime": {
+          "kind": "python",
+          "version": "0.29.5",
+          "packages": [
+            "numpy",
+            "pyyaml"
+          ]
+        },
+        "workspace": {
+          "entry": "main.py",
+          "files": [
+            {
+              "path": "main.py",
+              "role": "editable",
+              "language": "python",
+              "content": "# Supplied fixture infrastructure; learner edits only the statements below.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'idempotency_traces': {'fixture': 'string', 'step': 'integer', 'run_key': 'string', 'pipeline': 'string', 'admission_status': 'string', 'job_id': 'string', 'active_slot_owner': 'string', 'terminal_confirmed': 'boolean', 'logical_job_count': 'integer', 'event': 'string'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\nclass AdmissionLab:\\n    def __init__(self,events,policy): self.events=events;self.policy=policy;self.phase=0;self.evidence=[];self.records={};self.slot=None;self.jobs={}\\n    def reserve(self,key,pipeline):\\n        if key in self.records:return self.records[key], 'duplicate'\\n        if self.slot is not None:return None,'busy'\\n        job='job.'+key;self.records[key]={'key':key,'pipeline':pipeline,'job_id':job,'terminal':False};self.slot=key\\n        return self.records[key],'accepted'\\n    def invoke(self,record):self.jobs.setdefault(record['job_id'],'running')\\n    def concurrency_and_reservation(self):\\n        if self.phase!=0:raise ValueError('must reserve first')\\n        key=self.policy['event']['run_key'];pipe=self.policy['event']['pipeline']\\n        first,status=self.reserve(key,pipe);second,dup=self.reserve(key,pipe);other,busy=self.reserve(key+'2',pipe)\\n        assert status=='accepted' and dup=='duplicate' and first['job_id']==second['job_id'] and busy=='busy'\\n        self.evidence.append({'case':'concurrent admission','record':dict(first),'duplicate':dup,'different_key':busy,'logical_jobs':len(self.jobs)});self.phase=1\\n    def restart_and_launch(self):\\n        if self.phase!=1:raise ValueError('reservation missing')\\n        key=self.policy['event']['run_key'];record,status=self.reserve(key,self.policy['event']['pipeline'])\\n        self.invoke(record);self.evidence.append({'case':'fresh worker after reservation','job_id':record['job_id'],'logical_jobs':len(self.jobs)});self.phase=2\\n    def unknown_response_reconcile(self):\\n        if self.phase!=2:raise ValueError('no persisted launch')\\n        record=self.records[self.policy['event']['run_key']];self.invoke(record)\\n        assert len(self.jobs)==1\\n        self.evidence.append({'case':'restart after launch and unknown response','job_id':record['job_id'],'logical_jobs':len(self.jobs)});self.phase=3\\n    def confirm_terminal_and_release(self):\\n        if self.phase!=3:raise ValueError('reconciliation missing')\\n        record=self.records[self.policy['event']['run_key']];self.jobs[record['job_id']]='terminal';record['terminal']=True;self.slot=None;self.phase=4\\n    def completed_duplicate(self):\\n        if self.phase!=4:raise ValueError('terminal not confirmed')\\n        record,status=self.reserve(self.policy['event']['run_key'],self.policy['event']['pipeline'])\\n        assert status=='duplicate' and record['terminal'] and len(self.jobs)==1\\n        self.evidence.append({'case':'completed duplicate','record':dict(record),'logical_jobs':len(self.jobs),'active_slot':self.slot});self.phase=5\\n    def fatal_build_gates(self):\\n        if self.phase!=5:raise ValueError('durable checks incomplete')\\n        self.config={'steps':[{'id':'admission','waitFor':['-'],'allowFailure':False},{'id':'function_test','waitFor':['admission'],'allowFailure':False},{'id':'execute','waitFor':['function_test'],'allowFailure':False}]}\\n        import yaml\\n        with open('build.yaml','w') as f:yaml.safe_dump(self.config,f)\\n        with open('build.yaml') as f:loaded=yaml.safe_load(f)\\n        assert loaded==self.config\\n        self.phase=6\\n    def report(self):\\n        if self.phase!=6:raise ValueError('required gates missing')\\n        return {'policy':self.policy,'durable_assertions':self.evidence,'build':self.config,'source_trace_count':len(self.events),'scope':'simulated atomic linearization and fresh-worker reconciliation; no live pipeline launch'}\\n\\n\"\nexec(_fixture_support)\npolicy = {'event': {'run_key': 'K', 'pipeline': 'order-retrain-lab'}, 'busy_policy': 'defer', 'coordinator_contract': {'atomic_admit(run_key,pipeline)': 'Atomically reserve unique run key AND pipeline slot and persist job_id. Return accepted, duplicate or busy plus persisted identity; durable coordinator is external to learner process.', 'inspect(run_key)': 'Read durable record; completed records retained.', 'confirm_terminal_and_release(run_key,job_id)': 'Release active slot only after executor confirms terminal; retain completed key.'}, 'executor_contract': {'launch(job_id)': 'Idempotent executor token; at most one logical job per job_id. Unknown response must be reconciled with same token.', 'attach(job_id)': 'Resume or reconcile existing identity.', 'status(job_id)': 'Return running or confirmed terminal.'}, 'test_scenarios': ['concurrent_same_key', 'concurrent_different_key', 'restart_after_reservation', 'restart_after_launch', 'unknown_launch_response', 'completed_duplicate'], 'fatal_dependencies': ['admission', 'function_test', 'execute']}\nlab = AdmissionLab(load('idempotency_traces'),policy)\n\n# Reorder the supplied operations. Do not change target arguments.\nlab.fatal_build_gates()\nlab.completed_duplicate()\nlab.confirm_terminal_and_release()\nlab.unknown_response_reconcile()\nlab.restart_and_launch()\nlab.concurrency_and_reservation()\nreport = lab.report()\n"
+            }
+          ],
+          "asset_mounts": [
+            {
+              "asset_id": "ds.idempotency_traces",
+              "mount_path": "idempotency_traces.csv"
+            }
+          ]
+        },
+        "constraints": {
+          "allowed_syntax": [
+            "import statements for supplied clients and yaml",
+            "function definitions, parameters and return statements",
+            "variable assignment",
+            "dictionary and list literals",
+            "dictionary key access for declared event and configuration fields",
+            "string literals for declared statuses, run keys and job identities",
+            "if, elif and else branches",
+            "comparisons and Boolean expressions",
+            "calls to supplied atomic admission, executor reconciliation, job-state and terminal-release methods",
+            "calls to supplied concurrency and restart fixture helpers",
+            "assert statements",
+            "with open(...) as file_handle",
+            "yaml.safe_dump(config, file_handle)",
+            "yaml.safe_load(file_handle)",
+            "raise SystemExit(...) for an unsuccessful rejected gate"
+          ],
+          "blocked_syntax": []
+        }
+      },
+      "grading": {
+        "solution_files": [
+          {
+            "path": "main.py",
+            "content": "# Supplied fixture infrastructure; learner edits only the statements below.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'idempotency_traces': {'fixture': 'string', 'step': 'integer', 'run_key': 'string', 'pipeline': 'string', 'admission_status': 'string', 'job_id': 'string', 'active_slot_owner': 'string', 'terminal_confirmed': 'boolean', 'logical_job_count': 'integer', 'event': 'string'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\nclass AdmissionLab:\\n    def __init__(self,events,policy): self.events=events;self.policy=policy;self.phase=0;self.evidence=[];self.records={};self.slot=None;self.jobs={}\\n    def reserve(self,key,pipeline):\\n        if key in self.records:return self.records[key], 'duplicate'\\n        if self.slot is not None:return None,'busy'\\n        job='job.'+key;self.records[key]={'key':key,'pipeline':pipeline,'job_id':job,'terminal':False};self.slot=key\\n        return self.records[key],'accepted'\\n    def invoke(self,record):self.jobs.setdefault(record['job_id'],'running')\\n    def concurrency_and_reservation(self):\\n        if self.phase!=0:raise ValueError('must reserve first')\\n        key=self.policy['event']['run_key'];pipe=self.policy['event']['pipeline']\\n        first,status=self.reserve(key,pipe);second,dup=self.reserve(key,pipe);other,busy=self.reserve(key+'2',pipe)\\n        assert status=='accepted' and dup=='duplicate' and first['job_id']==second['job_id'] and busy=='busy'\\n        self.evidence.append({'case':'concurrent admission','record':dict(first),'duplicate':dup,'different_key':busy,'logical_jobs':len(self.jobs)});self.phase=1\\n    def restart_and_launch(self):\\n        if self.phase!=1:raise ValueError('reservation missing')\\n        key=self.policy['event']['run_key'];record,status=self.reserve(key,self.policy['event']['pipeline'])\\n        self.invoke(record);self.evidence.append({'case':'fresh worker after reservation','job_id':record['job_id'],'logical_jobs':len(self.jobs)});self.phase=2\\n    def unknown_response_reconcile(self):\\n        if self.phase!=2:raise ValueError('no persisted launch')\\n        record=self.records[self.policy['event']['run_key']];self.invoke(record)\\n        assert len(self.jobs)==1\\n        self.evidence.append({'case':'restart after launch and unknown response','job_id':record['job_id'],'logical_jobs':len(self.jobs)});self.phase=3\\n    def confirm_terminal_and_release(self):\\n        if self.phase!=3:raise ValueError('reconciliation missing')\\n        record=self.records[self.policy['event']['run_key']];self.jobs[record['job_id']]='terminal';record['terminal']=True;self.slot=None;self.phase=4\\n    def completed_duplicate(self):\\n        if self.phase!=4:raise ValueError('terminal not confirmed')\\n        record,status=self.reserve(self.policy['event']['run_key'],self.policy['event']['pipeline'])\\n        assert status=='duplicate' and record['terminal'] and len(self.jobs)==1\\n        self.evidence.append({'case':'completed duplicate','record':dict(record),'logical_jobs':len(self.jobs),'active_slot':self.slot});self.phase=5\\n    def fatal_build_gates(self):\\n        if self.phase!=5:raise ValueError('durable checks incomplete')\\n        self.config={'steps':[{'id':'admission','waitFor':['-'],'allowFailure':False},{'id':'function_test','waitFor':['admission'],'allowFailure':False},{'id':'execute','waitFor':['function_test'],'allowFailure':False}]}\\n        import yaml\\n        with open('build.yaml','w') as f:yaml.safe_dump(self.config,f)\\n        with open('build.yaml') as f:loaded=yaml.safe_load(f)\\n        assert loaded==self.config\\n        self.phase=6\\n    def report(self):\\n        if self.phase!=6:raise ValueError('required gates missing')\\n        return {'policy':self.policy,'durable_assertions':self.evidence,'build':self.config,'source_trace_count':len(self.events),'scope':'simulated atomic linearization and fresh-worker reconciliation; no live pipeline launch'}\\n\\n\"\nexec(_fixture_support)\npolicy = {'event': {'run_key': 'K', 'pipeline': 'order-retrain-lab'}, 'busy_policy': 'defer', 'coordinator_contract': {'atomic_admit(run_key,pipeline)': 'Atomically reserve unique run key AND pipeline slot and persist job_id. Return accepted, duplicate or busy plus persisted identity; durable coordinator is external to learner process.', 'inspect(run_key)': 'Read durable record; completed records retained.', 'confirm_terminal_and_release(run_key,job_id)': 'Release active slot only after executor confirms terminal; retain completed key.'}, 'executor_contract': {'launch(job_id)': 'Idempotent executor token; at most one logical job per job_id. Unknown response must be reconciled with same token.', 'attach(job_id)': 'Resume or reconcile existing identity.', 'status(job_id)': 'Return running or confirmed terminal.'}, 'test_scenarios': ['concurrent_same_key', 'concurrent_different_key', 'restart_after_reservation', 'restart_after_launch', 'unknown_launch_response', 'completed_duplicate'], 'fatal_dependencies': ['admission', 'function_test', 'execute']}\nlab = AdmissionLab(load('idempotency_traces'),policy)\n\nlab.concurrency_and_reservation()\nlab.restart_and_launch()\nlab.unknown_response_reconcile()\nlab.confirm_terminal_and_release()\nlab.completed_duplicate()\nlab.fatal_build_gates()\nreport = lab.report()\n"
+          }
+        ],
+        "tests": [
+          {
+            "test_id": "report",
+            "kind": "value_equals",
+            "spec": {
+              "expr": "report",
+              "expected": {
+                "policy": {
+                  "event": {
+                    "run_key": "K",
+                    "pipeline": "order-retrain-lab"
+                  },
+                  "busy_policy": "defer",
+                  "coordinator_contract": {
+                    "atomic_admit(run_key,pipeline)": "Atomically reserve unique run key AND pipeline slot and persist job_id. Return accepted, duplicate or busy plus persisted identity; durable coordinator is external to learner process.",
+                    "inspect(run_key)": "Read durable record; completed records retained.",
+                    "confirm_terminal_and_release(run_key,job_id)": "Release active slot only after executor confirms terminal; retain completed key."
+                  },
+                  "executor_contract": {
+                    "launch(job_id)": "Idempotent executor token; at most one logical job per job_id. Unknown response must be reconciled with same token.",
+                    "attach(job_id)": "Resume or reconcile existing identity.",
+                    "status(job_id)": "Return running or confirmed terminal."
+                  },
+                  "test_scenarios": [
+                    "concurrent_same_key",
+                    "concurrent_different_key",
+                    "restart_after_reservation",
+                    "restart_after_launch",
+                    "unknown_launch_response",
+                    "completed_duplicate"
+                  ],
+                  "fatal_dependencies": [
+                    "admission",
+                    "function_test",
+                    "execute"
+                  ]
+                },
+                "durable_assertions": [
+                  {
+                    "case": "concurrent admission",
+                    "record": {
+                      "key": "K",
+                      "pipeline": "order-retrain-lab",
+                      "job_id": "job.K",
+                      "terminal": false
+                    },
+                    "duplicate": "duplicate",
+                    "different_key": "busy",
+                    "logical_jobs": 0
+                  },
+                  {
+                    "case": "fresh worker after reservation",
+                    "job_id": "job.K",
+                    "logical_jobs": 1
+                  },
+                  {
+                    "case": "restart after launch and unknown response",
+                    "job_id": "job.K",
+                    "logical_jobs": 1
+                  },
+                  {
+                    "case": "completed duplicate",
+                    "record": {
+                      "key": "K",
+                      "pipeline": "order-retrain-lab",
+                      "job_id": "job.K",
+                      "terminal": true
+                    },
+                    "logical_jobs": 1,
+                    "active_slot": null
+                  }
+                ],
+                "build": {
+                  "steps": [
+                    {
+                      "id": "admission",
+                      "waitFor": [
+                        "-"
+                      ],
+                      "allowFailure": false
+                    },
+                    {
+                      "id": "function_test",
+                      "waitFor": [
+                        "admission"
+                      ],
+                      "allowFailure": false
+                    },
+                    {
+                      "id": "execute",
+                      "waitFor": [
+                        "function_test"
+                      ],
+                      "allowFailure": false
+                    }
+                  ]
+                },
+                "source_trace_count": 7,
+                "scope": "simulated atomic linearization and fresh-worker reconciliation; no live pipeline launch"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

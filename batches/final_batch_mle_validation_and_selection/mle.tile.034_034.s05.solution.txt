@@ -1,0 +1,85 @@
+import csv
+import json
+def supplied_rows(path):
+    with open(path) as f:
+        raw = list(csv.DictReader(f))
+    def convert(v):
+        if v == '': return None
+        if v.lower() == 'true': return True
+        if v.lower() == 'false': return False
+        try: return float(v) if '.' in v or 'e' in v.lower() else int(v)
+        except ValueError: return v
+    return [{k: convert(v) for k,v in r.items()} for r in raw]
+foundation_outputs = supplied_rows('foundation_outputs.csv')
+validation_scores = supplied_rows('validation_scores.csv')
+p0 = 0.8
+p1 = 0.2
+cfp = 1
+cfn = 5
+bound = 0.3
+import numpy as np
+def evaluate(ids, output_ids, y, outputs, reference, p0,p1,cfp,cfn,bound):
+    ids = np.asarray(ids)
+    output_ids = np.asarray(output_ids)
+    y = np.asarray(y)
+    pred = np.asarray(outputs)
+    reference = np.asarray(reference)
+    if not aligned(ids, output_ids):
+        raise ValueError('observation mismatch')
+    if y.shape != pred.shape or y.shape != reference.shape:
+        raise ValueError('shape mismatch')
+    TP = tally((y == 1) & (pred == 1))
+    FP = tally((y == 0) & (pred == 1))
+    FN = tally((y == 1) & (pred == 0))
+    TN = tally((y == 0) & (pred == 0))
+    if FP + TN == 0:
+        FPR = None
+    else:
+        FPR = FP / (FP + TN)
+    if FN + TP == 0:
+        FNR = None
+    else:
+        FNR = FN / (FN + TP)
+    if FPR == None or FNR == None:
+        cost = None
+    else:
+        cost = p0 * FPR * cfp + p1 * FNR * cfn
+    accuracy = tally(y == pred)/tally((y == 0) | (y == 1))
+    baseline_accuracy = tally(y == reference)/tally((y == 0) | (y == 1))
+    baseline_FP = tally((y == 0) & (reference == 1))
+    baseline_TN = tally((y == 0) & (reference == 0))
+    baseline_FN = tally((y == 1) & (reference == 0))
+    baseline_TP = tally((y == 1) & (reference == 1))
+    if baseline_FP + baseline_TN == 0 or baseline_FN + baseline_TP == 0:
+        baseline_cost = None
+    else:
+        baseline_cost = p0*baseline_FP/(baseline_FP+baseline_TN)*cfp+p1*baseline_FN/(baseline_FN+baseline_TP)*cfn
+    if cost == None:
+        verdict = 'unresolved'
+    elif cost <= bound:
+        verdict = 'predictive quality accepted'
+    else:
+        verdict = 'predictive quality rejected'
+    return {'aligned': True, 'accuracy': accuracy, 'baseline_accuracy': baseline_accuracy, 'TP': TP, 'FP': FP, 'FN': FN, 'TN': TN, 'FPR': FPR, 'FNR': FNR, 'expected_cost': cost, 'baseline_expected_cost': baseline_cost, 'verdict': verdict, 'limitations': 'Supplied validation cohort only; operating eligibility separate; no universal suitability or protected-test evidence'}
+
+
+import numpy as np
+def aligned(a, b):
+    return np.array_equal(a, b)
+def tally(mask):
+    return np.sum(mask)
+ids = [r['observation_id'] for r in validation_scores]
+output_ids = [r['observation_id'] for r in foundation_outputs]
+y = [r['actual_label'] for r in validation_scores]
+outputs = [r['foundation_output'] for r in foundation_outputs]
+reference = [r['reference_output'] for r in validation_scores]
+result = evaluate(ids,output_ids,y,outputs,reference,p0,p1,cfp,cfn,bound)
+empty = evaluate(ids[:2],output_ids[:2],[1,1],outputs[:2],reference[:2],p0,p1,cfp,cfn,bound)
+def supplied_mismatch_check():
+    try:
+        evaluate(ids,output_ids[::-1],y,outputs,reference,p0,p1,cfp,cfn,bound)
+    except ValueError:
+        return True
+    return False
+mismatch_rejected = supplied_mismatch_check()
+

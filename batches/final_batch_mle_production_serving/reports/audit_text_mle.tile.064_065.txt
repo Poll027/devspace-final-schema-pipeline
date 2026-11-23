@@ -1,0 +1,57 @@
+
+mle.tile.064_065.s01 Reproduce a model deployment from parameterized runtime configuration and an immutable artifact reference
+Prepare repeatable configuration before applying it. Separate nonsecret settings from runtime secret references.
+Pin deployment to the recorded immutable image digest; a mutable tag may later resolve to different contents.
+In the supplied Docker Compose runtime, author the mapping services: {prediction: {image: IMAGE_DIGEST, environment: {SETTING: VALUE}, ports: ["HOST_PORT:CONTAINER_PORT"], secrets: [credential], deploy: {replicas: REPLICA_COUNT}}} and top-level secrets: {credential: {environment: INJECTED_SECRET_VARIABLE}}; substitute the approved digest, nonsecret setting, port numbers, supported replica count and host secret-variable name, never the secret value.
+Set a service’s image to its immutable artifact reference, its ports to HOST:CONTAINER mappings, and its environment to the declared nonsecret key/value settings.
+VISUAL {"type": "side_by_side", "left": {"type": "diagram", "diagram_kind": "sequence", "title": "Authored configuration", "nodes": [{"id": "n0", "label": "Recorded immutable image"}, {"id": "n1", "label": "HOST:CONTAINER ports; nonsecret environment"}, {"id": "n2", "label": "Runtime secret-variable reference"}, {"id": "n3", "label": "Supported replica/resource bounds"}, {"id": "n4", "label": "Safely reloaded YAML \u2192 compose config"}], "edges": [{"from": "n0", "to": "n1", "directed": true}, {"from": "n1", "to": "n2", "directed": true}, {"from": "n
+VISUAL "import json\nwith open(\"runtime_contract.json\") as source:\n    intended = json.load(source)\n# Inspect live fixture execution separately from the intended configuration.\n# Compare container Config.Image with intended[\"IMAGE_DIGEST\"].\n# Check State and Health when configured, plus sanitized initialization/execution logs.\n# Bounded readiness and prediction checks must verify status and decoded payload.\n# Do not interpret launch success as acceptance."
+VISUAL "# Authored intended fixture configuration; no credential literals.\nconfig = {'services': {'prediction': {'image': 'fixture.local/orders@sha256:29371dd36fb111803c6fe996426f342680170dec59168e1e52139cdb4fbfaf83', 'environment': {'MODE': 'fixture'}, 'ports': ['8080:8080'], 'secrets': ['credential'], 'deploy': {'replicas': 1, 'resources': {'limits': {'cpus': 1.0, 'memory': '256M'}}}}}, 'secrets': {'credential': {'environment': 'ORDER_FIXTURE_CREDENTIAL'}}}\n# Safely write/reload; resolve fields before application.\n# Compare initial and recreated running identity/settings with this same file."
+VISUAL {"type": "diagram", "diagram_kind": "sequence", "title": "Authorized fixture instance, not a real cloud deployment", "nodes": [{"id": "n0", "label": "Authorized instance: order-lab"}, {"id": "n1", "label": "Zone: fixture-zone"}, {"id": "n2", "label": "Describe identity/status before and after authorized lifecycle action"}], "edges": [{"from": "n0", "to": "n1", "directed": true}, {"from": "n1", "to": "n2", "directed": true}], "alt_text": "Authorized instance: order-lab \u2192 Zone: fixture-zone \u2192 Describe identity/status before and after au
+
+mle.tile.064_065.s02 Resolve configuration before deployment
+Use docker compose -f CONFIG_PATH config to parse, resolve and validate the authored YAML before applying it; check its resolved fields against the intended runtime contract.
+Apply the declared local Compose deployment with docker compose -f CONFIG_PATH up -d and inspect the resulting containers.
+Set replica count at services.<service>.deploy.replicas; set resource bounds at services.<service>.deploy.resources.limits.cpus and memory in a runtime supporting these deploy fields, and validate the resolved count and bounds before applying the configuration.
+Keep secrets out of Dockerfile ARG and ENV: they persist in the final image or its metadata.
+Deliver sensitive values through runtime secrets, never as literal Compose values.
+After application, inspect the running image identity and compare it with the recorded artifact reference.
+
+mle.tile.064_065.s03 Inspect authorized VM lifecycle changes
+For an authorized supplied Compute Engine VM, gcloud compute instances start INSTANCE --zone=ZONE and gcloud compute instances stop INSTANCE --zone=ZONE change its lifecycle state; wait for the operation and inspect the resulting state.
+Connect to the running authorized VM with gcloud compute ssh INSTANCE --zone=ZONE to execute the workload.
+Use gcloud compute instances describe INSTANCE --zone=ZONE to inspect the instance status and identity before and after the authorized lifecycle action.
+Create the configuration branch with git checkout -b BRANCH, commit the verified configuration, then merge the branch under the existing repository workflow.
+Destroy only the test deployment with docker compose -f CONFIG_PATH down, then reapply the same file and verify identical image identity and resolved runtime settings.
+With the declared PyYAML dependency, import yaml; write a mapping/list configuration with yaml.safe_dump(config, file_handle), reload it with yaml.safe_load(file_handle), and inspect the required resolved fields before submitting it to the existing runtime. Safe loading supports standard YAML tags, not arbitrary Python object constructors.
+
+mle.tile.064_065.s04 Verify immutable deployment configuration
+In the fixture, configure the approved immutable image, declared port mapping, supported replica count and resource bounds. Safely reload the YAML and inspect compose config before applying it. Compare the running image with the recorded artifact, then commit the verified configuration through the existing branch and merge workflow. Destroy only the test deployment, reapply the same file and verify identical identity and settings. Use only authorized VM lifecycle and connection actions. Secret references name injected variables, never credential values.
+A mutable tag is not the immutable release identity. Parsed configuration also does not prove running state, and deploy resource fields must be supported by the supplied runtime.
+
+mle.tile.064_065.s07 Verify a model release on an existing runtime
+A launch message is not release acceptance. Verify identity, execution state and bounded endpoint behavior.
+Verify the same recorded artifact and runtime configuration in the existing execution environment, rather than accepting the fact that deployment started as proof of a correct release.
+Use docker run --name NAME -p HOST_PORT:CONTAINER_PORT --env KEY=VALUE IMAGE to start the referenced image with the declared port and nonsecret runtime settings.
+Inspect the named container with docker container inspect NAME to check its image identity and State fields.
+Use docker container logs NAME to inspect its captured standard output and error for initialization or execution failures.
+Inspect the running container identity and State, including Health when a healthcheck is configured, and compare them with the intended release.
+Inspect runtime logs for initialization and execution failures without copying sensitive request data or credentials into the evidence record.
+VISUAL "# Infrastructure helper: bounded status/body transport, not a client validation solution.\nimport urllib.request\nfrom urllib.error import HTTPError\n\ndef request_bytes(request, timeout_seconds):\n    try:\n        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:\n            return response.status, response.read()\n    except HTTPError as response:\n        return response.code, response.read()\n"
+VISUAL "import json\nwith open(\"runtime_contract.json\") as source:\n    intended = json.load(source)\n# Inspect live fixture execution separately from the intended configuration.\n# Compare container Config.Image with intended[\"IMAGE_DIGEST\"].\n# Check State and Health when configured, plus sanitized initialization/execution logs.\n# Bounded readiness and prediction checks must verify status and decoded payload.\n# Do not interpret launch success as acceptance."
+
+mle.tile.064_065.s08 Probe readiness and prediction contracts
+Call the declared readiness and prediction endpoints with bounded timeouts and check the returned status and payload against the expected contracts.
+Send a JSON request body as encoded bytes in urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST"), then read the response through urlopen with a stated timeout.
+Serialize structured request/response values with json.dumps; decode JSON with json.loads before inspecting fields.
+Inspect the small prediction fixture’s output shape and values against the declared task/response contract.
+Assert the declared valid, boundary and failure predicates. In ordinary non-optimized execution, a false assertion raises AssertionError.
+
+mle.tile.064_065.s09 Compare the running release with its record
+Inspect the named fixture container against the release record: image, State and Health when configured. Review initialization and execution logs without copying sensitive requests or credentials. Call readiness and prediction with stated timeouts, sending encoded JSON and decoding the response. Verify status, output shape and declared values with assertions. Plausible predictions do not repair an image-identity mismatch; retain separate identity, initialization and contract checks.
+Launch success is not release verification. A correct-looking prediction is insufficient if the artifact identity or runtime configuration differs from the intended release.
+
+mle.tile.064_065.s12 Carry these rules forward
+A mutable tag is not immutable identity. Parsed settings do not prove running state or deploy-field support.
+Launch success is not verification; check intended artifact, runtime configuration and prediction contract.
+VISUAL {"type": "up_next", "title": "Enforce prediction-service authentication on an existing platform"}

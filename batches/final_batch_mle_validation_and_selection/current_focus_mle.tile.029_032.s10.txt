@@ -1,0 +1,68 @@
+Complete only the top-level callable/value bindings. Bind `seed_trial` to the supplied operation that uses the same seed for the split and both models, and `win_rule` to the supplied strict candidate-cost improvement predicate. The evaluator must retain every completed paired trial, count wins with ties excluded from wins but included in the denominator, and summarize repeated results with ddof=0. Read and preserve all supplied loading, evaluation logic, guards and returned fields; do not edit the supplied evaluation block. The checker runs the completed evaluator on the supplied evidence and boundary cases.
+{'allowed_syntax': ['import numpy as np', 'from supplied dependency modules import required names', 'def with parameters and return', 'variable assignment', 'integer and floating-point literals', 'lists and dictionaries', 'for seed in declared_seed_list', 'if statements', 'list.append', 'dictionary and list indexing', 'len', 'numeric comparisons and arithmetic', 'calls to supplied preparation and evaluation helpers', 'scikit-learn split and estimator calls with random_state', 'fit and predict', 'None', 'np.random.RandomState', 'np.mean(numeric_values)', 'np.std(numeric_values, ddof=0)', 'np.std(numeric_values, ddof=1) when explicitly required by the calculation'], 'blocked_syntax': ['GridSearchCV', 'RandomizedSearchCV', 'torch imports and API calls', 'DataLoader', 'loss.backward()', 'optimizer.step()', 'torch.save', 'torch.load', "if __name__ == '__main__':"]}
+# Supplied evaluation scaffold. Keep this block unchanged; complete only the bindings below.
+if __name__:
+    def supplied_same_seed_trial(seed):
+        return paired_trial(seed, split_random_state=seed, baseline_random_state=seed, candidate_random_state=seed)
+
+    def supplied_strict_cost_win(pair):
+        return pair['candidate_result'] < pair['baseline_result']
+    def run_pair(seed, split_random_state, baseline_random_state, candidate_random_state):
+        assert split_random_state == seed
+        assert baseline_random_state == seed
+        assert candidate_random_state == seed
+        for row in trials:
+            if row['seed'] == seed:
+                call_trace.append({'seed': seed, 'split_random_state': split_random_state, 'baseline_random_state': baseline_random_state, 'candidate_random_state': candidate_random_state})
+                return row
+        raise ValueError('undeclared seed')
+
+    def supplied_numeric_pair_present(pair):
+        if not isinstance(pair, dict):
+            return False
+        for name in ('baseline_result', 'candidate_result'):
+            value = pair.get(name)
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                return False
+            if value != value or value in (float('inf'), -float('inf')):
+                return False
+        return True
+
+    def evaluate(declared_seed_list):
+        pairs = []
+        baseline_results = []
+        candidate_results = []
+        wins = 0
+        for seed in declared_seed_list:
+            pair = seed_trial(seed)
+            if supplied_numeric_pair_present(pair):
+                pairs.append(pair)
+                baseline_results.append(pair['baseline_result'])
+                candidate_results.append(pair['candidate_result'])
+                if win_rule(pair):
+                    wins = wins + 1
+        n = len(pairs)
+        win_probability = None
+        baseline_mean = None
+        baseline_std = None
+        candidate_mean = None
+        candidate_std = None
+        if n > 0:
+            win_probability = wins / n
+            baseline_mean = trial_mean(baseline_results)
+            baseline_std = trial_std(baseline_results, ddof=0)
+            candidate_mean = trial_mean(candidate_results)
+            candidate_std = trial_std(candidate_results, ddof=0)
+        return {'pairs': pairs, 'completed_pair_count': n, 'win_count': wins, 'win_probability': win_probability, 'baseline_mean': baseline_mean, 'baseline_std': baseline_std, 'candidate_mean': candidate_mean, 'candidate_std': candidate_std, 'limitation': 'Declared split and estimator random sources are controlled; identical computation in every environment is not guaranteed.'}
+
+# Supplied callable operations; keep these assignments unchanged.
+supplied_run_pair = run_pair
+supplied_np_mean = np.mean
+supplied_np_std = np.std
+paired_trial = supplied_run_pair
+trial_mean = supplied_np_mean
+trial_std = supplied_np_std
+
+# Complete only these callable/value bindings; preserve the supplied scaffold.
+seed_trial = None  # TODO: bind the supplied operation/value
+win_rule = None  # TODO: bind the supplied operation/value

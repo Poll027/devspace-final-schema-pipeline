@@ -1,0 +1,81 @@
+
+mle.tile.060_063.s01 Validate prediction request and response schemas
+Parseable JSON can still violate a prediction contract. Decode first; acceptance also needs field, value and response-alignment checks.
+The request schema specifies features, types and permitted values; the response schema specifies output structure.
+Decode JSON into Python values before checking field presence and types. Raw text is not the structured request.
+Compare required versus supplied key sets, then test declared types and numeric boundaries with conditional predicates.
+For matrix-valued inputs, construct the declared NumPy representation and verify rank, feature width and output row alignment against the request/response contract.
+Reject malformed or out-of-contract requests explicitly rather than returning a successful prediction from invalid inputs.
+Assert the declared valid, boundary and failure predicates. In ordinary non-optimized execution, a false assertion raises AssertionError.
+VISUAL "# Symbolic checks against the supplied contract, not computed output.\nbody = json.dumps(request_values).encode(\"utf-8\")\nrequest = json.loads(body)\nassert set(request) == set(contract[\"request_keys\"])\nvalues = reject_malformed(request)  # checks declared types and bounds\nmatrix = np.array(values, dtype=contract[\"numpy_dtype\"])\nassert matrix.ndim == contract[\"matrix_rank\"]\nassert matrix.shape[1] == contract[\"matrix_width\"]\nresponse = json.loads(response_body)\nassert set(response) == set(contract[\"response_keys\"])\nassert len(response[\"predictions\"]) == matrix.shape[0]\n# Use valid, boundary and rejected fixtures; decoding alone is not acceptance."
+
+mle.tile.060_063.s02 Encode and send the JSON request
+Send a JSON request body as encoded bytes in urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST"), then read the response through urlopen with a stated timeout.
+Serialize structured request/response values with json.dumps; decode JSON with json.loads before inspecting fields.
+
+mle.tile.060_063.s03 Validate decoded request and response contracts
+In the order fixture, decode the body before checking required keys, numeric types, permitted bounds and matrix dimensions. Check the decoded response separately for required output keys and one output per request row. A missing key must be rejected before prediction; an included boundary and a value beyond it are different test cases. Serialize the request, send encoded bytes with the JSON header and stated timeout, then decode the response. Parsing, schema acceptance and output correctness are separate assertions.
+
+mle.tile.060_063.s04 Distinguish JSON decoding from schema acceptance
+Raw JSON text is not the structured request, and successful JSON decoding is not schema acceptance. A response with the wrong row correspondence still violates the prediction contract.
+
+mle.tile.060_063.s07 Implement online prediction using the fitted preprocessing and model
+This bounded HTTP fixture carries validated data through existing fitted prediction state. It is not a production-server design.
+For a bounded standard-library HTTP implementation, subclass BaseHTTPRequestHandler and implement do_POST to handle the declared prediction route.
+Read the declared request body length from the headers and read that many bytes from rfile before JSON decoding and schema checks.
+Pass validated input through the already fitted preprocessing and model without fitting or updating either during the request.
+Encode the response dictionary with json.dumps(...).encode("utf-8") so its named output fields match the declared response schema.
+Write the status with send_response, declare Content-Type and body length with send_header, call end_headers and write the encoded body to wfile.
+http.server is suitable for the bounded supplied fixture but is not recommended as a production server.
+VISUAL {"type": "process_flow", "nodes": [{"id": "n0", "label": "do_POST: declared Content-Length \u2192 rfile bytes"}, {"id": "n1", "label": "Decode JSON; reject schema failures"}, {"id": "n2", "label": "Validated input \u2192 fitted transform and predict; no fitting"}, {"id": "n3", "label": "json.dumps \u2192 UTF-8 bytes"}, {"id": "n4", "label": "Status; Content-Type; encoded Content-Length; end_headers"}, {"id": "n5", "label": "wfile body; valid/boundary/failure assertions"}], "edges": [{"from": "n0", "to": "n1"}, {"from": "n1", "to": "n2"}, {"from
+
+mle.tile.060_063.s08 Assert fixtures and serve online predictions
+Assert the declared valid, boundary and failure predicates. In ordinary non-optimized execution, a false assertion raises AssertionError.
+For the bounded fixture, construct HTTPServer((host, port), Handler) with the declared handler and serve_forever(), using the configured host/port and the existing runtime rather than creating a new platform.
+
+mle.tile.060_063.s09 Trace the online prediction HTTP response
+Trace the supplied request through do_POST: read the declared byte count, decode JSON, validate, then apply the fitted preprocessor and model without updates. Serialize and UTF-8 encode the response before setting its status, content type and byte length. Finish the headers before writing to wfile. The encoded body determines its length, not an assumed character count. Exercise valid, boundary and malformed fixtures on the configured HTTPServer; this bounded demonstration does not prescribe a production server.
+A working http.server fixture is not a production-server recommendation. A response also needs its declared status, content type and body length, not merely a printed prediction.
+
+mle.tile.060_063.s12 Implement batch inference over a bounded dataset
+Bounded chunks still need stable observation identity. Keep keys with predictions and reuse fitted state.
+Use the format-appropriate bounded reader, such as pd.read_csv(path, chunksize=declared_rows), to iterate the input dataset without loading the entire dataset at once.
+Apply the fitted preprocessing/model to each chunk without refitting during inference.
+Preserve each chunk’s observation keys alongside predictions and verify one result per eligible input key, rather than relying on a changed output row order.
+Write output records in the declared serialized format and decode the written fixture again to verify its schema and observation alignment.
+Assert the declared valid, boundary and failure predicates. In ordinary non-optimized execution, a false assertion raises AssertionError.
+Use explicit with open(...) handles for input/identity or output records, and write one bounded set of prediction records before reading the next batch.
+VISUAL "# Context: json, pandas as pd, contract and fitted objects are supplied.\nwith open(contract[\"batch_input_path\"]) as source, open(contract[\"batch_output_path\"], \"w\") as target:\n    for chunk in pd.read_csv(source, chunksize=contract[\"chunk_size\"]):\n        values = preprocessing_pipeline.transform(chunk[contract[\"feature_names\"]].values.tolist())\n        predictions = model.predict(values)\n        for key, prediction in zip(chunk[contract[\"batch_key\"]], predictions):\n            record = {contract[\"batch_key\"]: key, \"prediction\": float(prediction), \"version\": contract[\"version\"]}\n            target.write(json.dumps(record) + \"\\n\")\n# Reopen, decode, assert schema and one result per eligible input key.\n# Matching row counts alone cannot detect duplicate-plus-missing keys."
+VISUAL {"type": "data_table", "asset_ref": {"asset_id": "ds.orders"}, "caption": "Authored keyed input: retain observation identity across the declared bounded chunks.", "lineage": {"concept_ids": ["mle.bounded_batch_inference"], "teaching_block_ids": ["mle.bounded_batch_inference#tb1", "mle.bounded_batch_inference#tb2", "mle.bounded_batch_inference#tb3"], "fact_ids": ["mle.bounded_batch_inference#f1", "mle.bounded_batch_inference#f2", "mle.bounded_batch_inference#f3", "mle.bounded_batch_inference#f4", "mle.bounded_batch_inference#f5", "mle.bounded_ba
+
+mle.tile.060_063.s13 Preserve batch keys and verify output coverage
+Use the declared chunk size for orders.csv. Keep each order_id beside its prediction, serialize that chunk, then read the next one using the same fitted objects. Reopen and decode the written fixture to inspect schema and eligible-key correspondence. A duplicate output key and a missing key can leave the total row count unchanged. Verify coverage and uniqueness rather than incidental output order, retaining explicit input and output handles.
+
+mle.tile.060_063.s14 Distinguish row counts from key correspondence
+A matching total row count does not guarantee one result for every eligible input key. Batch inference preserves keys and fitted state, rather than relying on incidental output order.
+
+mle.tile.060_063.s17 Expose model readiness checks before admitting prediction traffic
+A running process may still lack initialized prediction assets. Readiness must describe whether inference can be accepted.
+A model health endpoint must respond successfully within the runtime’s health-check contract; in SageMaker the health check uses /ping.
+Return a successful readiness result only after the model is loaded and the service can accept inference, not merely after process startup.
+Configure the container healthcheck with the declared command, interval, timeout and retry count for the readiness endpoint.
+Use docker inspect to inspect the health result and status after initialization, and verify that an unready model does not pass the ready fixture.
+Implement do_GET for the declared readiness route, send a non-ready HTTP status until both the fitted model and preprocessor are initialized, and send success only after that condition is met.
+Serialize readiness state as JSON and test both the HTTP status and decoded state before and after initialization.
+VISUAL {"type": "before_after", "before": {"type": "diagram", "diagram_kind": "sequence", "title": "Before initialization", "nodes": [{"id": "n0", "label": "Process started"}, {"id": "n1", "label": "Either fitted model or preprocessor uninitialized"}, {"id": "n2", "label": "Non-ready HTTP status 503; decoded JSON {\"ready\": false}"}], "edges": [{"from": "n0", "to": "n1", "directed": true}, {"from": "n1", "to": "n2", "directed": true}], "alt_text": "Process started \u2192 Either fitted model or preprocessor uninitialized \u2192 Non-ready HTTP status 5
+VISUAL {"type": "data_table", "asset_ref": {"asset_id": "ds.readiness_cases"}, "caption": "Authored initialization cases: both fitted assets must be usable; initialization failure cannot pass readiness.", "lineage": {"concept_ids": ["mle.model_service_readiness"], "teaching_block_ids": ["mle.model_service_readiness#tb1", "mle.model_service_readiness#tb2", "mle.model_service_readiness#tb3"], "fact_ids": ["mle.model_service_readiness#f1", "mle.model_service_readiness#f2", "mle.model_service_readiness#f3", "mle.model_service_readiness#f4", "mle.model_ser
+
+mle.tile.060_063.s18 Start and inspect the readiness fixture container
+Use docker run --name NAME -p HOST_PORT:CONTAINER_PORT --env KEY=VALUE IMAGE to start the referenced image with the declared port and nonsecret runtime settings.
+Inspect the named container with docker container inspect NAME to check its image identity and State fields.
+Use docker container logs NAME to inspect its captured standard output and error for initialization or execution failures.
+Assert the declared valid, boundary and failure predicates. In ordinary non-optimized execution, a false assertion raises AssertionError.
+Start the referenced image with its declared runtime settings. Inspect identity, State and initialization logs. Before both fitted objects initialize, the readiness route must return the declared non-ready status and JSON state. After initialization, check success status and decoded readiness state together. Configure the readiness healthcheck command, interval, timeout and retries, and inspect its result. Process startup alone cannot pass the ready fixture.
+Running is not ready. A success status needs the declared inference-ready condition, and the test must inspect both HTTP status and decoded state instead of treating any endpoint response as readiness.
+
+mle.tile.060_063.s21 Carry these rules forward
+Decoding is not schema acceptance; request validity and response row alignment need separate checks.
+A bounded http.server fixture is not a production recommendation; return status, headers and encoded body.
+Preserve keys and fitted state. Matching row counts do not prove one output per eligible key.
+Running is not ready. Verify initialized assets, HTTP status and decoded readiness state.
+VISUAL {"type": "up_next", "title": "Reproduce a model deployment from parameterized runtime configuration and an immutable artifact reference"}

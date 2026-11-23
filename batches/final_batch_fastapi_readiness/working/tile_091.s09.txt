@@ -1,0 +1,204 @@
+PRACTICE {
+  "type": "live_code",
+  "objective": "Add an orders:write scope requirement to an order-modification operation and enforce it against the verified token context.",
+  "success": "The operation declares orders:write through Security, the provider checks every required scope, and two otherwise verified requests demonstrate that only the request carrying orders:write succeeds.",
+  "live_code": {
+    "required_skill": "Declare an operation's required scopes, receive them through SecurityScopes, and reject a request when the verified token context lacks any requirement.",
+    "allowed_syntax": [
+      "from fastapi import Security, Depends, HTTPException",
+      "from fastapi.security import SecurityScopes",
+      "Security(provider, scopes=[\"orders:write\"])",
+      "security_scopes: SecurityScopes",
+      "Depends(verified_token_context)",
+      "security_scopes.scopes",
+      "for required_scope in security_scopes.scopes:",
+      "if required_scope not in token_context.scopes:",
+      "raise HTTPException(status_code=403, detail=\"Insufficient permissions\")",
+      "def and async def function declarations",
+      "FastAPI path-operation decorators",
+      "return statements",
+      "string, integer, list, and dictionary literals",
+      "TestClient requests",
+      "dependency_overrides",
+      "assert statements comparing response status codes"
+    ],
+    "blocked_syntax": [
+      "order.owner_id == token_context.subject",
+      "app.openapi()",
+      "get_openapi(...)",
+      "OAuth2AuthorizationCodeBearer(...)",
+      "jwt.decode(...)",
+      "invalid-token test fixtures"
+    ],
+    "starter_state_intent": "Provide an order-modification operation, a working verified-token-context dependency exposing scopes, and a provider awaiting permission enforcement. Supply two verified contexts: one with orders:write and one without it, plus an endpoint test harness.",
+    "observable_success": "The operation uses Security(provider, scopes=[\"orders:write\"]). The provider accepts SecurityScopes and rejects any missing required scope. Assertions show success for the sufficiently scoped context and HTTP 403 for the otherwise verified context without orders:write."
+  }
+}
+SOLUTION
+#!/usr/bin/env bash
+set -euo pipefail
+# Requires the supplied native workspace dependencies and any provisioned service.
+cat > 'starter.py' <<'DEVSPACE_FILE_0'
+from fastapi import Depends, HTTPException
+from fastapi.security import SecurityScopes
+from security import verified_token_context
+# Active verification remains a dependency, not a plain unbound parameter.
+def require_permissions(security_scopes: SecurityScopes,
+                        verified_context=Depends(verified_token_context)):
+    # TODO: compare all security_scopes.scopes to verified_context['scopes'].
+    # Deny missing permission with 403 {"detail":"Forbidden"}.
+    for required_scope in security_scopes.scopes:
+        if required_scope not in verified_context['scopes']:
+            raise HTTPException(status_code=403, detail='Forbidden')
+    return verified_context
+# Wire Security(provider, scopes=['orders:write']) for the supplied order-modification operation.
+DEVSPACE_FILE_0
+cat > 'application.py' <<'DEVSPACE_FILE_1'
+import json
+from pathlib import Path
+from fastapi import FastAPI, Depends, Security
+from pydantic import BaseModel
+from security import verified_token_context
+from starter import require_permissions
+app=FastAPI()
+fixtures=json.loads(Path('fixtures.json').read_text())
+order={key:fixtures['order'][key] for key in ['id','status']}
+class Modification(BaseModel):
+    status: str
+@app.patch('/orders/'+str(fixtures['order']['id']))
+def modify_order(body:Modification, context=Security(require_permissions, scopes=['orders:write'])):
+    # TODO: replace context Depends with Security(require_permissions,
+    # scopes=['orders:write']); keep the verification dependency active.
+    order['status']=body.status
+    return dict(order)
+DEVSPACE_FILE_1
+cat > 'test_permissions.py' <<'DEVSPACE_FILE_2'
+import json
+from pathlib import Path
+import pytest
+from fastapi.testclient import TestClient
+from application import app, order, fixtures
+@pytest.mark.parametrize('condition',['verified_with_permission','verified_without_permission'])
+def test_modify(condition):
+    tokens=json.loads(Path('bearer_fixtures.json').read_text())
+    order.update({key:fixtures['order'][key] for key in ['id','status']})
+    with TestClient(app) as client:
+        response=client.patch('/orders/'+str(fixtures['order']['id']),json=fixtures['modification'],
+                              headers={'Authorization':'Bearer '+tokens[condition]})
+        if condition == 'verified_with_permission':
+            assert response.status_code == 200
+            assert response.json() == {'id': fixtures['order']['id'], 'status': fixtures['modification']['status']}
+        else:
+            assert response.status_code == 403
+            assert response.json() == {'detail':'Forbidden'}
+            assert order == {key:fixtures['order'][key] for key in ['id','status']}
+DEVSPACE_FILE_2
+python prepare_credentials.py
+python -m pytest -q test_permissions.py
+
+
+FILE starter.py
+from fastapi import Depends, HTTPException
+from fastapi.security import SecurityScopes
+from security import verified_token_context
+# Active verification remains a dependency, not a plain unbound parameter.
+def require_permissions(security_scopes: SecurityScopes,
+                        verified_context=Depends(verified_token_context)):
+    # TODO: compare all security_scopes.scopes to verified_context['scopes'].
+    # Deny missing permission with 403 {"detail":"Forbidden"}.
+    raise NotImplementedError('Complete permission comparison')
+# Wire Security(provider, scopes=['orders:write']) for the supplied order-modification operation.
+
+FILE fixtures.json
+{
+  "operation_scopes": [
+    "orders:write"
+  ],
+  "verified_with_permission": {
+    "owner_id": "caller_a",
+    "scopes": [
+      "orders:write"
+    ]
+  },
+  "verified_without_permission": {
+    "owner_id": "caller_a",
+    "scopes": []
+  },
+  "note": "Contexts illustrate permission comparison; they do not replace real signed bearer fixtures in HTTP verification.",
+  "order": {
+    "id": 101,
+    "owner_id": "caller_a",
+    "status": "pending"
+  },
+  "modification": {
+    "status": "complete"
+  }
+}
+
+FILE security.py
+import json
+from pathlib import Path
+import jwt
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPBearer
+config=json.loads(Path('test_trust.json').read_text())
+bearer=HTTPBearer(auto_error=False)
+def verified_token_context(credentials=Depends(bearer)):
+    if credentials is None or credentials.scheme.lower()!='bearer':
+        raise HTTPException(401,'Not authenticated')
+    try:
+        claims=jwt.decode(credentials.credentials,config['test_key'],algorithms=['HS256'],
+                          issuer=config['issuer'],audience=config['audience'],
+                          options={'require':['exp','iss','aud','sub']})
+        return {'owner_id':claims['sub'],'scopes':claims.get('scope','').split()}
+    except jwt.InvalidTokenError:
+        raise HTTPException(401,'Not authenticated')
+
+FILE application.py
+import json
+from pathlib import Path
+from fastapi import FastAPI, Depends, Security
+from pydantic import BaseModel
+from security import verified_token_context
+from starter import require_permissions
+app=FastAPI()
+fixtures=json.loads(Path('fixtures.json').read_text())
+order={key:fixtures['order'][key] for key in ['id','status']}
+class Modification(BaseModel):
+    status: str
+@app.patch('/orders/'+str(fixtures['order']['id']))
+def modify_order(body:Modification, context=Depends(verified_token_context)):
+    # TODO: replace context Depends with Security(require_permissions,
+    # scopes=['orders:write']); keep the verification dependency active.
+    order['status']=body.status
+    return dict(order)
+
+FILE prepare_credentials.py
+import json, time
+from pathlib import Path
+import jwt
+config=json.loads(Path('test_trust.json').read_text())
+fixtures=json.loads(Path('fixtures.json').read_text())
+tokens={}
+for name in ['verified_with_permission','verified_without_permission']:
+    context=fixtures[name]
+    tokens[name]=jwt.encode({'iss':config['issuer'],'aud':config['audience'],
+        'sub':context['owner_id'],'exp':int(time.time())+3600,
+        'scope':' '.join(context['scopes'])},config['test_key'],algorithm='HS256')
+Path('bearer_fixtures.json').write_text(json.dumps(tokens,indent=2)+'\n')
+
+FILE test_permissions.py
+import json
+from pathlib import Path
+import pytest
+from fastapi.testclient import TestClient
+from application import app, order, fixtures
+@pytest.mark.parametrize('condition',['verified_with_permission','verified_without_permission'])
+def test_modify(condition):
+    tokens=json.loads(Path('bearer_fixtures.json').read_text())
+    order.update({key:fixtures['order'][key] for key in ['id','status']})
+    with TestClient(app) as client:
+        response=client.patch('/orders/'+str(fixtures['order']['id']),json=fixtures['modification'],
+                              headers={'Authorization':'Bearer '+tokens[condition]})
+        # TODO: assert 200/public result for sufficiently scoped context;
+        # separately 403 {"detail":"Forbidden"} and unchanged order for no scope.

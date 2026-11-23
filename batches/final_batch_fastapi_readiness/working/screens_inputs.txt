@@ -1,0 +1,1256 @@
+CONCEPT deployment.release_rollback_boundaries | Service release and rollback workflow with build, release and run separation
+f1 Build creates an executable artifact, release combines that artifact with deploy-specific configuration, and run starts processes from the selected release.
+f2 Releases have unique identifiers and are immutable; a new change produces a new release rather than mutating a running release.
+f3 Record the artifact and configuration for each release and define rollback by redeploying a known prior release with its intended configuration.
+f4 Check the prior release's compatibility with the current database schema before selecting it for rollback; replacing an application release does not itself reverse a database migration.
+VISUAL {"type": "process_flow", "purpose": "Make the build-to-artifact, artifact-plus-configuration-to-release, and selected-release-to-running-processes boundaries visible. Show rollback selecting a uniquely identified prior release only after checking compatibility with the current database schema, with no automatic schema reversal."}
+tb1 Rolling back an application means selecting a known release, but the database may have changed since that release ran. Artifact replacement and schema reversal are different boundaries.
+tb2 Build creates an executable artifact, release combines that artifact with deploy-specific configuration, and run starts processes from the selected release.
+tb3 Releases have unique identifiers and are immutable; a new change produces a new release rather than mutating a running release. Record the artifact and configuration for each release and define rollback by redeploying a known prior release with its intended configuration. Check the prior release's compatibility with the current database schema before selecting it for rollback; replacing an application release does not itself reverse a database migration.
+tb4 Record the executable artifact and deploy-specific configuration under a unique immutable release identifier. Build creates the artifact, release combines it with configuration, and run starts the selected release's processes. A later change creates a new release instead of mutating the running one. For rollback, identify a known prior release with its intended configuration and check compatibility with the current database schema before redeployment. Trace the release record and database schema independently: selecting old application code does not automatically reverse a migration. This makes rollback a concrete deployment selection supported by compatibility evidence, not a vague instruction to replace files until the old behavior appears.
+tb5 Application rollback does not itself undo database migrations. Verify the prior release against the current schema.
+CONCEPT fastapi.documented_responses | Documenting expected success and error responses
+f1 Declare known outcomes with responses={status: {"model": PublicModel, "description": ...}} alongside the main response_model and status_code.
+f2 A responses declaration documents additional outcomes but does not make the handler produce them; return the actual matching response or raise the corresponding expected exception.
+f3 Use response_description and outcome descriptions to explain what the successful and expected error bodies mean to clients.
+f4 Compare generated response status entries and schemas with HTTP tests of the real success and expected error cases so documentation does not claim a body or status the endpoint does not emit.
+VISUAL {"type": "comparison", "purpose": "Make the order endpoint's response declarations, generated status entries and schemas, and actual success and conflict HTTP results visible side by side so missing or misleading documentation can be located."}
+tb1 A documented order conflict is useful only when the endpoint actually emits the declared status and body. Additional response metadata does not implement the outcome.
+tb2 Declare known outcomes with responses={status: {"model": PublicModel, "description": ...}} alongside the main response_model and status_code.
+tb3 A responses declaration documents additional outcomes but does not make the handler produce them; return the actual matching response or raise the corresponding expected exception. Use response_description and outcome descriptions to explain what the successful and expected error bodies mean to clients. Compare generated response status entries and schemas with HTTP tests of the real success and expected error cases so documentation does not claim a body or status the endpoint does not emit.
+tb4 Declare known outcomes using responses with public models and descriptions beside the main status and response_model. Exercise success and the expected error through HTTP and compare their status and bodies with generated entries. Use response_description and outcome descriptions to explain client meaning. If 409 is documented, the actual matching response or expected exception still needs to be produced by the operation.
+tb5 A responses entry documents an outcome; it does not make the handler return it.
+CONCEPT fastapi.safe_unexpected_errors | Safe unexpected-error responses with actionable server evidence
+f1 Unexpected internal failures should return generic public error information without stack traces, exception messages or implementation details.
+f2 Register a fallback exception handler that returns a stable generic JSON response with 500 for an unexpected server condition while recording the exception internally.
+f3 Internal failure evidence should identify the event, code location and interaction context while omitting prohibited secrets and sensitive data.
+f4 Disable debug traceback responses in production because debug mode substitutes a traceback response for the configured 500 handler.
+f5 Exercise the fallback with TestClient(app, raise_server_exceptions=False), asserting the generic public response and inspecting the safe internal diagnostic record separately.
+VISUAL {"type": "comparison", "purpose": "Make the disclosure boundary visible by placing the generic public 500 JSON response beside its separate safe internal diagnostic record, identifying which information belongs in each."}
+tb1 An unexpected failure needs safe public output and useful internal evidence. These are separate artifacts with different disclosure rules.
+tb2 Unexpected internal failures should return generic public error information without stack traces, exception messages or implementation details.
+tb3 Register a fallback exception handler that returns a stable generic JSON response with 500 for an unexpected server condition while recording the exception internally. Internal failure evidence should identify the event, code location and interaction context while omitting prohibited secrets and sensitive data. Disable debug traceback responses in production because debug mode substitutes a traceback response for the configured 500 handler. Exercise the fallback with TestClient(app, raise_server_exceptions=False), asserting the generic public response and inspecting the safe internal diagnostic record separately.
+tb4 Register a fallback handler returning stable generic JSON with 500 while recording the exception internally. Keep event, location and interaction context without prohibited secrets. Disable debug traceback responses in production, since debug mode substitutes a traceback response for the configured 500 handler. Exercise the case with TestClient(app, raise_server_exceptions=False), asserting the generic body and inspecting safe internal diagnostics separately.
+tb5 Do not expose exception messages or traces to make failures easier to debug. Public safety and internal diagnosis are separate checks.
+CONCEPT integration.upstream_failure_translation | Upstream failure translation
+f1 HTTPX distinguishes transport RequestError failures from HTTPStatusError raised for an unsuccessful HTTP status by response.raise_for_status().
+f2 Call response.raise_for_status() when status failures require translation and classify caught HTTPStatusError by exc.response.status_code, while catching RequestError for failures without a usable response.
+f3 Treat remote failures as inputs to an explicit local integration contract rather than blindly trusting or exposing a remote response as the local outcome.
+f4 When acting as a gateway, 502 denotes an invalid upstream response and 504 denotes an upstream timeout; select the local status or domain exception from the service's declared mapping rather than forwarding every upstream status unchanged.
+f5 Test one supplied upstream status failure and one transport failure, asserting the mapped local response or domain failure and absence of raw upstream internals.
+VISUAL {"type": "process_flow", "purpose": "Show remote observation, HTTPX classification, declared local mapping, and public outcome as separate steps. Trace an upstream 503 through HTTPStatusError to the example contract's local 502, and an upstream timeout through RequestError to local 504; mark raw upstream internals as excluded from public output."}
+tb1 An external service failure is input to the local integration contract. The local API should not blindly forward every remote status or raw response.
+tb2 HTTPX distinguishes transport RequestError failures from HTTPStatusError raised for an unsuccessful HTTP status by response.raise_for_status().
+tb3 Call response.raise_for_status() when status failures require translation and classify caught HTTPStatusError by exc.response.status_code, while catching RequestError for failures without a usable response. Treat remote failures as inputs to an explicit local integration contract rather than blindly trusting or exposing a remote response as the local outcome. When acting as a gateway, 502 denotes an invalid upstream response and 504 denotes an upstream timeout; select the local status or domain exception from the service's declared mapping rather than forwarding every upstream status unchanged. Test one supplied upstream status failure and one transport failure, asserting the mapped local response or domain failure and absence of raw upstream internals.
+tb4 Call response.raise_for_status() when unsuccessful statuses need translation. HTTPStatusError provides the response status for classification; RequestError covers transport failures without a usable response. Test one supplied remote status failure and one transport failure, mapping each through the declared local contract. When acting as a gateway, 502 means an invalid upstream response and 504 an upstream timeout, but use the service's supplied mapping rather than inventing a universal rule for every external error. Assert the selected local response or domain failure and absence of raw upstream internals. Trace remote observation, classification and local meaning separately so a remote client-error status is not automatically treated as the same local outcome.
+tb5 An upstream status is not automatically the correct local status. Transport errors and unsuccessful HTTP responses are also distinct observations.
+CONCEPT integration.webhook_authenticity | Webhook authenticity verification
+f1 Read await request.body() to obtain the raw request bytes for signature verification before parsing or modifying the webhook body.
+f2 Verify every delivery with the publisher's supported SDK or verification library against the raw bytes and endpoint signing secret, following that publisher's signing format rather than inventing a canonicalization.
+f3 Reject missing or invalid signatures before processing the event, and do not disclose the verification secret or failure's internal details in the response.
+f4 Test a valid signed delivery and deliveries with a modified body or absent signature, checking that only the valid delivery reaches event processing.
+VISUAL {"type": "code", "purpose": "Make the handler's order visible: raw-byte acquisition, signature presence check, provider-supported verification with the endpoint secret, safe rejection, and processing only after verification. Place the three test outcomes beside the corresponding branches."}
+tb1 A webhook signature authenticates the delivered bytes. Parsing and rewriting a body before verification can lose the exact input the publisher signed.
+tb2 Read await request.body() to obtain the raw request bytes for signature verification before parsing or modifying the webhook body.
+tb3 Verify every delivery with the publisher's supported SDK or verification library against the raw bytes and endpoint signing secret, following that publisher's signing format rather than inventing a canonicalization. Reject missing or invalid signatures before processing the event, and do not disclose the verification secret or failure's internal details in the response. Test a valid signed delivery and deliveries with a modified body or absent signature, checking that only the valid delivery reaches event processing.
+tb4 Read raw bytes with await request.body() and verify every delivery through the publisher-supported SDK or library using the endpoint signing secret and supplied signing format. Only then move to parsing and processing. Test a valid signed body, a modified body and an absent signature. Only the valid delivery should reach event processing, and rejection should not reveal the secret or verification internals.
+tb5 Do not invent your own canonicalized body format. Verify the raw bytes using the publisher's supported signing contract.
+CONCEPT observability.evidence_based_service_diagnosis | Diagnose service failures from emitted and interpreted evidence
+f1 Compare request rate, failure fraction and latency for the affected operation and time window before choosing a diagnostic boundary, distinguishing increased traffic from increased failures or longer waits.
+f2 Follow the affected interaction identifier through related local and outbound logs to locate the first recorded failure or delayed operation rather than assuming the endpoint's final error identifies its origin.
+f3 Compare integration timeout evidence and emitted database work with the failing request's log context to distinguish an upstream wait from persistence work or a local input rejection.
+f4 Reproduce the supplied failure with a controlled request, record the observed outcome and related evidence, and change the suspected boundary only after checking that the evidence supports that location.
+VISUAL {"type": "comparison", "purpose": "Make the affected operation's request rate, failure fraction and latency visible for the same time window beside a chronological sequence of interaction-correlated local, outbound and database records. Mark the first recorded failure or delay and distinguish the observed outcome, suspected boundary and proposed change."}
+tb1 An order endpoint becomes slow and emits failures. Changing code at the endpoint immediately may miss where the first delay or failure actually occurred.
+tb2 Compare request rate, failure fraction and latency for the affected operation and time window before choosing a diagnostic boundary, distinguishing increased traffic from increased failures or longer waits.
+tb3 Follow the affected interaction identifier through related local and outbound logs to locate the first recorded failure or delayed operation rather than assuming the endpoint's final error identifies its origin. Compare integration timeout evidence and emitted database work with the failing request's log context to distinguish an upstream wait from persistence work or a local input rejection. Reproduce the supplied failure with a controlled request, record the observed outcome and related evidence, and change the suspected boundary only after checking that the evidence supports that location.
+tb4 Compare request rate, failure fraction and latency for the affected operation and time window. Follow its interaction identifier through local and outbound logs, locating the first recorded failure or delay. Compare timeout evidence and emitted database work in that context to distinguish upstream waiting, persistence work and local input rejection. Reproduce the supplied failure with a controlled request and record outcome plus supporting evidence before changing the suspected boundary. For a hypothetical delayed external lookup, the final endpoint error is only the last visible outcome; related evidence must support locating the problem at the integration. Keep observation, suspected location and proposed change separate so an unsupported guess does not become a diagnosis.
+tb5 The endpoint's final error does not necessarily identify the origin. Locate the first supported failure or delay before changing code.
+CONCEPT security.bounded_api_resources | Bounding payloads, expensive requests and API resource consumption
+f1 Apply finite limits to expensive untrusted operations, including input size, result count, operation duration and costly concurrent work rather than accepting unrestricted resource consumption.
+f2 Enforce an actual body-byte limit with maintained middleware and constrain caller-selected batch or page sizes with Field bounds rather than trusting claimed sizes.
+f3 Configure finite dependency timeouts and a supplied Uvicorn --limit-concurrency budget where the service policy needs to bound concurrent accepted work.
+f4 Test an input within the supplied budget and one beyond it, asserting that excess work is rejected before the expensive operation and accepted work retains the intended contract.
+VISUAL {"type": "code", "purpose": "Make the configured body-byte limit, Field batch bound, finite dependency timeout and Uvicorn concurrency budget visible alongside passing assertions for accepted requests and rejection before expensive dependency invocation."}
+tb1 An API accepts untrusted work, so budgets should limit the expensive operation rather than merely describe it.
+tb2 Apply finite limits to expensive untrusted operations, including input size, result count, operation duration and costly concurrent work rather than accepting unrestricted resource consumption.
+tb3 Enforce an actual body-byte limit with maintained middleware and constrain caller-selected batch or page sizes with Field bounds rather than trusting claimed sizes. Configure finite dependency timeouts and a supplied Uvicorn --limit-concurrency budget where the service policy needs to bound concurrent accepted work. Test an input within the supplied budget and one beyond it, asserting that excess work is rejected before the expensive operation and accepted work retains the intended contract.
+tb4 Apply the supplied body-byte budget with maintained middleware and constrain page or batch size with Field bounds. Use finite dependency timeouts and the supplied --limit-concurrency policy when concurrent work needs bounding. Test one input within budget and one beyond it; excess must be rejected before expensive processing while accepted work retains its contract. Claimed input size is not a replacement for counting actual bytes.
+tb5 A single limit is not every resource boundary. Consider size, result count, duration and costly concurrency under the supplied policy.
+CONCEPT sqlalchemy.redundant_queries | Recognizing and avoiding redundant ORM queries
+f1 Lazy relationship access can emit additional SELECT statements; iterating parent entities and loading each parent's relationship separately can produce an N+1 query pattern.
+f2 Add selectinload(Entity.relationship_attribute) through statement.options(...) to fetch a collection relationship for the selected parents with an additional batched query rather than one query per parent.
+f3 joinedload(...) is an alternative eager-loading strategy using a join; when loading a collection this way, apply Result.unique() as required to deduplicate parent entities.
+f4 Compare emitted SQL before and after the loading change with engine echo=True logging enabled, confirming both reduced relationship queries and unchanged returned entity data.
+VISUAL {"type": "comparison", "purpose": "Place the original and revised listing statements beside their emitted SQL: repeated per-parent relationship SELECTs versus batched collection retrieval, with unchanged parent and collection data visible alongside."}
+tb1 Listing several parent entities can hide extra database round trips when their relationships are accessed individually. Inspect emitted SQL rather than counting only explicit selects in the handler.
+tb2 Lazy relationship access can emit additional SELECT statements; iterating parent entities and loading each parent's relationship separately can produce an N+1 query pattern.
+tb3 Add selectinload(Entity.relationship_attribute) through statement.options(...) to fetch a collection relationship for the selected parents with an additional batched query rather than one query per parent. joinedload(...) is an alternative eager-loading strategy using a join; when loading a collection this way, apply Result.unique() as required to deduplicate parent entities. Compare emitted SQL before and after the loading change with engine echo=True logging enabled, confirming both reduced relationship queries and unchanged returned entity data.
+tb4 Compare lazy relationship access for each parent with statement.options(selectinload(Entity.relationship_attribute)). The latter fetches the collection for selected parents using an additional batched query instead of one query per parent. joinedload is an alternative using a join; collection loading requires Result.unique() to deduplicate parents. Enable engine echo=True and compare before/after SQL alongside unchanged returned entity data. Reducing relationship queries should not silently change the result.
+tb5 One explicit parent query does not prove one database round trip. Lazy relationship navigation can add SELECT statements.
+CONCEPT testing.database_state_isolation | Database test-state isolation
+f1 A yield fixture performs setup before yield and teardown afterward, making resource cleanup explicit for each test's scope.
+f2 For transaction-isolated database tests, open an outer connection transaction, bind the test session to that connection with join_transaction_mode="create_savepoint", and roll back the outer transaction during teardown.
+f3 Override the application session provider with the test session provider, exercise a write through TestClient and read its resulting state through the same test database boundary.
+f4 Close the test session and connection and restore overrides in teardown, verifying that a subsequent test does not inherit the first test's written state.
+VISUAL {"type": "code", "purpose": "Make the fixture's setup, yield, and teardown sections visible alongside the two tests. Annotate the shared connection boundary for request writes and database reads, and show passing results for both execution orders."}
+tb1 A database test must see its own writes without leaving them behind for the next test. The fixture, session override and transaction boundary should form one isolated setup.
+tb2 A yield fixture performs setup before yield and teardown afterward, making resource cleanup explicit for each test's scope.
+tb3 For transaction-isolated database tests, open an outer connection transaction, bind the test session to that connection with join_transaction_mode="create_savepoint", and roll back the outer transaction during teardown. Override the application session provider with the test session provider, exercise a write through TestClient and read its resulting state through the same test database boundary. Close the test session and connection and restore overrides in teardown, verifying that a subsequent test does not inherit the first test's written state.
+tb4 Open an outer connection transaction and bind the test session with join_transaction_mode="create_savepoint". Override the application session provider, write through TestClient and read through the same test database boundary. A yield fixture separates setup from teardown. During teardown, close the test session, roll back the outer transaction, close the connection, and restore dependency overrides, then verify a subsequent test does not inherit the write. Checking only the first test's successful response would miss leakage.
+tb5 A successful write test is not proof of test isolation. Verify teardown and a subsequent clean test boundary.
+CONCEPT auth.authorization_server_integration | Established authorization-server integration using authorization code and PKCE where applicable; no resource-owner password grant
+f1 Use the supplied established authorization-server client or test harness to obtain an actual issued access token through authorization code with PKCE where applicable; do not add a resource-owner password-grant endpoint.
+f2 Configure the supplied client with its registered client identifier, authorization and token endpoints and redirect URI; complete the code redirect and the separate token POST with the matching PKCE verifier using that client.
+f3 Configure the existing verifier with the supplied issuer's trusted JWKS URL, expected issuer, allowed algorithms and API audience; resolve a signing key with PyJWKClient and require the intended claims during jwt.decode.
+f4 Send the issuer's issued access token to the protected endpoint as Authorization: Bearer token so the request executes the real bearer extraction and configured verifier.
+f5 Execute an HTTP assertion accepting the valid issuer-issued token and another rejecting a tampered token or an issuer-issued token for the wrong API audience; keep authentication and verification dependencies active rather than overriding them or fabricating a locally valid token.
+VISUAL {"type": "process_flow", "purpose": "Make the two trust boundaries visible: the supplied client obtains an access token through the authorization-code redirect and separate token POST with PKCE where applicable; the protected API extracts the bearer token and verifies it using trusted issuer keys, issuer, algorithms, required claims and API audience. Show the HTTP acceptance and rejection results alongside the verification boundary."}
+tb1 The API needs to accept tokens actually issued by its established authorization server. A locally fabricated token or overridden verifier would not prove that integration.
+tb2 Use the supplied established authorization-server client or test harness to obtain an actual issued access token through authorization code with PKCE where applicable; do not add a resource-owner password-grant endpoint.
+tb3 Configure the supplied client with its registered client identifier, authorization and token endpoints and redirect URI; complete the code redirect and the separate token POST with the matching PKCE verifier using that client. Configure the existing verifier with the supplied issuer's trusted JWKS URL, expected issuer, allowed algorithms and API audience; resolve a signing key with PyJWKClient and require the intended claims during jwt.decode. Send the issuer's issued access token to the protected endpoint as Authorization: Bearer token so the request executes the real bearer extraction and configured verifier. Execute an HTTP assertion accepting the valid issuer-issued token and another rejecting a tampered token or an issuer-issued token for the wrong API audience; keep authentication and verification dependencies active rather than overriding them or fabricating a locally valid token.
+tb4 Use the supplied registered client or harness with its actual client identifier, issuer endpoints and redirect URI. Complete the code redirect and separate token POST with the matching PKCE verifier where applicable. Configure the API verifier with trusted JWKS URL, issuer, algorithms and audience, resolving the signing key through PyJWKClient and requiring intended claims. Send the issued access token through the protected HTTP endpoint as a bearer credential. Keep extraction and verification active while asserting acceptance, then rejection of a tampered token or an issuer-issued token for the wrong API audience. Trace acquisition and resource-server verification as separate boundaries: the issuer produces authority, while the API accepts it only under its configured trust contract. This exercise requires supplied issuer details; hypothetical endpoint URLs are not a substitute.
+tb5 Do not override authentication to prove issuer integration or add a password-grant endpoint. Use actual issued tokens through the real configured verifier.
+CONCEPT auth.endpoint_permissions | Endpoint authorization with required permissions or scopes
+f1 OAuth2 scopes express permissions requested or granted for protected operations; authentication alone does not establish that all operation permissions are present.
+f2 Declare Security(provider, scopes=[...]) on a protected operation and accept SecurityScopes in the provider to access the operation's required scopes.
+f3 Compare each required scope with the scopes in the verified token context and reject the request if a required scope is absent.
+f4 Test a verified token with the required scope and another without it, asserting that only the sufficiently scoped request succeeds.
+VISUAL {"type": "code", "purpose": "Make the connection visible between the operation's Security scope declaration, SecurityScopes in the provider, the comparison against verified scopes, and the successful versus denied test outcomes."}
+tb1 A verified caller may read orders but lack permission to modify them. Authentication and operation permission are different gates.
+tb2 OAuth2 scopes express permissions requested or granted for protected operations; authentication alone does not establish that all operation permissions are present.
+tb3 Declare Security(provider, scopes=[...]) on a protected operation and accept SecurityScopes in the provider to access the operation's required scopes. Compare each required scope with the scopes in the verified token context and reject the request if a required scope is absent. Test a verified token with the required scope and another without it, asserting that only the sufficiently scoped request succeeds.
+tb4 Declare Security(provider, scopes=[...]) for the operation's required permissions. In the provider, SecurityScopes exposes those requirements; compare each against the verified token context and reject if one is missing. For a hypothetical write permission, test a verified token with it and another otherwise verified token without it. The sufficiently scoped request succeeds while the other is denied. Keep verification valid in both cases so the test isolates permission rather than failing earlier authentication. Draw identity verification before scope comparison, but do not treat reaching the latter as automatic success. Each declared operation requirement still needs to be enforced.
+tb5 Authentication alone does not grant every scope. Documentation of scopes is not a substitute for checking them against verified authority.
+CONCEPT fastapi_backend.webhook_delivery_idempotency | Webhook delivery idempotency
+f1 Use an authenticated publisher event identifier as the deduplication key and retain the deduplication record across application restarts for the required replay window.
+f2 Record the event identifier atomically with its durable state changes in a transaction, backed by a uniqueness constraint, so concurrent deliveries cannot both apply the effect.
+f3 Treat an already processed event as a successful duplicate acknowledgment without repeating its state change, and test duplicate and concurrent deliveries separately.
+VISUAL {"type": "process_flow", "purpose": "Show two deliveries carrying the same authenticated publisher event identifier converging on a persistent uniqueness boundary. Place the event record and order change inside one transaction boundary; distinguish the one committed effect from successful duplicate acknowledgments, and show that the record survives application restart."}
+tb1 A webhook event can arrive twice or concurrently. Prevent repeated business effects with durable authenticated event identity, not only a process-local memory check.
+tb2 Use an authenticated publisher event identifier as the deduplication key and retain the deduplication record across application restarts for the required replay window.
+tb3 Record the event identifier atomically with its durable state changes in a transaction, backed by a uniqueness constraint, so concurrent deliveries cannot both apply the effect. Treat an already processed event as a successful duplicate acknowledgment without repeating its state change, and test duplicate and concurrent deliveries separately.
+tb4 Use the authenticated publisher event identifier as the deduplication key and retain its record across restarts for the required replay window. Store the identifier atomically with durable state changes in a transaction backed by uniqueness. For a hypothetical order event, the first accepted processing applies the change and records the identity; an already processed delivery receives a successful duplicate acknowledgment without another change. Test sequential duplicates separately from concurrent deliveries, because two simultaneous attempts must not both pass the boundary and apply the effect. Trace the event record and business change together. A separate early check that is not atomically tied to the durable change does not express the required transaction boundary.
+tb5 A process-local seen-event list does not satisfy persistent deduplication across restarts or atomic suppression of concurrent effects.
+CONCEPT fastapi_backend.webhook_replay_freshness | Webhook replay freshness
+f1 A replay freshness check uses a delivery timestamp authenticated by the provider's signature; providers can refresh that timestamp and signature for each retry, so it establishes delivery-timestamp freshness, not the original event's age, and an unsigned timestamp cannot establish authenticated delivery freshness.
+f2 After signature verification, parse the signed delivery timestamp and reject a delivery outside the configured acceptance window, including timestamps unacceptably far in the future under the provider's policy.
+f3 Keep the receiver clock synchronized so comparing an authenticated timestamp with the local clock enforces the intended freshness window rather than a window distorted by clock drift.
+f4 Test valid signatures for an in-window delivery timestamp, an expired delivery timestamp and an impermissibly future delivery timestamp, verifying that authenticity alone does not make every signed delivery fresh.
+VISUAL {"type": "data_table", "purpose": "Show three deliveries with valid signatures: in-window, expired and impermissibly future. Display authenticated delivery timestamp, synchronized receiver time, signed time difference, configured limits and accept/reject outcome. State that the timestamp measures delivery freshness, not original event age."}
+tb1 A signed webhook can still be stale. Freshness concerns the authenticated delivery timestamp, which may be refreshed on a provider retry rather than equal the original event time.
+tb2 A replay freshness check uses a delivery timestamp authenticated by the provider's signature; providers can refresh that timestamp and signature for each retry, so it establishes delivery-timestamp freshness, not the original event's age, and an unsigned timestamp cannot establish authenticated delivery freshness.
+tb3 After signature verification, parse the signed delivery timestamp and reject a delivery outside the configured acceptance window, including timestamps unacceptably far in the future under the provider's policy. Keep the receiver clock synchronized so comparing an authenticated timestamp with the local clock enforces the intended freshness window rather than a window distorted by clock drift. Test valid signatures for an in-window delivery timestamp, an expired delivery timestamp and an impermissibly future delivery timestamp, verifying that authenticity alone does not make every signed delivery fresh.
+tb4 After signature verification, parse the signed delivery timestamp and compare it with the local synchronized clock under the provider's acceptance window. Test valid signatures for in-window, expired and impermissibly future delivery timestamps. For a hypothetical five-minute policy, a timestamp clearly outside that policy should be rejected even with a valid signature; the actual permitted future tolerance comes from the provider contract. Providers can refresh timestamp and signature on retries, so this does not establish the original event's age. An unsigned timestamp cannot establish authenticated freshness. Keep signature validity, delivery freshness and clock accuracy as separate checks so authenticity is not mistaken for unlimited replay acceptance.
+tb5 Fresh delivery timestamp does not prove a fresh original event. A valid signature alone does not make every delivery timely.
+CONCEPT integration.bounded_idempotent_retries | Bounded retry decisions respecting HTTP idempotency
+f1 Automatically repeating a non-idempotent request can duplicate effects; retry only when the method or application contract establishes idempotency or proves that the original request was not applied.
+f2 Retry-After can be an HTTP date or delay in seconds; incorporate a valid server-supplied delay into a retry policy rather than retrying immediately against that instruction.
+f3 Configure a finite attempt count and finite total time budget, with a maintained client's bounded backoff where applicable, so repeated transient failures eventually stop.
+f4 Classify the supplied failure as retryable or terminal under the operation contract, recognizing that a timeout or lost response alone does not prove the remote operation had no effect.
+f5 Verify a transient failure followed by success and repeated failures exhausting the configured limit, and confirm that a non-idempotent operation without a retry-safe contract is not blindly repeated.
+VISUAL {"type": "process_flow", "purpose": "Make the decision order visible: establish permission to repeat, classify the failure, incorporate a valid server delay and bounded backoff, check remaining attempt and total-time budgets, then retry or stop. Include a lost-response branch showing that the remote effect may already have occurred."}
+tb1 A lost response can tempt a client to retry immediately, but the remote operation may already have taken effect. Retry policy must govern both repeated effects and finite waiting.
+tb2 Automatically repeating a non-idempotent request can duplicate effects; retry only when the method or application contract establishes idempotency or proves that the original request was not applied.
+tb3 Retry-After can be an HTTP date or delay in seconds; incorporate a valid server-supplied delay into a retry policy rather than retrying immediately against that instruction. Configure a finite attempt count and finite total time budget, with a maintained client's bounded backoff where applicable, so repeated transient failures eventually stop. Classify the supplied failure as retryable or terminal under the operation contract, recognizing that a timeout or lost response alone does not prove the remote operation had no effect. Verify a transient failure followed by success and repeated failures exhausting the configured limit, and confirm that a non-idempotent operation without a retry-safe contract is not blindly repeated.
+tb4 First classify the supplied failure under the operation contract. A timeout or lost response does not prove nothing happened. Retry only when method semantics or the application contract establish idempotency, or establish that the original request was not applied. Incorporate a valid Retry-After delay, whether seconds or an HTTP date, and use finite attempt and total-time budgets with bounded client backoff where applicable. Verify a transient failure followed by success, repeated failures reaching the limit, and a non-idempotent operation without a retry-safe contract that is not blindly repeated. Trace permission to retry before timing the retry. A finite policy can still duplicate effects if repetition itself is unsafe.
+tb5 Finite retries are not automatically safe retries. A missing response does not prove the remote request had no effect.
+CONCEPT auth.object_authorization | Object-level authorization against the authenticated principal
+f1 An endpoint taking an object identifier must check the caller's permission for that specific object; a valid identifier and authenticated caller do not establish ownership.
+f2 Enforce the object boundary by selecting with both object identity and the authorized owner or tenant context, rather than trusting an owner identifier from caller-controlled input.
+f3 Create distinct authorized contexts and verify that each can access its permitted object but cannot obtain or change the other context's object by substituting its identifier.
+VISUAL {"type": "data_table", "purpose": "Show two authorized contexts, their permitted order identifiers, and the four retrieval combinations: each own-order request succeeds, while each substituted cross-owner identifier is denied without exposing order data."}
+tb1 An authenticated caller can substitute another order identifier in a request. Permission for the specific object must not be inferred from a valid identifier.
+tb2 An endpoint taking an object identifier must check the caller's permission for that specific object; a valid identifier and authenticated caller do not establish ownership.
+tb3 Enforce the object boundary by selecting with both object identity and the authorized owner or tenant context, rather than trusting an owner identifier from caller-controlled input. Create distinct authorized contexts and verify that each can access its permitted object but cannot obtain or change the other context's object by substituting its identifier.
+tb4 Select with both object identity and authorized owner or tenant context, rather than accepting an owner identifier from caller-controlled input. Create two synthetic authorized contexts and two objects. Each context should access its own permitted object but not obtain or change the other by substituting its identifier. This tests the object boundary separately from successful login.
+tb5 Authentication and a valid object identifier do not prove ownership. Bind object access to verified authorized context.
+CONCEPT fastapi.production_security_documentation | Declaring the deployed bearer-access-token and authorization-server security contract without a password grant
+f1 Declare HTTPBearer for a deployed bearer-token scheme so the generated OpenAPI securitySchemes entry describes token presentation rather than implying that the API issues passwords or tokens.
+f2 For an established authorization-code issuer contract, configure OAuth2AuthorizationCodeBearer(authorizationUrl=..., tokenUrl=..., scopes=...) with the actual supplied issuer endpoints and permission descriptions.
+f3 Describe the deployed authorization-code and PKCE acquisition contract where applicable, and do not present an OAuth2 password flow as production access guidance.
+f4 Attach the scheme and required scopes through the real operation dependencies so generated operation security requirements agree with the authority the endpoint accepts.
+f5 Inspect components.securitySchemes and each protected operation's security entry, checking issuer URLs, bearer presentation and required permissions against the deployed contract.
+VISUAL {"type": "comparison", "purpose": "Place the supplied deployed security contract beside the corresponding security declarations and generated components.securitySchemes and protected operation security entries, making bearer presentation, issuer URLs, and required permissions visibly comparable."}
+tb1 Public security documentation should describe how the deployed API actually accepts authority, not advertise an undeployed way to acquire tokens.
+tb2 Declare HTTPBearer for a deployed bearer-token scheme so the generated OpenAPI securitySchemes entry describes token presentation rather than implying that the API issues passwords or tokens.
+tb3 For an established authorization-code issuer contract, configure OAuth2AuthorizationCodeBearer(authorizationUrl=..., tokenUrl=..., scopes=...) with the actual supplied issuer endpoints and permission descriptions. Describe the deployed authorization-code and PKCE acquisition contract where applicable, and do not present an OAuth2 password flow as production access guidance. Attach the scheme and required scopes through the real operation dependencies so generated operation security requirements agree with the authority the endpoint accepts. Inspect components.securitySchemes and each protected operation's security entry, checking issuer URLs, bearer presentation and required permissions against the deployed contract.
+tb4 For bearer presentation, declare HTTPBearer. For an established authorization-code issuer, configure OAuth2AuthorizationCodeBearer with actual supplied authorization and token endpoints and scope descriptions. Describe authorization code and PKCE where applicable, not a production password flow. Attach real operation dependencies and scopes, then inspect securitySchemes and protected operations' security entries against the deployed contract. Do not invent issuer URLs for the example.
+tb5 A documentation scheme must agree with deployed authority. Bearer presentation does not imply the API issues passwords or tokens.
+CONCEPT fastapi.openapi_contract_inspection | Inspecting generated OpenAPI for drift and sensitive exposure
+f1 Retrieve /openapi.json and inspect the router's paths, parameters, request schemas, response schemas and security requirements as public contract artifacts.
+f2 Compare generated requiredness, types, constraints and output fields with executable input and output behavior to identify drift between documentation and the accepted or emitted contract.
+f3 Compare documented success and expected-error statuses with exercised HTTP outcomes, because an additional response declaration does not prove the handler actually emits that outcome.
+f4 Audit public examples and descriptions for secrets and sensitive personal data, and ensure examples validate against the model rather than publishing realistic private values.
+f5 Check that public security schemes and operation requirements describe the configured bearer and established issuer contract and do not introduce an undeployed password grant.
+VISUAL {"type": "comparison", "purpose": "Show one router's generated declarations beside model definitions, exercised HTTP outcomes and configured security metadata, with drift and sensitive public examples visibly marked."}
+tb1 Generated documentation is public and can drift from executable behavior. Review the actual schema alongside HTTP outcomes and safe example data.
+tb2 Retrieve /openapi.json and inspect the router's paths, parameters, request schemas, response schemas and security requirements as public contract artifacts.
+tb3 Compare generated requiredness, types, constraints and output fields with executable input and output behavior to identify drift between documentation and the accepted or emitted contract. Compare documented success and expected-error statuses with exercised HTTP outcomes, because an additional response declaration does not prove the handler actually emits that outcome. Audit public examples and descriptions for secrets and sensitive personal data, and ensure examples validate against the model rather than publishing realistic private values. Check that public security schemes and operation requirements describe the configured bearer and established issuer contract and do not introduce an undeployed password grant.
+tb4 Retrieve /openapi.json and inspect paths, parameters, input/output schemas and security requirements. Compare requiredness, types, constraints and emitted fields with behavior, then compare documented success and expected-error statuses with exercised outcomes. Validate examples and remove secrets or sensitive personal data from descriptions. Check that security entries match the bearer and established issuer contract without adding an undeployed password grant.
+tb5 An additional response declaration does not prove that outcome occurs. Public examples must also be safe and model-valid.
+CONCEPT testing.api_authentication_authorization | Authentication and authorization tests including invalid-token rejection
+f1 Send requests through the real protected HTTP endpoint with absent, malformed and supplied bearer credentials, keeping the authentication and verification gates active.
+f2 Test invalid-signature, expired and contextually wrong tokens separately from a valid token, asserting credential rejection before protected output is returned.
+f3 Test an otherwise valid credential lacking the required permission separately from a valid sufficiently permitted credential to distinguish authentication from operation authorization.
+f4 Test a valid caller against another caller's object identifier as a separate deny path from missing operation permission.
+f5 Assert the declared status and safe body for each denial and the public projected result for the fully authorized request, not merely that some requests fail and one succeeds.
+VISUAL {"type": "data_table", "purpose": "Make the order-endpoint test matrix visible: credential condition, operation permission, requested order ownership, expected rejection gate, declared status and expected safe body or public result."}
+tb1 A protected order endpoint needs tests of distinct denial gates as well as full success. One rejected request does not prove every security boundary works.
+tb2 Send requests through the real protected HTTP endpoint with absent, malformed and supplied bearer credentials, keeping the authentication and verification gates active.
+tb3 Test invalid-signature, expired and contextually wrong tokens separately from a valid token, asserting credential rejection before protected output is returned. Test an otherwise valid credential lacking the required permission separately from a valid sufficiently permitted credential to distinguish authentication from operation authorization. Test a valid caller against another caller's object identifier as a separate deny path from missing operation permission. Assert the declared status and safe body for each denial and the public projected result for the fully authorized request, not merely that some requests fail and one succeeds.
+tb4 Exercise the real endpoint with absent, malformed and supplied bearer credentials while keeping extraction and verification active. Separate invalid signature, expiry and wrong token context from a valid credential. Next use a valid credential lacking operation permission, then a valid caller requesting another caller's object. These isolate authentication, operation authorization and object authorization. Finally send a fully authorized request and assert the public projected result. For every denial, assert declared status and safe body before protected output is returned. Label each test by the gate it proves, not merely "fails." Substituting away verification would weaken the evidence precisely where this exercise requires real rejection behavior.
+tb5 One denial plus one success is not complete security coverage. Isolate each credential and authorization failure while real gates remain active.
+tile_082 NEXT tile_083
+{"step_id": "tile_082.s01", "type": "explainer", "concept_ids": ["deployment.release_rollback_boundaries"], "teaching_block_ids": ["deployment.release_rollback_boundaries#tb1", "deployment.release_rollback_boundaries#tb2", "deployment.release_rollback_boundaries#tb3"], "fact_ids": ["deployment.release_rollback_boundaries#f1", "deployment.release_rollback_boundaries#f2", "deployment.release_rollback_boundaries#f3", "deployment.release_rollback_boundaries#f4"], "planned_visual_block_type": "process_flow", "word_budget": 116}
+{"step_id": "tile_082.s02", "type": "explainer", "concept_ids": ["deployment.release_rollback_boundaries"], "teaching_block_ids": ["deployment.release_rollback_boundaries#tb4", "deployment.release_rollback_boundaries#tb5"], "fact_ids": ["deployment.release_rollback_boundaries#f1", "deployment.release_rollback_boundaries#f2", "deployment.release_rollback_boundaries#f3", "deployment.release_rollback_boundaries#f4"], "planned_visual_block_type": null, "word_budget": 122}
+{"step_id": "tile_082.s03", "type": "check", "concept_ids": ["deployment.release_rollback_boundaries"], "teaching_block_ids": [], "fact_ids": ["deployment.release_rollback_boundaries#f2", "deployment.release_rollback_boundaries#f3", "deployment.release_rollback_boundaries#f4"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_082.s04", "type": "hands_on", "concept_ids": ["deployment.release_rollback_boundaries"], "teaching_block_ids": [], "fact_ids": ["deployment.release_rollback_boundaries#f1", "deployment.release_rollback_boundaries#f2", "deployment.release_rollback_boundaries#f3", "deployment.release_rollback_boundaries#f4"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_082.s05", "type": "recap", "concept_ids": ["deployment.release_rollback_boundaries"], "teaching_block_ids": [], "fact_ids": [], "planned_visual_block_type": "up_next", "word_budget": 90}
+tile_083 NEXT tile_085
+{"step_id": "tile_083.s01", "type": "explainer", "concept_ids": ["fastapi.documented_responses"], "teaching_block_ids": ["fastapi.documented_responses#tb1", "fastapi.documented_responses#tb2", "fastapi.documented_responses#tb3", "fastapi.documented_responses#tb4", "fastapi.documented_responses#tb5"], "fact_ids": ["fastapi.documented_responses#f1", "fastapi.documented_responses#f2", "fastapi.documented_responses#f3", "fastapi.documented_responses#f4"], "planned_visual_block_type": "side_by_side", "word_budget": 189}
+{"step_id": "tile_083.s02", "type": "check", "concept_ids": ["fastapi.documented_responses"], "teaching_block_ids": [], "fact_ids": ["fastapi.documented_responses#f2", "fastapi.documented_responses#f4"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_083.s03", "type": "hands_on", "concept_ids": ["fastapi.documented_responses"], "teaching_block_ids": [], "fact_ids": ["fastapi.documented_responses#f1", "fastapi.documented_responses#f3"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_083.s04", "type": "explainer", "concept_ids": ["fastapi.safe_unexpected_errors"], "teaching_block_ids": ["fastapi.safe_unexpected_errors#tb1", "fastapi.safe_unexpected_errors#tb2", "fastapi.safe_unexpected_errors#tb3", "fastapi.safe_unexpected_errors#tb4", "fastapi.safe_unexpected_errors#tb5"], "fact_ids": ["fastapi.safe_unexpected_errors#f1", "fastapi.safe_unexpected_errors#f2", "fastapi.safe_unexpected_errors#f3", "fastapi.safe_unexpected_errors#f4", "fastapi.safe_unexpected_errors#f5"], "planned_visual_block_type": "side_by_side", "word_budget": 199}
+{"step_id": "tile_083.s05", "type": "check", "concept_ids": ["fastapi.safe_unexpected_errors"], "teaching_block_ids": [], "fact_ids": ["fastapi.safe_unexpected_errors#f1", "fastapi.safe_unexpected_errors#f4"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_083.s06", "type": "check", "concept_ids": ["fastapi.safe_unexpected_errors"], "teaching_block_ids": [], "fact_ids": ["fastapi.safe_unexpected_errors#f3", "fastapi.safe_unexpected_errors#f5"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_083.s07", "type": "hands_on", "concept_ids": ["fastapi.safe_unexpected_errors"], "teaching_block_ids": [], "fact_ids": [], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_083.s08", "type": "recap", "concept_ids": ["fastapi.documented_responses", "fastapi.safe_unexpected_errors"], "teaching_block_ids": [], "fact_ids": [], "planned_visual_block_type": "up_next", "word_budget": 90}
+tile_085 NEXT tile_086
+{"step_id": "tile_085.s01", "type": "explainer", "concept_ids": ["integration.upstream_failure_translation"], "teaching_block_ids": ["integration.upstream_failure_translation#tb1", "integration.upstream_failure_translation#tb2", "integration.upstream_failure_translation#tb3"], "fact_ids": ["integration.upstream_failure_translation#f1", "integration.upstream_failure_translation#f2", "integration.upstream_failure_translation#f3", "integration.upstream_failure_translation#f4", "integration.upstream_failure_translation#f5"], "planned_visual_block_type": "process_flow", "word_budget": 150}
+{"step_id": "tile_085.s02", "type": "explainer", "concept_ids": ["integration.upstream_failure_translation"], "teaching_block_ids": ["integration.upstream_failure_translation#tb4", "integration.upstream_failure_translation#tb5"], "fact_ids": ["integration.upstream_failure_translation#f1", "integration.upstream_failure_translation#f2", "integration.upstream_failure_translation#f3", "integration.upstream_failure_translation#f4", "integration.upstream_failure_translation#f5"], "planned_visual_block_type": null, "word_budget": 130}
+{"step_id": "tile_085.s03", "type": "check", "concept_ids": ["integration.upstream_failure_translation"], "teaching_block_ids": [], "fact_ids": ["integration.upstream_failure_translation#f3", "integration.upstream_failure_translation#f4"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_085.s04", "type": "check", "concept_ids": ["integration.upstream_failure_translation"], "teaching_block_ids": [], "fact_ids": ["integration.upstream_failure_translation#f5"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_085.s05", "type": "hands_on", "concept_ids": ["integration.upstream_failure_translation"], "teaching_block_ids": [], "fact_ids": ["integration.upstream_failure_translation#f1", "integration.upstream_failure_translation#f2"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_085.s06", "type": "recap", "concept_ids": ["integration.upstream_failure_translation"], "teaching_block_ids": [], "fact_ids": [], "planned_visual_block_type": "up_next", "word_budget": 90}
+tile_086 NEXT tile_087
+{"step_id": "tile_086.s01", "type": "explainer", "concept_ids": ["integration.webhook_authenticity"], "teaching_block_ids": ["integration.webhook_authenticity#tb1", "integration.webhook_authenticity#tb2", "integration.webhook_authenticity#tb3"], "fact_ids": ["integration.webhook_authenticity#f1", "integration.webhook_authenticity#f2", "integration.webhook_authenticity#f3", "integration.webhook_authenticity#f4"], "planned_visual_block_type": "code_walkthrough", "word_budget": 120}
+{"step_id": "tile_086.s02", "type": "explainer", "concept_ids": ["integration.webhook_authenticity"], "teaching_block_ids": ["integration.webhook_authenticity#tb4", "integration.webhook_authenticity#tb5"], "fact_ids": ["integration.webhook_authenticity#f1", "integration.webhook_authenticity#f2", "integration.webhook_authenticity#f3", "integration.webhook_authenticity#f4"], "planned_visual_block_type": null, "word_budget": 83}
+{"step_id": "tile_086.s03", "type": "check", "concept_ids": ["integration.webhook_authenticity"], "teaching_block_ids": [], "fact_ids": ["integration.webhook_authenticity#f3", "integration.webhook_authenticity#f4"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_086.s04", "type": "hands_on", "concept_ids": ["integration.webhook_authenticity"], "teaching_block_ids": [], "fact_ids": ["integration.webhook_authenticity#f1", "integration.webhook_authenticity#f2", "integration.webhook_authenticity#f3", "integration.webhook_authenticity#f4"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_086.s05", "type": "recap", "concept_ids": ["integration.webhook_authenticity"], "teaching_block_ids": [], "fact_ids": [], "planned_visual_block_type": "up_next", "word_budget": 90}
+tile_087 NEXT tile_088
+{"step_id": "tile_087.s01", "type": "explainer", "concept_ids": ["observability.evidence_based_service_diagnosis"], "teaching_block_ids": ["observability.evidence_based_service_diagnosis#tb1", "observability.evidence_based_service_diagnosis#tb2", "observability.evidence_based_service_diagnosis#tb3"], "fact_ids": ["observability.evidence_based_service_diagnosis#f1", "observability.evidence_based_service_diagnosis#f2", "observability.evidence_based_service_diagnosis#f3", "observability.evidence_based_service_diagnosis#f4"], "planned_visual_block_type": "side_by_side", "word_budget": 140}
+{"step_id": "tile_087.s02", "type": "explainer", "concept_ids": ["observability.evidence_based_service_diagnosis"], "teaching_block_ids": ["observability.evidence_based_service_diagnosis#tb4", "observability.evidence_based_service_diagnosis#tb5"], "fact_ids": ["observability.evidence_based_service_diagnosis#f1", "observability.evidence_based_service_diagnosis#f2", "observability.evidence_based_service_diagnosis#f3", "observability.evidence_based_service_diagnosis#f4"], "planned_visual_block_type": null, "word_budget": 133}
+{"step_id": "tile_087.s03", "type": "check", "concept_ids": ["observability.evidence_based_service_diagnosis"], "teaching_block_ids": [], "fact_ids": ["observability.evidence_based_service_diagnosis#f3"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_087.s04", "type": "hands_on", "concept_ids": ["observability.evidence_based_service_diagnosis"], "teaching_block_ids": [], "fact_ids": ["observability.evidence_based_service_diagnosis#f1", "observability.evidence_based_service_diagnosis#f2", "observability.evidence_based_service_diagnosis#f4"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_087.s05", "type": "recap", "concept_ids": ["observability.evidence_based_service_diagnosis"], "teaching_block_ids": [], "fact_ids": [], "planned_visual_block_type": "up_next", "word_budget": 90}
+tile_088 NEXT tile_089
+{"step_id": "tile_088.s01", "type": "explainer", "concept_ids": ["security.bounded_api_resources"], "teaching_block_ids": ["security.bounded_api_resources#tb1", "security.bounded_api_resources#tb2", "security.bounded_api_resources#tb3"], "fact_ids": ["security.bounded_api_resources#f1", "security.bounded_api_resources#f2", "security.bounded_api_resources#f3", "security.bounded_api_resources#f4"], "planned_visual_block_type": "code_walkthrough", "word_budget": 115}
+{"step_id": "tile_088.s02", "type": "explainer", "concept_ids": ["security.bounded_api_resources"], "teaching_block_ids": ["security.bounded_api_resources#tb4", "security.bounded_api_resources#tb5"], "fact_ids": ["security.bounded_api_resources#f1", "security.bounded_api_resources#f2", "security.bounded_api_resources#f3", "security.bounded_api_resources#f4"], "planned_visual_block_type": null, "word_budget": 86}
+{"step_id": "tile_088.s03", "type": "check", "concept_ids": ["security.bounded_api_resources"], "teaching_block_ids": [], "fact_ids": ["security.bounded_api_resources#f1", "security.bounded_api_resources#f2"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_088.s04", "type": "check", "concept_ids": ["security.bounded_api_resources"], "teaching_block_ids": [], "fact_ids": ["security.bounded_api_resources#f4"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_088.s05", "type": "hands_on", "concept_ids": ["security.bounded_api_resources"], "teaching_block_ids": [], "fact_ids": ["security.bounded_api_resources#f3"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_088.s06", "type": "recap", "concept_ids": ["security.bounded_api_resources"], "teaching_block_ids": [], "fact_ids": [], "planned_visual_block_type": "up_next", "word_budget": 90}
+tile_089 NEXT tile_090
+{"step_id": "tile_089.s01", "type": "explainer", "concept_ids": ["sqlalchemy.redundant_queries"], "teaching_block_ids": ["sqlalchemy.redundant_queries#tb1", "sqlalchemy.redundant_queries#tb2", "sqlalchemy.redundant_queries#tb3"], "fact_ids": ["sqlalchemy.redundant_queries#f1", "sqlalchemy.redundant_queries#f2", "sqlalchemy.redundant_queries#f3", "sqlalchemy.redundant_queries#f4"], "planned_visual_block_type": "side_by_side", "word_budget": 130}
+{"step_id": "tile_089.s02", "type": "explainer", "concept_ids": ["sqlalchemy.redundant_queries"], "teaching_block_ids": ["sqlalchemy.redundant_queries#tb4", "sqlalchemy.redundant_queries#tb5"], "fact_ids": ["sqlalchemy.redundant_queries#f1", "sqlalchemy.redundant_queries#f2", "sqlalchemy.redundant_queries#f3", "sqlalchemy.redundant_queries#f4"], "planned_visual_block_type": null, "word_budget": 88}
+{"step_id": "tile_089.s03", "type": "video", "concept_ids": ["sqlalchemy.redundant_queries"], "teaching_block_ids": [], "fact_ids": ["sqlalchemy.redundant_queries#f1", "sqlalchemy.redundant_queries#f2"], "planned_visual_block_type": "media_group", "word_budget": 0}
+{"step_id": "tile_089.s04", "type": "check", "concept_ids": ["sqlalchemy.redundant_queries"], "teaching_block_ids": [], "fact_ids": ["sqlalchemy.redundant_queries#f1", "sqlalchemy.redundant_queries#f2"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_089.s05", "type": "check", "concept_ids": ["sqlalchemy.redundant_queries"], "teaching_block_ids": [], "fact_ids": ["sqlalchemy.redundant_queries#f4"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_089.s06", "type": "hands_on", "concept_ids": ["sqlalchemy.redundant_queries"], "teaching_block_ids": [], "fact_ids": ["sqlalchemy.redundant_queries#f1"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_089.s07", "type": "recap", "concept_ids": ["sqlalchemy.redundant_queries"], "teaching_block_ids": [], "fact_ids": [], "planned_visual_block_type": "up_next", "word_budget": 90}
+tile_090 NEXT tile_091
+{"step_id": "tile_090.s01", "type": "explainer", "concept_ids": ["testing.database_state_isolation"], "teaching_block_ids": ["testing.database_state_isolation#tb1", "testing.database_state_isolation#tb2", "testing.database_state_isolation#tb3"], "fact_ids": ["testing.database_state_isolation#f1", "testing.database_state_isolation#f2", "testing.database_state_isolation#f3", "testing.database_state_isolation#f4"], "planned_visual_block_type": "code_walkthrough", "word_budget": 126}
+{"step_id": "tile_090.s02", "type": "explainer", "concept_ids": ["testing.database_state_isolation"], "teaching_block_ids": ["testing.database_state_isolation#tb4", "testing.database_state_isolation#tb5"], "fact_ids": ["testing.database_state_isolation#f1", "testing.database_state_isolation#f2", "testing.database_state_isolation#f3", "testing.database_state_isolation#f4"], "planned_visual_block_type": null, "word_budget": 93}
+{"step_id": "tile_090.s03", "type": "video", "concept_ids": ["testing.database_state_isolation"], "teaching_block_ids": [], "fact_ids": ["testing.database_state_isolation#f1"], "planned_visual_block_type": "media_group", "word_budget": 0}
+{"step_id": "tile_090.s04", "type": "check", "concept_ids": ["testing.database_state_isolation"], "teaching_block_ids": [], "fact_ids": ["testing.database_state_isolation#f1", "testing.database_state_isolation#f4"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_090.s05", "type": "check", "concept_ids": ["testing.database_state_isolation"], "teaching_block_ids": [], "fact_ids": ["testing.database_state_isolation#f4"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_090.s06", "type": "hands_on", "concept_ids": ["testing.database_state_isolation"], "teaching_block_ids": [], "fact_ids": ["testing.database_state_isolation#f2", "testing.database_state_isolation#f3"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_090.s07", "type": "recap", "concept_ids": ["testing.database_state_isolation"], "teaching_block_ids": [], "fact_ids": [], "planned_visual_block_type": "up_next", "word_budget": 90}
+tile_091 NEXT tile_093
+{"step_id": "tile_091.s01", "type": "explainer", "concept_ids": ["auth.authorization_server_integration"], "teaching_block_ids": ["auth.authorization_server_integration#tb1", "auth.authorization_server_integration#tb2"], "fact_ids": ["auth.authorization_server_integration#f1"], "planned_visual_block_type": "process_flow", "word_budget": 58}
+{"step_id": "tile_091.s02", "type": "explainer", "concept_ids": ["auth.authorization_server_integration"], "teaching_block_ids": ["auth.authorization_server_integration#tb3"], "fact_ids": ["auth.authorization_server_integration#f2", "auth.authorization_server_integration#f3", "auth.authorization_server_integration#f4", "auth.authorization_server_integration#f5"], "planned_visual_block_type": null, "word_budget": 134}
+{"step_id": "tile_091.s03", "type": "explainer", "concept_ids": ["auth.authorization_server_integration"], "teaching_block_ids": ["auth.authorization_server_integration#tb4", "auth.authorization_server_integration#tb5"], "fact_ids": ["auth.authorization_server_integration#f1", "auth.authorization_server_integration#f2", "auth.authorization_server_integration#f3", "auth.authorization_server_integration#f4", "auth.authorization_server_integration#f5"], "planned_visual_block_type": null, "word_budget": 152}
+{"step_id": "tile_091.s04", "type": "check", "concept_ids": ["auth.authorization_server_integration"], "teaching_block_ids": [], "fact_ids": ["auth.authorization_server_integration#f4", "auth.authorization_server_integration#f5"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_091.s05", "type": "hands_on", "concept_ids": ["auth.authorization_server_integration"], "teaching_block_ids": [], "fact_ids": ["auth.authorization_server_integration#f1", "auth.authorization_server_integration#f2", "auth.authorization_server_integration#f3", "auth.authorization_server_integration#f4", "auth.authorization_server_integration#f5"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_091.s06", "type": "explainer", "concept_ids": ["auth.endpoint_permissions"], "teaching_block_ids": ["auth.endpoint_permissions#tb1", "auth.endpoint_permissions#tb2", "auth.endpoint_permissions#tb3"], "fact_ids": ["auth.endpoint_permissions#f1", "auth.endpoint_permissions#f2", "auth.endpoint_permissions#f3", "auth.endpoint_permissions#f4"], "planned_visual_block_type": "code_walkthrough", "word_budget": 103}
+{"step_id": "tile_091.s07", "type": "explainer", "concept_ids": ["auth.endpoint_permissions"], "teaching_block_ids": ["auth.endpoint_permissions#tb4", "auth.endpoint_permissions#tb5"], "fact_ids": ["auth.endpoint_permissions#f1", "auth.endpoint_permissions#f2", "auth.endpoint_permissions#f3", "auth.endpoint_permissions#f4"], "planned_visual_block_type": null, "word_budget": 119}
+{"step_id": "tile_091.s08", "type": "check", "concept_ids": ["auth.endpoint_permissions"], "teaching_block_ids": [], "fact_ids": ["auth.endpoint_permissions#f4"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_091.s09", "type": "hands_on", "concept_ids": ["auth.endpoint_permissions"], "teaching_block_ids": [], "fact_ids": ["auth.endpoint_permissions#f1", "auth.endpoint_permissions#f2", "auth.endpoint_permissions#f3"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_091.s10", "type": "recap", "concept_ids": ["auth.authorization_server_integration", "auth.endpoint_permissions"], "teaching_block_ids": [], "fact_ids": [], "planned_visual_block_type": "up_next", "word_budget": 90}
+tile_093 NEXT tile_096
+{"step_id": "tile_093.s01", "type": "explainer", "concept_ids": ["fastapi_backend.webhook_delivery_idempotency"], "teaching_block_ids": ["fastapi_backend.webhook_delivery_idempotency#tb1", "fastapi_backend.webhook_delivery_idempotency#tb2", "fastapi_backend.webhook_delivery_idempotency#tb3"], "fact_ids": ["fastapi_backend.webhook_delivery_idempotency#f1", "fastapi_backend.webhook_delivery_idempotency#f2", "fastapi_backend.webhook_delivery_idempotency#f3"], "planned_visual_block_type": "process_flow", "word_budget": 95}
+{"step_id": "tile_093.s02", "type": "explainer", "concept_ids": ["fastapi_backend.webhook_delivery_idempotency"], "teaching_block_ids": ["fastapi_backend.webhook_delivery_idempotency#tb4", "fastapi_backend.webhook_delivery_idempotency#tb5"], "fact_ids": ["fastapi_backend.webhook_delivery_idempotency#f1", "fastapi_backend.webhook_delivery_idempotency#f2", "fastapi_backend.webhook_delivery_idempotency#f3"], "planned_visual_block_type": null, "word_budget": 131}
+{"step_id": "tile_093.s03", "type": "check", "concept_ids": ["fastapi_backend.webhook_delivery_idempotency"], "teaching_block_ids": [], "fact_ids": ["fastapi_backend.webhook_delivery_idempotency#f1", "fastapi_backend.webhook_delivery_idempotency#f3"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_093.s04", "type": "hands_on", "concept_ids": ["fastapi_backend.webhook_delivery_idempotency"], "teaching_block_ids": [], "fact_ids": ["fastapi_backend.webhook_delivery_idempotency#f2", "fastapi_backend.webhook_delivery_idempotency#f3"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_093.s05", "type": "explainer", "concept_ids": ["fastapi_backend.webhook_replay_freshness"], "teaching_block_ids": ["fastapi_backend.webhook_replay_freshness#tb1", "fastapi_backend.webhook_replay_freshness#tb2", "fastapi_backend.webhook_replay_freshness#tb3"], "fact_ids": ["fastapi_backend.webhook_replay_freshness#f1", "fastapi_backend.webhook_replay_freshness#f2", "fastapi_backend.webhook_replay_freshness#f3", "fastapi_backend.webhook_replay_freshness#f4"], "planned_visual_block_type": "data_table", "word_budget": 159}
+{"step_id": "tile_093.s06", "type": "explainer", "concept_ids": ["fastapi_backend.webhook_replay_freshness"], "teaching_block_ids": ["fastapi_backend.webhook_replay_freshness#tb4", "fastapi_backend.webhook_replay_freshness#tb5"], "fact_ids": ["fastapi_backend.webhook_replay_freshness#f1", "fastapi_backend.webhook_replay_freshness#f2", "fastapi_backend.webhook_replay_freshness#f3", "fastapi_backend.webhook_replay_freshness#f4"], "planned_visual_block_type": null, "word_budget": 129}
+{"step_id": "tile_093.s07", "type": "check", "concept_ids": ["fastapi_backend.webhook_replay_freshness"], "teaching_block_ids": [], "fact_ids": ["fastapi_backend.webhook_replay_freshness#f3"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_093.s08", "type": "check", "concept_ids": ["fastapi_backend.webhook_replay_freshness"], "teaching_block_ids": [], "fact_ids": ["fastapi_backend.webhook_replay_freshness#f4"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_093.s09", "type": "hands_on", "concept_ids": ["fastapi_backend.webhook_replay_freshness"], "teaching_block_ids": [], "fact_ids": ["fastapi_backend.webhook_replay_freshness#f1", "fastapi_backend.webhook_replay_freshness#f2"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_093.s10", "type": "explainer", "concept_ids": ["integration.bounded_idempotent_retries"], "teaching_block_ids": ["integration.bounded_idempotent_retries#tb1", "integration.bounded_idempotent_retries#tb2", "integration.bounded_idempotent_retries#tb3"], "fact_ids": ["integration.bounded_idempotent_retries#f1", "integration.bounded_idempotent_retries#f2", "integration.bounded_idempotent_retries#f3", "integration.bounded_idempotent_retries#f4", "integration.bounded_idempotent_retries#f5"], "planned_visual_block_type": "process_flow", "word_budget": 169}
+{"step_id": "tile_093.s11", "type": "explainer", "concept_ids": ["integration.bounded_idempotent_retries"], "teaching_block_ids": ["integration.bounded_idempotent_retries#tb4", "integration.bounded_idempotent_retries#tb5"], "fact_ids": ["integration.bounded_idempotent_retries#f1", "integration.bounded_idempotent_retries#f2", "integration.bounded_idempotent_retries#f3", "integration.bounded_idempotent_retries#f4", "integration.bounded_idempotent_retries#f5"], "planned_visual_block_type": null, "word_budget": 131}
+{"step_id": "tile_093.s12", "type": "check", "concept_ids": ["integration.bounded_idempotent_retries"], "teaching_block_ids": [], "fact_ids": ["integration.bounded_idempotent_retries#f5"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_093.s13", "type": "hands_on", "concept_ids": ["integration.bounded_idempotent_retries"], "teaching_block_ids": [], "fact_ids": ["integration.bounded_idempotent_retries#f1", "integration.bounded_idempotent_retries#f2", "integration.bounded_idempotent_retries#f3", "integration.bounded_idempotent_retries#f4", "integration.bounded_idempotent_retries#f5"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_093.s14", "type": "recap", "concept_ids": ["fastapi_backend.webhook_delivery_idempotency", "fastapi_backend.webhook_replay_freshness", "integration.bounded_idempotent_retries"], "teaching_block_ids": [], "fact_ids": [], "planned_visual_block_type": "up_next", "word_budget": 90}
+tile_096 NEXT tile_097
+{"step_id": "tile_096.s01", "type": "explainer", "concept_ids": ["auth.object_authorization"], "teaching_block_ids": ["auth.object_authorization#tb1", "auth.object_authorization#tb2", "auth.object_authorization#tb3", "auth.object_authorization#tb4", "auth.object_authorization#tb5"], "fact_ids": ["auth.object_authorization#f1", "auth.object_authorization#f2", "auth.object_authorization#f3"], "planned_visual_block_type": "data_table", "word_budget": 178}
+{"step_id": "tile_096.s02", "type": "check", "concept_ids": ["auth.object_authorization"], "teaching_block_ids": [], "fact_ids": ["auth.object_authorization#f1"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_096.s03", "type": "check", "concept_ids": ["auth.object_authorization"], "teaching_block_ids": [], "fact_ids": ["auth.object_authorization#f3"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_096.s04", "type": "hands_on", "concept_ids": ["auth.object_authorization"], "teaching_block_ids": [], "fact_ids": ["auth.object_authorization#f2"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_096.s05", "type": "recap", "concept_ids": ["auth.object_authorization"], "teaching_block_ids": [], "fact_ids": [], "planned_visual_block_type": "up_next", "word_budget": 90}
+tile_097 NEXT None
+{"step_id": "tile_097.s01", "type": "explainer", "concept_ids": ["fastapi.production_security_documentation"], "teaching_block_ids": ["fastapi.production_security_documentation#tb1", "fastapi.production_security_documentation#tb2", "fastapi.production_security_documentation#tb3"], "fact_ids": ["fastapi.production_security_documentation#f1", "fastapi.production_security_documentation#f2", "fastapi.production_security_documentation#f3", "fastapi.production_security_documentation#f4", "fastapi.production_security_documentation#f5"], "planned_visual_block_type": "side_by_side", "word_budget": 136}
+{"step_id": "tile_097.s02", "type": "explainer", "concept_ids": ["fastapi.production_security_documentation"], "teaching_block_ids": ["fastapi.production_security_documentation#tb4", "fastapi.production_security_documentation#tb5"], "fact_ids": ["fastapi.production_security_documentation#f1", "fastapi.production_security_documentation#f2", "fastapi.production_security_documentation#f3", "fastapi.production_security_documentation#f4", "fastapi.production_security_documentation#f5"], "planned_visual_block_type": null, "word_budget": 80}
+{"step_id": "tile_097.s03", "type": "check", "concept_ids": ["fastapi.production_security_documentation"], "teaching_block_ids": [], "fact_ids": ["fastapi.production_security_documentation#f1"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_097.s04", "type": "check", "concept_ids": ["fastapi.production_security_documentation"], "teaching_block_ids": [], "fact_ids": ["fastapi.production_security_documentation#f4", "fastapi.production_security_documentation#f5"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_097.s05", "type": "hands_on", "concept_ids": ["fastapi.production_security_documentation"], "teaching_block_ids": [], "fact_ids": ["fastapi.production_security_documentation#f2", "fastapi.production_security_documentation#f3"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_097.s06", "type": "explainer", "concept_ids": ["fastapi.openapi_contract_inspection"], "teaching_block_ids": ["fastapi.openapi_contract_inspection#tb1", "fastapi.openapi_contract_inspection#tb2", "fastapi.openapi_contract_inspection#tb3"], "fact_ids": ["fastapi.openapi_contract_inspection#f1", "fastapi.openapi_contract_inspection#f2", "fastapi.openapi_contract_inspection#f3", "fastapi.openapi_contract_inspection#f4", "fastapi.openapi_contract_inspection#f5"], "planned_visual_block_type": "side_by_side", "word_budget": 140}
+{"step_id": "tile_097.s07", "type": "explainer", "concept_ids": ["fastapi.openapi_contract_inspection"], "teaching_block_ids": ["fastapi.openapi_contract_inspection#tb4", "fastapi.openapi_contract_inspection#tb5"], "fact_ids": ["fastapi.openapi_contract_inspection#f1", "fastapi.openapi_contract_inspection#f2", "fastapi.openapi_contract_inspection#f3", "fastapi.openapi_contract_inspection#f4", "fastapi.openapi_contract_inspection#f5"], "planned_visual_block_type": null, "word_budget": 80}
+{"step_id": "tile_097.s08", "type": "check", "concept_ids": ["fastapi.openapi_contract_inspection"], "teaching_block_ids": [], "fact_ids": ["fastapi.openapi_contract_inspection#f5"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_097.s09", "type": "hands_on", "concept_ids": ["fastapi.openapi_contract_inspection"], "teaching_block_ids": [], "fact_ids": ["fastapi.openapi_contract_inspection#f1", "fastapi.openapi_contract_inspection#f2", "fastapi.openapi_contract_inspection#f3", "fastapi.openapi_contract_inspection#f4", "fastapi.openapi_contract_inspection#f5"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_097.s10", "type": "explainer", "concept_ids": ["testing.api_authentication_authorization"], "teaching_block_ids": ["testing.api_authentication_authorization#tb1", "testing.api_authentication_authorization#tb2", "testing.api_authentication_authorization#tb3"], "fact_ids": ["testing.api_authentication_authorization#f1", "testing.api_authentication_authorization#f2", "testing.api_authentication_authorization#f3", "testing.api_authentication_authorization#f4", "testing.api_authentication_authorization#f5"], "planned_visual_block_type": "data_table", "word_budget": 138}
+{"step_id": "tile_097.s11", "type": "explainer", "concept_ids": ["testing.api_authentication_authorization"], "teaching_block_ids": ["testing.api_authentication_authorization#tb4", "testing.api_authentication_authorization#tb5"], "fact_ids": ["testing.api_authentication_authorization#f1", "testing.api_authentication_authorization#f2", "testing.api_authentication_authorization#f3", "testing.api_authentication_authorization#f4", "testing.api_authentication_authorization#f5"], "planned_visual_block_type": null, "word_budget": 127}
+{"step_id": "tile_097.s12", "type": "check", "concept_ids": ["testing.api_authentication_authorization"], "teaching_block_ids": [], "fact_ids": ["testing.api_authentication_authorization#f5"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_097.s13", "type": "hands_on", "concept_ids": ["testing.api_authentication_authorization"], "teaching_block_ids": [], "fact_ids": ["testing.api_authentication_authorization#f1", "testing.api_authentication_authorization#f2", "testing.api_authentication_authorization#f3", "testing.api_authentication_authorization#f4", "testing.api_authentication_authorization#f5"], "planned_visual_block_type": null, "word_budget": 0}
+{"step_id": "tile_097.s14", "type": "recap", "concept_ids": ["fastapi.production_security_documentation", "fastapi.openapi_contract_inspection", "testing.api_authentication_authorization"], "teaching_block_ids": [], "fact_ids": [], "planned_visual_block_type": null, "word_budget": 90}
+SCENARIOS [{"scenario_id": "scenario.order_service", "name": "Fictional order-service readiness lab", "summary": "A small fictional FastAPI order service is preparing a release. Two callers have separate orders; the team exercises response contracts, upstream failures, webhook boundaries, persistence, security and release records in isolated training fixtures. Issuer integration requires an actually provisioned authorization server, which the glossary does not supply.", "domain": "backend order service", "glossary_example_vocab": ["order", "orders", "Order.id", "Order.owner_id", "owner_id", "Entity", "relationship_attribute", "item", "publisher event identifier", "signed_delivery_timestamp", "receiver_now", "acceptance_window", "future_tolerance", "300", "30", "409", "500", "503", "502", "504", "five-minute", "FastAPI", "Python", "HTTPX", "HTTPStatusError", "RequestError", "TestClient", "JSONResponse", "HTTPException", "Pydantic", "SQLAlchemy", "selectinload", "joinedload", "Result.unique()", "echo=True", "join_transaction_mode", "create_savepoint", "SecurityScopes", "Security", "HTTPBearer", "OAuth2AuthorizationCodeBearer", "PyJWKClient", "jwt.decode", "PKCE", "JWKS", "Retry-After", "Uvicorn", "--limit-concurrency", "/openapi.json", "response_model", "status_code", "response_description", "responses", "PublicModel", "Authorization", "Bearer", "await request.body()", "raw bytes", "endpoint signing secret", "immutable release", "artifact", "configuration", "database schema", "interaction identifier", "response.status_code", "response.json()", "app.openapi()", "app.exception_handler", "client.get", "response.raise_for_status()", "exc.response", "httpx.HTTPStatusError", "httpx.RequestError", "httpx.TimeoutException", "request.body()", "request.headers", "client.post", "response.headers", "app.dependency_overrides", "app.add_middleware", "httpx.Timeout", "Entity.relationship_attribute", "statement.options", "sqlalchemy.orm", "session.execute", "result.scalars()", "entity.relationship_attribute", "pytest.fixture", "engine.connect()", "connection.begin()", "dict.copy()", "dict.clear()", "dict.update", "session.get", "session.close()", "transaction.rollback()", "connection.close()", "PyJWKClient.get_signing_key_from_jwt", "signing_key.key", "fastapi.security", "security_scopes.scopes", "token_context.scopes", "order.owner_id", "token_context.subject", "session.begin()", "session.add", "session.flush()", "session.scalar", "time.time()", "datetime.now()", "tenacity.retry", "tenacity.Retrying", "tenacity.AsyncRetrying", "result.scalar_one_or_none()", "components.securitySchemes", "openapi.json", "client.get()"]}]
+ASSET ds.orders dataset Order fixtures
+ASSET ds.principals dataset Trusted principal contexts
+ASSET ds.releases dataset Immutable release records and supplied fixture compatibility
+ASSET ds.delivery_timestamps dataset Authenticated delivery-timestamp cases
+ASSET ds.Entity dataset Parent entities
+ASSET ds.relationship_attribute dataset Parent collection fixtures
+ASSET ds.items dataset Database-isolation item fixture
+ASSET ds.order_events dataset Authenticated publisher event fixtures
+ASSET ds.authentication_test_matrix dataset Order endpoint security test matrix
+ASSET ds.operation_signals dataset Synthetic operation-window evidence
+ASSET ds.correlated_records dataset Synthetic correlated failure evidence
+ASSET ws.deployment.release_rollback_boundaries code_workspace Service release and rollback workflow with build, release and run separation — starter workspace
+FILE starter.py
+import json
+from pathlib import Path
+fixtures = json.loads(Path('fixtures.json').read_text())
+releases = fixtures['releases']
+current_database_schema = fixtures['current_database_schema']
+selected_release = None  # TODO: select a compatible known prior release
+procedure = {'build': None, 'release': None, 'run': None,
+             'database_schema_after_rollback': None}
+
+FILE fixtures.json
+{
+  "releases": [
+    {
+      "release_id": "release_current",
+      "artifact": "artifact_current",
+      "configuration": "config_current",
+      "current_database_schema": "schema_current",
+      "compatible": true
+    },
+    {
+      "release_id": "release_prior_compatible",
+      "artifact": "artifact_prior_compatible",
+      "configuration": "config_prior_compatible",
+      "current_database_schema": "schema_current",
+      "compatible": true
+    },
+    {
+      "release_id": "release_prior_incompatible",
+      "artifact": "artifact_prior_incompatible",
+      "configuration": "config_prior_incompatible",
+      "current_database_schema": "schema_current",
+      "compatible": false
+    }
+  ],
+  "current_database_schema": "schema_current"
+}
+
+ASSET ws.fastapi.documented_responses code_workspace Documenting expected success and error responses — starter workspace
+FILE starter.py
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from fastapi.testclient import TestClient
+class PublicModel(BaseModel):
+    id: int
+    status: str
+class ConflictModel(BaseModel):
+    detail: str
+app = FastAPI()
+# TODO: complete only response documentation, preserving the outcome implementation.
+@app.post('/orders')
+def create_order(conflict: bool = False):
+    if conflict:
+        raise HTTPException(status_code=409, detail='Order conflict')
+    return {'id': 101, 'status': 'pending'}
+with TestClient(app) as client:
+    success = client.post('/orders')
+    conflict = client.post('/orders?conflict=true')
+    schema = app.openapi()
+    # TODO: compare actual responses with generated entries and schemas.
+
+FILE fixtures.json
+{
+  "success_status": 200,
+  "success_body": {
+    "id": 101,
+    "status": "pending"
+  },
+  "conflict_status": 409,
+  "conflict_body": {
+    "detail": "Order conflict"
+  }
+}
+
+ASSET ws.fastapi.safe_unexpected_errors code_workspace Safe unexpected-error responses with actionable server evidence — starter workspace
+FILE starter.py
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from fastapi.testclient import TestClient
+app = FastAPI(debug=False)
+safe_records = []
+def record_safe_failure(request):
+    safe_records.append({'event':'unexpected_failure','code_location':'controlled_failure',
+                         'interaction_context':'interaction_fixture'})
+@app.get('/controlled-failure')
+def controlled_failure():
+    raise RuntimeError('Controlled internal failure; never disclose this string')
+# TODO: register @app.exception_handler(Exception), call record_safe_failure,
+# and return the fixtures.json generic 500 body. Never log exception strings.
+with TestClient(app, raise_server_exceptions=False) as client:
+    response = client.get('/controlled-failure')
+    # TODO: assert public response and safe internal records separately.
+
+FILE fixtures.json
+{
+  "public_status": 500,
+  "public_body": {
+    "detail": "Internal server error"
+  },
+  "prohibited_record_fields": [
+    "exception_message",
+    "locals",
+    "request_body",
+    "credentials"
+  ]
+}
+
+ASSET ws.integration.upstream_failure_translation code_workspace Upstream failure translation — starter workspace
+FILE starter.py
+import httpx
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi.testclient import TestClient
+UPSTREAM_URL = 'https://upstream.invalid/lookup'  # Authored mock-only URL, never a provisioned service.
+app = FastAPI()
+async def client_provider():
+    async with httpx.AsyncClient() as client:
+        yield client
+async def lookup(client):
+    response = await client.get(UPSTREAM_URL)
+    # TODO: raise_for_status and translate HTTPStatusError versus RequestError.
+    return response.json()
+@app.get('/lookup')
+async def route(client=Depends(client_provider)):
+    return await lookup(client)
+def status_failure(request):
+    return httpx.Response(503, request=request)
+def timeout_failure(request):
+    raise httpx.ReadTimeout('Controlled timeout', request=request)
+# TODO: override client_provider with a MockTransport for each failure,
+# then assert the supplied local status/body through TestClient.
+
+FILE fixtures.json
+{
+  "upstream_503": {
+    "status": 502,
+    "detail": "Upstream unavailable"
+  },
+  "timeout": {
+    "status": 504,
+    "detail": "Upstream timed out"
+  },
+  "fallback": {
+    "status": 502,
+    "detail": "Upstream unavailable"
+  }
+}
+
+ASSET ws.integration.webhook_authenticity code_workspace Webhook authenticity verification — starter workspace
+FILE starter.py
+from fastapi import HTTPException
+import stripe
+async def webhook(request, signing_secret, publisher_verifier, signature_header, process_event):
+    raw_body = await request.body()
+    # TODO: obtain request.headers.get(signature_header), verify raw_body with
+    # publisher_verifier(raw_body, signature, signing_secret), reject absent or
+    # invalid signatures with 400 {"detail":"Invalid signature"}; catch
+    # ValueError and stripe.error.SignatureVerificationError without disclosure.
+    # Process only the verified event, then return {"received": True}.
+    raise NotImplementedError('Complete verification gate')
+
+FILE fixtures.json
+{}
+
+ASSET ws.observability.evidence_based_service_diagnosis code_workspace Diagnose service failures from emitted and interpreted evidence — starter workspace
+FILE starter.py
+from application import client, packet, runtime_evidence
+signals = packet['signals']
+records = packet['records']
+controlled_outcome = None
+suspected_boundary = None
+supporting_evidence = []
+proposed_change = None
+with client() as http:
+    # TODO: Execute exactly one POST /orders with packet['failing_order_payload'].
+    # Record status, interaction header, body and runtime_evidence separately
+    # from synthetic signals/records, then identify the supported boundary.
+    pass
+
+FILE fixtures.json
+{
+  "signals": [
+    {
+      "operation": "create_order",
+      "window": "baseline",
+      "request_count": 60,
+      "window_seconds": 60,
+      "failure_count": 0,
+      "latency_ms": 25.0
+    },
+    {
+      "operation": "create_order",
+      "window": "affected",
+      "request_count": 60,
+      "window_seconds": 60,
+      "failure_count": 12,
+      "latency_ms": 2025.0
+    }
+  ],
+  "records": [
+    {
+      "interaction_id": "interaction_fixture",
+      "offset_ms": 0,
+      "boundary": "local",
+      "event": "request_received",
+      "sql_statement_count": 0
+    },
+    {
+      "interaction_id": "interaction_fixture",
+      "offset_ms": 5,
+      "boundary": "database",
+      "event": "lookup_complete",
+      "sql_statement_count": 1
+    },
+    {
+      "interaction_id": "interaction_fixture",
+      "offset_ms": 10,
+      "boundary": "outbound",
+      "event": "lookup_started",
+      "sql_statement_count": 0
+    },
+    {
+      "interaction_id": "interaction_fixture",
+      "offset_ms": 2010,
+      "boundary": "outbound",
+      "event": "timeout",
+      "sql_statement_count": 0
+    },
+    {
+      "interaction_id": "interaction_fixture",
+      "offset_ms": 2025,
+      "boundary": "local",
+      "event": "response_504",
+      "sql_statement_count": 0
+    }
+  ],
+  "interaction_header": "X-Interaction-ID",
+  "interaction_id": "interaction_fixture",
+  "failing_order_payload": {
+    "id": 101,
+    "status": "pending"
+  },
+  "packet_kind": "authored synthetic fixture; not observed HTTP or SQL output"
+}
+
+ASSET ws.security.bounded_api_resources code_workspace Bounding payloads, expensive requests and API resource consumption — starter workspace
+FILE starter.py
+from pydantic import BaseModel, Field
+class BatchInput(BaseModel):
+    order_ids: list[int]  # TODO: Field(max_length=3), from supplied budget
+
+FILE fixtures.json
+{
+  "hypothetical_budgets": {
+    "body_bytes": 256,
+    "batch_size": 3,
+    "dependency_timeout_seconds": 2,
+    "limit_concurrency": 8
+  },
+  "within_batch": {
+    "order_ids": [
+      101,
+      202
+    ]
+  },
+  "beyond_batch": {
+    "order_ids": [
+      101,
+      202,
+      303,
+      404
+    ]
+  },
+  "within_body": {
+    "order_ids": [
+      101
+    ]
+  },
+  "beyond_body": "{\"order_ids\":[101]}                                                                                                                                                                                                                                                                 ",
+  "public_success": {
+    "accepted": 2
+  },
+  "note": "Local fixture budgets; maintained middleware distribution and supplier verification are bundled. Learner budget configuration and assertions remain unfinished."
+}
+
+ASSET ws.sqlalchemy.redundant_queries code_workspace Recognizing and avoiding redundant ORM queries — starter workspace
+FILE starter.py
+from sqlalchemy import ForeignKey, create_engine, select
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, Session, selectinload
+class Base(DeclarativeBase):
+    pass
+class Entity(Base):
+    __tablename__ = 'Entity'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    relationship_attribute: Mapped[list['Child']] = relationship(back_populates='parent')
+class Child(Base):
+    __tablename__ = 'relationship_attribute'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    parent_id: Mapped[int] = mapped_column(ForeignKey('Entity.id'))
+    parent: Mapped[Entity] = relationship(back_populates='relationship_attribute')
+engine = create_engine('sqlite://', echo=True)
+Base.metadata.create_all(engine)
+with Session(engine) as session:
+    session.add_all([Entity(id=11),Entity(id=22),Entity(id=33),
+                     Child(id=111,parent_id=11),Child(id=112,parent_id=11),Child(id=221,parent_id=22)])
+    session.commit()
+def listing(session):
+    statement = select(Entity).order_by(Entity.id).limit(3)
+    # TODO: statement.options(selectinload(Entity.relationship_attribute))
+    parents = session.execute(statement).scalars().all()
+    return [{'id':p.id, 'children':[c.id for c in p.relationship_attribute]} for p in parents]
+# Run baseline and changed listing in separate fresh sessions and capture echo
+# output; do not reuse already-loaded relationships when measuring the change.
+if __name__ == '__main__':
+    with Session(engine) as session:
+        print(listing(session))
+
+FILE fixtures.json
+{
+  "parent_ids": [
+    11,
+    22,
+    33
+  ],
+  "children": [
+    {
+      "id": 111,
+      "parent_id": 11
+    },
+    {
+      "id": 112,
+      "parent_id": 11
+    },
+    {
+      "id": 221,
+      "parent_id": 22
+    }
+  ],
+  "baseline_capture_required": false,
+  "note": "Captured unchanged listing in a provisioned SQLAlchemy runtime and fresh Session; compare baseline_sql.txt and baseline_result.json."
+}
+
+ASSET ws.testing.database_state_isolation code_workspace Database test-state isolation — starter workspace
+FILE starter.py
+import pytest
+from sqlalchemy.orm import Session
+from fastapi.testclient import TestClient
+from application import app, engine, session_provider
+@pytest.fixture
+def isolated_client():
+    original_overrides = app.dependency_overrides.copy()
+    connection = engine.connect()
+    outer_transaction = connection.begin()
+    # TODO: bind Session with join_transaction_mode="create_savepoint".
+    test_session = None
+    # TODO: override session_provider with a yield provider using test_session.
+    try:
+        with TestClient(app) as client:
+            yield client, test_session
+    finally:
+        # TODO: close session, roll back outer transaction, close connection,
+        # restore original_overrides even if the test fails.
+        pass
+# TODO: test write/read within one boundary; test target absence in another.
+# Run both execution orders. Never migrate/create schema inside per-test transaction.
+
+FILE fixtures.json
+{
+  "item": {
+    "id": 1
+  },
+  "initial_items": [],
+  "execution_orders": [
+    [
+      "writes_item",
+      "item_absent"
+    ],
+    [
+      "item_absent",
+      "writes_item"
+    ]
+  ]
+}
+
+ASSET ws.auth.authorization_server_integration code_workspace Established authorization-server integration using authorization code and PKCE where applicable; no resource-owner password grant — starter workspace
+FILE starter.py
+from acquisition_harness import AcquisitionHarness
+def integrate(issuer_configuration, existing_verifier):
+    # TODO: select the supplied registered client, authorization/token URLs,
+    # redirect URI, scopes and PKCE settings for AcquisitionHarness.
+    client_configuration = None
+    # TODO: select trusted JWKS URL, issuer, algorithms, claims and audience.
+    trust_configuration = None
+    if client_configuration is None or trust_configuration is None:
+        raise NotImplementedError('Complete supplied integration settings')
+    existing_verifier.configure(trust_configuration)
+    return AcquisitionHarness(client_configuration).acquire()
+
+FILE fixtures.json
+{
+  "issuer": "http://127.0.0.1:37353",
+  "authorization_url": "http://127.0.0.1:37353/authorize",
+  "token_url": "http://127.0.0.1:37353/token",
+  "jwks_url": "http://127.0.0.1:37353/jwks",
+  "client_id": "order-training-client",
+  "redirect_uri": "http://127.0.0.1:37353/client/callback",
+  "algorithms": [
+    "RS256"
+  ],
+  "required_claims": [
+    "iss",
+    "aud",
+    "sub",
+    "exp",
+    "iat"
+  ],
+  "audience": "order-api",
+  "scopes": {
+    "orders:read": "Read orders",
+    "orders:write": "Create orders"
+  },
+  "pkce": {
+    "required": true,
+    "code_challenge_method": "S256"
+  },
+  "runtime_boundary": "Publisher-provisioned isolated loopback training issuer; not a public production service."
+}
+
+ASSET ws.auth.endpoint_permissions code_workspace Endpoint authorization with required permissions or scopes — starter workspace
+FILE starter.py
+from fastapi import Depends, HTTPException
+from fastapi.security import SecurityScopes
+from security import verified_token_context
+# Active verification remains a dependency, not a plain unbound parameter.
+def require_permissions(security_scopes: SecurityScopes,
+                        verified_context=Depends(verified_token_context)):
+    # TODO: compare all security_scopes.scopes to verified_context['scopes'].
+    # Deny missing permission with 403 {"detail":"Forbidden"}.
+    raise NotImplementedError('Complete permission comparison')
+# Wire Security(provider, scopes=['orders:write']) for the supplied order-modification operation.
+
+FILE fixtures.json
+{
+  "operation_scopes": [
+    "orders:write"
+  ],
+  "verified_with_permission": {
+    "owner_id": "caller_a",
+    "scopes": [
+      "orders:write"
+    ]
+  },
+  "verified_without_permission": {
+    "owner_id": "caller_a",
+    "scopes": []
+  },
+  "note": "Contexts illustrate permission comparison; they do not replace real signed bearer fixtures in HTTP verification.",
+  "order": {
+    "id": 101,
+    "owner_id": "caller_a",
+    "status": "pending"
+  },
+  "modification": {
+    "status": "complete"
+  }
+}
+
+ASSET ws.fastapi_backend.webhook_delivery_idempotency code_workspace Webhook delivery idempotency — starter workspace
+FILE starter.py
+from sqlalchemy import String, Integer, UniqueConstraint, select
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.exc import IntegrityError
+class Base(DeclarativeBase):
+    pass
+class Order(Base):
+    __tablename__ = 'orders'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    owner_id: Mapped[str] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String)
+class ProcessedEvent(Base):
+    __tablename__ = 'processed_events'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    publisher_event_id: Mapped[str] = mapped_column(String)
+    __table_args__ = (UniqueConstraint('publisher_event_id'),)
+async def handle_authenticated_event(event, session):
+    # TODO: event record and order update inside one session.begin transaction.
+    # Confirm already processed identity before acknowledging a duplicate;
+    # never translate unrelated IntegrityError into successful processing.
+    raise NotImplementedError('Complete atomic persistent deduplication')
+# application.py supplies request-scoped sessions and durable storage.
+# The request-local SQLAlchemy after_flush_postexec hook injects failure
+# before commit; no extra learner failure switch or verifier is needed.
+
+FILE fixtures.json
+{
+  "authenticated_events": [
+    {
+      "publisher_event_id": "evt_a",
+      "order_id": 101,
+      "new_status": "complete"
+    },
+    {
+      "publisher_event_id": "evt_b",
+      "order_id": 202,
+      "new_status": "complete"
+    }
+  ],
+  "orders": [
+    {
+      "id": 101,
+      "owner_id": "caller_a",
+      "status": "pending"
+    },
+    {
+      "id": 202,
+      "owner_id": "caller_b",
+      "status": "pending"
+    },
+    {
+      "id": 303,
+      "owner_id": "caller_a",
+      "status": "complete"
+    }
+  ],
+  "tests": [
+    "sequential_duplicate",
+    "restart_with_database_retained",
+    "concurrent_duplicate",
+    "transaction_failure"
+  ],
+  "initial_processed_events": []
+}
+
+ASSET ws.fastapi_backend.webhook_replay_freshness code_workspace Webhook replay freshness — starter workspace
+FILE starter.py
+import json
+from pathlib import Path
+def delivery_is_fresh(signed_delivery_timestamp, receiver_now, acceptance_window, future_tolerance):
+    # Signature verification already completed. Inputs are valid integer seconds.
+    # TODO: enforce both past window and future tolerance; no real clock reads.
+    raise NotImplementedError('Complete signed delivery timestamp comparison')
+cases = json.loads(Path('fixtures.json').read_text())['cases']
+# TODO: exercise in-window, expired and future cases plus exact boundaries.
+
+FILE fixtures.json
+{
+  "cases": [
+    {
+      "case_id": "fresh",
+      "signed_delivery_timestamp": "1799999940",
+      "receiver_now": 1800000000,
+      "acceptance_window": 300,
+      "future_tolerance": 30,
+      "signature_verified": true
+    },
+    {
+      "case_id": "past_boundary",
+      "signed_delivery_timestamp": "1799999700",
+      "receiver_now": 1800000000,
+      "acceptance_window": 300,
+      "future_tolerance": 30,
+      "signature_verified": true
+    },
+    {
+      "case_id": "expired",
+      "signed_delivery_timestamp": "1799999699",
+      "receiver_now": 1800000000,
+      "acceptance_window": 300,
+      "future_tolerance": 30,
+      "signature_verified": true
+    },
+    {
+      "case_id": "future_boundary",
+      "signed_delivery_timestamp": "1800000030",
+      "receiver_now": 1800000000,
+      "acceptance_window": 300,
+      "future_tolerance": 30,
+      "signature_verified": true
+    },
+    {
+      "case_id": "future_rejected",
+      "signed_delivery_timestamp": "1800000031",
+      "receiver_now": 1800000000,
+      "acceptance_window": 300,
+      "future_tolerance": 30,
+      "signature_verified": true
+    },
+    {
+      "case_id": "now",
+      "signed_delivery_timestamp": "1800000000",
+      "receiver_now": 1800000000,
+      "acceptance_window": 300,
+      "future_tolerance": 30,
+      "signature_verified": true
+    }
+  ]
+}
+
+ASSET ws.integration.bounded_idempotent_retries code_workspace Bounded retry decisions respecting HTTP idempotency — starter workspace
+FILE starter.py
+import json
+from pathlib import Path
+contract = json.loads(Path('fixtures.json').read_text())
+policy = {'retryable_failures':None,'max_attempts':None,'total_time_budget':None,
+          'retry_after':None,'bounded_backoff':None,'retry_safe':None}
+# TODO: complete policy for the provisioned maintained adapter. Respect both
+# Retry-After forms. Timeout/lost response alone never proves no remote effect.
+# Test transient-then-success, exhausted budget and unsafe non-idempotent case.
+
+FILE fixtures.json
+{
+  "hypothetical_limits": {
+    "max_attempts": 3,
+    "total_time_budget_seconds": 10,
+    "max_backoff_seconds": 2
+  },
+  "operations": [
+    {
+      "method": "GET",
+      "contract_idempotent": true
+    },
+    {
+      "method": "POST",
+      "contract_idempotent": false,
+      "known_not_applied": false
+    }
+  ],
+  "verification_scenarios": [
+    "transient_then_success",
+    "repeated_failures",
+    "non_idempotent_lost_response"
+  ],
+  "retry_after_delay_seconds": "2",
+  "retry_after_http_date": "Fri, 15 Jan 2027 08:00:02 GMT",
+  "receiver_now": 1800000000,
+  "note": "Authored fixture policy. Adapter configuration names must be supplied; no client-internal implementation is implied."
+}
+
+ASSET ws.auth.object_authorization code_workspace Object-level authorization against the authenticated principal — starter workspace
+FILE starter.py
+from sqlalchemy import select
+async def retrieve_order(order_id, principal, session, Order):
+    statement = select(Order).where(Order.id == order_id)
+    # TODO: also filter Order.owner_id by trusted principal.owner_id.
+    return await session.scalar(statement)
+# Use trusted-principal override only for this object-boundary exercise;
+# do not accept owner_id from caller input. Test all four principal/order pairs.
+
+FILE fixtures.json
+{
+  "principals": [
+    {
+      "owner_id": "caller_a"
+    },
+    {
+      "owner_id": "caller_b"
+    }
+  ],
+  "orders": [
+    {
+      "id": 101,
+      "owner_id": "caller_a",
+      "status": "pending"
+    },
+    {
+      "id": 202,
+      "owner_id": "caller_b",
+      "status": "pending"
+    }
+  ],
+  "pairs": [
+    [
+      "caller_a",
+      101
+    ],
+    [
+      "caller_a",
+      202
+    ],
+    [
+      "caller_b",
+      101
+    ],
+    [
+      "caller_b",
+      202
+    ]
+  ],
+  "unavailable_object": {
+    "status": 404,
+    "body": {
+      "detail": "Not found"
+    }
+  }
+}
+
+ASSET ws.fastapi.production_security_documentation code_workspace Declaring the deployed bearer-access-token and authorization-server security contract without a password grant — starter workspace
+FILE starter.py
+from fastapi import Depends, Security
+from fastapi.security import HTTPBearer, OAuth2AuthorizationCodeBearer
+# TODO: declare the supplied bearer presentation scheme.
+bearer_scheme = None
+def authorization_code_scheme(issuer_configuration):
+    # TODO: supplied authorization/token URLs and permission descriptions.
+    raise NotImplementedError('Complete security declarations')
+# TODO: add scheme/scopes to each operation while keeping read_orders and
+# write_orders enforcement dependencies unchanged. See fixtures.json.
+
+FILE fixtures.json
+{
+  "bearer_scheme": {
+    "OrderBearer": {
+      "type": "http",
+      "scheme": "bearer"
+    }
+  },
+  "authorization_code_scheme": {
+    "OrderAuthorizationCode": {
+      "type": "oauth2",
+      "flows": {
+        "authorizationCode": {
+          "authorizationUrl": "http://127.0.0.1:37353/authorize",
+          "tokenUrl": "http://127.0.0.1:37353/token",
+          "scopes": {
+            "orders:read": "Read orders",
+            "orders:write": "Create orders"
+          }
+        }
+      }
+    }
+  },
+  "operation_requirements": {
+    "GET /orders/{order_id}": {
+      "dependency": "read_orders",
+      "scope": "orders:read"
+    },
+    "POST /orders": {
+      "dependency": "write_orders",
+      "scope": "orders:write"
+    }
+  },
+  "dependency_graph": [
+    "operation -> read_orders/write_orders -> authenticated -> HTTPBearer extraction -> ExistingVerifier.verify -> JWKS signature/issuer/audience/required claims",
+    "read_orders/write_orders -> enforce_permission -> required scope"
+  ],
+  "authorization_code_issuer": {
+    "issuer": "http://127.0.0.1:37353",
+    "authorization_url": "http://127.0.0.1:37353/authorize",
+    "token_url": "http://127.0.0.1:37353/token",
+    "jwks_url": "http://127.0.0.1:37353/jwks",
+    "client_id": "order-training-client",
+    "redirect_uri": "http://127.0.0.1:37353/client/callback",
+    "algorithms": [
+      "RS256"
+    ],
+    "required_claims": [
+      "iss",
+      "aud",
+      "sub",
+      "exp",
+      "iat"
+    ],
+    "audience": "order-api",
+    "scopes": {
+      "orders:read": "Read orders",
+      "orders:write": "Create orders"
+    },
+    "pkce": {
+      "required": true,
+      "code_challenge_method": "S256"
+    },
+    "runtime_boundary": "Publisher-provisioned isolated loopback training issuer; not a public production service."
+  },
+  "representation": "Bearer presentation and issuer acquisition describe the same access-token authority, not separate independently accepted credentials."
+}
+
+ASSET ws.fastapi.openapi_contract_inspection code_workspace Inspecting generated OpenAPI for drift and sensitive exposure — starter workspace
+FILE starter.py
+def audit(client, models, http_evidence, security_configuration):
+    response = client.get('/openapi.json')
+    schema = response.json()
+    findings = []
+    # TODO: select supplied orders router and inspect declarations against
+    # models, non-auth HTTP evidence and established security configuration.
+    # Validate synthetic examples. Do not add authentication/authorization tests.
+    return findings
+
+FILE fixtures.json
+{
+  "router": "orders",
+  "synthetic_example": {
+    "id": 101,
+    "status": "pending"
+  },
+  "audit_dimensions": [
+    "paths",
+    "parameters",
+    "requiredness",
+    "types",
+    "constraints",
+    "request_schemas",
+    "response_schemas",
+    "output_fields",
+    "statuses",
+    "examples",
+    "descriptions",
+    "security_requirements"
+  ],
+  "note": "Concrete fictional router fixtures. Bundled HTTP evidence was captured from this application using the supplied established issuer configuration.",
+  "initial_orders": [
+    {
+      "id": 101,
+      "owner_id": "caller_a",
+      "status": "pending"
+    }
+  ],
+  "created_order": {
+    "id": 202,
+    "status": "pending"
+  }
+}
+
+ASSET ws.testing.api_authentication_authorization code_workspace Authentication and authorization tests including invalid-token rejection — starter workspace
+FILE starter.py
+import json
+from pathlib import Path
+import pytest
+from fastapi.testclient import TestClient
+from application import app, fixtures
+@pytest.mark.parametrize('case',fixtures['cases'],ids=lambda c:c['credential_condition'])
+def test_order_gate(case):
+    bearer_fixtures=json.loads(Path('bearer_fixtures.json').read_text())
+    with TestClient(app) as client:
+        # TODO: send bearer_fixtures[case['credential_condition']] as headers
+        # to GET /orders/{requested_order_id}; assert exact declared_status and
+        # json.loads(case['safe_body_or_public_result']). No dependency overrides.
+        pass
+
+FILE fixtures.json
+{
+  "cases": [
+    {
+      "credential_condition": "absent",
+      "trusted_owner_id": "caller_a",
+      "operation_permission": false,
+      "requested_order_id": 101,
+      "rejection_gate_or_result": "authentication",
+      "declared_status": 401,
+      "safe_body_or_public_result": "{\"detail\": \"Not authenticated\"}"
+    },
+    {
+      "credential_condition": "malformed",
+      "trusted_owner_id": "caller_a",
+      "operation_permission": false,
+      "requested_order_id": 101,
+      "rejection_gate_or_result": "authentication",
+      "declared_status": 401,
+      "safe_body_or_public_result": "{\"detail\": \"Not authenticated\"}"
+    },
+    {
+      "credential_condition": "invalid_signature",
+      "trusted_owner_id": "caller_a",
+      "operation_permission": true,
+      "requested_order_id": 101,
+      "rejection_gate_or_result": "authentication",
+      "declared_status": 401,
+      "safe_body_or_public_result": "{\"detail\": \"Not authenticated\"}"
+    },
+    {
+      "credential_condition": "expired",
+      "trusted_owner_id": "caller_a",
+      "operation_permission": true,
+      "requested_order_id": 101,
+      "rejection_gate_or_result": "authentication",
+      "declared_status": 401,
+      "safe_body_or_public_result": "{\"detail\": \"Not authenticated\"}"
+    },
+    {
+      "credential_condition": "wrong_issuer",
+      "trusted_owner_id": "caller_a",
+      "operation_permission": true,
+      "requested_order_id": 101,
+      "rejection_gate_or_result": "authentication",
+      "declared_status": 401,
+      "safe_body_or_public_result": "{\"detail\": \"Not authenticated\"}"
+    },
+    {
+      "credential_condition": "wrong_audience",
+      "trusted_owner_id": "caller_a",
+      "operation_permission": true,
+      "requested_order_id": 101,
+      "rejection_gate_or_result": "authentication",
+      "declared_status": 401,
+      "safe_body_or_public_result": "{\"detail\": \"Not authenticated\"}"
+    },
+    {
+      "credential_condition": "valid_without_permission",
+      "trusted_owner_id": "caller_a",
+      "operation_permission": false,
+      "requested_order_id": 101,
+      "rejection_gate_or_result": "operation_authorization",
+      "declared_status": 403,
+      "safe_body_or_public_result": "{\"detail\": \"Forbidden\"}"
+    },
+    {
+      "credential_condition": "valid_other_owner",
+      "trusted_owner_id": "caller_a",
+      "operation_permission": true,
+      "requested_order_id": 202,
+      "rejection_gate_or_result": "object_authorization",
+      "declared_status": 403,
+      "safe_body_or_public_result": "{\"detail\": \"Forbidden\"}"
+    },
+    {
+      "credential_condition": "valid_authorized",
+      "trusted_owner_id": "caller_a",
+      "operation_permission": true,
+      "requested_order_id": 101,
+      "rejection_gate_or_result": "public_result",
+      "declared_status": 200,
+      "safe_body_or_public_result": "{\"id\": 101, \"status\": \"pending\"}"
+    }
+  ],
+  "note": "Controlled signed tokens and the real protected endpoint are required; row labels are not bearer credentials.",
+  "orders": [
+    {
+      "id": 101,
+      "owner_id": "caller_a",
+      "status": "pending"
+    },
+    {
+      "id": 202,
+      "owner_id": "caller_b",
+      "status": "pending"
+    }
+  ]
+}

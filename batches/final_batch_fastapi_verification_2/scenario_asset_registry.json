@@ -1,0 +1,411 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "scenario_asset_registry",
+  "path_id": "python_fastapi_backend_developer",
+  "batch_id": "final_batch_verification_2",
+  "scenarios": [
+    {
+      "scenario_id": "scen.order_api_verification",
+      "name": "Synthetic order API verification lab",
+      "summary": "A small fictional order service is reviewed in an isolated local lab. Developers improve contract examples, test provider substitution, bind metadata, verify invalid-input responses and controlled request metrics, and compare selective updates and contract revisions. No persistence or real users are involved.",
+      "domain": "backend API verification",
+      "glossary_example_vocab": [
+        "order",
+        "quantity",
+        "note",
+        "OrderInput",
+        "OrderUpdate",
+        "BaseModel",
+        "ConfigDict",
+        "Field",
+        "gt=0",
+        "examples",
+        "json_schema_extra",
+        "model_config",
+        "model_validate",
+        "Body",
+        "openapi_examples",
+        "Annotated",
+        "tags",
+        "summary",
+        "description",
+        "POST /orders",
+        "FastAPI",
+        "Header",
+        "Cookie",
+        "user_agent",
+        "user-agent",
+        "cookie",
+        "alias",
+        "convert_underscores=False",
+        "None",
+        "RequestValidationError",
+        "ValidationError",
+        "TestClient",
+        "Depends",
+        "original",
+        "replacement",
+        "actual user",
+        "mock user",
+        "user",
+        "app.dependency_overrides",
+        "try/finally",
+        "loc",
+        "type",
+        "detail",
+        "422",
+        "quantity 2",
+        "model_fields_set",
+        "model_dump",
+        "exclude_unset=True",
+        "exclude_none=True",
+        "Leave at reception",
+        "PrometheusMiddleware",
+        "starlette_prometheus",
+        "/metrics/",
+        "filter_unhandled_paths=True",
+        "method",
+        "matched route template",
+        "response status",
+        "request",
+        "response",
+        "counter",
+        "histogram",
+        "count",
+        "sum",
+        "delay",
+        "successful",
+        "expected-error",
+        "delayed",
+        "exception",
+        "generated paths",
+        "public response fields",
+        "requiredness",
+        "omittable",
+        "HTTPException",
+        "asyncio.sleep"
+      ]
+    }
+  ],
+  "assets": [
+    {
+      "asset_id": "ds.orders",
+      "asset_kind": "dataset",
+      "scenario_id": "scen.order_api_verification",
+      "title": "Synthetic stored order examples",
+      "description": "Authored order records only. A null note is an intentional null, not a planted missing-data defect. Omission versus explicit null in update payloads is represented by JSON objects in the partial-update workspace, not by CSV blanks.",
+      "columns": [
+        {
+          "name": "quantity",
+          "type": "integer",
+          "semantic_role": "numerical",
+          "description": "Count of units; the OrderInput contract requires a value greater than zero."
+        },
+        {
+          "name": "note",
+          "type": "string",
+          "semantic_role": "text",
+          "description": "Optional synthetic order instruction. Null is allowed."
+        }
+      ],
+      "rows": [
+        [
+          2,
+          "Leave at reception"
+        ],
+        [
+          2,
+          null
+        ]
+      ],
+      "provenance": "authored",
+      "variants": [
+        {
+          "variant_id": "orders.invalid_quantity",
+          "derived_from": "ds.orders",
+          "purpose": "A request sample outside the positive-quantity bound, not a valid stored order.",
+          "ops": [
+            {
+              "op": "set_cell",
+              "where": {
+                "note": "Leave at reception"
+              },
+              "occurrence": 0,
+              "column": "quantity",
+              "value": 0
+            }
+          ],
+          "planted_issues": [
+            {
+              "issue_id": "issue.nonpositive_quantity",
+              "kind": "impossible_value",
+              "locations": [
+                {
+                  "where": {
+                    "note": "Leave at reception"
+                  },
+                  "occurrence": 0,
+                  "column": "quantity"
+                }
+              ],
+              "description": "The quantity does not satisfy the declared greater-than-zero request constraint.",
+              "rule": {
+                "column": "quantity",
+                "op": "le",
+                "value": 0
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "asset_id": "ds.controlled_request_cases",
+      "asset_kind": "dataset",
+      "scenario_id": "scen.order_api_verification",
+      "title": "Controlled instrumentation request plan",
+      "description": "Authored local test inputs, not measured metrics. Counter and histogram observations must be obtained by running the metrics workspace. Metrics-view traffic is excluded from the exercised-route comparisons.",
+      "columns": [
+        {
+          "name": "case",
+          "type": "string",
+          "semantic_role": "categorical"
+        },
+        {
+          "name": "method",
+          "type": "string",
+          "semantic_role": "categorical"
+        },
+        {
+          "name": "route_template",
+          "type": "string",
+          "semantic_role": "categorical"
+        },
+        {
+          "name": "response_status",
+          "type": "integer",
+          "semantic_role": "categorical",
+          "numeric_looking_label": true,
+          "description": "HTTP status label, not a quantity to average."
+        },
+        {
+          "name": "configured_delay_seconds",
+          "type": "number",
+          "semantic_role": "numerical",
+          "unit": "seconds"
+        },
+        {
+          "name": "returns_response",
+          "type": "boolean",
+          "semantic_role": "categorical"
+        }
+      ],
+      "rows": [
+        [
+          "success",
+          "GET",
+          "/success",
+          200,
+          0,
+          true
+        ],
+        [
+          "expected_error",
+          "GET",
+          "/expected-error",
+          400,
+          0,
+          true
+        ],
+        [
+          "delayed",
+          "GET",
+          "/delayed",
+          200,
+          0.05,
+          true
+        ],
+        [
+          "escaping_exception",
+          "GET",
+          "/escaping-exception",
+          500,
+          0,
+          false
+        ]
+      ],
+      "provenance": "authored"
+    },
+    {
+      "asset_id": "cw.fastapi.contract_examples_metadata",
+      "asset_kind": "code_workspace",
+      "scenario_id": "scen.order_api_verification",
+      "title": "Meaningful contract examples and operation metadata",
+      "runtime": "python",
+      "files": [
+        {
+          "path": "README.md",
+          "content": "# Meaningful contract examples and operation metadata\n\nAll samples and routes in this workspace are synthetic local fixtures.\n\n## Practice objective\nAdd a realistic synthetic quantity example and operation metadata to one existing order route. Validate the sample, add model-level or field-level schema examples, and configure a named request-body example plus tags, summary and description without changing the handler's behavior.\n\n## Success\nThe quantity-2 sample passes OrderInput.model_validate. Schema metadata and the named body example use that validated sample. The route's tags, summary and description accurately describe its existing behavior, and its handler and quantity constraint remain unchanged.\n\n## Starter intent\nProvide OrderInput with only quantity: int = Field(gt=0), an example dictionary containing only quantity, and an existing POST /orders handler that returns its validated input without persistence. Leave example metadata and descriptive decorator arguments unfinished.\n\n## Visual intent\nMake the relationship visible between the positive quantity constraint, the validated quantity-2 sample, schema examples, named body examples, and descriptive route metadata.\n\nmain.py is the learner starter. visual_reference.py is separate teaching/reference material, not starter code.\nReference evidence functions return computed values; no execution output is pre-authored here.\nThese workspaces require Python with FastAPI, Pydantic v2 and httpx; the metrics workspace additionally requires starlette_prometheus and prometheus_client.\nThe local stage-01 gate validates registry structure but does not execute code_workspace assets.\n"
+        },
+        {
+          "path": "main.py",
+          "content": "from typing import Annotated\nfrom fastapi import FastAPI, Body\nfrom pydantic import BaseModel, ConfigDict, Field\n\nexample = {\"quantity\": 2}\n\nclass OrderInput(BaseModel):\n    quantity: int = Field(gt=0)\n    # TODO: add schema example metadata without changing the quantity bound.\n\napp = FastAPI()\n\n# TODO: add tags, summary and description; retain this handler's behavior.\n@app.post(\"/orders\")\ndef create_order(order: OrderInput):\n    return order\n\n# TODO: validate example and use it as a named Body(openapi_examples=...) example.\n"
+        },
+        {
+          "path": "visual_reference.py",
+          "content": "from typing import Annotated\nfrom fastapi import FastAPI, Body\nfrom pydantic import BaseModel, ConfigDict, Field\n\nexample = {\"quantity\": 2}\n\nclass OrderInput(BaseModel):\n    quantity: int = Field(gt=0)\n    model_config = ConfigDict(json_schema_extra={\"examples\": [example]})\n\nOrderInput.model_validate(example)\napp = FastAPI()\n\n@app.post(\"/orders\", tags=[\"orders\"], summary=\"Validate an order\",\n          description=\"Return the validated order input without persistence.\")\ndef create_order(order: Annotated[OrderInput, Body(openapi_examples={\n    \"positive_quantity\": {\"summary\": \"Positive quantity\", \"description\": \"Synthetic order input.\", \"value\": example}\n})]):\n    return order\n"
+        },
+        {
+          "path": "glossary_walkthrough.py",
+          "content": "from pydantic import BaseModel, ConfigDict, Field\n\nexample = {\"quantity\": 2}\n\nclass OrderInput(BaseModel):\n    quantity: int = Field(gt=0)\n    model_config = ConfigDict(json_schema_extra={\"examples\": [example]})\n\nOrderInput.model_validate(example)\n"
+        }
+      ]
+    },
+    {
+      "asset_id": "cw.fastapi.dependency_overrides",
+      "asset_kind": "code_workspace",
+      "scenario_id": "scen.order_api_verification",
+      "title": "Test dependency replacement",
+      "runtime": "python",
+      "files": [
+        {
+          "path": "README.md",
+          "content": "# Test dependency replacement\n\nAll samples and routes in this workspace are synthetic local fixtures.\n\n## Practice objective\nOverride one string-returning provider in an endpoint test, assert its synthetic value in the endpoint response, and restore the original override state.\n\n## Success\nThe test request returns the replacement provider’s value, an assertion verifies that value, and cleanup restores the initially empty override dictionary even if the assertion fails.\n\n## Starter intent\nProvide a hello-world endpoint, an original provider returning 'actual user', and a TestClient test scaffold. The endpoint includes the injected string under the response key 'user'. Begin with no overrides and leave replacement setup, assertion, and cleanup unfinished.\n\n## Visual intent\nMake the original-to-replacement callable mapping, request, response assertion, and guaranteed restoration visible together in one endpoint test.\n\nmain.py is the learner starter. visual_reference.py is separate teaching/reference material, not starter code.\nReference evidence functions return computed values; no execution output is pre-authored here.\nThese workspaces require Python with FastAPI, Pydantic v2 and httpx; the metrics workspace additionally requires starlette_prometheus and prometheus_client.\nThe local stage-01 gate validates registry structure but does not execute code_workspace assets.\n"
+        },
+        {
+          "path": "main.py",
+          "content": "from fastapi import FastAPI, Depends\nfrom fastapi.testclient import TestClient\n\napp = FastAPI()\n\ndef original():\n    return \"actual user\"\n\n@app.get(\"/\")\ndef hello(user: str = Depends(original)):\n    return {\"user\": user}\n\ndef replacement():\n    return \"mock user\"\n\ndef test_override():\n    assert app.dependency_overrides == {}\n    # TODO: register the replacement using the original callable as the key.\n    try:\n        with TestClient(app) as client:\n            response = client.get(\"/\")\n            # TODO: assert the synthetic value under user.\n    finally:\n        # TODO: restore the initially empty override dictionary.\n        pass\n"
+        },
+        {
+          "path": "visual_reference.py",
+          "content": "from main import app, original, replacement\nfrom fastapi.testclient import TestClient\n\ndef test_override():\n    previous = app.dependency_overrides.copy()\n    app.dependency_overrides[original] = replacement\n    try:\n        with TestClient(app) as client:\n            response = client.get(\"/\")\n            assert response.json()[\"user\"] == replacement()\n    finally:\n        app.dependency_overrides = previous\n"
+        }
+      ]
+    },
+    {
+      "asset_id": "cw.fastapi.header_cookie_binding",
+      "asset_kind": "code_workspace",
+      "scenario_id": "scen.order_api_verification",
+      "title": "Header and cookie input binding",
+      "runtime": "python",
+      "files": [
+        {
+          "path": "README.md",
+          "content": "# Header and cookie input binding\n\nAll samples and routes in this workspace are synthetic local fixtures.\n\n## Practice objective\nDeclare one endpoint's metadata inputs: bind user_agent to a request header and a cookie input by name, accepting omission of the cookie.\n\n## Success\nThe endpoint uses Annotated with Header() for user_agent and Cookie() for the cookie input. user_agent maps to user-agent regardless of header-name case, and the cookie has a default of None.\n\n## Starter intent\nProvide an existing FastAPI application and a GET endpoint skeleton with user_agent and cookie parameters awaiting explicit source declarations. Keep the handler body unchanged so the task concerns metadata binding only.\n\n## Visual intent\nMake the endpoint signature visible with annotations connecting user_agent to the case-insensitive user-agent header, showing alias and underscore-conversion alternatives, and connecting the cookie parameter to its named cookie and omission default.\n\nmain.py is the learner starter. visual_reference.py is separate teaching/reference material, not starter code.\nReference evidence functions return computed values; no execution output is pre-authored here.\nThese workspaces require Python with FastAPI, Pydantic v2 and httpx; the metrics workspace additionally requires starlette_prometheus and prometheus_client.\nThe local stage-01 gate validates registry structure but does not execute code_workspace assets.\n"
+        },
+        {
+          "path": "main.py",
+          "content": "from typing import Annotated\nfrom fastapi import FastAPI, Header, Cookie\n\napp = FastAPI()\n\n@app.get(\"/metadata\")\ndef endpoint(user_agent: str, cookie: str | None = None):\n    # TODO: change only the parameter source annotations, not this body.\n    return {\"user_agent\": user_agent, \"cookie\": cookie}\n"
+        },
+        {
+          "path": "visual_reference.py",
+          "content": "from typing import Annotated\nfrom fastapi import FastAPI, Header, Cookie\nfrom fastapi.testclient import TestClient\n\napp = FastAPI()\n\n@app.get(\"/metadata\")\ndef endpoint(user_agent: Annotated[str, Header()],\n             cookie: Annotated[str | None, Cookie()] = None):\n    return {\"user_agent\": user_agent, \"cookie\": cookie}\n\n# Computed request/declaration evidence; no hand-written response output.\ndef evidence():\n    with TestClient(app) as client:\n        for headers, cookies in [({\"user-agent\": \"synthetic client\"}, {}),\n                                 ({\"USER-AGENT\": \"synthetic client\"}, {\"cookie\": \"synthetic cookie\"})]:\n            response = client.get(\"/metadata\", headers=headers, cookies=cookies)\n            yield {\"headers\": headers, \"cookies\": cookies,\n                   \"status\": response.status_code, \"response\": response.json()}\n\n# Explicitly binds the user-agent header.\ndef alias_example(user_agent: Annotated[str, Header(alias=\"user-agent\")], cookie: Annotated[str | None, Cookie()] = None):\n    return {\"user_agent\": user_agent, \"cookie\": cookie}\n\n# Binds the literal user_agent header (underscore conversion disabled).\ndef underscore_example(user_agent: Annotated[str, Header(convert_underscores=False)], cookie: Annotated[str | None, Cookie()] = None):\n    return {\"user_agent\": user_agent, \"cookie\": cookie}\n"
+        }
+      ]
+    },
+    {
+      "asset_id": "cw.fastapi.request_validation_errors",
+      "asset_kind": "code_workspace",
+      "scenario_id": "scen.order_api_verification",
+      "title": "Request-validation error behavior",
+      "runtime": "python",
+      "files": [
+        {
+          "path": "README.md",
+          "content": "# Request-validation error behavior\n\nAll samples and routes in this workspace are synthetic local fixtures.\n\n## Practice objective\nAssert one invalid-input response from the supplied order endpoint, including its default status and the rejected input's location and error type.\n\n## Success\nThe test sends the supplied invalid order input, asserts status 422, and verifies the expected location and error type in a JSON detail entry.\n\n## Starter intent\nProvide a minimal order endpoint with a typed request field, an initialized TestClient, and one invalid order payload using only the endpoint's existing fields. Supply the expected error location and error type for that input. Leave the request and response assertions unfinished.\n\n## Visual intent\nMake the invalid order request, the status-422 assertion, and the JSON detail entry's loc and type visible together so the rejected input can be traced to its response.\n\nmain.py is the learner starter. visual_reference.py is separate teaching/reference material, not starter code.\nReference evidence functions return computed values; no execution output is pre-authored here.\nThese workspaces require Python with FastAPI, Pydantic v2 and httpx; the metrics workspace additionally requires starlette_prometheus and prometheus_client.\nThe local stage-01 gate validates registry structure but does not execute code_workspace assets.\n"
+        },
+        {
+          "path": "fixture.py",
+          "content": "from fastapi import FastAPI\nfrom fastapi.testclient import TestClient\nfrom pydantic import BaseModel, Field\n\nclass OrderInput(BaseModel):\n    quantity: int = Field(gt=0)\n\napp = FastAPI()\n\n@app.post(\"/orders\")\ndef create_order(order: OrderInput):\n    return order\n\nclient = TestClient(app)\ninvalid_order = {\"quantity\": \"not an integer\"}\n\n# Derive the expected loc/type from this untouched fixture, not a typed output.\ndef validation_expectations():\n    reference = client.post(\"/orders\", json=invalid_order)\n    entry = reference.json()[\"detail\"][0]\n    return entry[\"loc\"], entry[\"type\"]\n"
+        },
+        {
+          "path": "main.py",
+          "content": "from fixture import client, invalid_order, validation_expectations\n\nexpected_location, expected_type = validation_expectations()\n# TODO: submit invalid_order with client.post and assert status 422.\n# TODO: inspect response.json()[\"detail\"] and assert loc/type match the supplied expectations.\n"
+        },
+        {
+          "path": "visual_reference.py",
+          "content": "from fixture import client, invalid_order, validation_expectations\n\ndef evidence():\n    expected_location, expected_type = validation_expectations()\n    response = client.post(\"/orders\", json=invalid_order)\n    assert response.status_code == 422\n    entry = response.json()[\"detail\"][0]\n    assert entry[\"loc\"] == expected_location\n    assert entry[\"type\"] == expected_type\n    return {\"request\": invalid_order, \"status\": response.status_code, \"detail\": response.json()[\"detail\"]}\n"
+        }
+      ]
+    },
+    {
+      "asset_id": "cw.observability.verified_request_metrics",
+      "asset_kind": "code_workspace",
+      "scenario_id": "scen.order_api_verification",
+      "title": "Configure established request-metrics instrumentation and verify counts, errors and latency with successful, failing and delayed requests",
+      "runtime": "python",
+      "files": [
+        {
+          "path": "README.md",
+          "content": "# Configure established request-metrics instrumentation and verify counts, errors and latency with successful, failing and delayed requests\n\nAll samples and routes in this workspace are synthetic local fixtures.\n\n## Practice objective\nConfigure one FastAPI API with the documented starlette_prometheus middleware and metrics view. Exercise one successful request, one expected-error request and one deliberately delayed request, then compare their metric changes against those known events.\n\n## Success\nThe API exposes /metrics/, filters unmatched paths and uses bounded nonsensitive labels. Each controlled request increments the relevant request and response counters once. Each response returned through the instrumentation boundary adds one duration observation, and the delayed response's duration reflects its controlled delay. Comparisons isolate the exercised routes from metrics-view traffic.\n\n## Starter intent\nProvide one FastAPI app with existing successful, expected-error and delayed-response operations, plus a request harness that captures metrics before and after each controlled request. Leave middleware registration and /metrics/ exposure for the learner. Use only method, matched route template and response status to identify the exercised metric series.\n\n## Visual intent\nMake before-and-after request counters, response counters and histogram count and sum values visible for each controlled request, alongside its method, matched route template, response status and configured delay. Keep metrics-view traffic separate and distinguish returned responses from escaping exceptions.\n\nmain.py is the learner starter. visual_reference.py is separate teaching/reference material, not starter code.\nReference evidence functions return computed values; no execution output is pre-authored here.\nThese workspaces require Python with FastAPI, Pydantic v2 and httpx; the metrics workspace additionally requires starlette_prometheus and prometheus_client.\nThe local stage-01 gate validates registry structure but does not execute code_workspace assets.\n"
+        },
+        {
+          "path": "fixture.py",
+          "content": "import asyncio\nfrom fastapi import FastAPI, HTTPException\n\nCASES = [{'case': 'success', 'method': 'GET', 'route_template': '/success', 'response_status': 200, 'configured_delay_seconds': 0, 'returns_response': True}, {'case': 'expected_error', 'method': 'GET', 'route_template': '/expected-error', 'response_status': 400, 'configured_delay_seconds': 0, 'returns_response': True}, {'case': 'delayed', 'method': 'GET', 'route_template': '/delayed', 'response_status': 200, 'configured_delay_seconds': 0.05, 'returns_response': True}, {'case': 'escaping_exception', 'method': 'GET', 'route_template': '/escaping-exception', 'response_status': 500, 'configured_delay_seconds': 0, 'returns_response': False}]\n\napp = FastAPI()\n\n@app.get(\"/success\")\nasync def success():\n    return {\"case\": \"success\"}\n\n@app.get(\"/expected-error\")\nasync def expected_error():\n    raise HTTPException(status_code=CASES[1][\"response_status\"], detail=\"synthetic expected error\")\n\n@app.get(\"/delayed\")\nasync def delayed():\n    await asyncio.sleep(CASES[2][\"configured_delay_seconds\"])\n    return {\"case\": \"delayed\"}\n\n@app.get(\"/escaping-exception\")\nasync def escaping_exception():\n    raise RuntimeError(\"synthetic escaping exception\")\n"
+        },
+        {
+          "path": "main.py",
+          "content": "from fixture import app\nfrom starlette_prometheus import PrometheusMiddleware, metrics\nfrom harness import observe\n\n# TODO: register the middleware with filter_unhandled_paths=True.\n# TODO: expose the /metrics/ view using app.add_route.\n# After configuration, observe(app) computes before/after counter and histogram evidence.\n# Compare returned responses to the escaping-exception case; isolate each matched route.\n"
+        },
+        {
+          "path": "harness.py",
+          "content": "from fastapi.testclient import TestClient\nfrom prometheus_client.parser import text_string_to_metric_families\nfrom fixture import CASES\n\ndef snapshot(client, route):\n    text = client.get(\"/metrics/\").text\n    values = {}\n    for family in text_string_to_metric_families(text):\n        for sample in family.samples:\n            # Only the exercised template; do not mix in metrics-view requests.\n            if sample.labels.get(\"path\") == route:\n                key = (sample.name, tuple(sorted(sample.labels.items())))\n                values[key] = sample.value\n    return values\n\ndef observe(app):\n    with TestClient(app, raise_server_exceptions=False) as client:\n        for case in CASES:\n            route = case[\"route_template\"]\n            before = snapshot(client, route)\n            response = client.get(route)\n            after = snapshot(client, route)\n            keys = sorted(set(before) | set(after))\n            yield {\"case\": case, \"actual_status\": response.status_code,\n                   \"samples\": [{\"metric\": key[0], \"labels\": dict(key[1]),\n                                \"before\": before.get(key, 0), \"after\": after.get(key, 0),\n                                \"change\": after.get(key, 0) - before.get(key, 0)} for key in keys]}\n"
+        },
+        {
+          "path": "visual_reference.py",
+          "content": "from fixture import app\nfrom starlette_prometheus import PrometheusMiddleware, metrics\nfrom harness import observe\n\napp.add_middleware(PrometheusMiddleware, filter_unhandled_paths=True)\napp.add_route(\"/metrics/\", metrics)\n\ndef evidence():\n    return list(observe(app))\n"
+        },
+        {
+          "path": "request_cases.json",
+          "content": "[\n  {\n    \"case\": \"success\",\n    \"method\": \"GET\",\n    \"route_template\": \"/success\",\n    \"response_status\": 200,\n    \"configured_delay_seconds\": 0,\n    \"returns_response\": true\n  },\n  {\n    \"case\": \"expected_error\",\n    \"method\": \"GET\",\n    \"route_template\": \"/expected-error\",\n    \"response_status\": 400,\n    \"configured_delay_seconds\": 0,\n    \"returns_response\": true\n  },\n  {\n    \"case\": \"delayed\",\n    \"method\": \"GET\",\n    \"route_template\": \"/delayed\",\n    \"response_status\": 200,\n    \"configured_delay_seconds\": 0.05,\n    \"returns_response\": true\n  },\n  {\n    \"case\": \"escaping_exception\",\n    \"method\": \"GET\",\n    \"route_template\": \"/escaping-exception\",\n    \"response_status\": 500,\n    \"configured_delay_seconds\": 0,\n    \"returns_response\": false\n  }\n]"
+        }
+      ]
+    },
+    {
+      "asset_id": "cw.pydantic.partial_update_contracts",
+      "asset_kind": "code_workspace",
+      "scenario_id": "scen.order_api_verification",
+      "title": "Distinct create and partial-update contracts",
+      "runtime": "python",
+      "files": [
+        {
+          "path": "README.md",
+          "content": "# Distinct create and partial-update contracts\n\nAll samples and routes in this workspace are synthetic local fixtures.\n\n## Practice objective\nImplement one partial-update extraction using update = model.model_dump(exclude_unset=True), then compare its results for an omitted note, an explicitly null note and a supplied string note.\n\n## Success\nA quantity-only input produces only quantity in the extracted update. An explicitly supplied note=None produces a note key with value None, and a supplied string note retains that string. Omitted defaults never enter the extracted update.\n\n## Starter intent\nProvide an OrderUpdate model with note and quantity defaulting to None, plus instances constructed as OrderUpdate(quantity=2), OrderUpdate(note=None) and OrderUpdate(note=\"Leave at reception\"). Leave the supplied-field extraction assignment unfinished; no storage operations are needed.\n\n## Visual intent\nMake three order-update cases visible side by side: quantity supplied with note omitted, note explicitly supplied as None, and note supplied as a string. Show model_fields_set and the extracted dictionaries with exclude_unset=True, then contrast the null case when exclude_none=True is also added.\n\nmain.py is the learner starter. visual_reference.py is separate teaching/reference material, not starter code.\nReference evidence functions return computed values; no execution output is pre-authored here.\nThese workspaces require Python with FastAPI, Pydantic v2 and httpx; the metrics workspace additionally requires starlette_prometheus and prometheus_client.\nThe local stage-01 gate validates registry structure but does not execute code_workspace assets.\n"
+        },
+        {
+          "path": "main.py",
+          "content": "from pydantic import BaseModel\n\nclass OrderUpdate(BaseModel):\n    note: str | None = None\n    quantity: int | None = None\n\nquantity_only = OrderUpdate(quantity=2)\nexplicit_null = OrderUpdate(note=None)\nconcrete_note = OrderUpdate(note='Leave at reception')\n\n# TODO: extract each supplied-field update using model_dump(exclude_unset=True).\n# Compare model_fields_set and the effect of also using exclude_none=True.\n"
+        },
+        {
+          "path": "visual_reference.py",
+          "content": "from main import quantity_only, explicit_null, concrete_note\n\ndef evidence():\n    for name, model in [(\"note omitted\", quantity_only),\n                        (\"explicit null note\", explicit_null),\n                        (\"concrete note\", concrete_note)]:\n        yield {\"case\": name, \"model_fields_set\": sorted(model.model_fields_set),\n               \"exclude_unset\": model.model_dump(exclude_unset=True),\n               \"exclude_unset_and_none\": model.model_dump(exclude_unset=True, exclude_none=True)}\n"
+        },
+        {
+          "path": "payloads.json",
+          "content": "[\n  {\n    \"quantity\": 2\n  },\n  {\n    \"note\": null\n  },\n  {\n    \"note\": \"Leave at reception\"\n  }\n]"
+        }
+      ]
+    },
+    {
+      "asset_id": "cw.rest.compatible_contract_changes",
+      "asset_kind": "code_workspace",
+      "scenario_id": "scen.order_api_verification",
+      "title": "Backward-compatible REST contract changes",
+      "runtime": "python",
+      "files": [
+        {
+          "path": "README.md",
+          "content": "# Backward-compatible REST contract changes\n\nAll samples and routes in this workspace are synthetic local fixtures.\n\n## Practice objective\nReview one order request-schema change that makes note required instead of omittable. Validate representative previously accepted inputs against both models and identify the compatibility consequence.\n\n## Success\nDemonstrate that a request omitting note passes the previous model but fails the revision, while a request supplying a string note passes both. Identify the new requiredness as client-breaking and preserve the previous default to retain omission support.\n\n## Starter intent\nProvide previous and revised order request models containing only note: the previous declaration is note: str | None = None, and the revision is note: str | None. Supply an empty request dictionary and a request dictionary containing a string note.\n\n## Visual intent\nMake previous and revised order contracts visible side by side: note requiredness, quantity constraints, generated paths, and public response fields. Pair each change with a previously valid input or documented client expectation that it could break.\n\nmain.py is the learner starter. visual_reference.py is separate teaching/reference material, not starter code.\nReference evidence functions return computed values; no execution output is pre-authored here.\nThese workspaces require Python with FastAPI, Pydantic v2 and httpx; the metrics workspace additionally requires starlette_prometheus and prometheus_client.\nThe local stage-01 gate validates registry structure but does not execute code_workspace assets.\n"
+        },
+        {
+          "path": "main.py",
+          "content": "from pydantic import BaseModel, ValidationError\n\nclass PreviousOrderInput(BaseModel):\n    note: str | None = None\n\nclass RevisedOrderInput(BaseModel):\n    note: str | None\n\nomitted_note = {}\nsupplied_note = {\"note\": 'Leave at reception'}\n\n# TODO: validate both inputs against both models and identify the requiredness change.\n# TODO: retain the previous default to preserve omission support.\n"
+        },
+        {
+          "path": "visual_reference.py",
+          "content": "from fastapi import FastAPI\nfrom pydantic import BaseModel, Field, ValidationError\nfrom main import PreviousOrderInput, RevisedOrderInput, omitted_note, supplied_note\n\n# Independent synthetic comparisons; do not combine these changes with the practice task.\nclass PreviousQuantity(BaseModel):\n    quantity: int = Field(gt=0)\n\nclass TightenedQuantity(BaseModel):\n    quantity: int = Field(gt=2)\n\nclass PreviousResponse(BaseModel):\n    quantity: int\n    note: str | None = None\n\nclass RemovedNoteResponse(BaseModel):\n    quantity: int\n\ndef validation_evidence():\n    for old, new, payload in [(PreviousOrderInput, RevisedOrderInput, omitted_note),\n                              (PreviousOrderInput, RevisedOrderInput, supplied_note),\n                              (PreviousQuantity, TightenedQuantity, {\"quantity\": 2})]:\n        results = []\n        for model in (old, new):\n            try:\n                value = model.model_validate(payload)\n                results.append({\"model\": model.__name__, \"accepted\": True, \"value\": value.model_dump()})\n            except ValidationError as exc:\n                results.append({\"model\": model.__name__, \"accepted\": False, \"errors\": exc.errors()})\n        yield {\"input\": payload, \"results\": results}\n\ndef contract_app(response_model, include_operation=True):\n    app = FastAPI()\n    if include_operation:\n        @app.get(\"/orders/{order_id}\", response_model=response_model)\n        def retrieve_order(order_id: int):\n            return {\"quantity\": 2, \"note\": 'Leave at reception'}\n    return app\n\ndef schema_evidence():\n    for name, app in [(\"previous\", contract_app(PreviousResponse)),\n                      (\"response field removed\", contract_app(RemovedNoteResponse)),\n                      (\"operation removed\", contract_app(PreviousResponse, False))]:\n        schema = app.openapi()\n        yield {\"case\": name, \"paths\": schema[\"paths\"],\n               \"schemas\": schema.get(\"components\", {}).get(\"schemas\", {})}\n"
+        }
+      ]
+    }
+  ]
+}

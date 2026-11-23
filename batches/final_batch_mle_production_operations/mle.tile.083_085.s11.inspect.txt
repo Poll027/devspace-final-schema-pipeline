@@ -1,0 +1,27 @@
+# fixture support separately
+exec(_fixture_support)
+import yaml
+policy = {'indicator': 'window_mean', 'baseline_window': 'baseline', 'window_rule': 'mean(window)>mean(baseline)+4', 'ddof': 0, 'owner': 'order_oncall', 'response': 'investigate_window', 'expected_replays': {'normal': False, 'boundary': False, 'breached': True}}
+data = load('alert_observations')
+margin = 4
+baseline = baseline_values(data)
+mean = np.mean(baseline)
+std = np.std(baseline, ddof=0)
+threshold = mean + margin
+config = {'indicator': policy['indicator'], 'baseline_window': policy['baseline_window'], 'window_rule': policy['window_rule'], 'threshold': threshold, 'owner': policy['owner'], 'response': policy['response'], 'ddof': policy['ddof']}
+config['threshold'] = float(config['threshold'])
+file_handle = open('alert.yaml', 'w')
+yaml.safe_dump(config, file_handle)
+file_handle.close()
+file_handle = open('alert.yaml')
+loaded = yaml.safe_load(file_handle)
+file_handle.close()
+assert (threshold - 1 > threshold) == False
+assert (threshold > threshold) == False
+assert (threshold + 1 > threshold) == True
+assert loaded == config
+assert loaded['indicator'] == policy['indicator'] and loaded['baseline_window'] == policy['baseline_window'] and (loaded['window_rule'] == policy['window_rule'])
+assert loaded['threshold'] == threshold and loaded['owner'] == policy['owner'] and (loaded['response'] == policy['response']) and (loaded['ddof'] == policy['ddof'])
+records = replay(loaded, data)
+assert records == [{'window': 'breached', 'owner': policy['owner'], 'response': policy['response']}]
+report = {'mean': mean, 'std': std, 'config': loaded, 'records': records}

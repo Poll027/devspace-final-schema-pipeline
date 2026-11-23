@@ -1,0 +1,187 @@
+
+mle.tile.059_059.s01 explainer Submission starts a bounded job
+On the existing platform, bind one authorized job to resolved input versions, resource bounds and the expected artifact. Submission is not proof of successful training.
+SageMaker CreateTrainingJob specifies TrainingJobName, AlgorithmSpecification, RoleArn, input/output configuration, ResourceConfig and StoppingCondition. Use the supplied TrainingImage, authorized instance count/type and MaxRuntimeInSeconds. Give InputDataConfig version-resolved inputs and OutputDataConfig the output S3 location; the role must be authorized for those resources.
+Channels are exposed under /opt/ml/input/data/CHANNEL; write model output under /opt/ml/model for upload. Inspect final job status and artifact location, checking recorded configuration against the intended artifact. Keep dataset snapshot, code/configuration and resulting run/artifact identities in the execution record.
+import boto3, json
+import time
+from datetime import datetime
+
+def json_default(value):
+    if isinstance(value, datetime):
+        return value.isoformat()
+    raise TypeError(f"Unsupported JSON value: {type(value).__name__}")
+
+with open('managed_contract.json', encoding='utf-8') as handle:
+    contract = json.load(handle)
+# Supply the authorized storage setting; do not assume an unapproved default.
+contract['volume_size_gb'] = int(input('Supplied authorized storage setting (GB): '))
+storage_client = boto3.client('s3')
+# Verify the selected version before creating a controlled immutable input copy.
+selected = storage_client.get_object(Bucket=contract['input_bucket'],
+    Key=contract['input_key'], VersionId=contract['input_version'])
+input_bytes = selected['Body'].read()
+import hashlib
+assert hashlib.sha256(input_bytes).hexdigest() == contract['dataset_snapshot']['expected_hash']
+storage_client.copy_object(Bucket=contract['input_bucket'],
+    Key=contract['immutable_key'], CopySource={'Bucket': contract['input_bucket'],
+    'Key': contract['input_key'], 'VersionId': contract['input_version']})
+resolved_configuration = {
+ 'TrainingJobName': contract['job_name'],
+ 'AlgorithmSpecification': {'TrainingImage': contract['image'],
+                            'TrainingInputMode': 'File'},
+ 'RoleArn': contract['role'],
+ 'InputDataConfig': [{'ChannelName': contract['channel'], 'DataSource': {
+   'S3DataSource': {'S3DataType': 'S3Prefix', 'S3DataDistributionType': 'FullyReplicated',
+     'S3Uri': 's3://' + contract['input_bucket'] + '/' + contract['immutable_key']}}}],
+ 'OutputDataConfig': {'S3OutputPath': contract['output_uri']},
+ 'ResourceConfig': {'InstanceCount': contract['max_instance_count'], 'InstanceType': contract['instance_type'], 'VolumeSizeInGB': contract['volume_size_gb']},
+ 'StoppingCondition': {'MaxRuntimeInSeconds': contract['max_runtime_seconds']}}
+# The supplied container reads contract['channel_path'], writes contract['model_output_path'].
+client = boto3.client('sagemaker')
+response = client.create_training_job(**resolved_configuration)
+# Observe the same submitted job until its status is terminal.
+while True:
+    description = client.describe_training_job(TrainingJobName=contract['job_name'])
+    if description['TrainingJobStatus'] in ('Completed', 'Failed', 'Stopped'):
+        break
+    time.sleep(5)
+failure_reason = description.get('FailureReason')
+if description['TrainingJobStatus'] != 'Completed':
+    raise ValueError(failure_reason or description['TrainingJobStatus'])
+artifact_reference = description['ModelArtifacts']['S3ModelArtifacts']
+assert artifact_reference == contract['artifact_uri']
+# Parse this verified S3 reference, then retrieve through authorized storage.
+from urllib.parse import urlparse
+location = urlparse(artifact_reference)
+storage_client.download_file(location.netloc, location.path.lstrip('/'), 'downloads/model.tar.gz')
+record = {'dataset_snapshot': contract['dataset_snapshot'],
+          'code_reference': contract['code_reference'], 'configuration': resolved_configuration,
+          'submission': response, 'description': description,
+          'retrieved_artifact_reference': artifact_reference}
+with open('execution_record.json', 'w', encoding='utf-8') as handle:
+    json.dump(record, handle, default=json_default)
+with open('execution_record.json', 'r', encoding='utf-8') as handle:
+    parsed = json.load(handle)
+
+mle.tile.059_059.s02 explainer Submit, describe and round-trip
+Import boto3 and construct boto3.client("sagemaker"). Submit with client.create_training_job(**resolved_configuration). Describe by TrainingJobName and inspect TrainingJobStatus, FailureReason when present, and ModelArtifacts.S3ModelArtifacts. Save structured configuration or records with json.dump and recover them with json.load; JSON text is not a dictionary.
+Verify every selected input version before submission. If the API accepts only mutable channel URIs, materialize the selected version at a controlled immutable location; do not invent a version parameter. Retrieve the output with the authorized storage client and verify its reference against the completed job record. Managed training creates job resources and releases them after termination. Confirm terminal status; submission alone does not end compute use.
+
+mle.tile.059_059.s03 explainer Follow one job to its artifact
+Resolve the supplied image, job name, role, channels, output location, instance bounds and runtime before submission. Verify selected input versions. When channel URIs cannot select versions, materialize the chosen version at the controlled immutable location. Read channels beneath /opt/ml/input/data and write the model beneath /opt/ml/model. Inspect terminal status, any failure reason and artifact location. Retrieve the artifact with the authorized client and compare its reference with the completed job record. Retain snapshot, code/configuration and run/artifact identities together.
+Submission is not completion, and a name is not verified input identity. Resources are released after termination; confirm terminal status before concluding compute use has ended.
+
+mle.tile.059_059.s04 check Check: one authorized bounded job
+{
+  "prompt": "A training API accepts a channel URI but not an object-version parameter. Which preparation preserves the recorded snapshot and container contract?",
+  "selection": "single",
+  "shuffle": true,
+  "options": [
+    {
+      "option_id": "o1",
+      "text": "Verify the selected version, materialize it at a controlled immutable input location, pass that URI, read the supplied channel under /opt/ml/input/data/CHANNEL and write model output under /opt/ml/model."
+    },
+    {
+      "option_id": "o2",
+      "text": "Pass the mutable latest URI and rely on the recorded version in a separate note."
+    },
+    {
+      "option_id": "o3",
+      "text": "Add an unsupported version parameter to the training request and write model output into the input channel directory."
+    }
+  ]
+}
+KEY {
+  "correct_option_ids": [
+    "o1"
+  ],
+  "option_feedback": {
+    "o1": {
+      "message": "Verified version resolution is preserved through the immutable channel input, with the taught input and model-output paths."
+    },
+    "o2": {
+      "message": "A note does not cause a mutable channel URI to resolve the selected bytes."
+    },
+    "o3": {
+      "message": "An unsupported parameter does not select the version, and the input channel is not the model upload directory."
+    }
+  }
+}
+FEEDBACK {"correct": {"message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."}, "incorrect": {"message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."}, "hints": ["Trace the bytes selected before submission and the two container directories."], "remediation_step_id": "mle.tile.059_059.r01"}
+
+mle.tile.059_059.s05 hands_on Practice: one authorized bounded job
+{
+  "prompt": "Review fictional managed-training fragments. Contract:\n```\n{\"job_name\": \"order-training-job\", \"image\": \"fixture.local/order-training:custom\", \"role\": \"arn:aws:iam::000000000000:role/fixture-training\", \"channel\": \"training\", \"input_bucket\": \"authorized-fixture\", \"input_key\": \"datasets/latest.csv\", \"input_version\": \"1\", \"immutable_key\": \"snapshots/order-training/input.csv\", \"output_uri\": \"s3://authorized-fixture/outputs\", \"instance_type\": \"ml.m5.large\", \"max_instance_count\": 1, \"max_runtime_seconds\": 120, \"dataset_snapshot\": {\"bucket_name\": \"authorized-fixture\", \"object_name\": \"datasets/latest.csv\", \"generation\": 1, \"expected_hash\": \"d67e606cd75127f615b2ba02dfcc22f853460dcb774c3073bb47fa66ce83a21e\", \"local_path\": \"training_orders.csv\", \"record_path\": \"snapshot_record.json\", \"download_path\": \"downloads/training_orders.csv\"}, \"code_reference\": \"managed_training_code.py\", \"configuration_path\": \"job_config.json\", \"artifact_uri\": \"s3://authorized-fixture/outputs/order-training-job/output/model.tar.gz\", \"channel_path\": \"/opt/ml/input/data/training\", \"model_output_path\": \"/opt/ml/model\", \"volume_size_gb\": 30}\n```\nThe fixture authorizes a 30 GB training volume.\nThese are authored review examples, not evidence of actual cloud execution. Each item judges its stated stage.\nClassify every excerpt as meeting or violating the named check. A fragment need not demonstrate unrelated stages. Assume only the supplied inputs and explicitly stated checks; do not infer missing verification.",
+  "buckets": [
+    {
+      "bucket_id": "meets",
+      "label": "Meets the named check"
+    },
+    {
+      "bucket_id": "violates",
+      "label": "Violates the named check"
+    }
+  ],
+  "items": [
+    {
+      "item_id": "i1",
+      "text": "Bounded single submission: ```\n{\n  \"TrainingJobName\": \"order-training-job\",\n  \"AlgorithmSpecification\": {\n    \"TrainingImage\": \"fixture.local/order-training:custom\",\n    \"TrainingInputMode\": \"File\"\n  },\n  \"RoleArn\": \"arn:aws:iam::000000000000:role/fixture-training\",\n  \"ResourceConfig\": {\n    \"InstanceCount\": 1,\n    \"InstanceType\": \"ml.m5.large\",\n    \"VolumeSizeInGB\": 30\n  },\n  \"StoppingCondition\": {\n    \"MaxRuntimeInSeconds\": 120\n  },\n  \"InputDataConfig\": [\n    {\n      \"ChannelName\": \"training\",\n      \"DataSource\": {\n        \"S3DataSource\": {\n          \"S3Uri\": \"s3://authorized-fixture/snapshots/order-training/input.csv\",\n          \"S3DataType\": \"S3Prefix\"\n        }\n      }\n    }\n  ],\n  \"OutputDataConfig\": {\n    \"S3OutputPath\": \"s3://authorized-fixture/outputs\"\n  }\n}\n```\nThe selected input version was verified and materialized at the controlled immutable channel URI before submission.\n```\nclient = boto3.client(\"sagemaker\")\nresponse = client.create_training_job(**resolved_configuration)\n# this call is made exactly once; resolved_configuration is the request above\n```"
+    },
+    {
+      "item_id": "i2",
+      "text": "Terminal status: ```\ndescription = client.describe_training_job(TrainingJobName=job_name)\n# repeat describe, never resubmit, while nonterminal\nif description[\"TrainingJobStatus\"] != \"Completed\":\n    raise ValueError(description.get(\"FailureReason\", \"Not completed\"))\nreturned_artifact = description[\"ModelArtifacts\"][\"S3ModelArtifacts\"]\nif returned_artifact != expected_artifact_uri:\n    raise ValueError(\"Unexpected artifact\")\n```"
+    },
+    {
+      "item_id": "i3",
+      "text": "Authorized artifact retrieval and structured record: ```\nstorage_client.download_file(artifact_bucket, artifact_key, local_artifact_path)\n# artifact_bucket/key resolve the verified completed-job returned_artifact\nrecord = {\"dataset_snapshot\": verified_snapshot, \"code_reference\": code_reference, \"configuration\": resolved_configuration, \"job_name\": job_name, \"status\": description[\"TrainingJobStatus\"], \"artifact_uri\": returned_artifact}\nwith open(record_path, \"w\") as handle:\n    json.dump(record, handle)\nwith open(record_path) as handle:\n    parsed = json.load(handle)\nassert parsed == record\n# terminal status records confirmation that job-managed compute use has ended\n```"
+    },
+    {
+      "item_id": "i4",
+      "text": "Submission handling: ```\nresponse = client.create_training_job(**resolved_configuration)\n# a submission response is present: declare compute use ended without describe\n```"
+    },
+    {
+      "item_id": "i5",
+      "text": "Artifact handling: ```\ndescription = client.describe_training_job(TrainingJobName=job_name)\n# status Completed, but returned URI differs from expected_artifact_uri\n# download expected_artifact_uri anyway and report success\n```"
+    },
+    {
+      "item_id": "i6",
+      "text": "Submission count: ```\nclient.create_training_job(**resolved_configuration)\nclient.create_training_job(**second_configuration)\n# both individually fit the resource bounds\n```"
+    }
+  ]
+}
+KEY {
+  "assignments": {
+    "i1": "meets",
+    "i2": "meets",
+    "i3": "meets",
+    "i4": "violates",
+    "i5": "violates",
+    "i6": "violates"
+  },
+  "item_feedback": {
+    "i1": {
+      "message": "The single request uses supplied image, authorized role, verified input and output locations, permitted count/type and bounded runtime."
+    },
+    "i2": {
+      "message": "Only Completed with the expected returned artifact satisfies successful completion; description inspection does not create another job."
+    },
+    "i3": {
+      "message": "The authorized client retrieves the verified completed artifact, and the round-tripped record links snapshot, code/configuration, job, terminal status and artifact."
+    },
+    "i4": {
+      "message": "Submission is not terminal status and does not confirm that managed compute use has ended."
+    },
+    "i5": {
+      "message": "Completed is insufficient when the returned artifact reference disagrees with the intended execution record."
+    },
+    "i6": {
+      "message": "The anchor permits exactly one submitted job; individually bounded requests do not justify a second submission."
+    }
+  }
+}
+FEEDBACK {"correct": {"message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."}, "incorrect": {"message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."}, "hints": ["Separate authorization and request bounds from terminal-status and artifact evidence."], "remediation_step_id": "mle.tile.059_059.r02"}
+
+mle.tile.059_059.s06 recap Keep the identities and boundaries clear
+Bind one authorized training job to verified input versions, code/configuration and resource bounds. Respect channel and model-output paths. Submission is not completion: inspect terminal status, retrieve the output and verify its reference against the completed job record. Round-trip the structured execution record and retain its identities.
+{"type": "up_next", "title": "Up next", "text": "Next: validate prediction request and response schemas."}

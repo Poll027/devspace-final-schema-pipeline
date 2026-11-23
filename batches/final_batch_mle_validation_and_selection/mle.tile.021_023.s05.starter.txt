@@ -1,0 +1,55 @@
+import csv
+import json
+def supplied_rows(path):
+    with open(path) as f:
+        raw = list(csv.DictReader(f))
+    def convert(v):
+        if v == '': return None
+        if v.lower() == 'true': return True
+        if v.lower() == 'false': return False
+        try: return float(v) if '.' in v or 'e' in v.lower() else int(v)
+        except ValueError: return v
+    return [{k: convert(v) for k,v in r.items()} for r in raw]
+reference_train = supplied_rows('reference_train.csv')
+orders_validation = supplied_rows('orders_validation.csv')
+p0 = 0.8
+p1 = 0.2
+cfp = 1
+cfn = 5
+bound = 0.3
+import numpy as np
+from sklearn.dummy import DummyClassifier
+from sklearn.metrics import accuracy_score
+def reference(X_train, y_train, X_validation, y, p0, p1, cfp, cfn):
+    estimator = DummyClassifier(strategy="most_frequent")
+    estimator.fit(X_train, y_train)
+    pred = estimator.predict(X_validation)
+    training_positive = np.mean(y_train)
+    training_negative = 1 - training_positive
+    TP = tally((y == 1) & (pred == 1))
+    FP = tally((y == 0) & (pred == 1))
+    FN = tally((y == 1) & (pred == 0))
+    TN = tally((y == 0) & (pred == 0))
+    if FP + TN == 0:
+        FPR = None
+    else:
+        FPR = FP / (FP + TN)
+    if FN + TP == 0:
+        FNR = None
+    else:
+        FNR = FN / (FN + TP)
+    if FPR == None or FNR == None:
+        cost = None
+    else:
+        cost = p0 * FPR * cfp + p1 * FNR * cfn
+    return {'training_positive': training_positive, 'training_negative': training_negative, 'rule': 'training most_frequent, frozen', 'predictions': pred, 'accuracy': accuracy_score(y, pred), 'FPR': FPR, 'FNR': FNR, 'expected_cost': cost}
+
+
+X_train = np.array([[r['feature_1']] for r in reference_train])
+y_train = np.array([r['y_train'] for r in reference_train])
+X_validation = np.array([[r['feature_1']] for r in orders_validation])
+y = np.array([r['y_validation'] for r in orders_validation])
+result = reference(X_train, y_train, X_validation, y, p0, p1, cfp, cfn)
+empty_negative = reference(X_train, y_train, X_validation[:2], np.array([1,1]), p0,p1,cfp,cfn)
+empty_positive = reference(X_train, y_train, X_validation[:2], np.array([0,0]), p0,p1,cfp,cfn)
+

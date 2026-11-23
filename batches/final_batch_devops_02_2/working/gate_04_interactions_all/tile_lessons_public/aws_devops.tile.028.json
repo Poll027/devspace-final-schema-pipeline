@@ -1,0 +1,788 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "aws_devops_engineer",
+  "tile_id": "aws_devops.tile.028",
+  "toc_location": {
+    "region_id": "aws_devops.region.02",
+    "terrain_id": "aws_devops.terrain.high_availability_design.028"
+  },
+  "title": "Configure security groups after external ports/firewall preparation",
+  "summary": "",
+  "concept_ids": [
+    "aws_devops.configure_security_groups"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_aws_devops_engineer",
+    "toc_freeze_hash": "d5913d190cbe704aa851d9831022ed920e80fe64ef66a1448fcc982e3dd3bb1e",
+    "glossary_bundle_hashes": {
+      "aws_devops.configure_security_groups": "bcc40b9188ea6d2e0c8a42d9f27e98712abefd865af068260c321761b6845733"
+    },
+    "scenario_registry_hash": "c6b9daf4946ea68b5a660ebf7430f1c4bb31fbd48c3c8f08a5f8aca88fae36b9"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core",
+      "data"
+    ],
+    "block_types": [
+      "data_table",
+      "diagram",
+      "prose",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "classify"
+    ],
+    "runtimes": [],
+    "asset_ids": [
+      "ds.connection_tests"
+    ]
+  },
+  "pacing": {
+    "estimated_minutes": 4.0
+  },
+  "steps": [
+    {
+      "step_id": "aws_devops.tile.028.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "aws_devops.configure_security_groups"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "aws_devops.configure_security_groups"
+        ],
+        "teaching_block_ids": [
+          "aws_devops.configure_security_groups#tb1",
+          "aws_devops.configure_security_groups#tb2",
+          "aws_devops.configure_security_groups#tb3"
+        ],
+        "fact_ids": [
+          "aws_devops.configure_security_groups#f1",
+          "aws_devops.configure_security_groups#f2",
+          "aws_devops.configure_security_groups#f3"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "aws_devops.configure_security_groups#visual"
+        ]
+      },
+      "title": "Allow the required connection",
+      "eyebrow": "Learn",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Security groups contain allow rules evaluated at associated network interfaces, not explicit deny rules.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_security_groups"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_security_groups#tb1",
+              "aws_devops.configure_security_groups#tb2"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_security_groups#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "They are stateful: responses to allowed connections are allowed regardless of response-direction rules. Add inbound rules for the required protocol, port range and approved source; remove unnecessary ingress, then test required connections and responses.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_security_groups"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_security_groups#tb3"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_security_groups#f2",
+              "aws_devops.configure_security_groups#f3"
+            ]
+          }
+        },
+        {
+          "type": "diagram",
+          "diagram_kind": "network",
+          "title": "Connection, tracked response and filtering boundary",
+          "nodes": [
+            {
+              "id": "source",
+              "label": "approved source range: 192.0.2.0/24"
+            },
+            {
+              "id": "eni",
+              "label": "eni-cedar-workload",
+              "fields": [
+                "sg-cedar-workload",
+                "allow TCP 443 from 192.0.2.0/24"
+              ]
+            },
+            {
+              "id": "response",
+              "label": "tracked response",
+              "fields": [
+                "response succeeds"
+              ]
+            },
+            {
+              "id": "other",
+              "label": "unapproved source range: 198.51.100.0/24",
+              "fields": [
+                "not admitted"
+              ]
+            },
+            {
+              "id": "group",
+              "label": "sg-cedar-source",
+              "fields": [
+                "Identifies source; no rule import"
+              ]
+            },
+            {
+              "id": "outside",
+              "label": "Outside filtering",
+              "fields": [
+                "Amazon-provided DNS",
+                "instance metadata"
+              ]
+            }
+          ],
+          "edges": [
+            {
+              "from": "source",
+              "to": "eni",
+              "label": "TCP 443: connection succeeds",
+              "directed": true
+            },
+            {
+              "from": "eni",
+              "to": "response",
+              "label": "Allowed regardless of response-direction rules",
+              "directed": true
+            },
+            {
+              "from": "other",
+              "to": "eni",
+              "label": "No matching inbound allow",
+              "directed": true
+            },
+            {
+              "from": "group",
+              "to": "eni",
+              "label": "Alternative inbound rule: allow TCP 443 from sg-cedar-source; no rule import.",
+              "directed": true
+            }
+          ],
+          "layout": "auto",
+          "alt_text": "Connection, tracked response and filtering boundary",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_security_groups"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_security_groups#tb2",
+              "aws_devops.configure_security_groups#tb3",
+              "aws_devops.configure_security_groups#tb4",
+              "aws_devops.configure_security_groups#tb6"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_security_groups#f1",
+              "aws_devops.configure_security_groups#f2",
+              "aws_devops.configure_security_groups#f3",
+              "aws_devops.configure_security_groups#f4",
+              "aws_devops.configure_security_groups#m1"
+            ],
+            "anchors": [
+              "aws_devops.configure_security_groups#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "aws_devops.tile.028.s02",
+      "type": "explainer",
+      "concept_ids": [
+        "aws_devops.configure_security_groups"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "aws_devops.configure_security_groups"
+        ],
+        "teaching_block_ids": [
+          "aws_devops.configure_security_groups#tb4",
+          "aws_devops.configure_security_groups#tb5",
+          "aws_devops.configure_security_groups#tb6"
+        ],
+        "fact_ids": [
+          "aws_devops.configure_security_groups#f1",
+          "aws_devops.configure_security_groups#f2",
+          "aws_devops.configure_security_groups#f3",
+          "aws_devops.configure_security_groups#m1"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "title": "Keep the filtering boundary clear",
+      "eyebrow": "Learn",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Use the supplied TCP ingress rule and approved source on the workload’s associated security group. Remove unnecessary ingress and test both the required connection and its response. A tracked response is allowed regardless of response-direction rules; a new connection from an unapproved source is a different case. Do not widen ingress to make an unexplained test pass.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_security_groups"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_security_groups#tb4"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_security_groups#f1",
+              "aws_devops.configure_security_groups#f2",
+              "aws_devops.configure_security_groups#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A security-group ID used as an allowed source identifies that source; it does not import the referenced group’s rules into the destination group. Security groups contain allow rules, not explicit deny rules.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_security_groups"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_security_groups#tb4",
+              "aws_devops.configure_security_groups#tb5",
+              "aws_devops.configure_security_groups#tb6"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_security_groups#f1",
+              "aws_devops.configure_security_groups#m1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Security groups do not filter traffic to Amazon-provided DNS or EC2 instance metadata services. Those cases are outside the filtering boundary, so their results do not demonstrate that ordinary ingress is allowed.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_security_groups"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_security_groups#tb4",
+              "aws_devops.configure_security_groups#tb5",
+              "aws_devops.configure_security_groups#tb6"
+            ],
+            "fact_ids": []
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.connection_tests",
+            "columns": [
+              "test_id",
+              "network_interface",
+              "destination_group",
+              "traffic_case",
+              "protocol",
+              "port",
+              "source",
+              "inbound_rule",
+              "response_direction_rule",
+              "observed_result",
+              "interpretation"
+            ]
+          },
+          "caption": "Compare supplied connection cases, not DNS or metadata as ingress evidence.",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_security_groups"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_security_groups#tb4",
+              "aws_devops.configure_security_groups#tb5",
+              "aws_devops.configure_security_groups#tb6"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_security_groups#f1",
+              "aws_devops.configure_security_groups#f2",
+              "aws_devops.configure_security_groups#f3",
+              "aws_devops.configure_security_groups#m1"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "aws_devops.tile.028.s03",
+      "type": "check",
+      "concept_ids": [
+        "aws_devops.configure_security_groups"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "aws_devops.configure_security_groups"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "aws_devops.configure_security_groups#f2"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "aws_devops.configure_security_groups#assessment:determine_stateful_response_traffic_behavior"
+        ]
+      },
+      "eyebrow": "Check your understanding",
+      "title": "Distinguish response from new ingress",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.aws_devops.tile.028.s03",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "aws_devops.configure_security_groups",
+            "capability": "determine_stateful_response_traffic_behavior",
+            "fact_ids": [
+              "f2"
+            ]
+          }
+        ],
+        "anchors": [
+          "aws_devops.configure_security_groups#assessment:determine_stateful_response_traffic_behavior"
+        ],
+        "public": {
+          "prompt": "A security group allowed a new connection. For the response to that tracked connection, there is no allow rule in the response direction. What follows from security-group statefulness?",
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "The response is allowed regardless of response-direction rules."
+            },
+            {
+              "option_id": "o2",
+              "text": "The response is blocked until a separate response-direction allow is added."
+            },
+            {
+              "option_id": "o3",
+              "text": "Every later new connection from any source is also allowed."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "Statefulness allows response traffic for the allowed connection."
+            },
+            "o2": {
+              "message": "Statefulness means this response does not require a separate response-direction allow rule."
+            },
+            "o3": {
+              "message": "A tracked response is not a new connection from an arbitrary source; new connections still need applicable allows."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "Statefulness allows response traffic for the allowed connection."
+          },
+          "incorrect": {
+            "message": "Judge the response as response traffic for the already allowed connection, not as an arbitrary new connection."
+          },
+          "hints": [
+            "Distinguish a tracked response from a new connection."
+          ],
+          "remediation_step_id": "aws_devops.tile.028.r01"
+        }
+      }
+    },
+    {
+      "step_id": "aws_devops.tile.028.s04",
+      "type": "hands_on",
+      "concept_ids": [
+        "aws_devops.configure_security_groups"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "aws_devops.configure_security_groups"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "aws_devops.configure_security_groups#f1",
+          "aws_devops.configure_security_groups#f3",
+          "aws_devops.configure_security_groups#m1"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "aws_devops.configure_security_groups#practice",
+          "aws_devops.configure_security_groups#assessment:determine_allow_only_rules_at_associated_network_interfaces",
+          "aws_devops.configure_security_groups#assessment:enforce_approved_ingress_and_verify_required_connections",
+          "aws_devops.configure_security_groups#assessment:interpret_source_group_references_without_importing_rules"
+        ]
+      },
+      "eyebrow": "Evidence review",
+      "title": "Review connection-rule evidence",
+      "lede": "Read the supplied connection and rule excerpts in this step. Decide which interpretations correctly enforce approved ingress and interpret source-group references.",
+      "interaction": {
+        "type": "classify",
+        "interaction_id": "ix.aws_devops.tile.028.s04",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "aws_devops.configure_security_groups",
+            "capability": "determine_allow_only_rules_at_associated_network_interfaces",
+            "fact_ids": [
+              "f1"
+            ]
+          },
+          {
+            "concept_id": "aws_devops.configure_security_groups",
+            "capability": "enforce_approved_ingress_and_verify_required_connections",
+            "fact_ids": [
+              "f3"
+            ]
+          },
+          {
+            "concept_id": "aws_devops.configure_security_groups",
+            "capability": "interpret_source_group_references_without_importing_rules",
+            "fact_ids": [
+              "m1"
+            ]
+          }
+        ],
+        "anchors": [
+          "aws_devops.configure_security_groups#practice",
+          "aws_devops.configure_security_groups#assessment:determine_allow_only_rules_at_associated_network_interfaces",
+          "aws_devops.configure_security_groups#assessment:enforce_approved_ingress_and_verify_required_connections",
+          "aws_devops.configure_security_groups#assessment:interpret_source_group_references_without_importing_rules"
+        ],
+        "public": {
+          "prompt": "Read the ingress-review excerpts and decide whether the associated group meets the stated approved-ingress baseline and required connection checks. For the separate source-reference explanations, decide whether the interpretation is correct. A new unapproved-source connection is not a tracked response.",
+          "buckets": [
+            {
+              "bucket_id": "meets",
+              "label": "Ingress baseline and connection checks met"
+            },
+            {
+              "bucket_id": "violates",
+              "label": "Ingress baseline or checks violated"
+            },
+            {
+              "bucket_id": "reference_ok",
+              "label": "Source-reference explanation correct"
+            },
+            {
+              "bucket_id": "reference_bad",
+              "label": "Source-reference explanation incorrect"
+            }
+          ],
+          "items": [
+            {
+              "item_id": "i1",
+              "text": "```text\nAssociated network interface: eni-cedar-workload\nSecurity group: sg-cedar-workload\nApproved ingress: allow TCP 443 from 192.0.2.0/24\nComplete inbound rule list:\n- allow TCP 443 from 192.0.2.0/24\nNo other inbound rules.\nResponse-direction allow rule: none\nTest: approved source range: 192.0.2.0/24 -> connection succeeds\nTracked response: response succeeds\nNew connection: unapproved source range: 198.51.100.0/24 -> not admitted\n```"
+            },
+            {
+              "item_id": "i2",
+              "text": "```text\nAssociated network interface: eni-cedar-workload\nSecurity group: sg-cedar-workload\nApproved ingress: allow TCP 443 from 192.0.2.0/24\nComplete inbound rule list:\n- allow TCP 443 from 192.0.2.0/24\n- allow TCP 443 from 198.51.100.0/24\nResponse-direction allow rule: none\nTest: approved source range: 192.0.2.0/24 -> connection succeeds\nTracked response: response succeeds\nNew connection: unapproved source range: 198.51.100.0/24 -> connection succeeds\n```"
+            },
+            {
+              "item_id": "i3",
+              "text": "```text\nnetwork_interface: eni-cedar-workload\ndestination_group: sg-cedar-workload\ntraffic_case: new connection\nprotocol: TCP\nport: 443\nsource: sg-cedar-source\ninbound_rule: allow TCP 443 from sg-cedar-source\nresponse_direction_rule: none\nobserved_result: connection succeeds\nReviewer explanation: The source-group ID identifies the allowed source; the destination group does not acquire the source group rules.\n```"
+            },
+            {
+              "item_id": "i4",
+              "text": "```text\nnetwork_interface: eni-cedar-workload\ndestination_group: sg-cedar-workload\ntraffic_case: new connection\nprotocol: TCP\nport: 443\nsource: sg-cedar-source\ninbound_rule: allow TCP 443 from sg-cedar-source\nresponse_direction_rule: none\nobserved_result: connection succeeds\nReviewer explanation: The source-group ID imports all rules of that group into the destination group.\n```"
+            }
+          ]
+        },
+        "grading": {
+          "assignments": {
+            "i1": "meets",
+            "i2": "violates",
+            "i3": "reference_ok",
+            "i4": "reference_bad"
+          },
+          "item_feedback": {
+            "i1": {
+              "message": "The only ingress rule admits the approved TCP connection, its tracked response succeeds without a separate response-direction rule, and the unapproved new connection is not admitted."
+            },
+            "i2": {
+              "message": "The extra rule admits a new connection from an unapproved source. That unnecessary ingress violates the supplied baseline; statefulness does not justify it."
+            },
+            "i3": {
+              "message": "A source-group reference identifies an allowed source, not imported rules."
+            },
+            "i4": {
+              "message": "A security-group source reference does not import the referenced group rules into the destination group."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "Your judgement follows the supplied evidence and the taught checks."
+          },
+          "incorrect": {
+            "message": "Separate the individual evidence checks; success at one stage does not establish all required conditions."
+          },
+          "hints": [
+            "Distinguish a tracked response from a new connection.",
+            "Read the complete inbound rule list and the source-reference explanation separately."
+          ],
+          "remediation_step_id": "aws_devops.tile.028.r02"
+        }
+      }
+    },
+    {
+      "step_id": "aws_devops.tile.028.s05",
+      "type": "recap",
+      "concept_ids": [
+        "aws_devops.configure_security_groups"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "aws_devops.configure_security_groups"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "eyebrow": "Takeaways",
+      "title": "Keep the evidence distinct",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Security groups use allow rules at associated network interfaces. Tracked responses are statefully allowed. Use required protocol, port range and approved source, remove unnecessary ingress, and test connections and responses. Source-group references do not import rules; DNS and metadata traffic are outside security-group filtering.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_security_groups"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_security_groups#tb1",
+              "aws_devops.configure_security_groups#tb2",
+              "aws_devops.configure_security_groups#tb3",
+              "aws_devops.configure_security_groups#tb4",
+              "aws_devops.configure_security_groups#tb5",
+              "aws_devops.configure_security_groups#tb6"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_security_groups#f1",
+              "aws_devops.configure_security_groups#f2",
+              "aws_devops.configure_security_groups#f3",
+              "aws_devops.configure_security_groups#m1"
+            ]
+          }
+        },
+        {
+          "type": "up_next",
+          "title": "Define an EC2 instance with Terraform HCL and a pinned provider; directly require the native EC2 instance foundation",
+          "text": "An approved provider pin and a supplied EC2 declaration."
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "aws_devops.tile.028.r01",
+      "type": "remediation",
+      "concept_ids": [
+        "aws_devops.configure_security_groups"
+      ],
+      "eyebrow": "Try the contrast",
+      "title": "Revisit the check",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Security groups are stateful. A tracked response to an allowed connection is allowed regardless of response-direction rules. Contrast that response with a new connection from an unapproved source: the response is not a fresh ingress request needing a separate response-direction allow.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_security_groups"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_security_groups#tb3",
+              "aws_devops.configure_security_groups#tb4"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_security_groups#f2"
+            ]
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.connection_tests",
+            "columns": [
+              "test_id",
+              "network_interface",
+              "destination_group",
+              "traffic_case",
+              "protocol",
+              "port",
+              "source",
+              "inbound_rule",
+              "response_direction_rule",
+              "observed_result",
+              "interpretation"
+            ]
+          },
+          "caption": "Security-group connection and response evidence",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_security_groups"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_security_groups#tb3",
+              "aws_devops.configure_security_groups#tb4"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_security_groups#f2"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "aws_devops.configure_security_groups"
+        ],
+        "teaching_block_ids": [
+          "aws_devops.configure_security_groups#tb3",
+          "aws_devops.configure_security_groups#tb4"
+        ],
+        "fact_ids": [
+          "aws_devops.configure_security_groups#f2"
+        ]
+      }
+    },
+    {
+      "step_id": "aws_devops.tile.028.r02",
+      "type": "remediation",
+      "concept_ids": [
+        "aws_devops.configure_security_groups"
+      ],
+      "eyebrow": "Try the contrast",
+      "title": "Revisit the evidence review",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Security groups contain allow rules at associated network interfaces, not explicit deny rules. Specify the required protocol, port range and approved source, remove unnecessary ingress, then test the required connections and responses. Compare a matching approved-source rule with a new unapproved-source connection that has no matching inbound allow.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_security_groups"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_security_groups#tb2",
+              "aws_devops.configure_security_groups#tb3",
+              "aws_devops.configure_security_groups#tb4",
+              "aws_devops.configure_security_groups#tb5"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_security_groups#f1",
+              "aws_devops.configure_security_groups#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A source-group ID identifies an allowed source without importing that group’s rule list. Compare a source reference with rule import: only the former describes the supplied evidence.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_security_groups"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_security_groups#tb4",
+              "aws_devops.configure_security_groups#tb5",
+              "aws_devops.configure_security_groups#tb6"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_security_groups#m1"
+            ]
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.connection_tests",
+            "columns": [
+              "test_id",
+              "network_interface",
+              "destination_group",
+              "traffic_case",
+              "protocol",
+              "port",
+              "source",
+              "inbound_rule",
+              "response_direction_rule",
+              "observed_result",
+              "interpretation"
+            ]
+          },
+          "caption": "Security-group connection and response evidence",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_security_groups"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_security_groups#tb2",
+              "aws_devops.configure_security_groups#tb3",
+              "aws_devops.configure_security_groups#tb4",
+              "aws_devops.configure_security_groups#tb5",
+              "aws_devops.configure_security_groups#tb6"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_security_groups#f1",
+              "aws_devops.configure_security_groups#f3",
+              "aws_devops.configure_security_groups#m1"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "aws_devops.configure_security_groups"
+        ],
+        "teaching_block_ids": [
+          "aws_devops.configure_security_groups#tb2",
+          "aws_devops.configure_security_groups#tb3",
+          "aws_devops.configure_security_groups#tb4",
+          "aws_devops.configure_security_groups#tb5",
+          "aws_devops.configure_security_groups#tb6"
+        ],
+        "fact_ids": [
+          "aws_devops.configure_security_groups#f1",
+          "aws_devops.configure_security_groups#f3",
+          "aws_devops.configure_security_groups#m1"
+        ]
+      }
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "aws_devops.tile.029"
+  },
+  "content_hash": "044d0db4722473c98c638360487cbabb8b64d35c52addc2acdda96d2f43756fe"
+}

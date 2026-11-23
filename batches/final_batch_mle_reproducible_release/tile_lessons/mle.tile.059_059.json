@@ -1,0 +1,847 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "machine_learning_engineer",
+  "tile_id": "mle.tile.059_059",
+  "toc_location": {
+    "region_id": "mle.region.reproducible_release",
+    "terrain_id": "mle.terrain.frozen_evaluation"
+  },
+  "title": "mle.tile.059_059",
+  "summary": "",
+  "concept_ids": [
+    "mle.bounded_managed_training"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_machine_learning_engineer",
+    "toc_freeze_hash": "f38fc7a62df329118a32053d1557dcc9a74ada7a9c52269ee9a0c50d28a67a36",
+    "glossary_bundle_hashes": {
+      "mle.bounded_managed_training": "c9091b7e6e019729f9107b959acbbfe4d1b5c45be84f6c1907737e1759a38495"
+    },
+    "scenario_registry_hash": "528e3276db2918de5d4db5a755d761e405c781dd86f4af31c8e9224e8fdb86c1"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core"
+    ],
+    "block_types": [
+      "code_walkthrough",
+      "prose",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "classify"
+    ],
+    "runtimes": [],
+    "asset_ids": []
+  },
+  "pacing": {
+    "estimated_minutes": 4.8
+  },
+  "steps": [
+    {
+      "step_id": "mle.tile.059_059.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.bounded_managed_training"
+      ],
+      "title": "Submission is only the beginning",
+      "eyebrow": "Understand",
+      "lineage": {
+        "concept_ids": [
+          "mle.bounded_managed_training"
+        ],
+        "teaching_block_ids": [
+          "mle.bounded_managed_training#tb1",
+          "mle.bounded_managed_training#tb2",
+          "mle.bounded_managed_training#tb3"
+        ],
+        "fact_ids": [
+          "mle.bounded_managed_training#f1",
+          "mle.bounded_managed_training#f2",
+          "mle.bounded_managed_training#f3",
+          "mle.bounded_managed_training#f4",
+          "mle.bounded_managed_training#f5",
+          "mle.bounded_managed_training#f6"
+        ],
+        "anchors": [
+          "mle.bounded_managed_training#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Use supplied settings for one authorized bounded job. Verify consumed inputs and terminal output rather than treating submission as proof of success.",
+          "role": "intro",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_managed_training"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_managed_training#tb1"
+            ],
+            "fact_ids": [],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "CreateTrainingJob specifies TrainingJobName, AlgorithmSpecification, RoleArn, input/output data configuration, ResourceConfig and StoppingCondition. Use the supplied custom TrainingImage, permitted instance count/type and MaxRuntimeInSeconds. InputDataConfig must refer to version-resolved inputs; OutputDataConfig supplies the output S3 location. The role must be authorized for those resources.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_managed_training"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_managed_training#tb2"
+            ],
+            "fact_ids": [
+              "mle.bounded_managed_training#f1",
+              "mle.bounded_managed_training#f2",
+              "mle.bounded_managed_training#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "The training container reads channels under /opt/ml/input/data/CHANNEL and writes model output under /opt/ml/model for upload. Inspect final job status and artifact location; check the intended artifact against recorded configuration. Keep dataset snapshot, code/configuration and resulting run/artifact identities together in the execution record.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_managed_training"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_managed_training#tb3"
+            ],
+            "fact_ids": [
+              "mle.bounded_managed_training#f4",
+              "mle.bounded_managed_training#f5",
+              "mle.bounded_managed_training#f6"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "code_walkthrough",
+          "language": "python",
+          "code": "# Supplied job settings: {'job_name': 'order-training-job', 'image': 'fixture.local/order-training:custom', 'role': 'arn:aws:iam::000000000000:role/fixture-training', 'channel': 'training', 'input_bucket': 'authorized-fixture', 'input_key': 'datasets/latest.csv', 'input_version': '1', 'immutable_key': 'snapshots/order-training/input.csv', 'output_uri': 's3://authorized-fixture/outputs', 'instance_type': 'ml.m5.large', 'max_instance_count': 1, 'max_runtime_seconds': 120, 'dataset_snapshot': {'bucket_name': 'authorized-fixture', 'object_name': 'datasets/latest.csv', 'generation': 1, 'expected_hash': 'd67e606cd75127f615b2ba02dfcc22f853460dcb774c3073bb47fa66ce83a21e', 'local_path': 'training_orders.csv', 'record_path': 'snapshot_record.json', 'download_path': 'downloads/training_orders.csv'}, 'code_reference': 'managed_training_code.py', 'configuration_path': 'job_config.json', 'artifact_uri': 's3://authorized-fixture/outputs/order-training-job/output/model.tar.gz', 'channel_path': '/opt/ml/input/data/training', 'model_output_path': '/opt/ml/model'}\nimport boto3, json, hashlib\nimport time\nwith open(\"managed_contract.json\") as handle:\n    contract = json.load(handle)\nclient = boto3.client(\"sagemaker\")\nstorage_client = boto3.client(\"s3\")\n# Verify the selected version, then materialize a controlled immutable input.\nselected = {\"Bucket\": contract[\"input_bucket\"],\n    \"Key\": contract[\"input_key\"], \"VersionId\": contract[\"input_version\"]}\nstorage_client.head_object(**selected)\nbytes_response = storage_client.get_object(**selected)\nobserved_hash = hashlib.sha256(bytes_response[\"Body\"].read()).hexdigest()\nif observed_hash != contract[\"dataset_snapshot\"][\"expected_hash\"]:\n    raise ValueError(\"Input bytes do not match the selected snapshot\")\nstorage_client.copy_object(Bucket=contract[\"input_bucket\"],\n    Key=contract[\"immutable_key\"], CopySource=selected)\nresolved_configuration = {\n    \"TrainingJobName\": contract[\"job_name\"],\n    \"AlgorithmSpecification\": {\"TrainingImage\": contract[\"image\"],\n                               \"TrainingInputMode\": \"File\"},\n    \"RoleArn\": contract[\"role\"],\n    \"InputDataConfig\": [{\"ChannelName\": contract[\"channel\"],\n        \"DataSource\": {\"S3DataSource\": {\"S3DataType\": \"S3Prefix\",\n            \"S3Uri\": \"s3://\" + contract[\"input_bucket\"] + \"/\" + contract[\"immutable_key\"],\n            \"S3DataDistributionType\": \"FullyReplicated\"}}}],\n    \"OutputDataConfig\": {\"S3OutputPath\": contract[\"output_uri\"]},\n    \"ResourceConfig\": {\"InstanceCount\": contract[\"max_instance_count\"],\n        \"InstanceType\": contract[\"instance_type\"]},\n    \"StoppingCondition\": {\"MaxRuntimeInSeconds\": contract[\"max_runtime_seconds\"]}}\nwith open(contract[\"configuration_path\"], \"w\") as handle:\n    json.dump(resolved_configuration, handle)\nwith open(contract[\"configuration_path\"]) as handle:\n    resolved_configuration = json.load(handle)\nsubmission = client.create_training_job(**resolved_configuration) # once\n# Re-inspect until terminal state; do not resubmit while polling.\nwhile True:\n    description = client.describe_training_job(TrainingJobName=contract[\"job_name\"])\n    status = description[\"TrainingJobStatus\"]\n    if status in (\"Completed\", \"Failed\", \"Stopped\"):\n        break\n    time.sleep(5)\nfailure_reason = description.get(\"FailureReason\")\nif status != \"Completed\":\n    raise ValueError(f\"Job did not complete: {failure_reason}\")\nartifact_uri = description[\"ModelArtifacts\"][\"S3ModelArtifacts\"]\nif artifact_uri != contract[\"artifact_uri\"]:\n    raise ValueError(\"Returned artifact differs from the intended job artifact\")\nartifact_bucket, artifact_key = artifact_uri.removeprefix(\"s3://\").split(\"/\", 1)\nstorage_client.download_file(Bucket=artifact_bucket, Key=artifact_key,\n    Filename=\"downloads/model.tar.gz\")\nexecution_record = {\"snapshot\": contract[\"dataset_snapshot\"],\n    \"code_reference\": contract[\"code_reference\"], \"configuration\": resolved_configuration,\n    \"job_name\": contract[\"job_name\"], \"submission\": submission,\n    \"status\": status, \"artifact_uri\": artifact_uri}\nwith open(\"execution_record.json\", \"w\") as handle:\n    json.dump(execution_record, handle)\nwith open(\"execution_record.json\") as handle:\n    parsed_record = json.load(handle)\nassert parsed_record == execution_record\n# The supplied channel is /opt/ml/input/data/CHANNEL; output is /opt/ml/model.\n",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_managed_training"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_managed_training#tb1",
+              "mle.bounded_managed_training#tb2",
+              "mle.bounded_managed_training#tb3"
+            ],
+            "fact_ids": [
+              "mle.bounded_managed_training#f1",
+              "mle.bounded_managed_training#f2",
+              "mle.bounded_managed_training#f3",
+              "mle.bounded_managed_training#f4",
+              "mle.bounded_managed_training#f5",
+              "mle.bounded_managed_training#f6"
+            ],
+            "anchors": [
+              "mle.bounded_managed_training#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.059_059.s02",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.bounded_managed_training"
+      ],
+      "title": "Inspect the job through the client",
+      "eyebrow": "Understand",
+      "lineage": {
+        "concept_ids": [
+          "mle.bounded_managed_training"
+        ],
+        "teaching_block_ids": [
+          "mle.bounded_managed_training#tb4",
+          "mle.bounded_managed_training#tb5"
+        ],
+        "fact_ids": [
+          "mle.bounded_managed_training#f10",
+          "mle.bounded_managed_training#f11",
+          "mle.bounded_managed_training#f12",
+          "mle.bounded_managed_training#f7",
+          "mle.bounded_managed_training#f8",
+          "mle.bounded_managed_training#f9"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Import boto3; create client = boto3.client(\"sagemaker\") and call client.create_training_job(**resolved_configuration). Inspect with client.describe_training_job(TrainingJobName=job_name): check TrainingJobStatus, any FailureReason and ModelArtifacts.S3ModelArtifacts. Save records with json.dump(record, file_handle), then decode with json.load(file_handle); JSON text is not a Python dictionary.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_managed_training"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_managed_training#tb4"
+            ],
+            "fact_ids": [
+              "mle.bounded_managed_training#f7",
+              "mle.bounded_managed_training#f8",
+              "mle.bounded_managed_training#f9"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Verify each selected input version before submission. If the API only accepts a mutable channel URI, materialize the selected version at a controlled immutable location instead of inventing a version parameter. Retrieve the output with the authorized storage client and check its reference against the completed job record. Managed resources are created for the job and released after termination; confirm terminal status, not merely submission.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_managed_training"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_managed_training#tb5"
+            ],
+            "fact_ids": [
+              "mle.bounded_managed_training#f10",
+              "mle.bounded_managed_training#f11",
+              "mle.bounded_managed_training#f12"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.059_059.s03",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.bounded_managed_training"
+      ],
+      "title": "Follow one job from input to artifact",
+      "eyebrow": "Understand",
+      "lineage": {
+        "concept_ids": [
+          "mle.bounded_managed_training"
+        ],
+        "teaching_block_ids": [
+          "mle.bounded_managed_training#tb6",
+          "mle.bounded_managed_training#tb7"
+        ],
+        "fact_ids": [
+          "mle.bounded_managed_training#f1",
+          "mle.bounded_managed_training#f10",
+          "mle.bounded_managed_training#f11",
+          "mle.bounded_managed_training#f12",
+          "mle.bounded_managed_training#f2",
+          "mle.bounded_managed_training#f3",
+          "mle.bounded_managed_training#f4",
+          "mle.bounded_managed_training#f5",
+          "mle.bounded_managed_training#f6",
+          "mle.bounded_managed_training#f7",
+          "mle.bounded_managed_training#f8",
+          "mle.bounded_managed_training#f9"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Resolve the supplied image, job name, role, channels, output location and resource/time limits before submission. Verify each input version and, where needed, materialize it at the controlled immutable location without unsupported API fields. The container reads the channel beneath /opt/ml/input/data and writes under /opt/ml/model. Inspect terminal status, any failure reason and the artifact location. Retrieve that artifact with the authorized storage client, checking its reference against the completed job record. Preserve snapshot, code/configuration and run/artifact identities together.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_managed_training"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_managed_training#tb6"
+            ],
+            "fact_ids": [
+              "mle.bounded_managed_training#f1",
+              "mle.bounded_managed_training#f2",
+              "mle.bounded_managed_training#f3",
+              "mle.bounded_managed_training#f4",
+              "mle.bounded_managed_training#f5",
+              "mle.bounded_managed_training#f6",
+              "mle.bounded_managed_training#f7",
+              "mle.bounded_managed_training#f8",
+              "mle.bounded_managed_training#f9",
+              "mle.bounded_managed_training#f10",
+              "mle.bounded_managed_training#f11",
+              "mle.bounded_managed_training#f12"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Submission is not completion, and an input name is not verified identity. Managed resources are released after termination; explicitly confirm terminal status.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_managed_training"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_managed_training#tb7"
+            ],
+            "fact_ids": [
+              "mle.bounded_managed_training#f10",
+              "mle.bounded_managed_training#f11",
+              "mle.bounded_managed_training#f12"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.059_059.s04",
+      "type": "check",
+      "concept_ids": [
+        "mle.bounded_managed_training"
+      ],
+      "title": "Check the bounded training request",
+      "eyebrow": "Quick check",
+      "lineage": {
+        "concept_ids": [
+          "mle.bounded_managed_training"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.bounded_managed_training#f10",
+          "mle.bounded_managed_training#f3",
+          "mle.bounded_managed_training#f4"
+        ],
+        "anchors": [
+          "mle.bounded_managed_training#assessment:verify_input_identity_and_container_contract"
+        ]
+      },
+      "lede": "CreateTrainingJob returned successfully, but no terminal status has been inspected. Is successful completion and ended job-managed compute use established?",
+      "interaction": {
+        "interaction_id": "ix.mle.tile.059_059.s04",
+        "type": "choice",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.bounded_managed_training",
+            "fact_ids": [
+              "f3",
+              "f4",
+              "f10"
+            ],
+            "capability": "verify_input_identity_and_container_contract"
+          }
+        ],
+        "anchors": [
+          "mle.bounded_managed_training#assessment:verify_input_identity_and_container_contract"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Correct: the judgement follows the stated criterion and the supplied evidence."
+          },
+          "incorrect": {
+            "message": "Recheck the stated criterion against the supplied evidence. Invoke a bounded managed job from parsed settings and verify its consumed inputs, output and terminal state."
+          },
+          "hints": [
+            "Separate input verification, submission and inspected terminal status.",
+            "Trace the one job through its artifact reference and structured execution record."
+          ],
+          "remediation_step_id": "mle.tile.059_059.r01"
+        },
+        "public": {
+          "prompt": "The training API accepts only a channel URI. How do you preserve the selected input version?",
+          "selection": "single",
+          "shuffle": true,
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Verify the selected version, materialize it at the controlled immutable channel location, and use the declared channel/model paths."
+            },
+            {
+              "option_id": "o2",
+              "text": "Add an unsupported VersionId field directly to the training channel request."
+            },
+            {
+              "option_id": "o3",
+              "text": "Pass the latest mutable URI without checking the selected version."
+            },
+            {
+              "option_id": "o4",
+              "text": "Have the custom container read an arbitrary local path instead of /opt/ml/input/data/CHANNEL."
+            }
+          ]
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "Version verification and controlled materialization preserve identity without an unsupported request parameter."
+            },
+            "o2": {
+              "message": "If the API accepts only a URI, an unsupported version field is not the prescribed way to pin the input."
+            },
+            "o3": {
+              "message": "Resolving latest can change the bytes and omits required version-qualified verification."
+            },
+            "o4": {
+              "message": "The custom container must honor the declared input channel and model-output locations."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.059_059.s05",
+      "type": "hands_on",
+      "concept_ids": [
+        "mle.bounded_managed_training"
+      ],
+      "title": "Review the bounded training request",
+      "eyebrow": "Review evidence",
+      "lineage": {
+        "concept_ids": [
+          "mle.bounded_managed_training"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.bounded_managed_training#f1",
+          "mle.bounded_managed_training#f11",
+          "mle.bounded_managed_training#f12",
+          "mle.bounded_managed_training#f2",
+          "mle.bounded_managed_training#f3",
+          "mle.bounded_managed_training#f5",
+          "mle.bounded_managed_training#f6",
+          "mle.bounded_managed_training#f7",
+          "mle.bounded_managed_training#f8",
+          "mle.bounded_managed_training#f9"
+        ],
+        "anchors": [
+          "mle.bounded_managed_training#practice",
+          "mle.bounded_managed_training#assessment:submit_authorized_resource_bounded_training_job",
+          "mle.bounded_managed_training#assessment:verify_terminal_status_and_retrieve_expected_artifact",
+          "mle.bounded_managed_training#assessment:preserve_structured_training_execution_record"
+        ]
+      },
+      "lede": "CreateTrainingJob returned successfully, but no terminal status has been inspected. Is successful completion and ended job-managed compute use established?",
+      "interaction": {
+        "interaction_id": "ix.mle.tile.059_059.s05",
+        "type": "classify",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.bounded_managed_training",
+            "fact_ids": [
+              "f1",
+              "f2",
+              "f3",
+              "f7"
+            ],
+            "capability": "submit_authorized_resource_bounded_training_job"
+          },
+          {
+            "concept_id": "mle.bounded_managed_training",
+            "fact_ids": [
+              "f5",
+              "f8",
+              "f11",
+              "f12"
+            ],
+            "capability": "verify_terminal_status_and_retrieve_expected_artifact"
+          },
+          {
+            "concept_id": "mle.bounded_managed_training",
+            "fact_ids": [
+              "f6",
+              "f9"
+            ],
+            "capability": "preserve_structured_training_execution_record"
+          }
+        ],
+        "anchors": [
+          "mle.bounded_managed_training#practice",
+          "mle.bounded_managed_training#assessment:submit_authorized_resource_bounded_training_job",
+          "mle.bounded_managed_training#assessment:verify_terminal_status_and_retrieve_expected_artifact",
+          "mle.bounded_managed_training#assessment:preserve_structured_training_execution_record"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Correct: the judgement follows the stated criterion and the supplied evidence."
+          },
+          "incorrect": {
+            "message": "Recheck the stated criterion against the supplied evidence. Invoke a bounded managed job from parsed settings and verify its consumed inputs, output and terminal state."
+          },
+          "hints": [
+            "Separate input verification, submission and inspected terminal status.",
+            "Trace the one job through its artifact reference and structured execution record."
+          ],
+          "remediation_step_id": "mle.tile.059_059.r02"
+        },
+        "public": {
+          "prompt": "Judge each independent request or inspection excerpt against its named bounded-training criterion. Authorized supplied contract: {\"job_name\": \"order-training-job\", \"image\": \"fixture.local/order-training:custom\", \"role\": \"arn:aws:iam::000000000000:role/fixture-training\", \"channel\": \"training\", \"input_bucket\": \"authorized-fixture\", \"input_key\": \"datasets/latest.csv\", \"input_version\": \"1\", \"immutable_key\": \"snapshots/order-training/input.csv\", \"output_uri\": \"s3://authorized-fixture/outputs\", \"instance_type\": \"ml.m5.large\", \"max_instance_count\": 1, \"max_runtime_seconds\": 120, \"dataset_snapshot\": {\"bucket_name\": \"authorized-fixture\", \"object_name\": \"datasets/latest.csv\", \"generation\": 1, \"expected_hash\": \"d67e606cd75127f615b2ba02dfcc22f853460dcb774c3073bb47fa66ce83a21e\", \"local_path\": \"training_orders.csv\", \"record_path\": \"snapshot_record.json\", \"download_path\": \"downloads/training_orders.csv\"}, \"code_reference\": \"managed_training_code.py\", \"configuration_path\": \"job_config.json\", \"artifact_uri\": \"s3://authorized-fixture/outputs/order-training-job/output/model.tar.gz\", \"channel_path\": \"/opt/ml/input/data/training\", \"model_output_path\": \"/opt/ml/model\"}. Status statements are hypothetical inspection evidence, not actual cloud execution.",
+          "buckets": [
+            {
+              "bucket_id": "meets",
+              "label": "Meets the named criterion"
+            },
+            {
+              "bucket_id": "violates",
+              "label": "Violates the named criterion"
+            }
+          ],
+          "items": [
+            {
+              "item_id": "i1",
+              "text": "Criterion: verified version-qualified inputs and immutable materialization before submission.\n```\nselected = storage_client.get_object(Bucket=contract[\"input_bucket\"], Key=contract[\"input_key\"], VersionId=contract[\"input_version\"])\nassert hashlib.sha256(selected[\"Body\"].read()).hexdigest() == contract[\"dataset_snapshot\"][\"expected_hash\"]\nstorage_client.copy_object(Bucket=contract[\"input_bucket\"], Key=contract[\"immutable_key\"], CopySource={\"Bucket\": contract[\"input_bucket\"], \"Key\": contract[\"input_key\"], \"VersionId\": contract[\"input_version\"]})\n# The controlled destination is immutable for this job; the channel URI references it.\n# Supplied custom container reads /opt/ml/input/data/training and writes /opt/ml/model.\n```"
+            },
+            {
+              "item_id": "i2",
+              "text": "Criterion: exactly one authorized request within the supplied limits. Shown identity-and-budget fields (other API-required platform fields are already supplied):\n```\n{\n  \"TrainingJobName\": \"order-training-job\",\n  \"AlgorithmSpecification\": {\n    \"TrainingImage\": \"fixture.local/order-training:custom\",\n    \"TrainingInputMode\": \"File\"\n  },\n  \"RoleArn\": \"arn:aws:iam::000000000000:role/fixture-training\",\n  \"InputDataConfig\": [\n    {\n      \"ChannelName\": \"training\",\n      \"DataSource\": {\n        \"S3DataSource\": {\n          \"S3DataType\": \"S3Prefix\",\n          \"S3Uri\": \"s3://authorized-fixture/snapshots/order-training/input.csv\",\n          \"S3DataDistributionType\": \"FullyReplicated\"\n        }\n      }\n    }\n  ],\n  \"OutputDataConfig\": {\n    \"S3OutputPath\": \"s3://authorized-fixture/outputs\"\n  },\n  \"ResourceConfig\": {\n    \"InstanceType\": \"ml.m5.large\",\n    \"InstanceCount\": 1\n  },\n  \"StoppingCondition\": {\n    \"MaxRuntimeInSeconds\": 120\n  }\n}\n```\n```\nimport boto3, json\nclient = boto3.client(\"sagemaker\")\nwith open(contract[\"configuration_path\"], \"w\") as handle:\n    resolved_configuration.update(shown_fields)\n    json.dump(resolved_configuration, handle)\nwith open(contract[\"configuration_path\"]) as handle:\n    parsed_configuration = json.load(handle)\nclient.create_training_job(**parsed_configuration)\n# This branch is entered once only after successful input verification; no retry or second submission.\n```"
+            },
+            {
+              "item_id": "i3",
+              "text": "Criterion: inspect terminal completion, retrieve the matching artifact and preserve a structured execution record.\n```\ndescription = client.describe_training_job(TrainingJobName=contract[\"job_name\"])\n# Supplied inspection evidence: TrainingJobStatus is Completed.\nassert description[\"TrainingJobStatus\"] == \"Completed\"\nartifact = description[\"ModelArtifacts\"][\"S3ModelArtifacts\"]\nassert artifact == contract[\"artifact_uri\"]\n# Resolve the returned URI to artifact_bucket and artifact_key.\nstorage_client.download_file(Bucket=artifact_bucket, Key=artifact_key, Filename=local_artifact)\nrecord = {\"job\": contract[\"job_name\"], \"dataset_snapshot\": contract[\"dataset_snapshot\"], \"code_reference\": contract[\"code_reference\"], \"configuration\": parsed_configuration, \"artifact_uri\": artifact, \"status\": description[\"TrainingJobStatus\"], \"compute_ended\": True}\nwith open(\"execution_record.json\", \"w\") as handle:\n    json.dump(record, handle)\nwith open(\"execution_record.json\") as handle:\n    restored = json.load(handle)\nassert restored == record\nassert restored[\"artifact_uri\"] == description[\"ModelArtifacts\"][\"S3ModelArtifacts\"]\n# Non-Completed branches report FailureReason when present and do not claim success.\n```"
+            },
+            {
+              "item_id": "i4",
+              "text": "Criterion: terminal status confirms job-managed compute has ended.\n```\nclient.create_training_job(**resolved_configuration)\nrecord = {\"status\": \"Completed\", \"compute_ended\": True}\n# No describe_training_job call is made; submission is treated as completion.\n```"
+            },
+            {
+              "item_id": "i5",
+              "text": "Criterion: do not resubmit on a nonterminal status.\n```\ndescription = client.describe_training_job(TrainingJobName=job_name)\nwhile description[\"TrainingJobStatus\"] == \"InProgress\":\n    client.create_training_job(**resolved_configuration)\n    description = client.describe_training_job(TrainingJobName=job_name)\n```"
+            }
+          ]
+        },
+        "grading": {
+          "assignments": {
+            "i1": "meets",
+            "i2": "meets",
+            "i3": "meets",
+            "i4": "violates",
+            "i5": "violates"
+          },
+          "item_feedback": {
+            "i1": {
+              "message": "Selected bytes are verified, the version is explicitly copied to a controlled immutable input and the custom container paths match the contract."
+            },
+            "i2": {
+              "message": "The single request uses the supplied image, role, immutable input, output location and permitted instance type/count/runtime, from structured parsed configuration."
+            },
+            "i3": {
+              "message": "Completed is explicitly inspected, authorized retrieval uses the verified returned artifact, and the round-tripped record links snapshot, code/configuration, job and artifact with terminal compute status."
+            },
+            "i4": {
+              "message": "Submission does not establish terminal status or that job-managed compute use has ended."
+            },
+            "i5": {
+              "message": "The loop submits again instead of only inspecting the one authorized job, violating exactly-one submission."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.059_059.s06",
+      "type": "recap",
+      "concept_ids": [
+        "mle.bounded_managed_training"
+      ],
+      "title": "Keep the evidence together",
+      "eyebrow": "Takeaways",
+      "lineage": {
+        "concept_ids": [
+          "mle.bounded_managed_training"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Verify version-resolved inputs and submit one authorized request within resource/time limits. Inspect terminal status and retrieve the matching artifact. Round-trip a record linking snapshot, code/configuration, job and artifact. Submission alone does not confirm compute has ended.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_managed_training"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_managed_training#tb1",
+              "mle.bounded_managed_training#tb2",
+              "mle.bounded_managed_training#tb3",
+              "mle.bounded_managed_training#tb4",
+              "mle.bounded_managed_training#tb5",
+              "mle.bounded_managed_training#tb6",
+              "mle.bounded_managed_training#tb7"
+            ],
+            "fact_ids": [
+              "mle.bounded_managed_training#f1",
+              "mle.bounded_managed_training#f2",
+              "mle.bounded_managed_training#f3",
+              "mle.bounded_managed_training#f4",
+              "mle.bounded_managed_training#f5",
+              "mle.bounded_managed_training#f6",
+              "mle.bounded_managed_training#f7",
+              "mle.bounded_managed_training#f8",
+              "mle.bounded_managed_training#f9",
+              "mle.bounded_managed_training#f10",
+              "mle.bounded_managed_training#f11",
+              "mle.bounded_managed_training#f12"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "up_next",
+          "title": "Up next: Validate prediction request and response schemas",
+          "text": "Continue to Validate prediction request and response schemas."
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "mle.tile.059_059.r01",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.bounded_managed_training"
+      ],
+      "title": "Contrast: the bounded training request",
+      "lineage": {
+        "concept_ids": [
+          "mle.bounded_managed_training"
+        ],
+        "teaching_block_ids": [
+          "mle.bounded_managed_training#tb2",
+          "mle.bounded_managed_training#tb3",
+          "mle.bounded_managed_training#tb5",
+          "mle.bounded_managed_training#tb6",
+          "mle.bounded_managed_training#tb7"
+        ],
+        "fact_ids": [
+          "mle.bounded_managed_training#f10",
+          "mle.bounded_managed_training#f3",
+          "mle.bounded_managed_training#f4"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Submission is not termination. Verify selected input identity before submission and inspect terminal status and artifact identity afterward.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_managed_training"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_managed_training#tb2",
+              "mle.bounded_managed_training#tb3",
+              "mle.bounded_managed_training#tb5",
+              "mle.bounded_managed_training#tb6",
+              "mle.bounded_managed_training#tb7"
+            ],
+            "fact_ids": [
+              "mle.bounded_managed_training#f10",
+              "mle.bounded_managed_training#f3",
+              "mle.bounded_managed_training#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Resolve and verify each version-qualified input before submitting the job; if the training API accepts only a mutable channel URI, materialize the selected version at a controlled immutable input location rather than passing an unsupported version parameter.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_managed_training"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_managed_training#tb5",
+              "mle.bounded_managed_training#tb6",
+              "mle.bounded_managed_training#tb7"
+            ],
+            "fact_ids": [
+              "mle.bounded_managed_training#f10"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Provide version-resolved input locations through InputDataConfig and an output S3 location through OutputDataConfig; the role must be authorized for those resources.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_managed_training"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_managed_training#tb2",
+              "mle.bounded_managed_training#tb6"
+            ],
+            "fact_ids": [
+              "mle.bounded_managed_training#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "In the SageMaker training container contract, supplied input channels are exposed under /opt/ml/input/data/CHANNEL and model output is written under /opt/ml/model for upload.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_managed_training"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_managed_training#tb3",
+              "mle.bounded_managed_training#tb6"
+            ],
+            "fact_ids": [
+              "mle.bounded_managed_training#f4"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.059_059.r02",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.bounded_managed_training"
+      ],
+      "title": "Contrast: the bounded training request",
+      "lineage": {
+        "concept_ids": [
+          "mle.bounded_managed_training"
+        ],
+        "teaching_block_ids": [
+          "mle.bounded_managed_training#tb2",
+          "mle.bounded_managed_training#tb3",
+          "mle.bounded_managed_training#tb4",
+          "mle.bounded_managed_training#tb5",
+          "mle.bounded_managed_training#tb6",
+          "mle.bounded_managed_training#tb7"
+        ],
+        "fact_ids": [
+          "mle.bounded_managed_training#f1",
+          "mle.bounded_managed_training#f11",
+          "mle.bounded_managed_training#f12",
+          "mle.bounded_managed_training#f2",
+          "mle.bounded_managed_training#f3",
+          "mle.bounded_managed_training#f5",
+          "mle.bounded_managed_training#f6",
+          "mle.bounded_managed_training#f7",
+          "mle.bounded_managed_training#f8",
+          "mle.bounded_managed_training#f9"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Submission is not termination. Verify selected input identity before submission and inspect terminal status and artifact identity afterward.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_managed_training"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_managed_training#tb2",
+              "mle.bounded_managed_training#tb3",
+              "mle.bounded_managed_training#tb4",
+              "mle.bounded_managed_training#tb5",
+              "mle.bounded_managed_training#tb6",
+              "mle.bounded_managed_training#tb7"
+            ],
+            "fact_ids": [
+              "mle.bounded_managed_training#f1",
+              "mle.bounded_managed_training#f11",
+              "mle.bounded_managed_training#f12",
+              "mle.bounded_managed_training#f2",
+              "mle.bounded_managed_training#f3",
+              "mle.bounded_managed_training#f5",
+              "mle.bounded_managed_training#f6",
+              "mle.bounded_managed_training#f7",
+              "mle.bounded_managed_training#f8",
+              "mle.bounded_managed_training#f9"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Resolve TrainingJobName, AlgorithmSpecification with supplied TrainingImage, authorized RoleArn, InputDataConfig, OutputDataConfig, ResourceConfig and StoppingCondition. Keep instance count/type within budget and bound MaxRuntimeInSeconds. Verify selected input versions first; where the API only accepts a mutable channel URI, materialize the verified version at a controlled immutable location, not an unsupported version argument. Channels appear under /opt/ml/input/data/CHANNEL; model output goes under /opt/ml/model for upload.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_managed_training"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_managed_training#tb2",
+              "mle.bounded_managed_training#tb3",
+              "mle.bounded_managed_training#tb5",
+              "mle.bounded_managed_training#tb6",
+              "mle.bounded_managed_training#tb7"
+            ],
+            "fact_ids": [
+              "mle.bounded_managed_training#f1",
+              "mle.bounded_managed_training#f2",
+              "mle.bounded_managed_training#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Import boto3; use boto3.client(\"sagemaker\") and create_training_job(**resolved_configuration) once. Inspect describe_training_job(TrainingJobName=job_name) for terminal TrainingJobStatus, any FailureReason and ModelArtifacts.S3ModelArtifacts. Check intended output against recorded configuration; retrieve it through authorized storage and compare its reference with the completed job record. Keep snapshot, code/configuration and run/artifact identities in a json.dump/json.load round-tripped record. Managed resources are released after termination, not submission.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_managed_training"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_managed_training#tb3",
+              "mle.bounded_managed_training#tb4",
+              "mle.bounded_managed_training#tb5",
+              "mle.bounded_managed_training#tb6",
+              "mle.bounded_managed_training#tb7"
+            ],
+            "fact_ids": [
+              "mle.bounded_managed_training#f5",
+              "mle.bounded_managed_training#f6",
+              "mle.bounded_managed_training#f7",
+              "mle.bounded_managed_training#f8",
+              "mle.bounded_managed_training#f9",
+              "mle.bounded_managed_training#f11",
+              "mle.bounded_managed_training#f12"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "mle.tile.060_063"
+  },
+  "content_hash": "6098f57df1c6c1c541a983265437e91484dc5a2f70e2e9f5596fa0b4ece9a48d"
+}

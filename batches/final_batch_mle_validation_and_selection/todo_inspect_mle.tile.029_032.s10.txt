@@ -1,0 +1,66 @@
+Configure the supplied evaluation scaffold by replacing None in the final interface assignments (paired_trial, trial_mean, trial_std) with the appropriate operations. Assign callable objects, not call results. Read how each interface is used in the scaffold to choose its operation. Keep loading, evaluation logic and returned field names unchanged; the tests evaluate those returned records on the supplied validation inputs. The scaffold supplies the logic for the seeded run_pair call, strict candidate-win update and completed-pair summary calculations. Pass each seed to the split and both estimators; ties are not wins. Preserve the numeric-pair helper, returned fields, undefined summaries when no pair completes and bounded reproducibility statement. Use population standard deviations with ddof=0.
+# Supplied input loading and dependencies.
+import pandas as pd
+
+trials = pd.read_csv('paired_trials.csv').to_dict('records')
+
+declared_seed_list = pd.read_csv('paired_trials.csv')['seed'].tolist()
+
+call_trace = []
+
+import numpy as np
+
+# Supplied evaluation scaffolding. Configure its interfaces below; keep this block unchanged.
+if __name__:
+    def run_pair(seed, split_random_state, baseline_random_state, candidate_random_state):
+        assert split_random_state == seed
+        assert baseline_random_state == seed
+        assert candidate_random_state == seed
+        for row in trials:
+            if row['seed'] == seed:
+                call_trace.append({'seed': seed, 'split_random_state': split_random_state, 'baseline_random_state': baseline_random_state, 'candidate_random_state': candidate_random_state})
+                return row
+        raise ValueError('undeclared seed')
+
+    def supplied_numeric_pair_present(pair):
+        if not isinstance(pair, dict):
+            return False
+        for name in ('baseline_result', 'candidate_result'):
+            value = pair.get(name)
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                return False
+            if value != value or value in (float('inf'), -float('inf')):
+                return False
+        return True
+
+    def evaluate(declared_seed_list):
+        pairs = []
+        baseline_results = []
+        candidate_results = []
+        wins = 0
+        for seed in declared_seed_list:
+            pair = paired_trial(seed, split_random_state=seed, baseline_random_state=seed, candidate_random_state=seed)
+            if supplied_numeric_pair_present(pair):
+                pairs.append(pair)
+                baseline_results.append(pair['baseline_result'])
+                candidate_results.append(pair['candidate_result'])
+                if pair['candidate_result'] < pair['baseline_result']:
+                    wins = wins + 1
+        n = len(pairs)
+        win_probability = None
+        baseline_mean = None
+        baseline_std = None
+        candidate_mean = None
+        candidate_std = None
+        if n > 0:
+            win_probability = wins / n
+            baseline_mean = trial_mean(baseline_results)
+            baseline_std = trial_std(baseline_results, ddof=0)
+            candidate_mean = trial_mean(candidate_results)
+            candidate_std = trial_std(candidate_results, ddof=0)
+        return {'pairs': pairs, 'completed_pair_count': n, 'win_count': wins, 'win_probability': win_probability, 'baseline_mean': baseline_mean, 'baseline_std': baseline_std, 'candidate_mean': candidate_mean, 'candidate_std': candidate_std, 'limitation': 'Declared split and estimator random sources are controlled; identical computation in every environment is not guaranteed.'}
+
+# TODO: replace None with the appropriate operation; assign it without calling it.
+paired_trial = None
+trial_mean = None
+trial_std = None

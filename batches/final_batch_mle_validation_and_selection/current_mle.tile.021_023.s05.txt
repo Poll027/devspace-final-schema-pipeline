@@ -1,0 +1,75 @@
+Read the supplied evaluation function and configure its callable interfaces at the final TODO. Choose the appropriate supplied callable for each interface: reference_factory, count_errors, target_mean, target_std, validation_metric. Assign the callable itself, not its result. Keep the supplied data loading, evaluation functions and callable definitions unchanged; the checker calls those functions using your configured interfaces.
+# Supplied input loading and dependencies.
+import pandas as pd
+
+contract = pd.read_csv('acceptance_contract.csv').iloc[0]
+
+p_negative = contract['deployment_negative_probability']
+
+p_positive = contract['deployment_positive_probability']
+
+cost_FP = contract['cost_FP']
+
+cost_FN = contract['cost_FN']
+
+bound = contract['expected_cost_bound']
+
+train = pd.read_csv('reference_train.csv')
+
+validation = pd.read_csv('orders_validation.csv')
+
+X_train = train[['feature_1']].to_numpy()
+
+y_train = train['y_train'].to_numpy()
+
+X_validation = validation[['feature_1']].to_numpy()
+
+y_validation = validation['y_validation'].to_numpy()
+
+import numpy as np
+
+from sklearn.dummy import DummyClassifier
+
+from sklearn.metrics import accuracy_score
+
+# Supplied evaluation scaffolding. Configure its interfaces below; keep this block unchanged.
+if __name__:
+    def evaluate(X_train, y_train, X_validation, y, p_negative, p_positive, cost_FP, cost_FN):
+        estimator = reference_factory(strategy="most_frequent")
+        estimator.fit(X_train, y_train)
+        predictions = estimator.predict(X_validation)
+        FP = count_errors((y == 0) & (predictions == 1))
+        TN = count_errors((y == 0) & (predictions == 0))
+        FN = count_errors((y == 1) & (predictions == 0))
+        TP = count_errors((y == 1) & (predictions == 1))
+        negative_count = FP + TN
+        positive_count = FN + TP
+        FPR = None
+        FNR = None
+        expected_cost = None
+        if negative_count > 0:
+            FPR = FP / negative_count
+        if positive_count > 0:
+            FNR = FN / positive_count
+        if negative_count > 0:
+            if positive_count > 0:
+                expected_cost = p_negative * FPR * cost_FP + p_positive * FNR * cost_FN
+        training_mean = target_mean(y_train)
+        training_std = target_std(y_train, ddof=0)
+        training_positive_prevalence = count_errors(y_train == 1) / len(y_train)
+        training_negative_prevalence = count_errors(y_train == 0) / len(y_train)
+        validation_accuracy = validation_metric(y, predictions)
+        return {'FP': FP, 'TN': TN, 'FN': FN, 'TP': TP, 'actual_negative_count': negative_count, 'actual_positive_count': positive_count, 'FPR': FPR, 'FNR': FNR, 'expected_cost': expected_cost, 'predictions': predictions, 'rule': 'most_frequent', 'training_mean': training_mean, 'training_std': training_std, 'training_positive_prevalence': training_positive_prevalence, 'training_negative_prevalence': training_negative_prevalence, 'validation_accuracy': validation_accuracy}
+
+# Supplied callable operations; keep these assignments unchanged.
+supplied_DummyClassifier = DummyClassifier
+supplied_np_sum = np.sum
+supplied_np_mean = np.mean
+supplied_np_std = np.std
+supplied_accuracy_score = accuracy_score
+# TODO: configure each interface using the matching supplied callable, without calling it.
+reference_factory = None
+count_errors = None
+target_mean = None
+target_std = None
+validation_metric = None

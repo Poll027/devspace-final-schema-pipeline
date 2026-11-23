@@ -1,0 +1,71 @@
+import pandas as pd
+observations = pd.read_csv('slice_observations.csv')
+eligible = observations['eligible'].to_numpy()
+long_distance = observations['long_distance'].to_numpy()
+errors = observations['error'].to_numpy()
+losses = observations['loss'].to_numpy()
+reference_errors = observations['reference_error'].to_numpy()
+reference_losses = observations['reference_loss'].to_numpy()
+import numpy as np
+if True:
+
+    def evaluate(eligible, long_distance, errors, losses, reference_errors, reference_losses):
+        group = (eligible == True) & (long_distance == True)
+        n = count_mask(group)
+        error_count = count_mask(errors[group])
+        reference_count = count_mask(reference_errors[group])
+        return {'eligible_count': n, 'error_count': error_count, 'error_proportion': error_count / n, 'loss_mean': mean_values(losses[group]), 'loss_std': spread_values(losses[group], ddof=0), 'reference_eligible_count': n, 'reference_error_count': reference_count, 'reference_error_proportion': reference_count / n, 'reference_loss_mean': mean_values(reference_losses[group]), 'reference_loss_std': spread_values(reference_losses[group], ddof=0), 'finding': {'model': {'error_count': error_count, 'eligible_count': n, 'loss_mean': mean_values(losses[group]), 'loss_std': spread_values(losses[group], ddof=0)}, 'reference': {'error_count': reference_count, 'eligible_count': n, 'loss_mean': mean_values(reference_losses[group]), 'loss_std': spread_values(reference_losses[group], ddof=0)}, 'limitation': 'Observed eligible long-distance validation comparison only; no cause is established.'}}
+
+# TODO: replace the None placeholders with the required model/callables.
+count_mask = np.count_nonzero
+mean_values = np.mean
+spread_values = np.std
+
+TESTS
+[
+  {
+    "test_id": "t1",
+    "kind": "value_equals",
+    "spec": {
+      "expr": "{k: v for k, v in (evaluate(eligible, long_distance, errors, losses, reference_errors, reference_losses)).items() if k != \"finding\"}",
+      "expected": {
+        "eligible_count": 20,
+        "error_count": 8,
+        "error_proportion": 0.4,
+        "loss_mean": 0.4,
+        "loss_std": 0.48989794855663565,
+        "reference_eligible_count": 20,
+        "reference_error_count": 10,
+        "reference_error_proportion": 0.5,
+        "reference_loss_mean": 0.5,
+        "reference_loss_std": 0.5
+      }
+    },
+    "visible": true,
+    "message_on_fail": "Check the named result fields, fixed assumptions, and empty-group behavior."
+  },
+  {
+    "test_id": "finding_evidence",
+    "kind": "value_equals",
+    "spec": {
+      "expr": "({k: v for k, v in (evaluate(eligible, long_distance, errors, losses, reference_errors, reference_losses)).items() if k != \"finding\"}, (lambda r: all(r['finding'][side][key] == r[prefix + key] for side, prefix in [('model',''),('reference','reference_')] for key in ['error_count','eligible_count','loss_mean','loss_std']) and bool(r['finding']['limitation']))(evaluate(eligible, long_distance, errors, losses, reference_errors, reference_losses)))",
+      "expected": [
+        {
+          "eligible_count": 20,
+          "error_count": 8,
+          "error_proportion": 0.4,
+          "loss_mean": 0.4,
+          "loss_std": 0.48989794855663565,
+          "reference_eligible_count": 20,
+          "reference_error_count": 10,
+          "reference_error_proportion": 0.5,
+          "reference_loss_mean": 0.5,
+          "reference_loss_std": 0.5
+        },
+        true
+      ]
+    },
+    "visible": true,
+    "message_on_fail": "The finding must cite both measured error counts, denominators and loss summaries, with a noncausal limitation."
+  }
+]

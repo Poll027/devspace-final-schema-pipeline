@@ -1,0 +1,86 @@
+Configure the supplied evaluation scaffold by replacing None in the final interface assignments (conditional_count, alignment_check) with the appropriate operations. Assign callable objects, not call results. Read how each interface is used in the scaffold to choose its operation. Keep loading, evaluation logic and returned field names unchanged; the tests evaluate those returned records on the supplied validation inputs. The scaffold supplies the logic for matched-identity checks, guarded actual-class conditional rates and predictive acceptance. Preserve the supplied foundation-output-kind restriction, record fields, undefined-rate handling and cohort-bounded limitations. Use only the supplied matched validation observations and reference; no protected-test evidence is implied.
+# Supplied input loading and dependencies.
+import pandas as pd
+
+contract = pd.read_csv('acceptance_contract.csv').iloc[0]
+
+p_negative = contract['deployment_negative_probability']
+
+p_positive = contract['deployment_positive_probability']
+
+cost_FP = contract['cost_FP']
+
+cost_FN = contract['cost_FN']
+
+bound = contract['expected_cost_bound']
+
+validation = pd.read_csv('validation_scores.csv')
+
+outputs = pd.read_csv('foundation_outputs.csv')
+
+ids = validation['observation_id'].to_numpy()
+
+output_ids = outputs['observation_id'].to_numpy()
+
+y = validation['actual_label'].to_numpy()
+
+outputs_y = outputs['foundation_output'].to_numpy()
+
+reference = validation['reference_output'].to_numpy()
+
+output_kind = outputs['output_kind'].to_numpy()
+
+cohort_ids = validation['cohort_id'].to_numpy()
+
+output_cohort_ids = outputs['cohort_id'].to_numpy()
+
+import numpy as np
+
+count_errors = np.sum
+
+# Supplied evaluation scaffolding. Configure its interfaces below; keep this block unchanged.
+if __name__:
+    def deployment_weighted_cost(p_negative, FPR, cost_FP, p_positive, FNR, cost_FN):
+        return p_negative * FPR * cost_FP + p_positive * FNR * cost_FN
+
+    def quantities(y, predictions, p_negative, p_positive, cost_FP, cost_FN):
+        FP = conditional_count((y == 0) & (predictions == 1))
+        TN = conditional_count((y == 0) & (predictions == 0))
+        FN = conditional_count((y == 1) & (predictions == 0))
+        TP = conditional_count((y == 1) & (predictions == 1))
+        negative_count = FP + TN
+        positive_count = FN + TP
+        FPR = None
+        FNR = None
+        expected_cost = None
+        if negative_count > 0:
+            FPR = FP / negative_count
+        if positive_count > 0:
+            FNR = FN / positive_count
+        if negative_count > 0:
+            if positive_count > 0:
+                expected_cost = p_negative * FPR * cost_FP + p_positive * FNR * cost_FN
+        return {'FP': FP, 'TN': TN, 'FN': FN, 'TP': TP, 'actual_negative_count': negative_count, 'actual_positive_count': positive_count, 'FPR': FPR, 'FNR': FNR, 'expected_cost': expected_cost, 'accuracy': conditional_count(y == predictions) / y.shape[0]}
+
+    def evaluate(ids, output_ids, y, outputs_y, reference, output_kind, p_negative, p_positive, cost_FP, cost_FN, bound, cohort_ids, output_cohort_ids):
+        if not alignment_check(cohort_ids, output_cohort_ids):
+            return {'aligned': False, 'accepted': False, 'reason': 'unmatched cohorts'}
+        if ids.shape != y.shape or cohort_ids.shape != y.shape or output_ids.shape != outputs_y.shape or (output_cohort_ids.shape != outputs_y.shape) or (output_kind.shape != outputs_y.shape):
+            return {'aligned': False, 'accepted': False, 'reason': 'unmatched observations'}
+        if not alignment_check(ids, output_ids):
+            return {'aligned': False, 'accepted': False, 'reason': 'unmatched observations'}
+        if y.shape != outputs_y.shape or y.shape != reference.shape:
+            return {'aligned': False, 'accepted': False, 'reason': 'unmatched observations'}
+        if conditional_count(output_kind != 'foundation-model') > 0:
+            return {'aligned': False, 'accepted': False, 'reason': 'candidate is not the supplied foundation-model output kind'}
+        candidate = quantities(y, outputs_y, p_negative, p_positive, cost_FP, cost_FN)
+        baseline = quantities(y, reference, p_negative, p_positive, cost_FP, cost_FN)
+        accepted = False
+        if candidate['expected_cost'] is not None:
+            if candidate['expected_cost'] <= bound:
+                accepted = True
+        return {'aligned': True, 'candidate': candidate, 'baseline': baseline, 'accepted': accepted, 'bound': bound, 'limitations': 'Quality verdict is bounded to supplied order-task validation observations; no application construction, fitting or protected-test evidence is implied.'}
+
+# TODO: replace None with the appropriate operation; assign it without calling it.
+conditional_count = None
+alignment_check = None

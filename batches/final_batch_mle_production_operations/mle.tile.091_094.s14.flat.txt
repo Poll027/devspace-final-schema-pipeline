@@ -1,0 +1,37 @@
+import csv, json
+import numpy as np
+policy = json.loads('{"workload_scope": "order-lab", "budget_amount": 100, "period": "monthly", "threshold_ratio": 0.8, "predicate": "observed_spend>=budget_amount*threshold_ratio", "notification_topic": "lab-budget-events", "response_pipeline": "lab-safe-stop", "INSTANCE": "inference-lab", "ZONE": "lab-zone-a", "authorized_identity": "lab.operator", "secret_version_reference": "projects/order-lab/secrets/budget-client/versions/1", "residual_limitation": "Notifications can lag usage and do not enforce a hard spending cap."}')
+budget_replay_rows = list(csv.DictReader(open('budget_replay.csv')))
+budget_replay = {}
+budget_replay['fixture'] = np.array([r['fixture'] for r in budget_replay_rows])
+budget_replay['workload_scope'] = np.array([r['workload_scope'] for r in budget_replay_rows])
+budget_replay['budget_amount'] = np.array([float(r['budget_amount'] or 'nan') for r in budget_replay_rows])
+budget_replay['period'] = np.array([r['period'] for r in budget_replay_rows])
+budget_replay['threshold_ratio'] = np.array([float(r['threshold_ratio'] or 'nan') for r in budget_replay_rows])
+budget_replay['observed_spend'] = np.array([float(r['observed_spend'] or 'nan') for r in budget_replay_rows])
+budget_replay['INSTANCE'] = np.array([r['INSTANCE'] for r in budget_replay_rows])
+budget_replay['ZONE'] = np.array([r['ZONE'] for r in budget_replay_rows])
+budget_replay['notification_expected'] = np.array([r['notification_expected'] == 'True' for r in budget_replay_rows])
+budget_replay['response_expected'] = np.array([r['response_expected'] == 'True' for r in budget_replay_rows])
+budget_replay['expected_after_state'] = np.array([r['expected_after_state'] for r in budget_replay_rows])
+
+import yaml
+def apply_and_replay(config):
+    expected={k:policy[k] for k in ['workload_scope','budget_amount','period','threshold_ratio','notification_topic','response_pipeline','INSTANCE','ZONE','authorized_identity','secret_version_reference']}
+    if any(config.get(k)!=v for k,v in expected.items()): return {'status':'invalid_config','resolved':config}
+    results=[]
+    for r in budget_replay_rows:
+        crossed=float(r['observed_spend'])>=config['budget_amount']*config['threshold_ratio']
+        results.append({'fixture':r['fixture'],'notification':crossed,'actions':[{'command':'gcloud compute instances stop','INSTANCE':config['INSTANCE'],'ZONE':config['ZONE']}] if crossed else [],'before':{'INSTANCE':config['INSTANCE'],'ZONE':config['ZONE'],'state':'RUNNING'},'after':{'INSTANCE':config['INSTANCE'],'ZONE':config['ZONE'],'state':'TERMINATED' if crossed else 'RUNNING'},'logs':'runtime secret reference resolved; no literal credential captured'})
+    return {'resolved':config,'fixtures':results,'limitation':policy['residual_limitation']}
+
+approved_config = {'workload_scope': 'order-lab', 'budget_amount': 100, 'period': 'monthly', 'threshold_ratio': 0.8, 'notification_topic': 'lab-budget-events', 'response_pipeline': 'lab-safe-stop', 'INSTANCE': 'inference-lab', 'ZONE': 'lab-zone-a', 'authorized_identity': 'lab.operator', 'secret_version_reference': 'projects/order-lab/secrets/budget-client/versions/1'}
+approved_config['secretEnv']=['BUDGET_CLIENT']
+approved_config['event_binding']={'topic':policy['notification_topic'],'pipeline':policy['response_pipeline']}
+unapproved_config = dict(approved_config,INSTANCE='other-lab')
+
+config = approved_config
+with open('guardrail.yaml','w') as h: yaml.safe_dump(config,h)
+with open('guardrail.yaml') as h: resolved=yaml.safe_load(h)
+result=apply_and_replay(resolved) if config is not None else None
+

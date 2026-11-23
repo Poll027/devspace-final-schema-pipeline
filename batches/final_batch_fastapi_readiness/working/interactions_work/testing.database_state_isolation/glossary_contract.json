@@ -1,0 +1,127 @@
+{
+  "concept_id": "testing.database_state_isolation",
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "The situation",
+      "content": "A database test must see its own writes without leaving them behind for the next test. The fixture, session override and transaction boundary should form one isolated setup.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "definition",
+      "title": "The rule and its boundary",
+      "content": "A yield fixture performs setup before yield and teardown afterward, making resource cleanup explicit for each test's scope.",
+      "fact_ids": [
+        "f1"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "How to use the rule",
+      "content": "For transaction-isolated database tests, open an outer connection transaction, bind the test session to that connection with join_transaction_mode=\"create_savepoint\", and roll back the outer transaction during teardown. Override the application session provider with the test session provider, exercise a write through TestClient and read its resulting state through the same test database boundary. Close the test session and connection and restore overrides in teardown, verifying that a subsequent test does not inherit the first test's written state.",
+      "fact_ids": [
+        "f2",
+        "f3",
+        "f4"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "example",
+      "title": "Reason through an example",
+      "content": "Open an outer connection transaction and bind the test session with join_transaction_mode=\"create_savepoint\". Override the application session provider, write through TestClient and read through the same test database boundary. A yield fixture separates setup from teardown. During teardown, close the test session, roll back the outer transaction, close the connection, and restore dependency overrides, then verify a subsequent test does not inherit the write. Checking only the first test's successful response would miss leakage.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "misconception",
+      "title": "Keep this distinction",
+      "content": "A successful write test is not proof of test isolation. Verify teardown and a subsequent clean test boundary.",
+      "fact_ids": [
+        "f4"
+      ]
+    }
+  ],
+  "visual_anchor": {
+    "type": "code",
+    "purpose": "Make the fixture's setup, yield, and teardown sections visible alongside the two tests. Annotate the shared connection boundary for request writes and database reads, and show passing results for both execution orders."
+  },
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Make two existing database tests order independent: one writes an item through TestClient and verifies its state, while the other verifies that the item is absent within its own isolated database boundary.",
+    "success": "Both tests pass in either execution order. The writing test reads its own resulting state, and the other test never inherits that write. Teardown closes the session and connection, rolls back the outer transaction, and restores dependency overrides.",
+    "live_code": {
+      "required_skill": "Implement a function-scoped yield fixture that binds a test session to an outer connection transaction, replaces the application's session provider, and reliably restores resources and overrides.",
+      "allowed_syntax": [
+        "def",
+        "yield",
+        "try/finally",
+        "with",
+        "assert",
+        "@pytest.fixture(scope=\"function\")",
+        "engine.connect()",
+        "connection.begin()",
+        "Session(bind=connection, join_transaction_mode=\"create_savepoint\")",
+        "app.dependency_overrides",
+        "dict.copy()",
+        "dict.clear()",
+        "dict.update(...)",
+        "TestClient(app)",
+        "client.post(...)",
+        "client.get(...)",
+        "select(...)",
+        "session.execute(...)",
+        "session.get(...)",
+        "session.close()",
+        "transaction.rollback()",
+        "connection.close()"
+      ],
+      "blocked_syntax": [
+        "OAuth2AuthorizationCodeBearer(...)",
+        "Security(..., scopes=[...])"
+      ],
+      "starter_state_intent": "Provide the existing application, session provider, test engine, and item write/read expressions without introducing additional item fields. Include two tests that currently share persistent state and an incomplete fixture. Keep schema preparation outside the per-test transaction fixture.",
+      "observable_success": "Each test receives a fresh outer transaction and a session bound with create_savepoint. TestClient requests use the overridden session provider, and database assertions use the same test boundary. Both execution orders pass without inherited item state, and cleanup restores the original overrides even when a test fails."
+    }
+  },
+  "required_facts": [
+    {
+      "id": "f1",
+      "statement": "A yield fixture performs setup before yield and teardown afterward, making resource cleanup explicit for each test's scope.",
+      "source_refs": [
+        "pytest_getting_started#https://docs.pytest.org/en/stable/how-to/fixtures.html#teardown-cleanup-aka-fixture-finalization"
+      ]
+    },
+    {
+      "id": "f2",
+      "statement": "For transaction-isolated database tests, open an outer connection transaction, bind the test session to that connection with join_transaction_mode=\"create_savepoint\", and roll back the outer transaction during teardown.",
+      "source_refs": [
+        "sqlalchemy_20_tutorial#https://docs.sqlalchemy.org/en/20/orm/session_transaction.html#joining-a-session-into-an-external-transaction-such-as-for-test-suites"
+      ]
+    },
+    {
+      "id": "f3",
+      "statement": "Override the application session provider with the test session provider, exercise a write through TestClient and read its resulting state through the same test database boundary.",
+      "source_refs": [
+        "fastapi_docs_advanced#https://fastapi.tiangolo.com/advanced/testing-dependencies/#use-the-app-dependency-overrides-attribute",
+        "fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/testing/#using-testclient"
+      ]
+    },
+    {
+      "id": "f4",
+      "statement": "Close the test session and connection and restore overrides in teardown, verifying that a subsequent test does not inherit the first test's written state.",
+      "source_refs": [
+        "sqlalchemy_20_tutorial#https://docs.sqlalchemy.org/en/20/orm/session_transaction.html#joining-a-session-into-an-external-transaction-such-as-for-test-suites",
+        "pytest_getting_started#https://docs.pytest.org/en/stable/how-to/fixtures.html#teardown-cleanup-aka-fixture-finalization"
+      ]
+    }
+  ]
+}

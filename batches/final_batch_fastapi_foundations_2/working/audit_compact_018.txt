@@ -1,0 +1,283 @@
+tile_018.s01 One owner, several requests
+{"type": "prose", "text": "Application lifespan owns the shared client; requests borrow it. Initialization precedes request handling, and cleanup follows it. Define an @asynccontextmanager async function: acquire before yield, clean up after yield, and register it with FastAPI(lifespan=lifespan). Acquire this application-lifetime resource once rather than repeating startup work in each handler."}
+{"type": "diagram", "diagram_kind": "container", "title": "Lifespan encloses the request intervals", "nodes": [{"id": "lifetime", "label": "Application lifetime", "kind": "container"}, {"id": "acquire", "label": "Acquire SharedClient", "group": "lifetime"}, {"id": "yield", "label": "yield: start handling requests", "group": "lifetime"}, {"id": "requests", "label": "Request-handling period", "kind": "container", "group": "lifetime"}, {"id": "cleanup", "label": "Cleanup: close client", "group": "lifetime"}, {"id": "request_0", "label": "Request 1: borrow client", "group": "requests"}, {"id": "request_1", "label": "Request 2: borrow client", "group": "requests"}, {"id": "request_2", "label": "Request 3: borrow client", "group": "requests"}], "edges": [{"from": "acquire", "to": "yield"}, {"from": "yield", "to": "requests"}, {"from": "requests", "to": "cleanup"}], "alt_text": "One application lifetime encloses acquisition, yield, several request intervals borrowing the same client, and cleanup after request handling."}
+tile_018.s02 Application lifetime is the outer interval
+{"type": "prose", "text": "Picture one application lifetime enclosing several requests. Acquire SharedClient before those requests; each handler borrows it without repeating startup work. Cleanup belongs after the request-handling period. Repeating acquisition inside each handler instead describes per-request work, not the one-time startup goal. Choose lifespan for a resource intended to have application lifetime; this does not mean every resource should be global."}
+tile_018.s03 Trace acquisition and cleanup
+{"type": "prose", "text": "In the supplied service, shared_resources holds the client. Acquisition belongs before yield in the async context manager. The yielded interval is the request-handling period; cleanup afterward releases the client when that period finishes. FastAPI(lifespan=lifespan) connects this context to the application. Requests consume the resource, but lifespan owns its startup and cleanup."}
+{"type": "prose", "text": "Application-lifetime ownership is not per-request acquisition. Sharing this intended application-lifetime client avoids repeated startup work; it is not permission to share every kind of mutable object across requests."}
+tile_018.s04 Lifespan review
+tile_018.s05 Who owns the client?
+{
+  "type": "choice",
+  "interaction_id": "ix.tile_018.s05",
+  "difficulty": "intro",
+  "grading_mode": "client",
+  "standalone": true,
+  "anchors": [
+    "fastapi_backend.application_lifespan#assessment:determine_application_lifetime_resource_ownership"
+  ],
+  "public": {
+    "prompt": "A client is intended to live for the entire application request-handling period. Several handlers borrow it. Which ownership plan meets the one-time startup goal?",
+    "options": [
+      {
+        "option_id": "o1",
+        "text": "Acquire once in lifespan before request handling; let handlers borrow it; clean up after request handling."
+      },
+      {
+        "option_id": "o2",
+        "text": "Acquire a fresh client inside every handler invocation."
+      },
+      {
+        "option_id": "o3",
+        "text": "Acquire once in lifespan but close it before the request-handling period starts."
+      }
+    ],
+    "selection": "single",
+    "shuffle": true
+  },
+  "grading": {
+    "correct_option_ids": [
+      "o1"
+    ],
+    "option_feedback": {
+      "o1": {
+        "message": "Lifespan owns startup and cleanup for this intended application-lifetime client."
+      },
+      "o2": {
+        "message": "Per-request acquisition repeats startup work instead of meeting the one-time startup goal."
+      },
+      "o3": {
+        "message": "Cleanup follows request handling; closing beforehand does not keep the shared resource available during that period."
+      }
+    }
+  },
+  "feedback": {
+    "correct": {
+      "message": "Lifespan owns startup and cleanup for this intended application-lifetime client."
+    },
+    "incorrect": {
+      "message": "Compare the chosen option with the rule in the prompt; its feedback explains the specific mismatch."
+    },
+    "hints": [
+      "Draw the request-handling interval inside the application lifetime. Acquire the client before request handling begins and close it after request handling ends."
+    ],
+    "remediation_step_id": "tile_018.r01"
+  }
+}
+tile_018.s06 Which side of yield?
+{
+  "type": "choice",
+  "interaction_id": "ix.tile_018.s06",
+  "difficulty": "core",
+  "grading_mode": "client",
+  "standalone": true,
+  "anchors": [
+    "fastapi_backend.application_lifespan#assessment:identify_startup_and_shutdown_sides_of_yield"
+  ],
+  "public": {
+    "prompt": "In an @asynccontextmanager lifespan function, where do acquisition and cleanup belong relative to yield?",
+    "options": [
+      {
+        "option_id": "o1",
+        "text": "Acquire after yield and clean up before yield."
+      },
+      {
+        "option_id": "o2",
+        "text": "Acquire before yield and clean up after yield."
+      },
+      {
+        "option_id": "o3",
+        "text": "Acquire and close the client before yield."
+      }
+    ],
+    "selection": "single",
+    "shuffle": true
+  },
+  "grading": {
+    "correct_option_ids": [
+      "o2"
+    ],
+    "option_feedback": {
+      "o1": {
+        "message": "Acquisition must precede request handling; this reverses startup and cleanup."
+      },
+      "o2": {
+        "message": "Yield separates initialization from the request-handling interval; cleanup follows that interval."
+      },
+      "o3": {
+        "message": "Closing before yield puts cleanup before the request-handling interval instead of after it."
+      }
+    }
+  },
+  "feedback": {
+    "correct": {
+      "message": "Yield separates initialization from the request-handling interval; cleanup follows that interval."
+    },
+    "incorrect": {
+      "message": "Compare the chosen option with the rule in the prompt; its feedback explains the specific mismatch."
+    },
+    "hints": [
+      "Draw the request-handling interval inside the application lifetime. Acquire the client before request handling begins and close it after request handling ends."
+    ],
+    "remediation_step_id": "tile_018.r02"
+  }
+}
+tile_018.s07 Complete and register lifespan
+{
+  "type": "code_exercise",
+  "interaction_id": "ix.tile_018.s07",
+  "difficulty": "stretch",
+  "grading_mode": "client",
+  "standalone": false,
+  "anchors": [
+    "fastapi_backend.application_lifespan#practice",
+    "fastapi_backend.application_lifespan#assessment:recognize_lifespan_registration"
+  ],
+  "public": {
+    "prompt": "Complete the marked lifespan section and application construction. Acquire one supplied SharedClient before yield, store it as shared_resources[\"client\"], close that same client after the yielded interval, and register lifespan with FastAPI. Leave the supplied stand-in and observe(borrows) harness unchanged. Its observations must show one construction, repeated borrowing of the same open instance, one close on exit, and registration.",
+    "runtime": {
+      "kind": "python_asgi",
+      "version": "0.29.5",
+      "packages": [
+        "fastapi"
+      ]
+    },
+    "workspace": {
+      "files": [
+        {
+          "path": "main.py",
+          "role": "editable",
+          "language": "python",
+          "content": "class SharedClient:\n    constructions = 0\n    closures = 0\n\n    def __init__(self):\n        type(self).constructions += 1\n        self.closed = False\n\n    def close(self):\n        type(self).closures += 1\n        self.closed = True\n\nfrom contextlib import asynccontextmanager\nfrom fastapi import FastAPI\n\nshared_resources = {}\n\n@asynccontextmanager\nasync def lifespan(app):\n    # TODO: acquire one SharedClient and store it under the key \"client\".\n    # TODO: close that same client during cleanup after yield.\n    yield\n\n# TODO: register lifespan when constructing the application.\napp = FastAPI()\n\n# Supplied observation harness: do not edit.\nimport asyncio\nasync def _observe(borrows):\n    SharedClient.constructions = 0\n    SharedClient.closures = 0\n    shared_resources.clear()\n    before = [SharedClient.constructions, SharedClient.closures]\n    async with app.router.lifespan_context(app):\n        clients = [shared_resources.get(\"client\") for _ in range(borrows)]\n        first = clients[0]\n        same = first is not None and all(c is first for c in clients)\n        during = [SharedClient.constructions, SharedClient.closures]\n        closed_during = None if first is None else first.closed\n    return {\"before\": before, \"during\": during,\n            \"after\": [SharedClient.constructions, SharedClient.closures],\n            \"borrowed_same\": same, \"borrows\": borrows,\n            \"closed_during\": closed_during,\n            \"closed_after\": None if first is None else first.closed,\n            \"registered\": app.router.lifespan_context is lifespan}\ndef observe(borrows):\n    coroutine = _observe(borrows)\n    try:\n        coroutine.send(None)\n    except StopIteration as done:\n        return done.value\n    raise RuntimeError(\"The local stand-in must not suspend for external I/O\")\n"
+        }
+      ],
+      "entry": "main.py"
+    },
+    "constraints": {
+      "allowed_syntax": [
+        "from contextlib import asynccontextmanager",
+        "from fastapi import FastAPI",
+        "@asynccontextmanager",
+        "async def lifespan(app):",
+        "yield",
+        "try/finally",
+        "variable assignment",
+        "dictionary literals and key access",
+        "SharedClient()",
+        "client.close()",
+        "FastAPI(lifespan=lifespan)"
+      ],
+      "blocked_syntax": [
+        "@app.get",
+        "@app.post",
+        "APIRouter(...)",
+        "Depends(...)",
+        "HTTPException(...)",
+        "httpx.AsyncClient(...)",
+        "TestClient(...)"
+      ]
+    }
+  },
+  "grading": {
+    "solution_files": [
+      {
+        "path": "main.py",
+        "content": "class SharedClient:\n    constructions = 0\n    closures = 0\n\n    def __init__(self):\n        type(self).constructions += 1\n        self.closed = False\n\n    def close(self):\n        type(self).closures += 1\n        self.closed = True\n\nfrom contextlib import asynccontextmanager\nfrom fastapi import FastAPI\n\nshared_resources = {}\n\n@asynccontextmanager\nasync def lifespan(app):\n    # TODO: acquire one SharedClient and store it under the key \"client\".\n    # TODO: close that same client during cleanup after yield.\n    client = SharedClient()\n    shared_resources[\"client\"] = client\n    try:\n        yield\n    finally:\n        client.close()\n\n# TODO: register lifespan when constructing the application.\napp = FastAPI(lifespan=lifespan)\n\n# Supplied observation harness: do not edit.\nimport asyncio\nasync def _observe(borrows):\n    SharedClient.constructions = 0\n    SharedClient.closures = 0\n    shared_resources.clear()\n    before = [SharedClient.constructions, SharedClient.closures]\n    async with app.router.lifespan_context(app):\n        clients = [shared_resources.get(\"client\") for _ in range(borrows)]\n        first = clients[0]\n        same = first is not None and all(c is first for c in clients)\n        during = [SharedClient.constructions, SharedClient.closures]\n        closed_during = None if first is None else first.closed\n    return {\"before\": before, \"during\": during,\n            \"after\": [SharedClient.constructions, SharedClient.closures],\n            \"borrowed_same\": same, \"borrows\": borrows,\n            \"closed_during\": closed_during,\n            \"closed_after\": None if first is None else first.closed,\n            \"registered\": app.router.lifespan_context is lifespan}\ndef observe(borrows):\n    coroutine = _observe(borrows)\n    try:\n        coroutine.send(None)\n    except StopIteration as done:\n        return done.value\n    raise RuntimeError(\"The local stand-in must not suspend for external I/O\")\n"
+      }
+    ],
+    "tests": [
+      {
+        "test_id": "t0",
+        "kind": "function_call",
+        "spec": {
+          "function": "observe",
+          "args": [
+            2
+          ],
+          "expected": {
+            "before": [
+              0,
+              0
+            ],
+            "during": [
+              1,
+              0
+            ],
+            "after": [
+              1,
+              1
+            ],
+            "borrowed_same": true,
+            "borrows": 2,
+            "closed_during": false,
+            "closed_after": true,
+            "registered": true
+          }
+        },
+        "visible": true,
+        "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+      },
+      {
+        "test_id": "t1",
+        "kind": "function_call",
+        "spec": {
+          "function": "observe",
+          "args": [
+            4
+          ],
+          "expected": {
+            "before": [
+              0,
+              0
+            ],
+            "during": [
+              1,
+              0
+            ],
+            "after": [
+              1,
+              1
+            ],
+            "borrowed_same": true,
+            "borrows": 4,
+            "closed_during": false,
+            "closed_after": true,
+            "registered": true
+          }
+        },
+        "visible": true,
+        "message_on_fail": "The supplied observation does not meet the declared resource, association, or validation contract."
+      }
+    ],
+    "execution_provenance": {
+      "runtime": "pyodide",
+      "runtime_version": "0.29.5",
+      "solution_sha256": "037be3b665d11fc13881a8ee069bc7beeeec08c544e106d799de870e5443d171",
+      "tests_passed": 2
+    },
+    "hidden_checks": []
+  },
+  "feedback": {
+    "correct": {
+      "message": "The registered lifespan creates one shared client, lends the same open instance during its yielded interval, and closes it on exit."
+    },
+    "incorrect": {
+      "message": "Check acquisition before yield, cleanup after yield, the shared dictionary entry, and FastAPI lifespan registration."
+    },
+    "hints": [
+      "Draw the request-handling interval inside the application lifetime. Acquire the client before request handling begins and close it after request handling ends."
+    ],
+    "remediation_step_id": "tile_018.r03"
+  }
+}
+tile_018.s08 Keep ownership explicit
+{"type": "prose", "text": "Lifespan initializes before request handling and cleans up afterward.", "role": "takeaway"}
+{"type": "prose", "text": "Acquire before yield, clean up after yield, and register with FastAPI(lifespan=lifespan). Intended application-lifetime resources are acquired once and borrowed by handlers.", "role": "takeaway"}
+{"type": "up_next", "title": "Orm relationship mapping", "text": "Next: distinguish a stored database association from Python object navigation."}
+tile_018.r01 Lifespan owns; requests borrow
+{"type": "prose", "text": "Initialize the intended application-lifetime SharedClient before request handling and clean it up afterward. Handlers borrow that one resource without repeating its startup work. Contrast this with constructing a client in every handler: that is per-request acquisition, not the shared-lifetime goal."}
+tile_018.r02 Before yield versus after yield
+{"type": "prose", "text": "In an @asynccontextmanager async lifespan function, acquisition comes before yield, before the application takes requests. Cleanup comes after yield, after request handling finishes. Register that context with FastAPI(lifespan=lifespan); reversing acquisition and cleanup does not describe this lifetime."}
+tile_018.r03 Define the context, then register it
+{"type": "prose", "text": "Defining lifespan alone is not registration. Use an @asynccontextmanager async function with client acquisition before yield and cleanup after yield, then pass the function through FastAPI(lifespan=lifespan), rather than leaving the supplied FastAPI() construction unchanged."}

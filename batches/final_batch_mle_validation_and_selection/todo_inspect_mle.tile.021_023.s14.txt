@@ -1,0 +1,65 @@
+Configure the supplied evaluation scaffold by replacing None in the final interface assignments (estimator_factory) with the appropriate operations. Assign callable objects, not call results. Read how each interface is used in the scaffold to choose its operation. Keep loading, evaluation logic and returned field names unchanged; the tests evaluate those returned records on the supplied validation inputs. The scaffold supplies the logic that verify feature/label dimensions and corresponding observation counts, construct LogisticRegression(random_state=0), fit on training, predict validation inputs, and calculate guarded conditional error rates and expected cost. Preserve the existing result fields.
+# Supplied input loading and dependencies.
+import pandas as pd
+
+contract = pd.read_csv('acceptance_contract.csv').iloc[0]
+
+p_negative = contract['deployment_negative_probability']
+
+p_positive = contract['deployment_positive_probability']
+
+cost_FP = contract['cost_FP']
+
+cost_FN = contract['cost_FN']
+
+bound = contract['expected_cost_bound']
+
+train = pd.read_csv('orders_train.csv')
+
+validation = pd.read_csv('orders_validation.csv')
+
+X_train = train[['feature_1', 'feature_2']].to_numpy()
+
+y_train = train['y_train'].to_numpy()
+
+X_validation = validation[['feature_1', 'feature_2']].to_numpy()
+
+y_validation = validation['y_validation'].to_numpy()
+
+import numpy as np
+
+from sklearn.linear_model import LogisticRegression
+
+# Supplied evaluation scaffolding. Configure its interfaces below; keep this block unchanged.
+if __name__:
+    def evaluate(X_train, y_train, X_validation, y, p_negative, p_positive, cost_FP, cost_FN):
+        assert X_train.ndim == 2
+        assert y_train.ndim == 1
+        assert X_validation.ndim == 2
+        assert y.ndim == 1
+        assert X_validation.shape[1] == X_train.shape[1]
+        assert X_train.shape[0] == y_train.shape[0]
+        assert X_validation.shape[0] == y.shape[0]
+        estimator = estimator_factory(random_state=0)
+        estimator.fit(X_train, y_train)
+        predictions = estimator.predict(X_validation)
+        FP = np.sum((y == 0) & (predictions == 1))
+        TN = np.sum((y == 0) & (predictions == 0))
+        FN = np.sum((y == 1) & (predictions == 0))
+        TP = np.sum((y == 1) & (predictions == 1))
+        negative_count = FP + TN
+        positive_count = FN + TP
+        FPR = None
+        FNR = None
+        expected_cost = None
+        if negative_count > 0:
+            FPR = FP / negative_count
+        if positive_count > 0:
+            FNR = FN / positive_count
+        if negative_count > 0:
+            if positive_count > 0:
+                expected_cost = p_negative * FPR * cost_FP + p_positive * FNR * cost_FN
+        return {'FP': FP, 'TN': TN, 'FN': FN, 'TP': TP, 'actual_negative_count': negative_count, 'actual_positive_count': positive_count, 'FPR': FPR, 'FNR': FNR, 'expected_cost': expected_cost, 'predictions': predictions, 'training_shape': X_train.shape, 'training_label_shape': y_train.shape}
+
+# TODO: replace None with the appropriate operation; assign it without calling it.
+estimator_factory = None

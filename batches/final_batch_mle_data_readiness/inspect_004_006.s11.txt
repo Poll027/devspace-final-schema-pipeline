@@ -1,0 +1,66 @@
+PROMPT In the supplied workflow, replace only `learner_operation = None` with a binding of `learner_operation` to `supplied_operation` (without calling it). The helper implements `pd.read_csv(file_handle, chunksize=row_limit, dtype=FIXTURES['declared_types'])`. Leave the inputs, helper and verification scaffolding unchanged. This is a scaffolded operation-binding task; the remaining implementation is supplied. The completed workflow must meet the following output contract: Implement inspect_chunks(path, budget). Compute row_limit = budget // (feature_count * element_width) using the supplied fixed-width contract. Keep the UTF-8 input stream open while iterating pd.read_csv with explicit dtype and chunksize. For every matrix, including the final short chunk, assert actual shape-times-itemsize equals nbytes and is <= budget. Return {row_limit, largest_bytes}; largest_bytes is the maximum single-chunk element allocation, not reader/process memory. Do not retain matrices.
+SOLUTION
+# Supplied inputs and operation; do not edit.
+FIXTURES = {'path': 'ds.chunked_orders.csv', 'declared_types': {'feature_1': 'float64', 'feature_2': 'float64', 'feature_3': 'float64', 'feature_4': 'float64', 'feature_5': 'float64', 'feature_6': 'float64', 'feature_7': 'float64', 'feature_8': 'float64', 'feature_9': 'float64', 'feature_10': 'float64', 'feature_11': 'float64', 'feature_12': 'float64', 'feature_13': 'float64', 'feature_14': 'float64', 'feature_15': 'float64', 'feature_16': 'float64', 'feature_17': 'float64', 'feature_18': 'float64', 'feature_19': 'float64', 'feature_20': 'float64'}, 'array_budget': 16000, 'feature_count': 20, 'element_width': 8}
+if True:
+
+    def supplied_operation(FIXTURES, file_handle, pd, row_limit):
+        return pd.read_csv(file_handle, chunksize=row_limit, dtype=FIXTURES['declared_types'])
+
+learner_operation = supplied_operation
+
+# Supplied workflow and verification scaffolding; do not edit.
+if True:
+    import pandas as pd
+
+    def inspect_chunks(path, budget):
+        row_limit = budget // (FIXTURES['feature_count'] * FIXTURES['element_width'])
+        largest_bytes = 0
+        with open(path, 'r', encoding='utf-8') as file_handle:
+            for chunk in learner_operation(FIXTURES, file_handle, pd, row_limit):
+                matrix = chunk.to_numpy()
+                rows, features = matrix.shape
+                element_bytes = rows * features * matrix.dtype.itemsize
+                assert element_bytes == matrix.nbytes
+                assert element_bytes <= budget
+                largest_bytes = max(largest_bytes, element_bytes)
+                del matrix
+        return {'row_limit': row_limit, 'largest_bytes': largest_bytes}
+
+TESTS
+[
+  {
+    "test_id": "case_1",
+    "kind": "function_call",
+    "spec": {
+      "function": "inspect_chunks",
+      "args": [
+        "ds.chunked_orders.csv",
+        16000
+      ],
+      "expected": {
+        "row_limit": 100,
+        "largest_bytes": 16000
+      }
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  },
+  {
+    "test_id": "case_2",
+    "kind": "function_call",
+    "spec": {
+      "function": "inspect_chunks",
+      "args": [
+        "ds.chunked_orders.csv",
+        8000
+      ],
+      "expected": {
+        "row_limit": 50,
+        "largest_bytes": 8000
+      }
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  }
+]
+CONSTRAINTS
+{"allowed_syntax": ["import pandas as pd", "def", "function parameters and calls", "assignment", "return", "with open(...) as file_handle", "pd.read_csv(file_handle, chunksize=row_limit, dtype=declared_types)", "for", "integer and string literals", "dictionary access", "tuple unpacking", "multiplication", "floor division", "comparison operators", "assert", "max", "chunk.to_numpy()", "matrix.shape", "matrix.dtype.itemsize", "matrix.nbytes", "del"], "blocked_syntax": ["DataFrame.describe()", "DataFrame.drop_duplicates()", "DataFrame.fillna()", "train_test_split()", "StandardScaler()", "OneHotEncoder()", "Pipeline()", "model.fit()", "model.predict()", "torch.tensor()", "DataLoader()"]}

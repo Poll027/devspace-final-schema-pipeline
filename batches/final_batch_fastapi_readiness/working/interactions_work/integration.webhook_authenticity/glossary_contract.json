@@ -1,0 +1,119 @@
+{
+  "concept_id": "integration.webhook_authenticity",
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "The situation",
+      "content": "A webhook signature authenticates the delivered bytes. Parsing and rewriting a body before verification can lose the exact input the publisher signed.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "definition",
+      "title": "The rule and its boundary",
+      "content": "Read await request.body() to obtain the raw request bytes for signature verification before parsing or modifying the webhook body.",
+      "fact_ids": [
+        "f1"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "How to use the rule",
+      "content": "Verify every delivery with the publisher's supported SDK or verification library against the raw bytes and endpoint signing secret, following that publisher's signing format rather than inventing a canonicalization. Reject missing or invalid signatures before processing the event, and do not disclose the verification secret or failure's internal details in the response. Test a valid signed delivery and deliveries with a modified body or absent signature, checking that only the valid delivery reaches event processing.",
+      "fact_ids": [
+        "f2",
+        "f3",
+        "f4"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "example",
+      "title": "Reason through an example",
+      "content": "Read raw bytes with await request.body() and verify every delivery through the publisher-supported SDK or library using the endpoint signing secret and supplied signing format. Only then move to parsing and processing. Test a valid signed body, a modified body and an absent signature. Only the valid delivery should reach event processing, and rejection should not reveal the secret or verification internals.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "misconception",
+      "title": "Keep this distinction",
+      "content": "Do not invent your own canonicalized body format. Verify the raw bytes using the publisher's supported signing contract.",
+      "fact_ids": [
+        "f1",
+        "f2"
+      ]
+    }
+  ],
+  "visual_anchor": {
+    "type": "code",
+    "purpose": "Make the handler's order visible: raw-byte acquisition, signature presence check, provider-supported verification with the endpoint secret, safe rejection, and processing only after verification. Place the three test outcomes beside the corresponding branches."
+  },
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Implement one provider's webhook authenticity check using await request.body(), the supplied signature header, the endpoint signing secret, and the provider-supported verification library.",
+    "success": "A valid signed delivery reaches event processing. The same delivery with modified body bytes, and a delivery without a signature, are rejected before processing with responses that expose neither the secret nor verification internals.",
+    "live_code": {
+      "required_skill": "Verify the original request bytes before parsing or processing, using the provider's supported signing contract, and test the acceptance and rejection paths.",
+      "allowed_syntax": [
+        "async def and await",
+        "await request.body()",
+        "request.headers.get(...)",
+        "Variable assignment",
+        "if statements and return",
+        "try and except for documented provider verification exceptions",
+        "raise HTTPException with a generic public detail",
+        "Calls to the supplied provider-supported verification library",
+        "Calls to the supplied event-processing function after verification",
+        "String and bytes literals",
+        "TestClient requests with content and headers",
+        "assert statements"
+      ],
+      "blocked_syntax": [
+        "Delivery-ID persistence and duplicate-delivery checks",
+        "Custom timestamp-age acceptance checks",
+        "Automatic retry loops",
+        "Permission or scope enforcement",
+        "Object-ownership authorization checks"
+      ],
+      "starter_state_intent": "Provide an async webhook handler, validated endpoint signing-secret configuration, one provider's installed verification library and documented signature header, a supplied event-processing recorder, and a valid signed raw-body fixture. Leave the verification gate and the three delivery tests incomplete.",
+      "observable_success": "Tests submit the valid fixture unchanged, submit modified bytes with its original signature, and omit the signature. Only the unchanged signed delivery invokes the processing recorder; both rejected deliveries return generic failures without sensitive details."
+    }
+  },
+  "required_facts": [
+    {
+      "id": "f1",
+      "statement": "Read await request.body() to obtain the raw request bytes for signature verification before parsing or modifying the webhook body.",
+      "source_refs": [
+        "fastapi_docs_advanced#https://starlette.dev/requests/#body"
+      ]
+    },
+    {
+      "id": "f2",
+      "statement": "Verify every delivery with the publisher's supported SDK or verification library against the raw bytes and endpoint signing secret, following that publisher's signing format rather than inventing a canonicalization.",
+      "source_refs": [
+        "owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Webhook_Security_Cheat_Sheet.html#signature-verification"
+      ]
+    },
+    {
+      "id": "f3",
+      "statement": "Reject missing or invalid signatures before processing the event, and do not disclose the verification secret or failure's internal details in the response.",
+      "source_refs": [
+        "owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Webhook_Security_Cheat_Sheet.html#signature-verification"
+      ]
+    },
+    {
+      "id": "f4",
+      "statement": "Test a valid signed delivery and deliveries with a modified body or absent signature, checking that only the valid delivery reaches event processing.",
+      "source_refs": [
+        "owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Webhook_Security_Cheat_Sheet.html#security-testing"
+      ]
+    }
+  ]
+}

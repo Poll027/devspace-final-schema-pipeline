@@ -1,0 +1,103 @@
+import csv, json
+
+import numpy as np
+
+policy = json.loads('{"reference_id": "reference", "production_window": {"start": "2026-01-02T10:00:00Z", "end": "2026-01-02T11:00:00Z"}, "fixed_edges": [0, 5, 10], "eligible_numeric_range": [0, 10], "declared_categories": ["short_distance", "long_distance", "not_reported"], "declared_classes": ["on_time", "late", "abstain"], "ddof": 0, "window_membership": "All rows of production.csv are in the declared bounded window; reference.csv is the approved reference. Alternate fixtures are independent windows.", "summary_client": "from summary_client import emit; emit(record) appends a single JSON record to summary.jsonl"}')
+
+reference_rows = list(csv.DictReader(open('reference.csv')))
+
+reference = {}
+
+reference['numeric_values'] = np.array([float(r['numeric_values'] or 'nan') for r in reference_rows])
+
+reference['category'] = np.array([r['category'] for r in reference_rows])
+
+reference['predicted_class'] = np.array([r['predicted_class'] for r in reference_rows])
+
+production_rows = list(csv.DictReader(open('production.csv')))
+
+production = {}
+
+production['numeric_values'] = np.array([float(r['numeric_values'] or 'nan') for r in production_rows])
+
+production['category'] = np.array([r['category'] for r in production_rows])
+
+production['predicted_class'] = np.array([r['predicted_class'] for r in production_rows])
+
+records = []
+
+def emit(record):
+    records.append(record)
+
+ref_values = reference['numeric_values']
+
+ref_values = ref_values[(ref_values >= 0) & (ref_values <= 10)]
+
+cur_values = production['numeric_values']
+
+cur_values = cur_values[(cur_values >= 0) & (cur_values <= 10)]
+
+fixed_edges = policy['fixed_edges']
+
+# Learner edit
+ref_mean = np.mean(ref_values)
+
+# Learner edit
+cur_mean = np.mean(cur_values)
+
+# Learner edit
+ref_std = np.std(ref_values, ddof=0)
+
+# Learner edit
+cur_std = np.std(cur_values, ddof=0)
+
+# Learner edit
+ref_counts = np.histogram(ref_values, bins=fixed_edges)
+
+# Learner edit
+cur_counts = np.histogram(cur_values, bins=fixed_edges)
+
+# Supplied calculation (unchanged)
+supplied_ref_proportions = ref_counts[0] / len(ref_values)
+
+# Learner edit
+ref_proportions = supplied_ref_proportions
+
+ref_categories = {}
+
+# Supplied infrastructure (unchanged)
+for category in policy['declared_categories']:
+    ref_categories[category] = np.sum(reference['category'] == category) / len(reference['category'])
+
+ref_classes = {}
+
+# Supplied infrastructure (unchanged)
+for predicted_class in policy['declared_classes']:
+    ref_classes[predicted_class] = np.sum(reference['predicted_class'] == predicted_class) / len(reference['predicted_class'])
+
+# Supplied calculation (unchanged)
+supplied_cur_proportions = cur_counts[0] / len(cur_values)
+
+# Learner edit
+cur_proportions = supplied_cur_proportions
+
+cur_categories = {}
+
+# Supplied infrastructure (unchanged)
+for category in policy['declared_categories']:
+    cur_categories[category] = np.sum(production['category'] == category) / len(production['category'])
+
+cur_classes = {}
+
+# Supplied infrastructure (unchanged)
+for predicted_class in policy['declared_classes']:
+    cur_classes[predicted_class] = np.sum(production['predicted_class'] == predicted_class) / len(production['predicted_class'])
+
+def complete_summary(data, values, mean, std, proportions, categories, classes):
+    if mean is None or std is None or proportions is None:
+        return None
+    return {'eligible_total': len(values), 'category_total': len(data['category']), 'class_total': len(data['predicted_class']), 'bin_proportions': proportions, 'mean': mean, 'std': std, 'categories': categories, 'classes': classes}
+
+record = {'reference_id': policy['reference_id'], 'window': policy['production_window'], 'fixed_edges': fixed_edges, 'category_definitions': policy['declared_categories'], 'class_definitions': policy['declared_classes'], 'ddof': policy['ddof'], 'reference': complete_summary(reference, ref_values, ref_mean, ref_std, ref_proportions, ref_categories, ref_classes), 'production': complete_summary(production, cur_values, cur_mean, cur_std, cur_proportions, cur_categories, cur_classes)}
+
+emit(record)

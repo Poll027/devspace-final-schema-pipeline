@@ -1,0 +1,2344 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "machine_learning_engineer",
+  "tile_id": "mle.tile.041_043",
+  "toc_location": {
+    "region_id": "mle.region.custom_training",
+    "terrain_id": "mle.terrain.gradient_training"
+  },
+  "title": "Train, Evaluate and Persist Weights",
+  "summary": "Review minibatch updates, dropout modes and restored-state prediction checks.",
+  "concept_ids": [
+    "mle.minibatch_training_loop",
+    "mle.training_evaluation_modes",
+    "mle.weight_persistence"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_machine_learning_engineer",
+    "toc_freeze_hash": "f38fc7a62df329118a32053d1557dcc9a74ada7a9c52269ee9a0c50d28a67a36",
+    "glossary_bundle_hashes": {
+      "mle.minibatch_training_loop": "ed791908b5d6eda1e136f3ec2039336be067daeb187c78d243c04353201b2673",
+      "mle.training_evaluation_modes": "f43952d35b382ead6563cd29c36840f9eb2e8b83a001d1e4dd30f85ed4aca4ff",
+      "mle.weight_persistence": "1c1127645494e030ab1c7f82ceb127bf8d245001d42abf98d32ea281ed9c707f"
+    },
+    "scenario_registry_hash": "47180d4314306d6e20c3b05167ed92b60ac29422068d33e3e42fb23c4e968d16"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core"
+    ],
+    "block_types": [
+      "code_walkthrough",
+      "media_group",
+      "prose",
+      "side_by_side",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "classify"
+    ],
+    "runtimes": [],
+    "asset_ids": []
+  },
+  "pacing": {
+    "estimated_minutes": 14.1
+  },
+  "steps": [
+    {
+      "step_id": "mle.tile.041_043.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.minibatch_training_loop"
+      ],
+      "eyebrow": "Understand",
+      "title": "Implement the minibatch forward, backward and optimizer-step loop",
+      "lineage": {
+        "concept_ids": [
+          "mle.minibatch_training_loop"
+        ],
+        "teaching_block_ids": [
+          "mle.minibatch_training_loop#tb1",
+          "mle.minibatch_training_loop#tb2",
+          "mle.minibatch_training_loop#tb3"
+        ],
+        "fact_ids": [
+          "mle.minibatch_training_loop#f1",
+          "mle.minibatch_training_loop#f2",
+          "mle.minibatch_training_loop#f3",
+          "mle.minibatch_training_loop#f4",
+          "mle.minibatch_training_loop#f5"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.minibatch_training_loop#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Every minibatch in each declared epoch needs the intended current-gradient update and enough loss evidence to interpret partial batches.",
+          "role": "intro",
+          "lineage": {
+            "concept_ids": [
+              "mle.minibatch_training_loop"
+            ],
+            "teaching_block_ids": [
+              "mle.minibatch_training_loop#tb1"
+            ],
+            "fact_ids": [],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Inside each epoch, iterate for features, targets in loader. Compute model(features) and loss_fn(predictions, targets). For each minibatch, call optimizer.zero_grad(), loss.backward() and optimizer.step(). Collect scalar loss.item() evidence with batch counts so an incomplete batch is represented correctly in the epoch summary.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.minibatch_training_loop"
+            ],
+            "teaching_block_ids": [
+              "mle.minibatch_training_loop#tb2"
+            ],
+            "fact_ids": [
+              "mle.minibatch_training_loop#f1",
+              "mle.minibatch_training_loop#f2",
+              "mle.minibatch_training_loop#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Assert the valid, boundary and failure predicates; a false predicate raises AssertionError during ordinary non-optimized execution. In a plain-SGD fixture, retain pre-step parameters and check parameter_after − parameter_before against −learning_rate × current_gradient under tolerance.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.minibatch_training_loop"
+            ],
+            "teaching_block_ids": [
+              "mle.minibatch_training_loop#tb3"
+            ],
+            "fact_ids": [
+              "mle.minibatch_training_loop#f4",
+              "mle.minibatch_training_loop#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "code_walkthrough",
+          "language": "python",
+          "code": "import torch\nfrom torch import nn\nfrom torch.utils.data import TensorDataset, DataLoader\nfeatures = torch.arange(5, dtype=torch.float32).reshape(5, 1)\ntargets = features.clone()\nloader = DataLoader(TensorDataset(features, targets), batch_size=2,\n                    shuffle=False, drop_last=False)\nmodel = nn.Linear(1, 1, bias=False)\nwith torch.no_grad():\n    model.weight.fill_(2.)\nlearning_rate = 0.1\nrtol, atol = 1e-5, 1e-6\noptimizer = torch.optim.SGD(model.parameters(), lr=learning_rate,\n                            momentum=0, weight_decay=0)\ncriterion = nn.MSELoss(reduction=\"mean\")\nepoch_records = []\nstep_checks = []\nfor epoch in range(1):\n    loss_count_pairs = []\n    for batch_features, batch_targets in loader:\n        batch_count = len(batch_features)\n        assert batch_count == len(batch_targets)\n        assert torch.equal(batch_features, batch_targets)\n        parameter_before = model.weight.detach().clone()\n        optimizer.zero_grad()\n        outputs = model(batch_features)\n        loss = criterion(outputs, batch_targets)\n        loss.backward()\n        current_gradient = model.weight.grad.detach().clone()\n        optimizer.step()\n        parameter_after = model.weight.detach().clone()\n        change_ok = torch.allclose(parameter_after - parameter_before,\n                                   -learning_rate * current_gradient,\n                                   rtol=rtol, atol=atol)\n        assert change_ok\n        step_checks.append((parameter_before, current_gradient, parameter_after, change_ok))\n        loss_count_pairs.append((loss.item(), batch_count))\n    assert [count for scalar_loss, count in loss_count_pairs] == [2, 2, 1]\n    epoch_records.append(loss_count_pairs)",
+          "reveal": "all",
+          "lineage": {
+            "concept_ids": [
+              "mle.minibatch_training_loop"
+            ],
+            "teaching_block_ids": [
+              "mle.minibatch_training_loop#tb1",
+              "mle.minibatch_training_loop#tb2",
+              "mle.minibatch_training_loop#tb3"
+            ],
+            "fact_ids": [
+              "mle.minibatch_training_loop#f1",
+              "mle.minibatch_training_loop#f2",
+              "mle.minibatch_training_loop#f3",
+              "mle.minibatch_training_loop#f4",
+              "mle.minibatch_training_loop#f5"
+            ],
+            "segment_ids": [],
+            "anchors": [
+              "mle.minibatch_training_loop#visual"
+            ]
+          },
+          "annotations": [
+            {
+              "start_line": 1,
+              "end_line": 39,
+              "text": "Each minibatch gets its own current-gradient update; the final loss is paired with count 1, not the configured maximum 2."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.041_043.s02",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.minibatch_training_loop"
+      ],
+      "eyebrow": "Understand",
+      "title": "Three minibatches: current gradients and actual counts",
+      "lineage": {
+        "concept_ids": [
+          "mle.minibatch_training_loop"
+        ],
+        "teaching_block_ids": [
+          "mle.minibatch_training_loop#tb4"
+        ],
+        "fact_ids": [
+          "mle.minibatch_training_loop#f1",
+          "mle.minibatch_training_loop#f2",
+          "mle.minibatch_training_loop#f3",
+          "mle.minibatch_training_loop#f4",
+          "mle.minibatch_training_loop#f5"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "The retained final minibatch in the supplied order fixture is smaller than the configured maximum. Record its actual count with its scalar loss before applying the declared epoch-summary rule. Keep the full zero/backward/step sequence inside each minibatch of each epoch. Retain one pre-step parameter and verify its change at that same minibatch under the plain-SGD reference. A differently positioned step or an old gradient contribution describes a different procedure.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.minibatch_training_loop"
+            ],
+            "teaching_block_ids": [
+              "mle.minibatch_training_loop#tb4"
+            ],
+            "fact_ids": [
+              "mle.minibatch_training_loop#f1",
+              "mle.minibatch_training_loop#f2",
+              "mle.minibatch_training_loop#f3",
+              "mle.minibatch_training_loop#f4",
+              "mle.minibatch_training_loop#f5"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.041_043.s03",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.minibatch_training_loop"
+      ],
+      "eyebrow": "Understand",
+      "title": "A distinction to keep",
+      "lineage": {
+        "concept_ids": [
+          "mle.minibatch_training_loop"
+        ],
+        "teaching_block_ids": [
+          "mle.minibatch_training_loop#tb5"
+        ],
+        "fact_ids": [
+          "mle.minibatch_training_loop#f2",
+          "mle.minibatch_training_loop#f3"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "An epoch is more than a step count. Preserve actual batch counts for loss summaries, and clear old gradients before the next minibatch’s update.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.minibatch_training_loop"
+            ],
+            "teaching_block_ids": [
+              "mle.minibatch_training_loop#tb5"
+            ],
+            "fact_ids": [
+              "mle.minibatch_training_loop#f2",
+              "mle.minibatch_training_loop#f3"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.041_043.s04",
+      "type": "check",
+      "concept_ids": [
+        "mle.minibatch_training_loop"
+      ],
+      "eyebrow": "Check your judgement",
+      "title": "Judge minibatch training loop",
+      "lineage": {
+        "concept_ids": [
+          "mle.minibatch_training_loop"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.minibatch_training_loop#f4",
+          "mle.minibatch_training_loop#f5"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.minibatch_training_loop#assessment:assert_loss_dependent_plain_sgd_parameter_changes"
+        ]
+      },
+      "lede": "Read the supplied excerpts in this step and decide which satisfy the declared task contract and which are defective or unsafe.",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.mle.tile.041_043.s04",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.minibatch_training_loop",
+            "capability": "assert_loss_dependent_plain_sgd_parameter_changes",
+            "fact_ids": [
+              "f4",
+              "f5"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.minibatch_training_loop#assessment:assert_loss_dependent_plain_sgd_parameter_changes"
+        ],
+        "public": {
+          "prompt": "For a plain-SGD minibatch fixture, which asserted comparison verifies the loss-dependent parameter change at that step?",
+          "selection": "single",
+          "shuffle": true,
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "parameter_after − parameter_before agrees with −learning_rate × current_gradient under the declared tolerance."
+            },
+            {
+              "option_id": "o2",
+              "text": "parameter_after − parameter_before agrees with +learning_rate × current_gradient."
+            },
+            {
+              "option_id": "o3",
+              "text": "parameter_after differs from parameter_before by any nonzero amount."
+            }
+          ]
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "This checks the step against its current loss gradient and direction."
+            },
+            "o2": {
+              "message": "The sign is reversed relative to the plain-SGD reference."
+            },
+            "o3": {
+              "message": "A change alone does not verify the expected magnitude and direction, and a valid boundary can have zero change."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "This checks the step against its current loss gradient and direction."
+          },
+          "incorrect": {
+            "message": "At least one judgement conflicts with the declared contract. Re-read the evidence and the item-specific explanation."
+          },
+          "hints": [
+            "Identify the declared acceptance condition before considering whether execution completed."
+          ],
+          "remediation_step_id": "mle.tile.041_043.r01"
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.041_043.s05",
+      "type": "hands_on",
+      "concept_ids": [
+        "mle.minibatch_training_loop"
+      ],
+      "eyebrow": "Review the evidence",
+      "title": "Review minibatch training loop",
+      "lineage": {
+        "concept_ids": [
+          "mle.minibatch_training_loop"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.minibatch_training_loop#f1",
+          "mle.minibatch_training_loop#f2",
+          "mle.minibatch_training_loop#f3",
+          "mle.minibatch_training_loop#f4",
+          "mle.minibatch_training_loop#f5"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.minibatch_training_loop#practice",
+          "mle.minibatch_training_loop#assessment:execute_current_minibatch_update_in_correct_order",
+          "mle.minibatch_training_loop#assessment:retain_scalar_losses_and_batch_counts",
+          "mle.minibatch_training_loop#assessment:assert_loss_dependent_plain_sgd_parameter_changes"
+        ]
+      },
+      "lede": "Read the supplied excerpts in this step and decide which satisfy the declared task contract and which are defective or unsafe.",
+      "interaction": {
+        "type": "classify",
+        "interaction_id": "ix.mle.tile.041_043.s05",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.minibatch_training_loop",
+            "capability": "execute_current_minibatch_update_in_correct_order",
+            "fact_ids": [
+              "f1",
+              "f2"
+            ]
+          },
+          {
+            "concept_id": "mle.minibatch_training_loop",
+            "capability": "retain_scalar_losses_and_batch_counts",
+            "fact_ids": [
+              "f3"
+            ]
+          },
+          {
+            "concept_id": "mle.minibatch_training_loop",
+            "capability": "assert_loss_dependent_plain_sgd_parameter_changes",
+            "fact_ids": [
+              "f4",
+              "f5"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.minibatch_training_loop#practice",
+          "mle.minibatch_training_loop#assessment:execute_current_minibatch_update_in_correct_order",
+          "mle.minibatch_training_loop#assessment:retain_scalar_losses_and_batch_counts",
+          "mle.minibatch_training_loop#assessment:assert_loss_dependent_plain_sgd_parameter_changes"
+        ],
+        "public": {
+          "prompt": "Read the loop reviews for the same five-observation fixture. Decide whether each meets the per-minibatch current-gradient, actual-count and plain-SGD assertion requirements. Classify every supplied excerpt; judge the criterion named in that excerpt.",
+          "buckets": [
+            {
+              "bucket_id": "meets",
+              "label": "Meets the stated criterion"
+            },
+            {
+              "bucket_id": "violates",
+              "label": "Violates the stated criterion"
+            }
+          ],
+          "items": [
+            {
+              "item_id": "i1",
+              "text": "```python\nimport torch\nfrom torch import nn\nfrom torch.utils.data import TensorDataset, DataLoader\nfeatures = torch.arange(5, dtype=torch.float32).reshape(5, 1)\ntargets = features.clone()\nloader = DataLoader(TensorDataset(features, targets), batch_size=2,\n                    shuffle=False, drop_last=False)\nmodel = nn.Linear(1, 1, bias=False)\nwith torch.no_grad():\n    model.weight.fill_(2.)\nlearning_rate = 0.1\nrtol, atol = 1e-5, 1e-6\noptimizer = torch.optim.SGD(model.parameters(), lr=learning_rate,\n                            momentum=0, weight_decay=0)\ncriterion = nn.MSELoss(reduction=\"mean\")\nepoch_records = []\nstep_checks = []\nfor epoch in range(1):\n    loss_count_pairs = []\n    for batch_features, batch_targets in loader:\n        batch_count = len(batch_features)\n        assert batch_count == len(batch_targets)\n        assert torch.equal(batch_features, batch_targets)\n        parameter_before = model.weight.detach().clone()\n        optimizer.zero_grad()\n        outputs = model(batch_features)\n        loss = criterion(outputs, batch_targets)\n        loss.backward()\n        current_gradient = model.weight.grad.detach().clone()\n        optimizer.step()\n        parameter_after = model.weight.detach().clone()\n        change_ok = torch.allclose(parameter_after - parameter_before,\n                                   -learning_rate * current_gradient,\n                                   rtol=rtol, atol=atol)\n        assert change_ok\n        step_checks.append((parameter_before, current_gradient, parameter_after, change_ok))\n        loss_count_pairs.append((loss.item(), batch_count))\n    assert [count for scalar_loss, count in loss_count_pairs] == [2, 2, 1]\n    epoch_records.append(loss_count_pairs)\n```\nTests include a zero-gradient boundary and a deliberately false change predicate that must raise AssertionError in ordinary non-optimized execution."
+            },
+            {
+              "item_id": "i2",
+              "text": "The loop calls zero_grad only before the epoch; each minibatch then calls backward and step."
+            },
+            {
+              "item_id": "i3",
+              "text": "The loop records every batch count as configured batch_size=2, including the retained final one-observation batch."
+            },
+            {
+              "item_id": "i4",
+              "text": "Each step is checked only for a nonzero parameter change, with no comparison to −learning_rate × current_gradient."
+            }
+          ]
+        },
+        "grading": {
+          "assignments": {
+            "i1": "meets",
+            "i2": "violates",
+            "i3": "violates",
+            "i4": "violates"
+          },
+          "item_feedback": {
+            "i1": {
+              "message": "Zero/backward/step occurs once per minibatch; scalar losses retain actual counts and each change is checked against its current gradient under tolerance."
+            },
+            "i2": {
+              "message": "Old minibatch gradients accumulate instead of each update using only its intended current gradient."
+            },
+            "i3": {
+              "message": "The final batch count is one; configured maximum size is not actual completed work."
+            },
+            "i4": {
+              "message": "Any change does not verify the loss-dependent magnitude or direction and wrongly excludes a valid zero-gradient boundary."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "The classifications distinguish the supplied compliant procedure from the specific violated predicates; consult each item’s evidence."
+          },
+          "incorrect": {
+            "message": "At least one judgement conflicts with the declared contract. Re-read the evidence and the item-specific explanation."
+          },
+          "hints": [
+            "Trace the supplied code or record against the stated criterion; do not infer correctness from completion alone."
+          ],
+          "remediation_step_id": "mle.tile.041_043.r02"
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.041_043.s06",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.training_evaluation_modes"
+      ],
+      "eyebrow": "Understand",
+      "title": "Apply correct neural-network training and evaluation modes",
+      "lineage": {
+        "concept_ids": [
+          "mle.training_evaluation_modes"
+        ],
+        "teaching_block_ids": [
+          "mle.training_evaluation_modes#tb1",
+          "mle.training_evaluation_modes#tb2"
+        ],
+        "fact_ids": [
+          "mle.training_evaluation_modes#f1",
+          "mle.training_evaluation_modes#f2",
+          "mle.training_evaluation_modes#f3"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.training_evaluation_modes#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Validation needs two controls: layer behavior and gradient recording. Neither control replaces the other.",
+          "role": "intro",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_evaluation_modes"
+            ],
+            "teaching_block_ids": [
+              "mle.training_evaluation_modes#tb1"
+            ],
+            "fact_ids": [],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "model.train() selects training behavior; model.eval() selects validation behavior for relevant layers such as dropout and batch normalization. Use with torch.no_grad(): around validation prediction to disable gradient-graph recording. eval changes layer behavior, while no_grad changes recording.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_evaluation_modes"
+            ],
+            "teaching_block_ids": [
+              "mle.training_evaluation_modes#tb2"
+            ],
+            "fact_ids": [
+              "mle.training_evaluation_modes#f1",
+              "mle.training_evaluation_modes#f2",
+              "mle.training_evaluation_modes#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "side_by_side",
+          "left": {
+            "type": "code_walkthrough",
+            "language": "python",
+            "code": "import torch\nfrom torch import nn\nlayer = nn.Dropout(p=0.5)\ninputs = torch.tensor([1., 2., 3., 4.], requires_grad=True)\nlayer.train()\ntraining_output = layer(inputs)\nwith torch.no_grad():\n    training_no_grad_output = layer(inputs)\nfor output in (training_output, training_no_grad_output):\n    assert torch.all((output == 0) | (output == 2 * inputs))\nassert not training_no_grad_output.requires_grad\n# Neither call is required to drop at least one element.",
+            "reveal": "all",
+            "lineage": {
+              "concept_ids": [
+                "mle.training_evaluation_modes"
+              ],
+              "teaching_block_ids": [
+                "mle.training_evaluation_modes#tb1",
+                "mle.training_evaluation_modes#tb2",
+                "mle.training_evaluation_modes#tb3"
+              ],
+              "fact_ids": [
+                "mle.training_evaluation_modes#f1",
+                "mle.training_evaluation_modes#f2",
+                "mle.training_evaluation_modes#f3",
+                "mle.training_evaluation_modes#f6"
+              ],
+              "segment_ids": [],
+              "anchors": [
+                "mle.training_evaluation_modes#visual"
+              ]
+            }
+          },
+          "right": {
+            "type": "code_walkthrough",
+            "language": "python",
+            "code": "layer.eval()\nevaluation_output = layer(inputs)\nassert torch.equal(evaluation_output, inputs)\n# This is the same layer; mode and gradient recording are independent.\nlayer.train()",
+            "reveal": "all",
+            "lineage": {
+              "concept_ids": [
+                "mle.training_evaluation_modes"
+              ],
+              "teaching_block_ids": [
+                "mle.training_evaluation_modes#tb1",
+                "mle.training_evaluation_modes#tb2",
+                "mle.training_evaluation_modes#tb3"
+              ],
+              "fact_ids": [
+                "mle.training_evaluation_modes#f1",
+                "mle.training_evaluation_modes#f2",
+                "mle.training_evaluation_modes#f3",
+                "mle.training_evaluation_modes#f6"
+              ],
+              "segment_ids": [],
+              "anchors": [
+                "mle.training_evaluation_modes#visual"
+              ]
+            }
+          },
+          "left_label": "Training, with and without gradient recording",
+          "right_label": "Evaluation: the same dropout layer",
+          "takeaway": "Training under no_grad still applies dropout; evaluation changes layer behavior independently of gradient recording.",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_evaluation_modes"
+            ],
+            "teaching_block_ids": [
+              "mle.training_evaluation_modes#tb1",
+              "mle.training_evaluation_modes#tb2",
+              "mle.training_evaluation_modes#tb3"
+            ],
+            "fact_ids": [
+              "mle.training_evaluation_modes#f1",
+              "mle.training_evaluation_modes#f2",
+              "mle.training_evaluation_modes#f3",
+              "mle.training_evaluation_modes#f6"
+            ],
+            "segment_ids": [],
+            "anchors": [
+              "mle.training_evaluation_modes#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.041_043.s07",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.training_evaluation_modes"
+      ],
+      "eyebrow": "Understand",
+      "title": "Apply and verify",
+      "lineage": {
+        "concept_ids": [
+          "mle.training_evaluation_modes"
+        ],
+        "teaching_block_ids": [
+          "mle.training_evaluation_modes#tb3"
+        ],
+        "fact_ids": [
+          "mle.training_evaluation_modes#f4",
+          "mle.training_evaluation_modes#f5",
+          "mle.training_evaluation_modes#f6"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Validation is forward-only: omit optimizer.step() and restore model.train() before the next training pass. Test valid, boundary and failure predicates with assert; false predicates raise AssertionError in ordinary non-optimized execution. Import torch and nn from torch for the supplied nn.Dropout(p=0.5) fixture. Training randomly zeros each element with probability p and scales retained values by 1/(1-p). Evaluation returns x unchanged. Check identity and permitted masking/scaling without requiring every random call to mask an element. no_grad does not select evaluation behavior.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_evaluation_modes"
+            ],
+            "teaching_block_ids": [
+              "mle.training_evaluation_modes#tb3"
+            ],
+            "fact_ids": [
+              "mle.training_evaluation_modes#f4",
+              "mle.training_evaluation_modes#f5",
+              "mle.training_evaluation_modes#f6"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.041_043.s08",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.training_evaluation_modes"
+      ],
+      "eyebrow": "Understand",
+      "title": "Dropout: mode versus gradient recording",
+      "lineage": {
+        "concept_ids": [
+          "mle.training_evaluation_modes"
+        ],
+        "teaching_block_ids": [
+          "mle.training_evaluation_modes#tb4"
+        ],
+        "fact_ids": [
+          "mle.training_evaluation_modes#f1",
+          "mle.training_evaluation_modes#f2",
+          "mle.training_evaluation_modes#f3",
+          "mle.training_evaluation_modes#f4",
+          "mle.training_evaluation_modes#f5",
+          "mle.training_evaluation_modes#f6"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "In the supplied dropout fixture, inspect mode and recording context independently. Evaluation behaves as an identity even when recording is enabled. Training can still mask and scale values inside no_grad. Compare the permitted stochastic outcomes rather than demanding a particular random mask. Validation also excludes updates; disabling the graph alone does not describe the whole pass. Restore training mode afterward.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_evaluation_modes"
+            ],
+            "teaching_block_ids": [
+              "mle.training_evaluation_modes#tb4"
+            ],
+            "fact_ids": [
+              "mle.training_evaluation_modes#f1",
+              "mle.training_evaluation_modes#f2",
+              "mle.training_evaluation_modes#f3",
+              "mle.training_evaluation_modes#f4",
+              "mle.training_evaluation_modes#f5",
+              "mle.training_evaluation_modes#f6"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.041_043.s09",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.training_evaluation_modes"
+      ],
+      "eyebrow": "Understand",
+      "title": "A distinction to keep",
+      "lineage": {
+        "concept_ids": [
+          "mle.training_evaluation_modes"
+        ],
+        "teaching_block_ids": [
+          "mle.training_evaluation_modes#tb5"
+        ],
+        "fact_ids": [
+          "mle.training_evaluation_modes#f1",
+          "mle.training_evaluation_modes#f2",
+          "mle.training_evaluation_modes#f3",
+          "mle.training_evaluation_modes#f4",
+          "mle.training_evaluation_modes#f6"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "eval does not disable recording; no_grad does not switch dropout behavior. Validation must also exclude parameter updates.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_evaluation_modes"
+            ],
+            "teaching_block_ids": [
+              "mle.training_evaluation_modes#tb5"
+            ],
+            "fact_ids": [
+              "mle.training_evaluation_modes#f1",
+              "mle.training_evaluation_modes#f2",
+              "mle.training_evaluation_modes#f3",
+              "mle.training_evaluation_modes#f4",
+              "mle.training_evaluation_modes#f6"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.041_043.s10",
+      "type": "video",
+      "concept_ids": [
+        "mle.training_evaluation_modes"
+      ],
+      "eyebrow": "Optional support",
+      "title": "A supporting walkthrough",
+      "lineage": {
+        "concept_ids": [
+          "mle.training_evaluation_modes"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.training_evaluation_modes#f1",
+          "mle.training_evaluation_modes#f2",
+          "mle.training_evaluation_modes#f3",
+          "mle.training_evaluation_modes#f4"
+        ],
+        "segment_ids": [
+          "seg_mle.training_evaluation_modes_oYRgpEmFQNQ_143_279"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "media_group",
+          "segment_ids": [
+            "seg_mle.training_evaluation_modes_oYRgpEmFQNQ_143_279"
+          ],
+          "segments": [
+            {
+              "segment_id": "seg_mle.training_evaluation_modes_oYRgpEmFQNQ_143_279",
+              "video_id": "oYRgpEmFQNQ",
+              "youtube_url": "https://www.youtube.com/watch?v=oYRgpEmFQNQ",
+              "review_url": "https://www.youtube.com/watch?v=oYRgpEmFQNQ&t=143s",
+              "start_seconds": 143,
+              "end_seconds": 279,
+              "label": "Training and validation use two independent controls",
+              "summary": "Use model.train() before parameter training and model.eval() before validation. These settings change the behavior of layers such as dropout and batch normalization; leaving training behavior active can introduce unwanted variability into validation scores. Separately, wrap validation computation in torch.no_grad() to prevent gradient graph recording. Evaluation mode controls layer behavior, not graph recording. Each training epoch begins by restoring training mode, computing the forward pass and loss, clearing gradients, running backward, and stepping the optimizer. The separate validation block switches to evaluation mode and computes validation loss inside no_grad without updating parameters. Recording both losses keeps the training and validation measurements distinct.",
+              "fact_ids": [
+                "f1",
+                "f2",
+                "f3",
+                "f4"
+              ],
+              "transcript_ref": "oYRgpEmFQNQ:143-279"
+            }
+          ],
+          "group_title": "Separate layer mode from gradient recording",
+          "bridge": {
+            "before": "Watch for two independent switches: model.eval() changes relevant layer behavior, while torch.no_grad() stops gradient graph recording. Notice how the training update block differs from forward-only validation.",
+            "after": "The clip covers the phase switches and forward-only validation, but not assertion checks or the concrete dropout masking/scaling fixture. The text supplies both, including permitted random outcomes."
+          },
+          "default_mode": "video"
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.041_043.s11",
+      "type": "check",
+      "concept_ids": [
+        "mle.training_evaluation_modes"
+      ],
+      "eyebrow": "Check your judgement",
+      "title": "Judge training evaluation modes",
+      "lineage": {
+        "concept_ids": [
+          "mle.training_evaluation_modes"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.training_evaluation_modes#f5",
+          "mle.training_evaluation_modes#f6"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.training_evaluation_modes#assessment:assert_valid_dropout_identity_and_masking_outcomes"
+        ]
+      },
+      "lede": "Read the supplied excerpts in this step and decide which satisfy the declared task contract and which are defective or unsafe.",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.mle.tile.041_043.s11",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.training_evaluation_modes",
+            "capability": "assert_valid_dropout_identity_and_masking_outcomes",
+            "fact_ids": [
+              "f5",
+              "f6"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.training_evaluation_modes#assessment:assert_valid_dropout_identity_and_masking_outcomes"
+        ],
+        "public": {
+          "prompt": "For nn.Dropout(p=0.5) in training mode, a nonzero fixture has an all-retained result equal to twice the input. Which assertion is defensible?",
+          "selection": "single",
+          "shuffle": true,
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Accept training output only if it equals the input."
+            },
+            {
+              "option_id": "o2",
+              "text": "Accept it: each element is zero or twice its corresponding input."
+            },
+            {
+              "option_id": "o3",
+              "text": "Reject it because every call must zero at least one element."
+            }
+          ]
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o2"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "Identity is the evaluation rule; retained training elements are scaled by two."
+            },
+            "o2": {
+              "message": "The all-retained random boundary satisfies the masking/scaling rule."
+            },
+            "o3": {
+              "message": "A random call need not mask any element."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "The all-retained random boundary satisfies the masking/scaling rule."
+          },
+          "incorrect": {
+            "message": "At least one judgement conflicts with the declared contract. Re-read the evidence and the item-specific explanation."
+          },
+          "hints": [
+            "Identify the declared acceptance condition before considering whether execution completed."
+          ],
+          "remediation_step_id": "mle.tile.041_043.r03"
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.041_043.s12",
+      "type": "hands_on",
+      "concept_ids": [
+        "mle.training_evaluation_modes"
+      ],
+      "eyebrow": "Review the evidence",
+      "title": "Review training evaluation modes",
+      "lineage": {
+        "concept_ids": [
+          "mle.training_evaluation_modes"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.training_evaluation_modes#f1",
+          "mle.training_evaluation_modes#f2",
+          "mle.training_evaluation_modes#f3",
+          "mle.training_evaluation_modes#f4",
+          "mle.training_evaluation_modes#f5",
+          "mle.training_evaluation_modes#f6"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.training_evaluation_modes#practice",
+          "mle.training_evaluation_modes#assessment:select_layer_mode_for_training_and_evaluation",
+          "mle.training_evaluation_modes#assessment:apply_forward_only_validation_and_restore_training_mode",
+          "mle.training_evaluation_modes#assessment:distinguish_dropout_mode_from_gradient_recording",
+          "mle.training_evaluation_modes#assessment:assert_valid_dropout_identity_and_masking_outcomes"
+        ]
+      },
+      "lede": "Read the supplied excerpts in this step and decide which satisfy the declared task contract and which are defective or unsafe.",
+      "interaction": {
+        "type": "classify",
+        "interaction_id": "ix.mle.tile.041_043.s12",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.training_evaluation_modes",
+            "capability": "select_layer_mode_for_training_and_evaluation",
+            "fact_ids": [
+              "f1",
+              "f3"
+            ]
+          },
+          {
+            "concept_id": "mle.training_evaluation_modes",
+            "capability": "apply_forward_only_validation_and_restore_training_mode",
+            "fact_ids": [
+              "f2",
+              "f3",
+              "f4"
+            ]
+          },
+          {
+            "concept_id": "mle.training_evaluation_modes",
+            "capability": "distinguish_dropout_mode_from_gradient_recording",
+            "fact_ids": [
+              "f3",
+              "f6"
+            ]
+          },
+          {
+            "concept_id": "mle.training_evaluation_modes",
+            "capability": "assert_valid_dropout_identity_and_masking_outcomes",
+            "fact_ids": [
+              "f5",
+              "f6"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.training_evaluation_modes#practice",
+          "mle.training_evaluation_modes#assessment:select_layer_mode_for_training_and_evaluation",
+          "mle.training_evaluation_modes#assessment:apply_forward_only_validation_and_restore_training_mode",
+          "mle.training_evaluation_modes#assessment:distinguish_dropout_mode_from_gradient_recording",
+          "mle.training_evaluation_modes#assessment:assert_valid_dropout_identity_and_masking_outcomes"
+        ],
+        "public": {
+          "prompt": "Read the dropout/validation reviews. Judge the masking/scaling predicate, the separate mode and graph controls, and the restore-training requirement. p=0.5; all fixture inputs are nonzero. Classify every supplied excerpt; judge the criterion named in that excerpt.",
+          "buckets": [
+            {
+              "bucket_id": "meets",
+              "label": "Meets the stated criterion"
+            },
+            {
+              "bucket_id": "violates",
+              "label": "Violates the stated criterion"
+            }
+          ],
+          "items": [
+            {
+              "item_id": "i1",
+              "text": "```python\nimport torch\nfrom torch import nn\nlayer = nn.Dropout(p=0.5)\nlayer.train()\ntrain_output = layer(x)\nassert ((train_output == 0) | (train_output == 2*x)).all()\n# The all-retained boundary 2*x satisfies the same predicate.\nlayer.eval()\nwith torch.no_grad():\n    validation_output = layer(x)\nassert torch.equal(validation_output, x)\n# No optimizer.step in validation.\nlayer.train()\nassert layer.training\n```\nA supplied training outcome equal to x violates the zero-or-double rule and must raise AssertionError in ordinary non-optimized execution."
+            },
+            {
+              "item_id": "i2",
+              "text": "The all-retained training result 2*x is rejected because the test requires at least one zero."
+            },
+            {
+              "item_id": "i3",
+              "text": "```python\nlayer.train()\nwith torch.no_grad():\n    validation_output = layer(x)\n```\nThe reviewer expects identity solely because no_grad is active."
+            },
+            {
+              "item_id": "i4",
+              "text": "Validation uses eval and no_grad, but calls optimizer.step() before restoring train mode."
+            }
+          ]
+        },
+        "grading": {
+          "assignments": {
+            "i1": "meets",
+            "i2": "violates",
+            "i3": "violates",
+            "i4": "violates"
+          },
+          "item_feedback": {
+            "i1": {
+              "message": "The code checks stochastic outcomes without requiring a mask, uses eval and no_grad separately and restores training without a validation update. Evaluation-mode dropout returns x unchanged, so the identity output can retain the input’s requires_grad flag; no_grad controls recording, not that existing flag."
+            },
+            "i2": {
+              "message": "No random call is required to mask an element; all retained is a valid boundary."
+            },
+            "i3": {
+              "message": "no_grad disables recording but does not select dropout evaluation behavior."
+            },
+            "i4": {
+              "message": "Validation must remain forward-only and exclude an optimizer update."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "The classifications distinguish the supplied compliant procedure from the specific violated predicates; consult each item’s evidence."
+          },
+          "incorrect": {
+            "message": "At least one judgement conflicts with the declared contract. Re-read the evidence and the item-specific explanation."
+          },
+          "hints": [
+            "Trace the supplied code or record against the stated criterion; do not infer correctness from completion alone."
+          ],
+          "remediation_step_id": "mle.tile.041_043.r04"
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.041_043.s13",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.weight_persistence"
+      ],
+      "eyebrow": "Understand",
+      "title": "Save and reload neural-network weights for prediction",
+      "lineage": {
+        "concept_ids": [
+          "mle.weight_persistence"
+        ],
+        "teaching_block_ids": [
+          "mle.weight_persistence#tb1",
+          "mle.weight_persistence#tb2",
+          "mle.weight_persistence#tb3",
+          "mle.weight_persistence#tb4"
+        ],
+        "fact_ids": [
+          "mle.weight_persistence#f1",
+          "mle.weight_persistence#f2",
+          "mle.weight_persistence#f3",
+          "mle.weight_persistence#f4",
+          "mle.weight_persistence#f5",
+          "mle.weight_persistence#f6",
+          "mle.weight_persistence#f7"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.weight_persistence#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Restoring learned state requires a compatible architecture and checks of both parameters and fixed-fixture predictions.",
+          "role": "intro",
+          "lineage": {
+            "concept_ids": [
+              "mle.weight_persistence"
+            ],
+            "teaching_block_ids": [
+              "mle.weight_persistence#tb1"
+            ],
+            "fact_ids": [],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "torch.save(model.state_dict(), path) saves learned parameters. Reconstruct the same compatible architecture, read the mapping with torch.load(path, weights_only=True), and apply model.load_state_dict(mapping). Select model.eval() before restored prediction.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.weight_persistence"
+            ],
+            "teaching_block_ids": [
+              "mle.weight_persistence#tb2"
+            ],
+            "fact_ids": [
+              "mle.weight_persistence#f1",
+              "mle.weight_persistence#f2",
+              "mle.weight_persistence#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Compare original and restored evaluation predictions on the same fixture with explicit numerical tolerances. Assert valid, boundary and failure predicates; false predicates raise AssertionError during ordinary non-optimized execution. For the specified handle-based path, open with open(path, \"wb\") to save and open(path, \"rb\") to load, passing the binary handle to torch.save or torch.load.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.weight_persistence"
+            ],
+            "teaching_block_ids": [
+              "mle.weight_persistence#tb3"
+            ],
+            "fact_ids": [
+              "mle.weight_persistence#f4",
+              "mle.weight_persistence#f5",
+              "mle.weight_persistence#f6"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Also compare corresponding original and restored state_dict entries to verify preserved parameter state.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.weight_persistence"
+            ],
+            "teaching_block_ids": [
+              "mle.weight_persistence#tb4"
+            ],
+            "fact_ids": [
+              "mle.weight_persistence#f7"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "side_by_side",
+          "left": {
+            "type": "code_walkthrough",
+            "language": "python",
+            "code": "import torch\nfrom torch import nn\nfrom tempfile import TemporaryDirectory\nfrom pathlib import Path\n\ndef compatible_architecture():\n    return nn.Linear(2, 1)\n\nmodel = compatible_architecture()\nfixed_input = torch.tensor([[1., 2.], [3., 4.]])\nrtol, atol = 1e-5, 1e-6\noriginal_entries = {name: value.detach().clone()\n                    for name, value in model.state_dict().items()}\nmodel.eval()\nwith torch.no_grad():\n    original_predictions = model(fixed_input).detach().clone()\ntemporary = TemporaryDirectory()\npath = Path(temporary.name) / \"weights.pt\"\nwith open(path, \"wb\") as handle:\n    torch.save(model.state_dict(), handle)",
+            "reveal": "all",
+            "lineage": {
+              "concept_ids": [
+                "mle.weight_persistence"
+              ],
+              "teaching_block_ids": [
+                "mle.weight_persistence#tb1",
+                "mle.weight_persistence#tb2",
+                "mle.weight_persistence#tb3",
+                "mle.weight_persistence#tb4"
+              ],
+              "fact_ids": [
+                "mle.weight_persistence#f1",
+                "mle.weight_persistence#f2",
+                "mle.weight_persistence#f3",
+                "mle.weight_persistence#f4",
+                "mle.weight_persistence#f5",
+                "mle.weight_persistence#f6",
+                "mle.weight_persistence#f7"
+              ],
+              "segment_ids": [],
+              "anchors": [
+                "mle.weight_persistence#visual"
+              ]
+            }
+          },
+          "right": {
+            "type": "code_walkthrough",
+            "language": "python",
+            "code": "restored = compatible_architecture()\nwith open(path, \"rb\") as handle:\n    mapping = torch.load(handle, weights_only=True)\nrestored.load_state_dict(mapping)\nrestored_entries = restored.state_dict()\nassert original_entries.keys() == restored_entries.keys()\nentry_equal = {name: torch.equal(value, restored_entries[name])\n               for name, value in original_entries.items()}\nassert all(entry_equal.values())\nname = next(iter(original_entries))\ndiffering_entry = original_entries[name] + 1\nassert not torch.equal(differing_entry, restored_entries[name])\nrestored.eval()\nwith torch.no_grad():\n    restored_predictions = restored(fixed_input)\npredictions_match = torch.allclose(original_predictions, restored_predictions,\n                                   rtol=rtol, atol=atol)\nassert predictions_match\ntemporary.cleanup()",
+            "reveal": "all",
+            "lineage": {
+              "concept_ids": [
+                "mle.weight_persistence"
+              ],
+              "teaching_block_ids": [
+                "mle.weight_persistence#tb1",
+                "mle.weight_persistence#tb2",
+                "mle.weight_persistence#tb3",
+                "mle.weight_persistence#tb4"
+              ],
+              "fact_ids": [
+                "mle.weight_persistence#f1",
+                "mle.weight_persistence#f2",
+                "mle.weight_persistence#f3",
+                "mle.weight_persistence#f4",
+                "mle.weight_persistence#f5",
+                "mle.weight_persistence#f6",
+                "mle.weight_persistence#f7"
+              ],
+              "segment_ids": [],
+              "anchors": [
+                "mle.weight_persistence#visual"
+              ]
+            }
+          },
+          "left_label": "Preserve state",
+          "right_label": "Restore and verify",
+          "takeaway": "Check corresponding parameter entries separately from same-input evaluation predictions.",
+          "lineage": {
+            "concept_ids": [
+              "mle.weight_persistence"
+            ],
+            "teaching_block_ids": [
+              "mle.weight_persistence#tb1",
+              "mle.weight_persistence#tb2",
+              "mle.weight_persistence#tb3",
+              "mle.weight_persistence#tb4"
+            ],
+            "fact_ids": [
+              "mle.weight_persistence#f1",
+              "mle.weight_persistence#f2",
+              "mle.weight_persistence#f3",
+              "mle.weight_persistence#f4",
+              "mle.weight_persistence#f5",
+              "mle.weight_persistence#f6",
+              "mle.weight_persistence#f7"
+            ],
+            "segment_ids": [],
+            "anchors": [
+              "mle.weight_persistence#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.041_043.s14",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.weight_persistence"
+      ],
+      "eyebrow": "Understand",
+      "title": "Restored entries and same-input predictions",
+      "lineage": {
+        "concept_ids": [
+          "mle.weight_persistence"
+        ],
+        "teaching_block_ids": [
+          "mle.weight_persistence#tb5"
+        ],
+        "fact_ids": [
+          "mle.weight_persistence#f1",
+          "mle.weight_persistence#f2",
+          "mle.weight_persistence#f3",
+          "mle.weight_persistence#f4",
+          "mle.weight_persistence#f5",
+          "mle.weight_persistence#f6",
+          "mle.weight_persistence#f7"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Keep the original evaluation predictions as the reference, rather than generating both references with the restored object. Save and load through binary handles, reconstruct the compatible architecture and apply the parameter mapping. Compare corresponding entries separately from the same-fixture prediction check. One matching output does not replace state verification. Distinguish an incompatible architecture or differing entry from successful restoration.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.weight_persistence"
+            ],
+            "teaching_block_ids": [
+              "mle.weight_persistence#tb5"
+            ],
+            "fact_ids": [
+              "mle.weight_persistence#f1",
+              "mle.weight_persistence#f2",
+              "mle.weight_persistence#f3",
+              "mle.weight_persistence#f4",
+              "mle.weight_persistence#f5",
+              "mle.weight_persistence#f6",
+              "mle.weight_persistence#f7"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.041_043.s15",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.weight_persistence"
+      ],
+      "eyebrow": "Understand",
+      "title": "A distinction to keep",
+      "lineage": {
+        "concept_ids": [
+          "mle.weight_persistence"
+        ],
+        "teaching_block_ids": [
+          "mle.weight_persistence#tb6"
+        ],
+        "fact_ids": [
+          "mle.weight_persistence#f1",
+          "mle.weight_persistence#f3",
+          "mle.weight_persistence#f4",
+          "mle.weight_persistence#f7"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Weight loading does not choose an architecture. Use compatible structure, matching evaluation fixtures and parameter-entry checks.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.weight_persistence"
+            ],
+            "teaching_block_ids": [
+              "mle.weight_persistence#tb6"
+            ],
+            "fact_ids": [
+              "mle.weight_persistence#f1",
+              "mle.weight_persistence#f3",
+              "mle.weight_persistence#f4",
+              "mle.weight_persistence#f7"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.041_043.s16",
+      "type": "check",
+      "concept_ids": [
+        "mle.weight_persistence"
+      ],
+      "eyebrow": "Check your judgement",
+      "title": "Judge weight persistence",
+      "lineage": {
+        "concept_ids": [
+          "mle.weight_persistence"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.weight_persistence#f5"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.weight_persistence#assessment:assert_declared_persistence_acceptance_conditions"
+        ]
+      },
+      "lede": "Read the supplied excerpts in this step and decide which satisfy the declared task contract and which are defective or unsafe.",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.mle.tile.041_043.s16",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.weight_persistence",
+            "capability": "assert_declared_persistence_acceptance_conditions",
+            "fact_ids": [
+              "f5"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.weight_persistence#assessment:assert_declared_persistence_acceptance_conditions"
+        ],
+        "public": {
+          "prompt": "The declared persistence acceptance predicate is false for a supplied failure fixture. What should an assert predicate check do in ordinary non-optimized execution?",
+          "selection": "single",
+          "shuffle": true,
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Return a successful reload verdict because loading completed."
+            },
+            {
+              "option_id": "o2",
+              "text": "Remove the assertion and mark the case accepted."
+            },
+            {
+              "option_id": "o3",
+              "text": "Raise AssertionError and withhold a successful reload verdict."
+            }
+          ]
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o3"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "Loading completion does not override a failed acceptance condition."
+            },
+            "o2": {
+              "message": "This removes the required distinction between acceptance and failure."
+            },
+            "o3": {
+              "message": "The failure case must not receive a successful acceptance verdict."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "The failure case must not receive a successful acceptance verdict."
+          },
+          "incorrect": {
+            "message": "At least one judgement conflicts with the declared contract. Re-read the evidence and the item-specific explanation."
+          },
+          "hints": [
+            "Identify the declared acceptance condition before considering whether execution completed."
+          ],
+          "remediation_step_id": "mle.tile.041_043.r05"
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.041_043.s17",
+      "type": "hands_on",
+      "concept_ids": [
+        "mle.weight_persistence"
+      ],
+      "eyebrow": "Review the evidence",
+      "title": "Review weight persistence",
+      "lineage": {
+        "concept_ids": [
+          "mle.weight_persistence"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.weight_persistence#f1",
+          "mle.weight_persistence#f2",
+          "mle.weight_persistence#f3",
+          "mle.weight_persistence#f4",
+          "mle.weight_persistence#f6",
+          "mle.weight_persistence#f7"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.weight_persistence#practice",
+          "mle.weight_persistence#assessment:restore_saved_parameters_into_compatible_architecture",
+          "mle.weight_persistence#assessment:verify_fixed_input_prediction_equivalence_in_evaluation_mode",
+          "mle.weight_persistence#assessment:verify_corresponding_parameter_state"
+        ]
+      },
+      "lede": "Read the supplied excerpts in this step and decide which satisfy the declared task contract and which are defective or unsafe.",
+      "interaction": {
+        "type": "classify",
+        "interaction_id": "ix.mle.tile.041_043.s17",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "mle.weight_persistence",
+            "capability": "restore_saved_parameters_into_compatible_architecture",
+            "fact_ids": [
+              "f1",
+              "f2",
+              "f6"
+            ]
+          },
+          {
+            "concept_id": "mle.weight_persistence",
+            "capability": "verify_fixed_input_prediction_equivalence_in_evaluation_mode",
+            "fact_ids": [
+              "f3",
+              "f4"
+            ]
+          },
+          {
+            "concept_id": "mle.weight_persistence",
+            "capability": "verify_corresponding_parameter_state",
+            "fact_ids": [
+              "f7"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.weight_persistence#practice",
+          "mle.weight_persistence#assessment:restore_saved_parameters_into_compatible_architecture",
+          "mle.weight_persistence#assessment:verify_fixed_input_prediction_equivalence_in_evaluation_mode",
+          "mle.weight_persistence#assessment:verify_corresponding_parameter_state"
+        ],
+        "public": {
+          "prompt": "Read the checkpoint reviews and judge binary-handle use, compatible state restoration, evaluation predictions and acceptance tests. The fixed fixture and explicit rtol/atol are the same for original and restored models. Classify every supplied excerpt; judge the criterion named in that excerpt.",
+          "buckets": [
+            {
+              "bucket_id": "meets",
+              "label": "Meets the stated criterion"
+            },
+            {
+              "bucket_id": "violates",
+              "label": "Violates the stated criterion"
+            }
+          ],
+          "items": [
+            {
+              "item_id": "i1",
+              "text": "```python\noriginal.eval()\nwith torch.no_grad(): reference = original(fixture)\nwith open(path, \"wb\") as handle:\n    torch.save(original.state_dict(), handle)\nrestored = same_architecture()\nwith open(path, \"rb\") as handle:\n    mapping = torch.load(handle, weights_only=True)\nrestored.load_state_dict(mapping)\nrestored.eval()\nfor name, value in original.state_dict().items():\n    assert torch.allclose(value, restored.state_dict()[name], rtol=rtol, atol=atol)\nwith torch.no_grad(): prediction = restored(fixture)\nassert torch.allclose(prediction, reference, rtol=rtol, atol=atol)\n```\nThe unit-test cases include exact equality, the declared within-tolerance boundary, and a parameter mismatch outside tolerance; the mismatch must not receive a successful reload verdict."
+            },
+            {
+              "item_id": "i2",
+              "text": "The implementation uses open(path, \"w\") and open(path, \"r\") for the supplied handle-based save and load."
+            },
+            {
+              "item_id": "i3",
+              "text": "The restored model predicts in training mode, and the reviewer compares it with original evaluation-mode predictions."
+            },
+            {
+              "item_id": "i4",
+              "text": "Only one fixture prediction is compared; corresponding state_dict entries are never compared."
+            }
+          ]
+        },
+        "grading": {
+          "assignments": {
+            "i1": "meets",
+            "i2": "violates",
+            "i3": "violates",
+            "i4": "violates"
+          },
+          "item_feedback": {
+            "i1": {
+              "message": "Binary handles, weights-only mapping, compatible architecture, both state-entry and evaluation-prediction checks preserve the intended acceptance conditions."
+            },
+            "i2": {
+              "message": "This contract requires binary wb/rb handles."
+            },
+            "i3": {
+              "message": "The fixed-fixture comparison requires restored evaluation-mode prediction."
+            },
+            "i4": {
+              "message": "The practice requires verifying parameter state as well as fixed-input predictions."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "The classifications distinguish the supplied compliant procedure from the specific violated predicates; consult each item’s evidence."
+          },
+          "incorrect": {
+            "message": "At least one judgement conflicts with the declared contract. Re-read the evidence and the item-specific explanation."
+          },
+          "hints": [
+            "Trace the supplied code or record against the stated criterion; do not infer correctness from completion alone."
+          ],
+          "remediation_step_id": "mle.tile.041_043.r06"
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.041_043.s18",
+      "type": "recap",
+      "concept_ids": [
+        "mle.minibatch_training_loop",
+        "mle.training_evaluation_modes",
+        "mle.weight_persistence"
+      ],
+      "eyebrow": "Keep the essentials",
+      "title": "Take the contract with you",
+      "lineage": {
+        "concept_ids": [
+          "mle.minibatch_training_loop",
+          "mle.training_evaluation_modes",
+          "mle.weight_persistence"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Repeat zero/backward/step per batch; retain actual counts with losses.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "mle.minibatch_training_loop"
+            ],
+            "teaching_block_ids": [
+              "mle.minibatch_training_loop#tb2",
+              "mle.minibatch_training_loop#tb4",
+              "mle.minibatch_training_loop#tb5"
+            ],
+            "fact_ids": [
+              "mle.minibatch_training_loop#f2",
+              "mle.minibatch_training_loop#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Validation needs evaluation behavior, no_grad and no updates.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_evaluation_modes"
+            ],
+            "teaching_block_ids": [
+              "mle.training_evaluation_modes#tb2",
+              "mle.training_evaluation_modes#tb3",
+              "mle.training_evaluation_modes#tb4",
+              "mle.training_evaluation_modes#tb5"
+            ],
+            "fact_ids": [
+              "mle.training_evaluation_modes#f1",
+              "mle.training_evaluation_modes#f2",
+              "mle.training_evaluation_modes#f3",
+              "mle.training_evaluation_modes#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Restore compatible state and check entries plus fixed-fixture predictions.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "mle.weight_persistence"
+            ],
+            "teaching_block_ids": [
+              "mle.weight_persistence#tb2",
+              "mle.weight_persistence#tb3",
+              "mle.weight_persistence#tb4",
+              "mle.weight_persistence#tb5",
+              "mle.weight_persistence#tb6"
+            ],
+            "fact_ids": [
+              "mle.weight_persistence#f2",
+              "mle.weight_persistence#f4",
+              "mle.weight_persistence#f7"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "up_next",
+          "title": "Stop training using validation behavior without consulting the protected test",
+          "text": "Next: Stop training using validation behavior without consulting the protected test."
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "mle.tile.041_043.r01",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.minibatch_training_loop"
+      ],
+      "eyebrow": "Try the distinction again",
+      "title": "Separate the evidence from the assumption",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Write assert predicate checks for the declared valid, boundary and failure cases; a false predicate raises AssertionError during ordinary non-optimized execution.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.minibatch_training_loop"
+            ],
+            "teaching_block_ids": [
+              "mle.minibatch_training_loop#tb3"
+            ],
+            "fact_ids": [
+              "mle.minibatch_training_loop#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For a plain-SGD fixture, retain parameter values before the step and assert parameter_after − parameter_before agrees with −learning_rate × current_gradient under tolerance.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.minibatch_training_loop"
+            ],
+            "teaching_block_ids": [
+              "mle.minibatch_training_loop#tb3"
+            ],
+            "fact_ids": [
+              "mle.minibatch_training_loop#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For the same supplied task: A configured batch maximum is not the actual final-batch count.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.minibatch_training_loop"
+            ],
+            "teaching_block_ids": [
+              "mle.minibatch_training_loop#tb3"
+            ],
+            "fact_ids": [
+              "mle.minibatch_training_loop#f4",
+              "mle.minibatch_training_loop#f5"
+            ],
+            "anchors": []
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.minibatch_training_loop"
+        ],
+        "teaching_block_ids": [
+          "mle.minibatch_training_loop#tb3"
+        ],
+        "fact_ids": [
+          "mle.minibatch_training_loop#f4",
+          "mle.minibatch_training_loop#f5"
+        ],
+        "anchors": []
+      }
+    },
+    {
+      "step_id": "mle.tile.041_043.r02",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.minibatch_training_loop"
+      ],
+      "eyebrow": "Try the distinction again",
+      "title": "Separate the evidence from the assumption",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Iterate for features, targets in loader inside each declared epoch, compute predictions with model(features), then loss_fn(predictions, targets).",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.minibatch_training_loop"
+            ],
+            "teaching_block_ids": [
+              "mle.minibatch_training_loop#tb2"
+            ],
+            "fact_ids": [
+              "mle.minibatch_training_loop#f1"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Within each minibatch, call optimizer.zero_grad(), loss.backward() and optimizer.step() so each step uses the intended current gradient.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.minibatch_training_loop"
+            ],
+            "teaching_block_ids": [
+              "mle.minibatch_training_loop#tb2"
+            ],
+            "fact_ids": [
+              "mle.minibatch_training_loop#f2"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Use loss.item() to collect scalar loss evidence, and retain batch counts when forming an epoch summary so an incomplete batch is not silently misinterpreted.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.minibatch_training_loop"
+            ],
+            "teaching_block_ids": [
+              "mle.minibatch_training_loop#tb2"
+            ],
+            "fact_ids": [
+              "mle.minibatch_training_loop#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Write assert predicate checks for the declared valid, boundary and failure cases; a false predicate raises AssertionError during ordinary non-optimized execution.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.minibatch_training_loop"
+            ],
+            "teaching_block_ids": [
+              "mle.minibatch_training_loop#tb3"
+            ],
+            "fact_ids": [
+              "mle.minibatch_training_loop#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For a plain-SGD fixture, retain parameter values before the step and assert parameter_after − parameter_before agrees with −learning_rate × current_gradient under tolerance.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.minibatch_training_loop"
+            ],
+            "teaching_block_ids": [
+              "mle.minibatch_training_loop#tb3"
+            ],
+            "fact_ids": [
+              "mle.minibatch_training_loop#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For the same supplied task: A configured batch maximum is not the actual final-batch count.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.minibatch_training_loop"
+            ],
+            "teaching_block_ids": [
+              "mle.minibatch_training_loop#tb2",
+              "mle.minibatch_training_loop#tb3"
+            ],
+            "fact_ids": [
+              "mle.minibatch_training_loop#f1",
+              "mle.minibatch_training_loop#f2",
+              "mle.minibatch_training_loop#f3",
+              "mle.minibatch_training_loop#f4",
+              "mle.minibatch_training_loop#f5"
+            ],
+            "anchors": []
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.minibatch_training_loop"
+        ],
+        "teaching_block_ids": [
+          "mle.minibatch_training_loop#tb2",
+          "mle.minibatch_training_loop#tb3"
+        ],
+        "fact_ids": [
+          "mle.minibatch_training_loop#f1",
+          "mle.minibatch_training_loop#f2",
+          "mle.minibatch_training_loop#f3",
+          "mle.minibatch_training_loop#f4",
+          "mle.minibatch_training_loop#f5"
+        ],
+        "anchors": []
+      }
+    },
+    {
+      "step_id": "mle.tile.041_043.r03",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.training_evaluation_modes"
+      ],
+      "eyebrow": "Try the distinction again",
+      "title": "Separate the evidence from the assumption",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Write assert predicate checks for the declared valid, boundary and failure cases; a false predicate raises AssertionError during ordinary non-optimized execution.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_evaluation_modes"
+            ],
+            "teaching_block_ids": [
+              "mle.training_evaluation_modes#tb3"
+            ],
+            "fact_ids": [
+              "mle.training_evaluation_modes#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For a mode-sensitive fixture use import torch; from torch import nn; layer = nn.Dropout(p=0.5): in training each input element is randomly zeroed with probability p and retained values are scaled by 1/(1-p), whereas in evaluation layer(x) is the identity x; assert evaluation output equals the input and training output satisfies the masking/scaling rule, without assuming every random call masks an element. torch.no_grad() disables gradient recording but does not switch dropout into evaluation mode.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_evaluation_modes"
+            ],
+            "teaching_block_ids": [
+              "mle.training_evaluation_modes#tb3"
+            ],
+            "fact_ids": [
+              "mle.training_evaluation_modes#f6"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For the same supplied task: no_grad changes recording, not dropout’s layer mode.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_evaluation_modes"
+            ],
+            "teaching_block_ids": [
+              "mle.training_evaluation_modes#tb3"
+            ],
+            "fact_ids": [
+              "mle.training_evaluation_modes#f5",
+              "mle.training_evaluation_modes#f6"
+            ],
+            "anchors": []
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.training_evaluation_modes"
+        ],
+        "teaching_block_ids": [
+          "mle.training_evaluation_modes#tb3"
+        ],
+        "fact_ids": [
+          "mle.training_evaluation_modes#f5",
+          "mle.training_evaluation_modes#f6"
+        ],
+        "anchors": []
+      }
+    },
+    {
+      "step_id": "mle.tile.041_043.r04",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.training_evaluation_modes"
+      ],
+      "eyebrow": "Try the distinction again",
+      "title": "Separate the evidence from the assumption",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Use model.train() during parameter training and model.eval() during validation; the mode changes behavior of layers such as dropout and batch normalization.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_evaluation_modes"
+            ],
+            "teaching_block_ids": [
+              "mle.training_evaluation_modes#tb2"
+            ],
+            "fact_ids": [
+              "mle.training_evaluation_modes#f1"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Wrap validation prediction in with torch.no_grad(): to disable graph recording and avoid building gradients for validation.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_evaluation_modes"
+            ],
+            "teaching_block_ids": [
+              "mle.training_evaluation_modes#tb2"
+            ],
+            "fact_ids": [
+              "mle.training_evaluation_modes#f2"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Evaluation mode and no_grad serve different purposes: eval changes relevant layer behavior, while no_grad controls gradient recording.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_evaluation_modes"
+            ],
+            "teaching_block_ids": [
+              "mle.training_evaluation_modes#tb2"
+            ],
+            "fact_ids": [
+              "mle.training_evaluation_modes#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Keep validation as a forward-only pass without optimizer.step(), then restore model.train() before the next training pass.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_evaluation_modes"
+            ],
+            "teaching_block_ids": [
+              "mle.training_evaluation_modes#tb3"
+            ],
+            "fact_ids": [
+              "mle.training_evaluation_modes#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Write assert predicate checks for the declared valid, boundary and failure cases; a false predicate raises AssertionError during ordinary non-optimized execution.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_evaluation_modes"
+            ],
+            "teaching_block_ids": [
+              "mle.training_evaluation_modes#tb3"
+            ],
+            "fact_ids": [
+              "mle.training_evaluation_modes#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For a mode-sensitive fixture use import torch; from torch import nn; layer = nn.Dropout(p=0.5): in training each input element is randomly zeroed with probability p and retained values are scaled by 1/(1-p), whereas in evaluation layer(x) is the identity x; assert evaluation output equals the input and training output satisfies the masking/scaling rule, without assuming every random call masks an element. torch.no_grad() disables gradient recording but does not switch dropout into evaluation mode.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_evaluation_modes"
+            ],
+            "teaching_block_ids": [
+              "mle.training_evaluation_modes#tb3"
+            ],
+            "fact_ids": [
+              "mle.training_evaluation_modes#f6"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For the same supplied task: no_grad changes recording, not dropout’s layer mode.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_evaluation_modes"
+            ],
+            "teaching_block_ids": [
+              "mle.training_evaluation_modes#tb2",
+              "mle.training_evaluation_modes#tb3"
+            ],
+            "fact_ids": [
+              "mle.training_evaluation_modes#f1",
+              "mle.training_evaluation_modes#f2",
+              "mle.training_evaluation_modes#f3",
+              "mle.training_evaluation_modes#f4",
+              "mle.training_evaluation_modes#f5",
+              "mle.training_evaluation_modes#f6"
+            ],
+            "anchors": []
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.training_evaluation_modes"
+        ],
+        "teaching_block_ids": [
+          "mle.training_evaluation_modes#tb2",
+          "mle.training_evaluation_modes#tb3"
+        ],
+        "fact_ids": [
+          "mle.training_evaluation_modes#f1",
+          "mle.training_evaluation_modes#f2",
+          "mle.training_evaluation_modes#f3",
+          "mle.training_evaluation_modes#f4",
+          "mle.training_evaluation_modes#f5",
+          "mle.training_evaluation_modes#f6"
+        ],
+        "anchors": []
+      }
+    },
+    {
+      "step_id": "mle.tile.041_043.r05",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.weight_persistence"
+      ],
+      "eyebrow": "Try the distinction again",
+      "title": "Separate the evidence from the assumption",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Write assert predicate checks for the declared valid, boundary and failure cases; a false predicate raises AssertionError during ordinary non-optimized execution.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.weight_persistence"
+            ],
+            "teaching_block_ids": [
+              "mle.weight_persistence#tb3"
+            ],
+            "fact_ids": [
+              "mle.weight_persistence#f5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For the same supplied task: One matching prediction is not a substitute for corresponding state-entry checks.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.weight_persistence"
+            ],
+            "teaching_block_ids": [
+              "mle.weight_persistence#tb3"
+            ],
+            "fact_ids": [
+              "mle.weight_persistence#f5"
+            ],
+            "anchors": []
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.weight_persistence"
+        ],
+        "teaching_block_ids": [
+          "mle.weight_persistence#tb3"
+        ],
+        "fact_ids": [
+          "mle.weight_persistence#f5"
+        ],
+        "anchors": []
+      }
+    },
+    {
+      "step_id": "mle.tile.041_043.r06",
+      "type": "remediation",
+      "concept_ids": [
+        "mle.weight_persistence"
+      ],
+      "eyebrow": "Try the distinction again",
+      "title": "Separate the evidence from the assumption",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Save learned parameters with torch.save(model.state_dict(), path), then construct the same compatible architecture before reloading.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.weight_persistence"
+            ],
+            "teaching_block_ids": [
+              "mle.weight_persistence#tb2"
+            ],
+            "fact_ids": [
+              "mle.weight_persistence#f1"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Load the saved parameter mapping with torch.load(path, weights_only=True), and apply model.load_state_dict(mapping) to the compatible model.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.weight_persistence"
+            ],
+            "teaching_block_ids": [
+              "mle.weight_persistence#tb2"
+            ],
+            "fact_ids": [
+              "mle.weight_persistence#f2"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Call model.eval() before prediction with the restored weights.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.weight_persistence"
+            ],
+            "teaching_block_ids": [
+              "mle.weight_persistence#tb2"
+            ],
+            "fact_ids": [
+              "mle.weight_persistence#f3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Compare reloaded-model predictions with the original evaluation-mode predictions on the same fixture under explicit numerical tolerances.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.weight_persistence"
+            ],
+            "teaching_block_ids": [
+              "mle.weight_persistence#tb3"
+            ],
+            "fact_ids": [
+              "mle.weight_persistence#f4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Open the checkpoint with a binary file handle (with open(path, \"wb\") for saving and \"rb\" for loading), and pass that handle to torch.save or torch.load.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.weight_persistence"
+            ],
+            "teaching_block_ids": [
+              "mle.weight_persistence#tb3"
+            ],
+            "fact_ids": [
+              "mle.weight_persistence#f6"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Compare corresponding original and reloaded state_dict entries in addition to fixed-input predictions to verify the parameter state was preserved.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.weight_persistence"
+            ],
+            "teaching_block_ids": [
+              "mle.weight_persistence#tb4"
+            ],
+            "fact_ids": [
+              "mle.weight_persistence#f7"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For the same supplied task: One matching prediction is not a substitute for corresponding state-entry checks.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.weight_persistence"
+            ],
+            "teaching_block_ids": [
+              "mle.weight_persistence#tb2",
+              "mle.weight_persistence#tb3",
+              "mle.weight_persistence#tb4"
+            ],
+            "fact_ids": [
+              "mle.weight_persistence#f1",
+              "mle.weight_persistence#f2",
+              "mle.weight_persistence#f3",
+              "mle.weight_persistence#f4",
+              "mle.weight_persistence#f6",
+              "mle.weight_persistence#f7"
+            ],
+            "anchors": []
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.weight_persistence"
+        ],
+        "teaching_block_ids": [
+          "mle.weight_persistence#tb2",
+          "mle.weight_persistence#tb3",
+          "mle.weight_persistence#tb4"
+        ],
+        "fact_ids": [
+          "mle.weight_persistence#f1",
+          "mle.weight_persistence#f2",
+          "mle.weight_persistence#f3",
+          "mle.weight_persistence#f4",
+          "mle.weight_persistence#f6",
+          "mle.weight_persistence#f7"
+        ],
+        "anchors": []
+      }
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "mle.tile.044_045"
+  },
+  "content_hash": "c14c19abba33622ad8911975cd9fbbf915bca20a90a07a672b5dd4ba03eed65c"
+}

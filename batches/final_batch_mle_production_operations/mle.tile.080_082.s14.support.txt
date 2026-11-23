@@ -1,0 +1,26 @@
+import csv, json, datetime
+import numpy as np
+SCHEMAS = {'reference': {'numeric_values': 'number', 'category': 'string', 'predicted_class': 'string'}, 'production': {'numeric_values': 'number', 'category': 'string', 'predicted_class': 'string'}}
+def load(name):
+    with open(name+'.csv') as f:
+        data=list(csv.DictReader(f))
+    for r in data:
+        for k,t in SCHEMAS[name].items():
+            v=r[k]
+            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)
+    return data
+def column(data,key):
+    return np.asarray([r[key] for r in data])
+def emit(value):
+    return value
+
+def aligned_counts(data,names):
+    return np.asarray([np.count_nonzero(column(data,'category')==k) for k in names])
+
+
+policy = {'reference_id': 'reference', 'current_id': 'production', 'comparison_window': '2026-01-02T10:00:00Z/2026-01-02T11:00:00Z', 'fixed_edges': [0, 5, 10], 'eligible_numeric_range': [0, 10], 'declared_categories': ['short_distance', 'long_distance', 'not_reported'], 'ddof': 0, 'distance_equation': '0.5 * sum(abs(reference_probability[i]-current_probability[i])) over all aligned positions', 'criterion': 'distance > 0.20; equality is not a crossing', 'numeric_rule': 'Apply the same distance to aligned numerical-bin proportions; retain mean and ddof=0 standard deviation separately', 'quality_claim': 'unresolved without matched labels'}
+
+def bin_counts(values,edges):
+    return np.histogram(values,bins=edges)[0]
+def eligible_total(rows):
+    return len(rows)

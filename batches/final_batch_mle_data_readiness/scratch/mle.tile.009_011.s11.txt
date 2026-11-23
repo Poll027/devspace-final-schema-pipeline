@@ -1,0 +1,61 @@
+# Supplied implementation, fixtures and verification harness; complete only the marked assignments and assertions.
+observations = [{'observation_id': 'A', 'observation_timestamp': '2025-01-01T09:00:00'}, {'observation_id': 'B', 'observation_timestamp': '2025-01-01T10:00:00'}]
+
+labels = [{'observation_id': 'B', 'label': 0, 'observation_timestamp': '2025-01-01T10:00:00', 'availability_timestamp': '2025-01-01T10:30:00'}, {'observation_id': 'A', 'label': 1, 'observation_timestamp': '2025-01-01T09:00:00', 'availability_timestamp': '2025-01-01T09:30:00'}]
+
+cases = {'duplicate_id': [{'observation_id': 'B', 'label': 0, 'observation_timestamp': '2025-01-01T10:00:00', 'availability_timestamp': '2025-01-01T10:30:00'}, {'observation_id': 'A', 'label': 1, 'observation_timestamp': '2025-01-01T09:00:00', 'availability_timestamp': '2025-01-01T09:30:00'}, {'observation_id': 'A', 'label': 1, 'observation_timestamp': '2025-01-01T09:00:00', 'availability_timestamp': '2025-01-01T09:30:00'}], 'missing_label': [{'observation_id': 'B', 'label': 0, 'observation_timestamp': '2025-01-01T10:00:00', 'availability_timestamp': '2025-01-01T10:30:00'}], 'orphan_label': [{'observation_id': 'C', 'label': 0, 'observation_timestamp': '2025-01-01T10:00:00', 'availability_timestamp': '2025-01-01T10:30:00'}, {'observation_id': 'A', 'label': 1, 'observation_timestamp': '2025-01-01T09:00:00', 'availability_timestamp': '2025-01-01T09:30:00'}], 'invalid_label': [{'observation_id': 'B', 'label': 0, 'observation_timestamp': '2025-01-01T10:00:00', 'availability_timestamp': '2025-01-01T10:30:00'}, {'observation_id': 'A', 'label': 2, 'observation_timestamp': '2025-01-01T09:00:00', 'availability_timestamp': '2025-01-01T09:30:00'}], 'misaligned_timestamp': [{'observation_id': 'B', 'label': 0, 'observation_timestamp': '2025-01-01T10:00:00', 'availability_timestamp': '2025-01-01T10:30:00'}, {'observation_id': 'A', 'label': 1, 'observation_timestamp': '2025-01-01T09:01:00', 'availability_timestamp': '2025-01-01T09:30:00'}], 'unavailable_label': [{'observation_id': 'B', 'label': 0, 'observation_timestamp': '2025-01-01T10:00:00', 'availability_timestamp': '2025-01-01T10:30:00'}, {'observation_id': 'A', 'label': 1, 'observation_timestamp': '2025-01-01T09:00:00', 'availability_timestamp': '2025-01-02T09:30:00'}]}
+
+contract = {'label_values': [0, 1], 'require_matching_observation_timestamp': True, 'availability_cutoff': '2025-01-01T10:30:00', 'availability_boundary_inclusive': True}
+
+if True:
+
+    def supplied_audit(observations, labels, contract):
+        obs = {}
+        lab = {}
+        repeated = []
+        invalid = []
+        misaligned = []
+        unavailable = []
+        for row in observations:
+            key = row['observation_id']
+            if key in obs:
+                repeated.append(key)
+            else:
+                obs[key] = row
+        for row in labels:
+            key = row['observation_id']
+            if key in lab:
+                repeated.append(key)
+            else:
+                lab[key] = row
+                if row['label'] not in contract['label_values']:
+                    invalid.append(key)
+                if key in obs and row['observation_timestamp'] != obs[key]['observation_timestamp']:
+                    misaligned.append(key)
+                if row['availability_timestamp'] > contract['availability_cutoff']:
+                    unavailable.append(key)
+        missing = set(obs) - set(lab)
+        orphan = set(lab) - set(obs)
+        accepted = len(repeated) == 0 and len(invalid) == 0 and (len(misaligned) == 0) and (len(unavailable) == 0) and (len(missing) == 0) and (len(orphan) == 0)
+        return {'accepted': accepted, 'repeated': repeated, 'missing': missing, 'orphan': orphan, 'invalid': invalid, 'misaligned': misaligned, 'unavailable': unavailable}
+
+# TODO: complete the required audit assignment.
+audit = None
+
+result = audit(observations, labels, contract)
+
+assert result['accepted']
+
+case_results = {}
+
+for name in cases:
+    case_results[name] = audit(observations, cases[name], contract)
+    assert not case_results[name]['accepted']
+
+reordered_labels = labels[::-1]
+
+assert audit(observations, reordered_labels, contract)['accepted']
+
+assert audit(observations, labels, contract)['accepted']
+
+exec('def probe_contract(observations, labels, contract):\n    return audit(observations,labels,contract)\n')

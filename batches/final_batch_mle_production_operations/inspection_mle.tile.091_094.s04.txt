@@ -1,0 +1,138 @@
+{
+  "type": "code_exercise",
+  "interaction_id": "ix.mle.tile.091_094.s04",
+  "difficulty": "core",
+  "grading_mode": "client",
+  "standalone": false,
+  "anchors": [
+    "mle.ml_resource_utilization#practice"
+  ],
+  "measures": [
+    {
+      "concept_id": "mle.ml_resource_utilization",
+      "capability": "identify_workload_matched_resource_observations",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f7"
+      ]
+    },
+    {
+      "concept_id": "mle.ml_resource_utilization",
+      "capability": "calculate_descriptive_cpu_and_memory_utilization",
+      "fact_ids": [
+        "f4",
+        "f5",
+        "f6"
+      ]
+    },
+    {
+      "concept_id": "mle.ml_resource_utilization",
+      "capability": "identify_underused_or_saturated_workload_resources",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5",
+        "f6"
+      ]
+    }
+  ],
+  "public": {
+    "prompt": "Complete cpu_mean, cpu_std, memory_mean and memory_std from cpu and memory using np.mean and np.std with ddof=0. Retain the supplied named-instance, process, RUNNING-state and bounded-interval selection unchanged. Report only the selected process\u2019s resource summaries.",
+    "runtime": {
+      "kind": "python",
+      "version": "0.29.5",
+      "packages": [
+        "numpy"
+      ]
+    },
+    "workspace": {
+      "entry": "learner.py",
+      "files": [
+        {
+          "path": "learner.py",
+          "role": "editable",
+          "language": "python",
+          "content": "exec('import csv, json')\n\nexec('import numpy as np')\n\nexec('policy = json.loads(\\'{\"INSTANCE\": \"serving-lab\", \"process_id\": \"model-service\", \"interval_start\": \"2026-01-02T10:00:00Z\", \"interval_end_exclusive\": \"2026-01-02T10:03:00Z\", \"cpu_unit\": \"percent\", \"memory_unit\": \"MiB\", \"ddof\": 0, \"action_required\": false, \"lifecycle_policy\": \"These lifecycle records belong to the utilization fixture; no recovery fault or learner lifecycle action is required.\"}\\')')\n\nexec(\"resource_telemetry_rows = list(csv.DictReader(open('resource_telemetry.csv')))\")\n\nexec('resource_telemetry = {}')\n\nexec(\"resource_telemetry['timestamp'] = np.array([r['timestamp'] for r in resource_telemetry_rows])\")\n\nexec(\"resource_telemetry['INSTANCE'] = np.array([r['INSTANCE'] for r in resource_telemetry_rows])\")\n\nexec(\"resource_telemetry['process_id'] = np.array([r['process_id'] for r in resource_telemetry_rows])\")\n\nexec(\"resource_telemetry['instance_state'] = np.array([r['instance_state'] for r in resource_telemetry_rows])\")\n\nexec(\"resource_telemetry['running_process'] = np.array([r['running_process'] for r in resource_telemetry_rows])\")\n\nexec(\"resource_telemetry['cpu_percent'] = np.array([float(r['cpu_percent'] or 'nan') for r in resource_telemetry_rows])\")\n\nexec(\"resource_telemetry['memory_value'] = np.array([float(r['memory_value'] or 'nan') for r in resource_telemetry_rows])\")\n\nexec(\"resource_telemetry['memory_unit'] = np.array([r['memory_unit'] for r in resource_telemetry_rows])\")\n\nexec(\"resource_telemetry['included'] = np.array([r['included'] == 'True' for r in resource_telemetry_rows])\")\n\nmask = (resource_telemetry['INSTANCE'] == policy['INSTANCE']) & (resource_telemetry['process_id'] == policy['process_id']) & (resource_telemetry['instance_state'] == 'RUNNING') & (resource_telemetry['running_process'] == policy['process_id']) & (resource_telemetry['timestamp'] >= policy['interval_start']) & (resource_telemetry['timestamp'] < policy['interval_end_exclusive'])\n\ncpu = resource_telemetry['cpu_percent'][mask]\n\nmemory = resource_telemetry['memory_value'][mask]\n\ncpu_mean = None\n\ncpu_std = None\n\nmemory_mean = None\n\nmemory_std = None\n\nexec(\"result = {'INSTANCE': policy['INSTANCE'], 'process_id': policy['process_id'], 'interval_start': policy['interval_start'], 'interval_end_exclusive': policy['interval_end_exclusive'], 'cpu_unit': policy['cpu_unit'], 'memory_unit': policy['memory_unit'], 'cpu_count': len(cpu), 'memory_count': len(memory), 'cpu_mean': cpu_mean, 'cpu_std': cpu_std, 'memory_mean': memory_mean, 'memory_std': memory_std, 'ddof': policy['ddof']}\")\n"
+        }
+      ],
+      "asset_mounts": [
+        {
+          "asset_id": "ds.resource_telemetry",
+          "mount_path": "resource_telemetry.csv"
+        }
+      ]
+    },
+    "constraints": {
+      "allowed_syntax": [
+        "import numpy as np",
+        "variable assignment",
+        "numeric literals",
+        "string literals",
+        "list and dictionary literals",
+        "array and dictionary indexing",
+        "comparison operators",
+        "Boolean array masks",
+        "np.array",
+        "np.mean(numeric_values)",
+        "np.std(numeric_values, ddof=0)",
+        "np.std(numeric_values, ddof=1)",
+        "len(numeric_values)"
+      ],
+      "blocked_syntax": [
+        "gcloud compute instances delete",
+        "docker rm",
+        "gcloud billing budgets create"
+      ]
+    }
+  },
+  "feedback": {
+    "correct": {
+      "message": "The response follows the declared evidence, calculation or authorization rule."
+    },
+    "incorrect": {
+      "message": "Recheck the declared observations, denominator, boundary and required gates; do not substitute evidence for a different claim."
+    },
+    "hints": [
+      "Combine instance, process, running-process evidence, state and interval boundaries in mask before summarizing cpu and memory."
+    ]
+  }
+}
+SOLUTION
+{
+  "solution_files": [
+    {
+      "path": "learner.py",
+      "content": "exec('import csv, json')\n\nexec('import numpy as np')\n\nexec('policy = json.loads(\\'{\"INSTANCE\": \"serving-lab\", \"process_id\": \"model-service\", \"interval_start\": \"2026-01-02T10:00:00Z\", \"interval_end_exclusive\": \"2026-01-02T10:03:00Z\", \"cpu_unit\": \"percent\", \"memory_unit\": \"MiB\", \"ddof\": 0, \"action_required\": false, \"lifecycle_policy\": \"These lifecycle records belong to the utilization fixture; no recovery fault or learner lifecycle action is required.\"}\\')')\n\nexec(\"resource_telemetry_rows = list(csv.DictReader(open('resource_telemetry.csv')))\")\n\nexec('resource_telemetry = {}')\n\nexec(\"resource_telemetry['timestamp'] = np.array([r['timestamp'] for r in resource_telemetry_rows])\")\n\nexec(\"resource_telemetry['INSTANCE'] = np.array([r['INSTANCE'] for r in resource_telemetry_rows])\")\n\nexec(\"resource_telemetry['process_id'] = np.array([r['process_id'] for r in resource_telemetry_rows])\")\n\nexec(\"resource_telemetry['instance_state'] = np.array([r['instance_state'] for r in resource_telemetry_rows])\")\n\nexec(\"resource_telemetry['running_process'] = np.array([r['running_process'] for r in resource_telemetry_rows])\")\n\nexec(\"resource_telemetry['cpu_percent'] = np.array([float(r['cpu_percent'] or 'nan') for r in resource_telemetry_rows])\")\n\nexec(\"resource_telemetry['memory_value'] = np.array([float(r['memory_value'] or 'nan') for r in resource_telemetry_rows])\")\n\nexec(\"resource_telemetry['memory_unit'] = np.array([r['memory_unit'] for r in resource_telemetry_rows])\")\n\nexec(\"resource_telemetry['included'] = np.array([r['included'] == 'True' for r in resource_telemetry_rows])\")\n\nmask = (resource_telemetry['INSTANCE'] == policy['INSTANCE']) & (resource_telemetry['process_id'] == policy['process_id']) & (resource_telemetry['instance_state'] == 'RUNNING') & (resource_telemetry['running_process'] == policy['process_id']) & (resource_telemetry['timestamp'] >= policy['interval_start']) & (resource_telemetry['timestamp'] < policy['interval_end_exclusive'])\n\ncpu = resource_telemetry['cpu_percent'][mask]\n\nmemory = resource_telemetry['memory_value'][mask]\n\ncpu_mean = np.mean(cpu)\n\ncpu_std = np.std(cpu, ddof=0)\n\nmemory_mean = np.mean(memory)\n\nmemory_std = np.std(memory, ddof=0)\n\nexec(\"result = {'INSTANCE': policy['INSTANCE'], 'process_id': policy['process_id'], 'interval_start': policy['interval_start'], 'interval_end_exclusive': policy['interval_end_exclusive'], 'cpu_unit': policy['cpu_unit'], 'memory_unit': policy['memory_unit'], 'cpu_count': len(cpu), 'memory_count': len(memory), 'cpu_mean': cpu_mean, 'cpu_std': cpu_std, 'memory_mean': memory_mean, 'memory_std': memory_std, 'ddof': policy['ddof']}\")\n"
+    }
+  ],
+  "tests": [
+    {
+      "test_id": "t1",
+      "kind": "value_equals",
+      "spec": {
+        "expr": "result",
+        "expected": {
+          "INSTANCE": "serving-lab",
+          "process_id": "model-service",
+          "interval_start": "2026-01-02T10:00:00Z",
+          "interval_end_exclusive": "2026-01-02T10:03:00Z",
+          "cpu_unit": "percent",
+          "memory_unit": "MiB",
+          "cpu_count": 3,
+          "memory_count": 3,
+          "cpu_mean": 40,
+          "cpu_std": 16.32993161855452,
+          "memory_mean": 200,
+          "memory_std": 81.64965809277261,
+          "ddof": 0
+        }
+      },
+      "visible": true,
+      "message_on_fail": "The returned record or calculation does not match the declared fixture contract."
+    }
+  ]
+}

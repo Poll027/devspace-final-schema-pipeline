@@ -1,0 +1,429 @@
+
+FILE README.md
+# Fictional lifecycle fixture runtime
+All rows, limits, identities, bucket/project names and events here are authored examples, not production claims. This is a bounded local simulator of an existing configured pipeline; no cloud requests or policy changes are authorized. A hosted exercise must replace the simulator adapter with its existing authorized runtime before describing results as actual Cloud Build results.
+
+Python 3, numpy and PyYAML are declared dependencies. Files under fixtures/ are inputs and contracts, not answer implementations. learner.py deliberately contains no imports, assertions or gate implementation. Keep protected-test observations out of fitting and tuning. Do not introduce hard-coded fixture verdicts.
+
+Existing build configuration uses the declared step IDs, execution images and entry points. Learners wire the assigned entry point, waitFor edges and fatal gate handling, then safe_dump/safe_load and inspect resolved fields. Existing triggers.json supplies bounded repository-commit and Pub/Sub bindings/filters: do not create triggers or alter filters. Accepted/rejected events are inputs, never captured run output. runtime_sim.py executes Python entry points and captures statuses, resolved args and output; results must be produced by running it, not invented. Required stages cannot use allowFailure or allowed failing exit codes.
+
+Object storage is explicitly simulated by storage_sim.py. It supports exists/reload/generation/download_as_bytes(if_generation_match=...) and upload_from_filename(if_generation_match=0), raises PreconditionFailed with status 412, and records uploads. Injected 412 is a race that creates an output before the failing call returns; recovery must reload and verify. Required validation is supplied per artifact in fixture records; a hash match does not imply a validation pass. No credential values are stored here.
+
+
+FILE requirements.txt
+numpy
+PyYAML
+
+
+FILE learner.py
+"""Assignment: Gate an existing staging-to-production handoff on artifact-specific approval, quality and protected identity."""
+# Write the required imports, implementation, assertions and fatal CLI entry point.
+raise NotImplementedError("Learner entry point is intentionally unwritten")
+
+
+FILE cloudbuild.yaml
+{
+  "steps": [
+    {
+      "id": "compatibility",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "learner.py",
+        "${_CASE}"
+      ],
+      "waitFor": [
+        "-"
+      ]
+    },
+    {
+      "id": "staging_quality",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "learner.py",
+        "${_CASE}"
+      ],
+      "waitFor": []
+    },
+    {
+      "id": "authorization",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "learner.py",
+        "${_CASE}"
+      ],
+      "waitFor": []
+    },
+    {
+      "id": "production",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "downstream_entry.py",
+        "${_ARTIFACT}"
+      ],
+      "waitFor": [],
+      "secretEnv": [
+        "PROMOTION_TOKEN"
+      ]
+    }
+  ],
+  "substitutions": {
+    "_SNAPSHOT": "valid",
+    "_CASE": "accepted",
+    "_ARTIFACT": "A"
+  },
+  "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+  "availableSecrets": {
+    "secretManager": [
+      {
+        "versionName": "projects/fixture-project/secrets/promotion-token/versions/1",
+        "env": "PROMOTION_TOKEN"
+      }
+    ]
+  }
+}
+
+
+FILE triggers.json
+{
+  "repository_commit": {
+    "id": "fixture-commit-trigger",
+    "repository": "local_repo",
+    "branch_filter": "^main$",
+    "bindings": {
+      "_SNAPSHOT": "snapshot_id"
+    },
+    "fixtures": [
+      {
+        "branch": "main",
+        "snapshot_id": "valid"
+      },
+      {
+        "branch": "main",
+        "snapshot_id": "missing_required_feature"
+      },
+      {
+        "branch": "other",
+        "snapshot_id": "valid"
+      }
+    ]
+  },
+  "pubsub": {
+    "id": "fixture-artifact-trigger",
+    "topic": "projects/fixture-project/topics/artifacts",
+    "bindings": {
+      "_CASE": "case_id",
+      "_ARTIFACT": "artifact_id"
+    },
+    "filters": {
+      "event_type": "artifact_ready"
+    },
+    "fixtures": [
+      {
+        "event_type": "artifact_ready",
+        "case_id": "accepted",
+        "artifact_id": "A"
+      },
+      {
+        "event_type": "artifact_ready",
+        "case_id": "unauthorized",
+        "artifact_id": "A"
+      },
+      {
+        "event_type": "unrelated",
+        "case_id": "accepted",
+        "artifact_id": "A"
+      }
+    ]
+  }
+}
+
+
+FILE runtime_sim.py
+"""Offline execution adapter. Statuses are generated, never fixture answers."""
+import json
+import subprocess
+import sys
+import yaml
+from pathlib import Path
+
+def run_build(config_path, trigger_kind, event):
+    config = yaml.safe_load(Path(config_path).read_text())
+    triggers = json.loads(Path("triggers.json").read_text())
+    trigger = triggers[trigger_kind]
+    if trigger_kind == "repository_commit":
+        import re
+        if re.fullmatch(trigger["branch_filter"], event.get("branch", "")) is None:
+            return {"triggered": False, "steps": []}
+    elif any(event.get(k) != v for k, v in trigger["filters"].items()):
+        return {"triggered": False, "steps": []}
+    bindings = dict(config.get("substitutions", {}))
+    bindings.update({k: event[field] for k, field in trigger["bindings"].items()})
+    results, by_id = [], {}
+    pending = list(config["steps"])
+    while pending:
+        progress = False
+        for step in list(pending):
+            i = config["steps"].index(step)
+            dependencies = step.get("waitFor") or [s["id"] for s in config["steps"][:i]]
+            dependencies = [d for d in dependencies if d != "-"]
+            if any(d not in by_id for d in dependencies):
+                continue
+            args = [str(a) for a in step.get("args", [])]
+            for j, arg in enumerate(args):
+                for key, value in bindings.items():
+                    arg = arg.replace("${" + key + "}", str(value)).replace(key, str(value))
+                args[j] = arg
+            record = {"id": step["id"], "name": step["name"], "resolved_args": args, "waitFor": dependencies}
+            if any(by_id[d]["status"] != "SUCCESS" for d in dependencies):
+                record.update(status="NOT_STARTED", exit_code=None, output="")
+            else:
+                if step.get("allowFailure") or any(x != 0 for x in step.get("allowExitCodes", [])):
+                    raise ValueError("required gate failures must be fatal")
+                if not args or args[0] != "python":
+                    raise ValueError("bounded adapter only supports declared Python entry points")
+                p = subprocess.run([sys.executable] + args[1:], text=True, capture_output=True)
+                record.update(status="SUCCESS" if p.returncode == 0 else "FAILURE", exit_code=p.returncode, output=p.stdout+p.stderr)
+            results.append(record); by_id[step["id"]] = record
+            pending.remove(step); progress = True
+        if not progress:
+            raise ValueError("missing dependency or cycle")
+    return {"triggered": True, "resolved_inputs": bindings, "steps": results}
+
+
+FILE storage_sim.py
+"""Bounded local Cloud Storage interface, never a real cloud client."""
+from pathlib import Path
+class PreconditionFailed(Exception):
+    status_code = 412
+class RecoverableFailure(Exception):
+    pass
+class StorageClient:
+    def __init__(self, initial=None, race=None):
+        self.objects = dict(initial or {})
+        self.race = dict(race or {})
+        self.uploads = []
+        self.requests = []
+    def blob(self, name):
+        return Blob(self, name)
+class Blob:
+    def __init__(self, client, name):
+        self.client, self.name = client, name
+        self.generation = None
+    def exists(self):
+        return self.name in self.client.objects
+    def reload(self):
+        self.generation = self.client.objects[self.name]["generation"]
+    def download_as_bytes(self, if_generation_match):
+        self.client.requests.append((self.name, if_generation_match))
+        obj = self.client.objects[self.name]
+        if obj["generation"] != if_generation_match:
+            raise PreconditionFailed("generation mismatch")
+        return obj["data"]
+    def upload_from_filename(self, path, if_generation_match):
+        if if_generation_match != 0:
+            raise ValueError("fixture contract permits create-only upload")
+        if self.name in self.client.race:
+            self.client.objects[self.name] = self.client.race.pop(self.name)
+            raise PreconditionFailed("412 concurrent creation")
+        if self.exists():
+            raise PreconditionFailed("412 already exists")
+        self.client.objects[self.name] = {"generation": 1, "data": Path(path).read_bytes()}
+        self.client.uploads.append(self.name)
+        self.reload()
+
+
+FILE fixtures/anchor_contract.json
+{
+  "type": "live_code",
+  "objective": "Edit and safely parse the supplied staging/production configuration to promote one approved immutable registry version through staging quality and separate authorization gates. Use the configured event trigger and approved credential references, then inspect accepted and unauthorized fixture results without changing the permission policy.",
+  "success": "The reloaded configuration preserves the approved registry version and artifact identity, wires the supplied entry points into explicit stage dependencies, and keeps required gate failures fatal. The accepted fixture reaches production only after compatibility, validation and authorization succeed. The unauthorized fixture does not execute production. The promotion record retains the approval, exact artifact, validation evidence and per-stage results. Credentials are scoped to the needed step, and neither configuration nor captured output contains their values.",
+  "live_code": {
+    "required_skill": "Modify an existing Cloud Build configuration, round-trip it with PyYAML, and verify artifact-bound quality and authorization gates using supplied runtime fixtures.",
+    "allowed_syntax": [
+      "import yaml",
+      "with open(...) as file_handle",
+      "Python mapping and list literals",
+      "String, numeric, Boolean and None literals",
+      "Mapping key access and assignment",
+      "List indexing and iteration",
+      "Function calls to supplied test and gate entry points",
+      "Conditional statements",
+      "Assertions",
+      "import sys",
+      "sys.exit(1)",
+      "yaml.safe_dump(config, file_handle)",
+      "yaml.safe_load(file_handle)",
+      "Cloud Build steps, name, args and script fields",
+      "Cloud Build id and waitFor fields",
+      "availableSecrets.secretManager and secretEnv fields"
+    ],
+    "blocked_syntax": [],
+    "starter_state_intent": "Provide the existing staging/production configuration, declared PyYAML dependency, approved registry name/version and run/artifact link, supplied offline requirements and staged evaluation evidence, gate entry points, authorized build identity, Secret Manager version references, and configured event bindings and filters. Include accepted and unauthorized promotion fixtures and access to captured stage results and output; do not supply literal credential values in the configuration.",
+    "observable_success": "Inspect the safely reloaded fields and actual event-resolved inputs. Confirm that production depends on successful staging quality and separate authorization for the same immutable artifact, with no gate failure exemptions. Verify production executes for the accepted fixture but not the unauthorized fixture, the accountable promotion record is complete, and captured output and serialized configuration disclose no credential values."
+  }
+}
+
+
+FILE fixtures/visual_intent.json
+{
+  "type": "code",
+  "purpose": "Make the staging/production configuration and its parsed fields visible beside accepted and unauthorized stage results: explicit step IDs and dependencies, the unchanged immutable artifact reference, scoped secret references, and production not executed after rejected authorization. Show the promotion record and non-disclosure check results without displaying credential values."
+}
+
+
+FILE training_entry.py
+"""Existing training entry point, kept unchanged by dataset-gate exercises."""
+import json
+import sys
+from pathlib import Path
+if __name__ == "__main__":
+    snapshot_id = sys.argv[1]
+    Path("training_invocation.json").write_text(json.dumps({"snapshot_id": snapshot_id, "started": True}))
+
+
+FILE downstream_entry.py
+"""Supplied downstream execution marker; no gate bypass."""
+import json
+import sys
+from pathlib import Path
+if __name__ == "__main__":
+    Path("downstream_invocation.json").write_text(json.dumps({"artifact_id": sys.argv[1], "started": True}))
+
+
+FILE outputs/A.txt
+fictional fitted package A
+preprocess: divide feature by 5
+threshold: 0.4
+
+
+FILE outputs/B.txt
+fictional fitted package B
+preprocess: divide feature by 5
+threshold: 0.5
+
+
+FILE fixtures/artifacts.json
+{
+  "A": {
+    "artifact_id": "A",
+    "uri": "gs://fixture-artifacts/A.txt",
+    "generation": 1,
+    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+    "validation_ok": true
+  },
+  "B": {
+    "artifact_id": "B",
+    "uri": "gs://fixture-artifacts/B.txt",
+    "generation": 1,
+    "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+    "validation_ok": true
+  }
+}
+
+
+FILE fixtures/promotion_cases.json
+{
+  "accepted": {
+    "registry_version": "1",
+    "artifact_id": "A",
+    "run_id": "run.A",
+    "approval": {
+      "approval_id": "approval.A",
+      "registry_version": "1",
+      "artifact_id": "A",
+      "authorized": true,
+      "accountable_identity": "fixture-promoter"
+    },
+    "compatibility_ok": true,
+    "offline_validation_ok": true,
+    "staged_validation_ok": true,
+    "staged_artifact_id": "A"
+  },
+  "unauthorized": {
+    "registry_version": "1",
+    "artifact_id": "A",
+    "run_id": "run.A",
+    "approval": {
+      "approval_id": "approval.A",
+      "registry_version": "1",
+      "artifact_id": "A",
+      "authorized": false,
+      "accountable_identity": "fixture-promoter"
+    },
+    "compatibility_ok": true,
+    "offline_validation_ok": true,
+    "staged_validation_ok": true,
+    "staged_artifact_id": "A"
+  },
+  "wrong_artifact": {
+    "registry_version": "1",
+    "artifact_id": "B",
+    "run_id": "run.A",
+    "approval": {
+      "approval_id": "approval.A",
+      "registry_version": "1",
+      "artifact_id": "A",
+      "authorized": true,
+      "accountable_identity": "fixture-promoter"
+    },
+    "compatibility_ok": true,
+    "offline_validation_ok": true,
+    "staged_validation_ok": true,
+    "staged_artifact_id": "A"
+  },
+  "failed_staging": {
+    "registry_version": "1",
+    "artifact_id": "A",
+    "run_id": "run.A",
+    "approval": {
+      "approval_id": "approval.A",
+      "registry_version": "1",
+      "artifact_id": "A",
+      "authorized": true,
+      "accountable_identity": "fixture-promoter"
+    },
+    "compatibility_ok": true,
+    "offline_validation_ok": true,
+    "staged_validation_ok": false,
+    "staged_artifact_id": "A"
+  }
+}
+
+
+FILE fixtures/registry.json
+{
+  "1": {
+    "model_name": "fixture_model",
+    "version": "1",
+    "artifact_id": "A",
+    "artifact_source": "gs://fixture-artifacts/A.txt",
+    "generation": 1,
+    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+    "run_id": "run.A"
+  }
+}
+
+
+FILE fixtures/promotion_contract.json
+{
+  "scope": "fixture-promoter may promote approved artifact A, registry version 1, only",
+  "required_results": [
+    "compatibility",
+    "offline_validation",
+    "staged_validation",
+    "authorization"
+  ],
+  "record_fields": [
+    "approval",
+    "accountable_identity",
+    "registry_version",
+    "run_id",
+    "artifact_id",
+    "per_stage_results"
+  ],
+  "secret_reference_only": "PROMOTION_TOKEN is provided only by the authorized runtime to production. Do not serialize or echo it; inspect captured output without displaying its value. The local adapter never supplies real credentials."
+}

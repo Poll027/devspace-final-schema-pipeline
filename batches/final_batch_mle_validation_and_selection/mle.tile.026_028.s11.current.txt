@@ -1,0 +1,14 @@
+exec("import csv\nimport json\ndef supplied_rows(path):\n    with open(path) as f:\n        raw = list(csv.DictReader(f))\n    def convert(v):\n        if v == '': return None\n        if v.lower() == 'true': return True\n        if v.lower() == 'false': return False\n        try: return float(v) if '.' in v or 'e' in v.lower() else int(v)\n        except ValueError: return v\n    return [{k: convert(v) for k,v in r.items()} for r in raw]\nslice_observations = supplied_rows('slice_observations.csv')\n")
+import numpy as np
+exec("def slices(zone, eligible, error, loss):\n    report = {}\n    for label in ['A','B']:\n        mask = (zone == label) & eligible\n        count = count_true(mask)\n        errors = count_true(error[mask])\n        report[label] = {'eligible_count': count, 'error_count': errors, 'error_probability': errors/count, 'loss_mean': loss_mean(loss[mask]), 'loss_std': loss_std(loss[mask])}\n    return {'slices': report, 'error_gap_B_minus_A': report['B']['error_probability'] - report['A']['error_probability'], 'limitation': 'Observed validation-slice gap only; unequal denominators retained; population-level disparity not established.'}\n")
+
+def count_true(values):
+    return np.sum(values)
+
+def loss_mean(values):
+    return np.mean(values)
+
+def loss_std(values):
+    return np.std(values, ddof=0)
+
+exec("\n\nimport numpy as np\nzone = np.asarray([r['zone'] for r in slice_observations])\neligible = np.asarray([r['eligible'] for r in slice_observations])\nerror = np.asarray([r['error'] for r in slice_observations])\nloss = np.asarray([r['loss'] for r in slice_observations])\nresult = slices(zone,eligible,error,loss)\n\n")

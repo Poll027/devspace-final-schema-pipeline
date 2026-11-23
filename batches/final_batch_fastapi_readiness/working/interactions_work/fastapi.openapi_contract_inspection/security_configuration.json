@@ -1,0 +1,83 @@
+{
+  "schemes": {
+    "OrderBearer": {
+      "type": "http",
+      "scheme": "bearer"
+    },
+    "OrderAuthorizationCode": {
+      "type": "oauth2",
+      "flows": {
+        "authorizationCode": {
+          "authorizationUrl": "http://127.0.0.1:37353/authorize",
+          "tokenUrl": "http://127.0.0.1:37353/token",
+          "scopes": {
+            "orders:read": "Read orders",
+            "orders:write": "Create orders"
+          }
+        }
+      }
+    }
+  },
+  "operations": {
+    "GET /orders/{order_id}": [
+      {
+        "OrderBearer": [],
+        "OrderAuthorizationCode": [
+          "orders:read"
+        ]
+      }
+    ],
+    "POST /orders": [
+      {
+        "OrderBearer": [],
+        "OrderAuthorizationCode": [
+          "orders:write"
+        ]
+      }
+    ]
+  },
+  "authorization_code_issuer": {
+    "issuer": "http://127.0.0.1:37353",
+    "authorization_url": "http://127.0.0.1:37353/authorize",
+    "token_url": "http://127.0.0.1:37353/token",
+    "jwks_url": "http://127.0.0.1:37353/jwks",
+    "client_id": "order-training-client",
+    "redirect_uri": "http://127.0.0.1:37353/client/callback",
+    "algorithms": [
+      "RS256"
+    ],
+    "required_claims": [
+      "iss",
+      "aud",
+      "sub",
+      "exp",
+      "iat"
+    ],
+    "audience": "order-api",
+    "scopes": {
+      "orders:read": "Read orders",
+      "orders:write": "Create orders"
+    },
+    "pkce": {
+      "required": true,
+      "code_challenge_method": "S256"
+    },
+    "runtime_boundary": "Publisher-provisioned isolated loopback training issuer; not a public production service."
+  },
+  "dependency_graph": [
+    "operation -> read_orders/write_orders -> authenticated -> HTTPBearer extraction -> ExistingVerifier.verify -> JWKS signature/issuer/audience/required claims",
+    "read_orders/write_orders -> enforce_permission -> required scope"
+  ],
+  "operation_dependencies": {
+    "GET /orders/{order_id}": {
+      "dependency": "read_orders",
+      "scope": "orders:read"
+    },
+    "POST /orders": {
+      "dependency": "write_orders",
+      "scope": "orders:write"
+    }
+  },
+  "provenance": "Supplied application configuration backed by the separately provisioned loopback training issuer and active verification/permission dependencies.",
+  "note": "Compare generated security declarations with this supplied established configuration; do not add authentication or authorization tests to this audit."
+}

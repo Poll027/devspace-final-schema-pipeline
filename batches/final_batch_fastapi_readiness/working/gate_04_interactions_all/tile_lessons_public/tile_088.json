@@ -1,0 +1,735 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "python_fastapi_backend_developer",
+  "tile_id": "tile_088",
+  "toc_location": {
+    "region_id": "region_readiness",
+    "terrain_id": "terrain_verified_controls"
+  },
+  "title": "Bounding payloads, expensive requests and API resource consumption",
+  "summary": "",
+  "concept_ids": [
+    "security.bounded_api_resources"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_python_fastapi_backend_developer",
+    "toc_freeze_hash": "96d245a8da4552263398bda220dd1f88774cc30045abdf029e8d40064881cb7e",
+    "glossary_bundle_hashes": {
+      "security.bounded_api_resources": "ce1f498e876d3f80259ff298917c03ba3bc6d5c86154767eef8666073d1da885"
+    },
+    "scenario_registry_hash": "8457b835acb638f3087af0988b1e25455e51b5c8a0efda9e9bd119a35f922ffe"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core"
+    ],
+    "block_types": [
+      "code_walkthrough",
+      "prose",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "classify"
+    ],
+    "runtimes": [],
+    "asset_ids": []
+  },
+  "pacing": {
+    "estimated_minutes": 4.1
+  },
+  "steps": [
+    {
+      "step_id": "tile_088.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "security.bounded_api_resources"
+      ],
+      "title": "Bounding payloads, expensive requests and API resource consumption",
+      "lineage": {
+        "teaching_block_ids": [
+          "security.bounded_api_resources#tb1",
+          "security.bounded_api_resources#tb2",
+          "security.bounded_api_resources#tb3"
+        ],
+        "fact_ids": [
+          "security.bounded_api_resources#f1",
+          "security.bounded_api_resources#f2",
+          "security.bounded_api_resources#f3",
+          "security.bounded_api_resources#f4"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "security.bounded_api_resources#visual"
+        ]
+      },
+      "eyebrow": "Learn the rule",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Put finite limits on expensive untrusted work, including input size, result count, duration and costly concurrency.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "security.bounded_api_resources"
+            ],
+            "fact_ids": [
+              "security.bounded_api_resources#f1"
+            ],
+            "teaching_block_ids": [
+              "security.bounded_api_resources#tb2"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Enforce actual body bytes with maintained middleware. Use Field bounds for caller-selected batch or page sizes; claimed sizes are insufficient.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "security.bounded_api_resources"
+            ],
+            "fact_ids": [
+              "security.bounded_api_resources#f2"
+            ],
+            "teaching_block_ids": [
+              "security.bounded_api_resources#tb3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Configure finite dependency timeouts and the supplied Uvicorn --limit-concurrency budget where policy bounds concurrent accepted work.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "security.bounded_api_resources"
+            ],
+            "fact_ids": [
+              "security.bounded_api_resources#f3"
+            ],
+            "teaching_block_ids": [
+              "security.bounded_api_resources#tb3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Test within-budget and over-budget input: reject excess before expensive work while preserving the accepted request’s contract.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "security.bounded_api_resources"
+            ],
+            "fact_ids": [
+              "security.bounded_api_resources#f4"
+            ],
+            "teaching_block_ids": [
+              "security.bounded_api_resources#tb3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "code_walkthrough",
+          "language": "python",
+          "code": "# starter.py: supplied finite batch bound\nfrom pydantic import BaseModel, Field\nfrom pathlib import Path\nimport json\nbudgets = json.loads(Path(\"fixtures.json\").read_text())[\"hypothetical_budgets\"]\nclass BatchInput(BaseModel):\n    order_ids: list[int] = Field(max_length=budgets[\"batch_size\"])\n\n# application.py: enforce actual bytes and finite dependency wait\nimport json\nfrom pathlib import Path\nimport httpx\nfrom fastapi import FastAPI, Depends\nfrom starlette.middleware.body_limit import RequestBodyLimitMiddleware\nfrom starter import BatchInput\nbudgets = json.loads(Path('fixtures.json').read_text())['hypothetical_budgets']\napp = FastAPI()\napp.add_middleware(RequestBodyLimitMiddleware, max_body_size=budgets[\"body_bytes\"])\nexpensive_calls = 0\noutbound_timeout = httpx.Timeout(budgets[\"dependency_timeout_seconds\"])\nasync def expensive_dependency(value: BatchInput):\n    global expensive_calls\n    expensive_calls += 1\n    transport=httpx.MockTransport(lambda request:httpx.Response(200,json={'available':True}))\n    async with httpx.AsyncClient(transport=transport,timeout=outbound_timeout) as http:\n        response=await http.get('http://controlled-dependency.invalid/lookup')\n        return response.json()['available']\n@app.post('/orders/batch')\nasync def batch(value: BatchInput, available=Depends(expensive_dependency)):\n    return {'accepted':len(value.order_ids)}\n\n# Supplied launch policy\n# uvicorn application:app --host 127.0.0.1 --port 8000 --limit-concurrency 8\n\nimport json\nfrom pathlib import Path\nimport application\nfrom fastapi.testclient import TestClient\nimport pytest\nfixtures = json.loads(Path('fixtures.json').read_text())\n@pytest.mark.parametrize('condition', ['within_batch','beyond_batch','within_body','beyond_body'])\ndef test_boundary(condition):\n    calls = []\n    async def counted(value: application.BatchInput):\n        calls.append(True)\n        return True\n    previous = application.app.dependency_overrides.copy()\n    application.app.dependency_overrides[application.expensive_dependency] = counted\n    try:\n        with TestClient(application.app) as client:\n            if condition == 'beyond_body':\n                response = client.post('/orders/batch', content=fixtures[condition], headers={'Content-Type':'application/json'})\n            else:\n                response = client.post('/orders/batch', json=fixtures[condition])\n            if condition in ('within_batch', 'within_body'):\n                assert response.status_code == 200\n                assert response.json() == {'accepted': len(fixtures[condition]['order_ids'])}\n                assert calls == [True]\n            elif condition == 'beyond_batch':\n                assert response.status_code == 422\n                assert calls == []\n            else:\n                assert response.status_code == 413\n                assert response.text == 'Content Too Large'\n                assert calls == []\n    finally:\n        application.app.dependency_overrides.clear()\n        application.app.dependency_overrides.update(previous)\n",
+          "reveal": "all",
+          "lineage": {
+            "concept_ids": [
+              "security.bounded_api_resources"
+            ],
+            "fact_ids": [
+              "security.bounded_api_resources#f1",
+              "security.bounded_api_resources#f2",
+              "security.bounded_api_resources#f3",
+              "security.bounded_api_resources#f4"
+            ],
+            "teaching_block_ids": [
+              "security.bounded_api_resources#tb2",
+              "security.bounded_api_resources#tb3",
+              "security.bounded_api_resources#tb4",
+              "security.bounded_api_resources#tb5"
+            ],
+            "anchors": [
+              "security.bounded_api_resources#visual"
+            ]
+          },
+          "annotations": [
+            {
+              "start_line": 1,
+              "end_line": 7,
+              "text": "Batch count is not body size. Test byte and batch limits independently, and check rejection before costly dependency invocation."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "step_id": "tile_088.s02",
+      "type": "explainer",
+      "concept_ids": [
+        "security.bounded_api_resources"
+      ],
+      "title": "Keep the boundary clear",
+      "lineage": {
+        "teaching_block_ids": [
+          "security.bounded_api_resources#tb4",
+          "security.bounded_api_resources#tb5"
+        ],
+        "fact_ids": [
+          "security.bounded_api_resources#f1",
+          "security.bounded_api_resources#f2",
+          "security.bounded_api_resources#f3",
+          "security.bounded_api_resources#f4"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "eyebrow": "Work the boundary",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "A bounded batch can still have an oversized body. Size, result count, duration and costly concurrency need their supplied limits.",
+          "role": "walkthrough",
+          "lineage": {
+            "concept_ids": [
+              "security.bounded_api_resources"
+            ],
+            "fact_ids": [
+              "security.bounded_api_resources#f1",
+              "security.bounded_api_resources#f2"
+            ],
+            "teaching_block_ids": [
+              "security.bounded_api_resources#tb4",
+              "security.bounded_api_resources#tb5"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_088.s03",
+      "type": "check",
+      "concept_ids": [
+        "security.bounded_api_resources"
+      ],
+      "title": "Choose the boundary",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "security.bounded_api_resources#f1",
+          "security.bounded_api_resources#f2"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "security.bounded_api_resources#assessment:identify_unbounded_expensive_operations",
+          "security.bounded_api_resources#assessment:distinguish_enforced_input_limits_from_claimed_sizes"
+        ]
+      },
+      "eyebrow": "Check",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_088.s03",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "security.bounded_api_resources",
+            "capability": "identify_unbounded_expensive_operations",
+            "fact_ids": [
+              "f1"
+            ]
+          },
+          {
+            "concept_id": "security.bounded_api_resources",
+            "capability": "distinguish_enforced_input_limits_from_claimed_sizes",
+            "fact_ids": [
+              "f2"
+            ]
+          }
+        ],
+        "anchors": [
+          "security.bounded_api_resources#assessment:identify_unbounded_expensive_operations",
+          "security.bounded_api_resources#assessment:distinguish_enforced_input_limits_from_claimed_sizes"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Apply finite limits to expensive untrusted operations, including input size, result count, operation duration and costly concurrent work rather than accepting unrestricted resource consumption. Enforce an actual body-byte limit with maintained middleware and constrain caller-selected batch or page sizes with Field bounds rather than trusting claimed sizes."
+          },
+          "incorrect": {
+            "message": "Check this rule: Apply finite limits to expensive untrusted operations, including input size, result count, operation duration and costly concurrent work rather than accepting unrestricted resource consumption. Enforce an actual body-byte limit with maintained middleware and constrain caller-selected batch or page sizes with Field bounds rather than trusting claimed sizes."
+          },
+          "hints": [
+            "Trace the inputs, the decision boundary, and the observable output separately."
+          ],
+          "remediation_step_id": "tile_088.r01"
+        },
+        "public": {
+          "prompt": "A batch endpoint trusts Content-Length and accepts any caller-selected batch count before invoking an expensive dependency. Which policy actually bounds that input work?",
+          "selection": "single",
+          "shuffle": true,
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Enforce actual body bytes with maintained middleware and bound batch size with Field constraints."
+            },
+            {
+              "option_id": "o2",
+              "text": "Accept the claimed Content-Length as proof of actual size and leave batch count unbounded."
+            },
+            {
+              "option_id": "o3",
+              "text": "Only describe a recommended batch size in documentation."
+            }
+          ]
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "This option applies the taught boundary to the evidence."
+            },
+            "o2": {
+              "message": "Claimed sizes are not enforced actual-byte limits, and an unbounded batch still permits expensive work."
+            },
+            "o3": {
+              "message": "A recommendation does not enforce finite limits on untrusted operations."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_088.s04",
+      "type": "check",
+      "concept_ids": [
+        "security.bounded_api_resources"
+      ],
+      "title": "Choose the boundary",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "security.bounded_api_resources#f4"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "security.bounded_api_resources#assessment:identify_evidence_of_rejection_before_expensive_work"
+        ]
+      },
+      "eyebrow": "Check",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_088.s04",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "security.bounded_api_resources",
+            "capability": "identify_evidence_of_rejection_before_expensive_work",
+            "fact_ids": [
+              "f4"
+            ]
+          }
+        ],
+        "anchors": [
+          "security.bounded_api_resources#assessment:identify_evidence_of_rejection_before_expensive_work"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Test an input within the supplied budget and one beyond it, asserting that excess work is rejected before the expensive operation and accepted work retains the intended contract."
+          },
+          "incorrect": {
+            "message": "Check this rule: Test an input within the supplied budget and one beyond it, asserting that excess work is rejected before the expensive operation and accepted work retains the intended contract."
+          },
+          "hints": [
+            "Trace the inputs, the decision boundary, and the observable output separately."
+          ]
+        },
+        "public": {
+          "prompt": "Which observation demonstrates rejection before expensive work?",
+          "selection": "single",
+          "shuffle": true,
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "An in-budget request keeps its intended response; oversized body and excessive batch requests are rejected with zero dependency invocations."
+            },
+            {
+              "option_id": "o2",
+              "text": "Oversized requests eventually return an error after invoking the dependency."
+            },
+            {
+              "option_id": "o3",
+              "text": "All requests return the intended response, including those over budget."
+            }
+          ]
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "This option applies the taught boundary to the evidence."
+            },
+            "o2": {
+              "message": "Rejection after invocation does not demonstrate prevention of expensive work."
+            },
+            "o3": {
+              "message": "Accepting excess inputs fails to enforce the supplied budgets."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_088.s05",
+      "type": "hands_on",
+      "concept_ids": [
+        "security.bounded_api_resources"
+      ],
+      "title": "Apply the contract",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "security.bounded_api_resources#f3"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "security.bounded_api_resources#practice",
+          "security.bounded_api_resources#assessment:identify_missing_duration_and_concurrency_budgets"
+        ]
+      },
+      "eyebrow": "Practice",
+      "interaction": {
+        "type": "classify",
+        "interaction_id": "ix.tile_088.s05",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "security.bounded_api_resources",
+            "capability": "identify_missing_duration_and_concurrency_budgets",
+            "fact_ids": [
+              "f3"
+            ]
+          }
+        ],
+        "anchors": [
+          "security.bounded_api_resources#practice",
+          "security.bounded_api_resources#assessment:identify_missing_duration_and_concurrency_budgets"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Your response respects the stated boundary and the supplied evidence."
+          },
+          "incorrect": {
+            "message": "Recheck which evidence establishes the boundary; a declaration or successful single case is not a substitute for the required checks."
+          },
+          "hints": [
+            "Trace the inputs, the decision boundary, and the observable output separately."
+          ]
+        },
+        "public": {
+          "prompt": "Supplied fictional policy: maximum actual body size = 256 bytes; maximum batch size = 3 order IDs; dependency timeout = 2 seconds; Uvicorn --limit-concurrency = 8. Compare each candidate’s settings with these values. Review enforcement packets against the supplied finite body, batch, timeout and concurrency budgets. Each packet is independent. Each excerpt is a hypothetical candidate, not a report of observed execution. Classify every item.",
+          "buckets": [
+            {
+              "bucket_id": "good",
+              "label": "Meets the stated review requirements"
+            },
+            {
+              "bucket_id": "bad",
+              "label": "Fails the stated review requirements"
+            }
+          ],
+          "items": [
+            {
+              "item_id": "i1",
+              "text": "# Maintained middleware enforces actual received body bytes <= supplied_body_budget.\n# Batch model: order_ids: list[int] = Field(max_length=supplied_batch_budget).\n# HTTP dependency uses httpx.Timeout(supplied_timeout).\n# Launch setting: uvicorn ... --limit-concurrency <supplied_concurrency_budget>.\n# Checks: in-budget input retains exact endpoint response; oversized actual body -> rejected with dependency calls == 0; excessive batch -> rejected with dependency calls == 0. Settings compared to supplied finite budgets.\nfrom pydantic import BaseModel, Field\nfrom starlette.middleware.body_limit import RequestBodyLimitMiddleware\nclass BatchInput(BaseModel):\n    order_ids: list[int] = Field(max_length=3)\napp.add_middleware(RequestBodyLimitMiddleware, max_body_size=256)\noutbound_timeout = httpx.Timeout(2)\n# Deployment command: uvicorn application:app --limit-concurrency 8\n# Independent candidate HTTP checks, recorder reset for each:\nwithin = client.post('/orders/batch',json={'order_ids': [101, 202]})\nassert (within.status_code,within.json()) == (200,{'accepted': 2})\nexpensive_calls = 0\nbody_excess = client.post('/orders/batch',content=fixtures['beyond_body'],headers={'Content-Type':'application/json'})\nassert (body_excess.status_code,body_excess.text,expensive_calls) == (413, 'Content Too Large', 0)\nexpensive_calls = 0\nbatch_excess = client.post('/orders/batch',json={'order_ids': [101, 202, 303, 404]})\nassert batch_excess.status_code == 422\nassert expensive_calls == 0"
+            },
+            {
+              "item_id": "i2",
+              "text": "# Reject only if claimed Content-Length exceeds the body budget.\n# Batch count has no Field upper bound.\n# Dependency timeout=None; Uvicorn concurrency budget omitted.\n# Invoke dependency then check whether the batch was excessive.\n# Assert only that some error occurred."
+            }
+          ]
+        },
+        "grading": {
+          "assignments": {
+            "i1": "good",
+            "i2": "bad"
+          },
+          "item_feedback": {
+            "i1": {
+              "message": "Actual size, selected count, dependency duration and accepted concurrency are bounded; excess work is rejected before invocation."
+            },
+            "i2": {
+              "message": "Claimed sizes and post-work checks are not enforced early budgets; duration and concurrency remain unbounded."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_088.s06",
+      "type": "recap",
+      "concept_ids": [
+        "security.bounded_api_resources"
+      ],
+      "title": "Take the rule with you",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "A bounded batch can still have an oversized body. Size, result count, duration and costly concurrency need their supplied limits.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "security.bounded_api_resources"
+            ],
+            "fact_ids": [
+              "security.bounded_api_resources#f1"
+            ],
+            "teaching_block_ids": [
+              "security.bounded_api_resources#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "up_next",
+          "title": "Recognizing and avoiding redundant ORM queries",
+          "text": "Listing several parent entities can hide extra database round trips when their relationships are accessed individually. Inspect emitted SQL rather than counting only explicit selects in the handler."
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "tile_088.r01",
+      "type": "remediation",
+      "title": "Review: Bounding payloads, expensive requests and API resource consumption",
+      "concept_ids": [
+        "security.bounded_api_resources"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "security.bounded_api_resources"
+        ],
+        "fact_ids": [
+          "security.bounded_api_resources#f1",
+          "security.bounded_api_resources#f2"
+        ],
+        "teaching_block_ids": [
+          "security.bounded_api_resources#tb2",
+          "security.bounded_api_resources#tb3",
+          "security.bounded_api_resources#tb4",
+          "security.bounded_api_resources#tb5"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Put finite limits on expensive untrusted work, including input size, result count, duration and costly concurrency.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "security.bounded_api_resources"
+            ],
+            "fact_ids": [
+              "security.bounded_api_resources#f1"
+            ],
+            "teaching_block_ids": [
+              "security.bounded_api_resources#tb2",
+              "security.bounded_api_resources#tb4",
+              "security.bounded_api_resources#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Enforce actual body bytes with maintained middleware. Use Field bounds for caller-selected batch or page sizes; claimed sizes are insufficient.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "security.bounded_api_resources"
+            ],
+            "fact_ids": [
+              "security.bounded_api_resources#f2"
+            ],
+            "teaching_block_ids": [
+              "security.bounded_api_resources#tb3",
+              "security.bounded_api_resources#tb4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "This fictional budget uses 256 body bytes and 3 batch items. A passing batch-size check does not establish the independent body-byte boundary.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "security.bounded_api_resources"
+            ],
+            "fact_ids": [
+              "security.bounded_api_resources#f1",
+              "security.bounded_api_resources#f2"
+            ],
+            "teaching_block_ids": [
+              "security.bounded_api_resources#tb2",
+              "security.bounded_api_resources#tb3",
+              "security.bounded_api_resources#tb4",
+              "security.bounded_api_resources#tb5"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_088.r02",
+      "type": "remediation",
+      "title": "Review: Bounding payloads, expensive requests and API resource consumption",
+      "concept_ids": [
+        "security.bounded_api_resources"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "security.bounded_api_resources"
+        ],
+        "fact_ids": [
+          "security.bounded_api_resources#f4"
+        ],
+        "teaching_block_ids": [
+          "security.bounded_api_resources#tb3",
+          "security.bounded_api_resources#tb4"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Test within-budget and over-budget input: reject excess before expensive work while preserving the accepted request’s contract.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "security.bounded_api_resources"
+            ],
+            "fact_ids": [
+              "security.bounded_api_resources#f4"
+            ],
+            "teaching_block_ids": [
+              "security.bounded_api_resources#tb3",
+              "security.bounded_api_resources#tb4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "This fictional budget uses 256 body bytes and 3 batch items. A passing batch-size check does not establish the independent body-byte boundary.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "security.bounded_api_resources"
+            ],
+            "fact_ids": [
+              "security.bounded_api_resources#f4"
+            ],
+            "teaching_block_ids": [
+              "security.bounded_api_resources#tb3",
+              "security.bounded_api_resources#tb4"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_088.r03",
+      "type": "remediation",
+      "title": "Review: Bounding payloads, expensive requests and API resource consumption",
+      "concept_ids": [
+        "security.bounded_api_resources"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "security.bounded_api_resources"
+        ],
+        "fact_ids": [
+          "security.bounded_api_resources#f3"
+        ],
+        "teaching_block_ids": [
+          "security.bounded_api_resources#tb3",
+          "security.bounded_api_resources#tb4"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Configure finite dependency timeouts and the supplied Uvicorn --limit-concurrency budget where policy bounds concurrent accepted work.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "security.bounded_api_resources"
+            ],
+            "fact_ids": [
+              "security.bounded_api_resources#f3"
+            ],
+            "teaching_block_ids": [
+              "security.bounded_api_resources#tb3",
+              "security.bounded_api_resources#tb4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "This fictional budget uses 256 body bytes and 3 batch items. A passing batch-size check does not establish the independent body-byte boundary.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "security.bounded_api_resources"
+            ],
+            "fact_ids": [
+              "security.bounded_api_resources#f3"
+            ],
+            "teaching_block_ids": [
+              "security.bounded_api_resources#tb3",
+              "security.bounded_api_resources#tb4"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "tile_089"
+  },
+  "content_hash": "d5c54507adfbc81ce73952b09a59818d66fe0685ac45118bc4195dcfa2cc0e2d"
+}

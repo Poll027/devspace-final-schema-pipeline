@@ -1,0 +1,615 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "python_fastapi_backend_developer",
+  "tile_id": "tile_050",
+  "toc_location": {
+    "region_id": "region_verification",
+    "terrain_id": "terrain_runtime_verification"
+  },
+  "title": "Credential and sensitive-data redaction from emitted logs",
+  "summary": "",
+  "concept_ids": [
+    "observability.log_redaction"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_python_fastapi_backend_developer",
+    "toc_freeze_hash": "96d245a8da4552263398bda220dd1f88774cc30045abdf029e8d40064881cb7e",
+    "glossary_bundle_hashes": {
+      "observability.log_redaction": "5917c7be441781c6ac9fb535193863007c651fb66a8479f6963b2358520f6d5b"
+    },
+    "scenario_registry_hash": "29f9d7b7be7d9e0858e82988aea40ba028377717f8de8844e2cbe4d3f079a05b"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core"
+    ],
+    "block_types": [
+      "before_after",
+      "code_walkthrough",
+      "prose",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "code_exercise"
+    ],
+    "runtimes": [
+      "python_asgi"
+    ],
+    "asset_ids": []
+  },
+  "pacing": {
+    "estimated_minutes": 3.2
+  },
+  "steps": [
+    {
+      "step_id": "tile_050.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "observability.log_redaction"
+      ],
+      "title": "Declare the boundary: Credential and sensitive-data redaction from emitted logs",
+      "eyebrow": "Explainer",
+      "lineage": {
+        "concept_ids": [
+          "observability.log_redaction"
+        ],
+        "teaching_block_ids": [
+          "observability.log_redaction#tb1",
+          "observability.log_redaction#tb2",
+          "observability.log_redaction#tb3",
+          "observability.log_redaction#tb4",
+          "observability.log_redaction#tb5"
+        ],
+        "fact_ids": [
+          "observability.log_redaction#f1",
+          "observability.log_redaction#f2",
+          "observability.log_redaction#f3"
+        ],
+        "anchors": [
+          "observability.log_redaction#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Access tokens, passwords, primary secrets and sensitive personal data should usually not appear directly in logs. Remove or mask them under the logging policy.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "observability.log_redaction"
+            ],
+            "teaching_block_ids": [
+              "observability.log_redaction#tb1",
+              "observability.log_redaction#tb2",
+              "observability.log_redaction#tb4"
+            ],
+            "fact_ids": [
+              "observability.log_redaction#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Inspect supplemental context as well as the message: connection strings, session identifiers and other sensitive values can appear there.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "observability.log_redaction"
+            ],
+            "teaching_block_ids": [
+              "observability.log_redaction#tb3",
+              "observability.log_redaction#tb4",
+              "observability.log_redaction#tb5"
+            ],
+            "fact_ids": [
+              "observability.log_redaction#f2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Trigger a failure with recognizable synthetic sensitive values. Inspect emitted records to confirm prohibited values are removed while intended event fields remain.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "observability.log_redaction"
+            ],
+            "teaching_block_ids": [
+              "observability.log_redaction#tb3",
+              "observability.log_redaction#tb4"
+            ],
+            "fact_ids": [
+              "observability.log_redaction#f3"
+            ]
+          }
+        },
+        {
+          "type": "before_after",
+          "before": {
+            "type": "code_walkthrough",
+            "language": "python",
+            "code": "import io\nimport logging\nclass RedactingFormatter(logging.Formatter):\n    def __init__(self, secrets):\n        super().__init__('%(message)s context=%(context)s event=%(event)s')\n        self.secrets = secrets\n    def format(self, record):\n        text = super().format(record)\n        for secret in self.secrets:\n            text = text\n        return text\ndef failure_harness(*, token, connection_string):\n    output = io.StringIO()\n    logger = logging.getLogger('order.redaction.exercise')\n    logger.handlers.clear()\n    logger.propagate = False\n    logger.setLevel(logging.ERROR)\n    handler = logging.StreamHandler(output)\n    handler.setFormatter(RedactingFormatter([token, connection_string]))\n    logger.addHandler(handler)\n    logger.error('synthetic failure token=' + token, extra={\n        'context': 'connection=' + connection_string + ' token=' + token,\n        'event': 'order_failure'})\n    text = output.getvalue()\n    message, tail = text.rstrip('\\n').split(' context=', 1)\n    context, event = tail.rsplit(' event=', 1)\n    return {'text': text, 'fields': {'event': event, 'context': context}}\n\nresult = failure_harness(token='FAKE_ORDER_TOKEN_ABC', connection_string='FAKE_CONNECTION_SECRET_XYZ')\nprint(result['text'], end='')\n",
+            "reveal": "all",
+            "lineage": {
+              "concept_ids": [
+                "observability.log_redaction"
+              ],
+              "teaching_block_ids": [
+                "observability.log_redaction#tb1",
+                "observability.log_redaction#tb2",
+                "observability.log_redaction#tb3",
+                "observability.log_redaction#tb4",
+                "observability.log_redaction#tb5"
+              ],
+              "fact_ids": [
+                "observability.log_redaction#f1",
+                "observability.log_redaction#f2",
+                "observability.log_redaction#f3"
+              ],
+              "anchors": [
+                "observability.log_redaction#visual"
+              ]
+            }
+          },
+          "after": {
+            "type": "code_walkthrough",
+            "language": "python",
+            "code": "import io\nimport logging\nclass RedactingFormatter(logging.Formatter):\n    def __init__(self, secrets):\n        super().__init__('%(message)s context=%(context)s event=%(event)s')\n        self.secrets = secrets\n    def format(self, record):\n        text = super().format(record)\n        for secret in self.secrets:\n            text = text.replace(secret, '[REDACTED]')\n        return text\ndef failure_harness(*, token, connection_string):\n    output = io.StringIO()\n    logger = logging.getLogger('order.redaction.exercise')\n    logger.handlers.clear()\n    logger.propagate = False\n    logger.setLevel(logging.ERROR)\n    handler = logging.StreamHandler(output)\n    handler.setFormatter(RedactingFormatter([token, connection_string]))\n    logger.addHandler(handler)\n    logger.error('synthetic failure token=' + token, extra={\n        'context': 'connection=' + connection_string + ' token=' + token,\n        'event': 'order_failure'})\n    text = output.getvalue()\n    message, tail = text.rstrip('\\n').split(' context=', 1)\n    context, event = tail.rsplit(' event=', 1)\n    return {'text': text, 'fields': {'event': event, 'context': context}}\n\nresult = failure_harness(token='FAKE_ORDER_TOKEN_ABC', connection_string='FAKE_CONNECTION_SECRET_XYZ')\nprint(result['text'], end='')\n",
+            "reveal": "all",
+            "lineage": {
+              "concept_ids": [
+                "observability.log_redaction"
+              ],
+              "teaching_block_ids": [
+                "observability.log_redaction#tb1",
+                "observability.log_redaction#tb2",
+                "observability.log_redaction#tb3",
+                "observability.log_redaction#tb4",
+                "observability.log_redaction#tb5"
+              ],
+              "fact_ids": [
+                "observability.log_redaction#f1",
+                "observability.log_redaction#f2",
+                "observability.log_redaction#f3"
+              ],
+              "anchors": [
+                "observability.log_redaction#visual"
+              ]
+            }
+          },
+          "change_summary": "Before: the same synthetic failure with masking disabled. After: policy masks prohibited strings throughout message and context while retaining the event field. Output is computed from this fixture.",
+          "lineage": {
+            "concept_ids": [
+              "observability.log_redaction"
+            ],
+            "teaching_block_ids": [
+              "observability.log_redaction#tb1",
+              "observability.log_redaction#tb2",
+              "observability.log_redaction#tb3",
+              "observability.log_redaction#tb4",
+              "observability.log_redaction#tb5"
+            ],
+            "fact_ids": [
+              "observability.log_redaction#f1",
+              "observability.log_redaction#f2",
+              "observability.log_redaction#f3"
+            ],
+            "anchors": [
+              "observability.log_redaction#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_050.s02",
+      "type": "check",
+      "concept_ids": [
+        "observability.log_redaction"
+      ],
+      "title": "Check the boundary: Credential and sensitive-data redaction from emitted logs",
+      "eyebrow": "Check",
+      "lineage": {
+        "concept_ids": [
+          "observability.log_redaction"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "observability.log_redaction#f1",
+          "observability.log_redaction#f2"
+        ],
+        "anchors": [
+          "observability.log_redaction#assessment:identify_sensitive_values_in_diagnostic_records"
+        ]
+      },
+      "lede": "Use the supplied order-service scenario to reason about this contract.",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_050.s02",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "observability.log_redaction",
+            "fact_ids": [
+              "f1",
+              "f2"
+            ],
+            "capability": "identify_sensitive_values_in_diagnostic_records"
+          }
+        ],
+        "anchors": [
+          "observability.log_redaction#assessment:identify_sensitive_values_in_diagnostic_records"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Sensitive data can occur in either part; the event context must be retained."
+          },
+          "incorrect": {
+            "message": "Recheck the stated boundary and distinguish the separate obligations rather than assuming one implies the other."
+          },
+          "hints": [
+            "Separate the stated requirement from a nearby but different boundary."
+          ],
+          "remediation_step_id": "tile_050.r01"
+        },
+        "public": {
+          "prompt": "A failure record has both a main message and supplemental diagnostic context. Where should a redaction check look for prohibited synthetic sensitive values?",
+          "options": [
+            {
+              "option_id": "option_1",
+              "text": "In the complete emitted message and supplemental context, while checking intended event fields remain."
+            },
+            {
+              "option_id": "option_2",
+              "text": "Only in the main message; supplemental connection context can be ignored."
+            },
+            {
+              "option_id": "option_3",
+              "text": "Only in supplemental fields; main-message secrets can be ignored."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "option_1"
+          ],
+          "option_feedback": {
+            "option_1": {
+              "message": "Sensitive data can occur in either part; the event context must be retained."
+            },
+            "option_2": {
+              "message": "Connection strings and other sensitive data can occur in supplemental fields."
+            },
+            "option_3": {
+              "message": "The main message is also emitted log text and must not retain prohibited values."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_050.s03",
+      "type": "hands_on",
+      "concept_ids": [
+        "observability.log_redaction"
+      ],
+      "title": "Apply the contract: Credential and sensitive-data redaction from emitted logs",
+      "eyebrow": "Hands On",
+      "lineage": {
+        "concept_ids": [
+          "observability.log_redaction"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "observability.log_redaction#f1",
+          "observability.log_redaction#f2"
+        ],
+        "anchors": [
+          "observability.log_redaction#practice",
+          "observability.log_redaction#assessment:identify_sensitive_values_in_diagnostic_records"
+        ]
+      },
+      "lede": "Complete the supplied workspace within its stated contract.",
+      "interaction": {
+        "type": "code_exercise",
+        "interaction_id": "ix.tile_050.s03",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "observability.log_redaction",
+            "fact_ids": [
+              "f1",
+              "f2"
+            ],
+            "capability": "identify_sensitive_values_in_diagnostic_records"
+          }
+        ],
+        "anchors": [
+          "observability.log_redaction#practice",
+          "observability.log_redaction#assessment:identify_sensitive_values_in_diagnostic_records"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "You applied the declared boundary and preserved its required behavior."
+          },
+          "incorrect": {
+            "message": "Recheck the stated boundary and distinguish the separate obligations rather than assuming one implies the other."
+          },
+          "hints": [
+            "Check result['text'], not only the message portion",
+            "Verify both supplied sensitive values are absent while the event field remains order_failure."
+          ]
+        },
+        "public": {
+          "prompt": "Use the supplied recognizable token and connection_string variables to invoke failure_harness(token=token, connection_string=connection_string), assigning result. Assert each prohibited value is not in result['text'] (the entire emitted message and context), and assert result['fields']['event'] == 'order_failure'. Do not replace the variables with literal secrets or inspect only the main message.",
+          "runtime": {
+            "kind": "python_asgi",
+            "version": "0.29.5"
+          },
+          "workspace": {
+            "entry": "exercise.py",
+            "files": [
+              {
+                "path": "exercise.py",
+                "role": "editable",
+                "language": "python",
+                "content": "import io\nimport logging\nclass RedactingFormatter(logging.Formatter):\n    def __init__(self, secrets):\n        super().__init__('%(message)s context=%(context)s event=%(event)s')\n        self.secrets = secrets\n    def format(self, record):\n        text = super().format(record)\n        for secret in self.secrets:\n            text = text.replace(secret, '[REDACTED]')\n        return text\ndef failure_harness(*, token, connection_string):\n    output = io.StringIO()\n    logger = logging.getLogger('order.redaction.exercise')\n    logger.handlers.clear()\n    logger.propagate = False\n    logger.setLevel(logging.ERROR)\n    handler = logging.StreamHandler(output)\n    handler.setFormatter(RedactingFormatter([token, connection_string]))\n    logger.addHandler(handler)\n    logger.error('synthetic failure token=' + token, extra={\n        'context': 'connection=' + connection_string + ' token=' + token,\n        'event': 'order_failure'})\n    text = output.getvalue()\n    message, tail = text.rstrip('\\n').split(' context=', 1)\n    context, event = tail.rsplit(' event=', 1)\n    return {'text': text, 'fields': {'event': event, 'context': context}}\n\ntoken = 'FAKE_ORDER_TOKEN_ABC'\nconnection_string = 'FAKE_CONNECTION_SECRET_XYZ'\n# TODO: run failure_harness and verify complete text plus retained event.\nimport ast,inspect\nclass _VerifiedResult(dict):\n    def verify(self):\n        tree=ast.parse(inspect.getsource(failure_harness)) if False else ast.parse(_solution_source)\n        def normalized(node):\n            if isinstance(node,ast.Compare) and len(node.ops)==1 and isinstance(node.ops[0],ast.Eq):\n                return ('Eq',tuple(sorted((ast.dump(node.left),ast.dump(node.comparators[0])))))\n            return ast.dump(node)\n        checks=[normalized(n.test) for n in ast.walk(tree) if isinstance(n,ast.Assert)]\n        required=[normalized(ast.parse(line).body[0].test) for line in (\n            \"assert token not in result['text']\",\n            \"assert connection_string not in result['text']\",\n            \"assert result['fields']['event'] == 'order_failure'\")]\n        assert all(test in checks for test in required)\n        return {'text':self['text'],'fields':self['fields'],'checked_token':token,'checked_connection':connection_string}\n\n_solution_source = open('exercise.py').read()\n"
+              }
+            ],
+            "asset_mounts": []
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "variable assignment",
+              "string literals",
+              "function calls with keyword arguments",
+              "dictionary key access",
+              "assert statements",
+              "string membership checks using not in",
+              "equality comparison using =="
+            ],
+            "blocked_syntax": [
+              "app.dependency_overrides",
+              "Header(...)",
+              "Cookie(...)",
+              "@app.exception_handler(...)",
+              "AsyncSession(...)"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "exercise.py",
+              "content": "import io\nimport logging\nclass RedactingFormatter(logging.Formatter):\n    def __init__(self, secrets):\n        super().__init__('%(message)s context=%(context)s event=%(event)s')\n        self.secrets = secrets\n    def format(self, record):\n        text = super().format(record)\n        for secret in self.secrets:\n            text = text.replace(secret, '[REDACTED]')\n        return text\ndef failure_harness(*, token, connection_string):\n    output = io.StringIO()\n    logger = logging.getLogger('order.redaction.exercise')\n    logger.handlers.clear()\n    logger.propagate = False\n    logger.setLevel(logging.ERROR)\n    handler = logging.StreamHandler(output)\n    handler.setFormatter(RedactingFormatter([token, connection_string]))\n    logger.addHandler(handler)\n    logger.error('synthetic failure token=' + token, extra={\n        'context': 'connection=' + connection_string + ' token=' + token,\n        'event': 'order_failure'})\n    text = output.getvalue()\n    message, tail = text.rstrip('\\n').split(' context=', 1)\n    context, event = tail.rsplit(' event=', 1)\n    return {'text': text, 'fields': {'event': event, 'context': context}}\n\ntoken = 'FAKE_ORDER_TOKEN_ABC'\nconnection_string = 'FAKE_CONNECTION_SECRET_XYZ'\n# TODO: run failure_harness and verify complete text plus retained event.\nresult = failure_harness(token=token, connection_string=connection_string)\nassert token not in result['text']\nassert connection_string not in result['text']\nassert result['fields']['event'] == 'order_failure'\nimport ast,inspect\nclass _VerifiedResult(dict):\n    def verify(self):\n        tree=ast.parse(inspect.getsource(failure_harness)) if False else ast.parse(_solution_source)\n        def normalized(node):\n            if isinstance(node,ast.Compare) and len(node.ops)==1 and isinstance(node.ops[0],ast.Eq):\n                return ('Eq',tuple(sorted((ast.dump(node.left),ast.dump(node.comparators[0])))))\n            return ast.dump(node)\n        checks=[normalized(n.test) for n in ast.walk(tree) if isinstance(n,ast.Assert)]\n        required=[normalized(ast.parse(line).body[0].test) for line in (\n            \"assert token not in result['text']\",\n            \"assert connection_string not in result['text']\",\n            \"assert result['fields']['event'] == 'order_failure'\")]\n        assert all(test in checks for test in required)\n        return {'text':self['text'],'fields':self['fields'],'checked_token':token,'checked_connection':connection_string}\n\n_solution_source = open('exercise.py').read()\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "test_1",
+              "kind": "value_equals",
+              "spec": {
+                "expr": "_VerifiedResult(result).verify()",
+                "expected": {
+                  "text": "synthetic failure token=[REDACTED] context=connection=[REDACTED] token=[REDACTED] event=order_failure\n",
+                  "fields": {
+                    "event": "order_failure",
+                    "context": "connection=[REDACTED] token=[REDACTED]"
+                  },
+                  "checked_token": "FAKE_ORDER_TOKEN_ABC",
+                  "checked_connection": "FAKE_CONNECTION_SECRET_XYZ"
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "pyodide",
+            "runtime_version": "0.29.5",
+            "solution_sha256": "04a2366470bc86b77b7a52f09a558d14144849fc01079b6a30930e1f6e92c53f",
+            "tests_passed": 1
+          },
+          "hidden_checks": [
+            {
+              "check_id": "hc_var_token_test_1",
+              "mutation": {
+                "ops": [
+                  {
+                    "op": "set_variable",
+                    "name": "token",
+                    "value": "FAKE_ORDER_TOKEN_ABC_x"
+                  }
+                ]
+              },
+              "test_id": "test_1",
+              "expected": {
+                "value": {
+                  "text": "synthetic failure token=[REDACTED] context=connection=[REDACTED] token=[REDACTED] event=order_failure\n",
+                  "fields": {
+                    "event": "order_failure",
+                    "context": "connection=[REDACTED] token=[REDACTED]"
+                  },
+                  "checked_token": "FAKE_ORDER_TOKEN_ABC_x",
+                  "checked_connection": "FAKE_CONNECTION_SECRET_XYZ"
+                }
+              },
+              "ordered": false
+            },
+            {
+              "check_id": "hc_var_connection_string_test_1",
+              "mutation": {
+                "ops": [
+                  {
+                    "op": "set_variable",
+                    "name": "connection_string",
+                    "value": "FAKE_CONNECTION_SECRET_XYZ_x"
+                  }
+                ]
+              },
+              "test_id": "test_1",
+              "expected": {
+                "value": {
+                  "text": "synthetic failure token=[REDACTED] context=connection=[REDACTED] token=[REDACTED] event=order_failure\n",
+                  "fields": {
+                    "event": "order_failure",
+                    "context": "connection=[REDACTED] token=[REDACTED]"
+                  },
+                  "checked_token": "FAKE_ORDER_TOKEN_ABC",
+                  "checked_connection": "FAKE_CONNECTION_SECRET_XYZ_x"
+                }
+              },
+              "ordered": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "step_id": "tile_050.s04",
+      "type": "recap",
+      "concept_ids": [
+        "observability.log_redaction"
+      ],
+      "title": "Keep these distinctions",
+      "eyebrow": "Recap",
+      "lineage": {
+        "concept_ids": [
+          "observability.log_redaction"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Apply logging policy to sensitive values in both message and context; verify emitted records with synthetic failures while retaining intended fields.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "observability.log_redaction"
+            ],
+            "teaching_block_ids": [
+              "observability.log_redaction#tb1",
+              "observability.log_redaction#tb2",
+              "observability.log_redaction#tb3",
+              "observability.log_redaction#tb4",
+              "observability.log_redaction#tb5"
+            ],
+            "fact_ids": [
+              "observability.log_redaction#f1",
+              "observability.log_redaction#f2",
+              "observability.log_redaction#f3"
+            ]
+          }
+        },
+        {
+          "type": "up_next",
+          "title": "Next: tile_051 — Request-scoped async-compatible PostgreSQL session lifecycle",
+          "text": "Start with Request-scoped async-compatible PostgreSQL session lifecycle."
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "tile_050.r01",
+      "type": "remediation",
+      "concept_ids": [
+        "observability.log_redaction"
+      ],
+      "title": "Try the contrast: Credential and sensitive-data redaction from emitted logs",
+      "eyebrow": "Review",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Access tokens, passwords, primary secrets and sensitive personal data should usually not appear directly in logs. Remove or mask them under the logging policy.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "observability.log_redaction"
+            ],
+            "teaching_block_ids": [
+              "observability.log_redaction#tb2",
+              "observability.log_redaction#tb4"
+            ],
+            "fact_ids": [
+              "observability.log_redaction#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Inspect supplemental context as well as the message: connection strings, session identifiers and other sensitive values can appear there.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "observability.log_redaction"
+            ],
+            "teaching_block_ids": [
+              "observability.log_redaction#tb3",
+              "observability.log_redaction#tb4",
+              "observability.log_redaction#tb5"
+            ],
+            "fact_ids": [
+              "observability.log_redaction#f2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For the synthetic order failure, a safe main message can still have prohibited values in supplemental context.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "observability.log_redaction"
+            ],
+            "teaching_block_ids": [
+              "observability.log_redaction#tb2",
+              "observability.log_redaction#tb3",
+              "observability.log_redaction#tb4",
+              "observability.log_redaction#tb5"
+            ],
+            "fact_ids": [
+              "observability.log_redaction#f1",
+              "observability.log_redaction#f2"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "observability.log_redaction"
+        ],
+        "teaching_block_ids": [
+          "observability.log_redaction#tb2",
+          "observability.log_redaction#tb3",
+          "observability.log_redaction#tb4",
+          "observability.log_redaction#tb5"
+        ],
+        "fact_ids": [
+          "observability.log_redaction#f1",
+          "observability.log_redaction#f2"
+        ]
+      }
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "tile_051"
+  },
+  "content_hash": "0d80c68230324176d58239edc3d5b78e29ae5f622c980273f63ad6500a8c4ed8"
+}

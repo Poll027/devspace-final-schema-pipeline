@@ -1,0 +1,213 @@
+mle.tile.080_082.s04
+Complete numerical bin proportions, declared category/class probabilities, means and ddof=0 standard deviations using each window’s own eligible totals; retain absent declared categories/classes.
+[('import numpy as np', {'import:numpy'}), ('def', {'def_default', 'def_noargs', 'def_args'}), ('return', {'return'}), ('variable assignment', {'assign'}), ('np.asarray', {'attr:asarray'}), ('np.histogram(values, bins=fixed_edges)', {'attr:histogram', 'attr:values', 'kw:bins'}), ('np.mean(numeric_values)', {'attr:mean'}), ('np.std(numeric_values, ddof=0)', {'kw:ddof', 'attr:std', 'lit_int'}), ('np.std(numeric_values, ddof=1)', {'kw:ddof', 'attr:std', 'lit_int'}), ('np.sum', {'attr:sum'})]
+ref_mean = np.mean(ref_values)
+cur_mean = np.mean(cur_values)
+ref_std = np.std(ref_values, ddof=0)
+cur_std = np.std(cur_values, ddof=0)
+ref_counts = np.histogram(ref_values, bins=fixed_edges)
+cur_counts = np.histogram(cur_values, bins=fixed_edges)
+ref_proportions = ref_counts[0] / len(ref_values)
+ref_categories = {}
+for category in policy['declared_categories']:
+    ref_categories[category] = np.sum(reference['category'] == category) / len(reference['category'])
+ref_classes = {}
+for predicted_class in policy['declared_classes']:
+    ref_classes[predicted_class] = np.sum(reference['predicted_class'] == predicted_class) / len(reference['predicted_class'])
+cur_proportions = cur_counts[0] / len(cur_values)
+cur_categories = {}
+for category in policy['declared_categories']:
+    cur_categories[category] = np.sum(production['category'] == category) / len(production['category'])
+cur_classes = {}
+for predicted_class in policy['declared_classes']:
+    cur_classes[predicted_class] = np.sum(production['predicted_class'] == predicted_class) / len(production['predicted_class'])
+
+mle.tile.080_082.s14
+Calculate reference/current category and bin proportions using their respective totals, calculate each distance as 0.5*np.sum(np.abs(reference_proportions-current_proportions)), and calculate each verdict with distance>0.20; also calculate means and ddof=0 standard deviations.
+[('import numpy as np', {'import:numpy'}), ('return', {'return'}), ('np.asarray(...)', {'attr:asarray'}), ('np.mean(numeric_values)', {'attr:mean'}), ('np.std(numeric_values, ddof=0)', {'kw:ddof', 'attr:std', 'lit_int'}), ('np.std(numeric_values, ddof=1) only when the supplied calculation requires the N−1 divisor', {'kw:ddof', 'attr:std', 'lit_int'}), ('np.count_nonzero(...)', {'attr:count_nonzero'}), ('np.sum(...)', {'attr:sum'}), ('np.abs(...)', {'attr:abs'})]
+ref_mean = np.mean(ref_values)
+cur_mean = np.mean(cur_values)
+ref_std = np.std(ref_values, ddof=0)
+cur_std = np.std(cur_values, ddof=0)
+reference_categories = ref_cats / ref_cat_n
+current_categories = cur_cats / cur_cat_n
+reference_bins = ref_bins / ref_n
+current_bins = cur_bins / cur_n
+category_distance = 0.5 * np.sum(np.abs(reference_categories - current_categories))
+numeric_distance = 0.5 * np.sum(np.abs(reference_bins - current_bins))
+category_drift = category_distance > 0.2
+numeric_drift = numeric_distance > 0.2
+
+mle.tile.083_085.s06
+Complete quality(prediction_rows, label_rows): preserve eligible cohort IDs and timestamps, reject duplicate IDs before filtering, attach only available cohort labels, record excluded labels, and calculate coverage, matched error proportion, loss mean and ddof=0 loss standard deviation; return a mature-cohort-only report.
+[('import numpy as np', {'import:numpy'}), ('def', {'def_default', 'def_noargs', 'def_args'}), ('return', {'return'}), ('variable assignment', {'assign'}), ('comparison operators', {'cmp_eq', 'cmp_gt', 'cmp_lt', 'cmp_le', 'cmp_ge', 'cmp_ne'}), ('np.mean(numeric_values)', {'attr:mean'}), ('np.std(numeric_values, ddof=0)', {'kw:ddof', 'attr:std', 'lit_int'}), ('np.std(numeric_values, ddof=1)', {'kw:ddof', 'attr:std', 'lit_int'})]
+def quality(prediction_rows, label_rows):
+    cohort = {}
+    seen_prediction_ids = {}
+    rejected = []
+    for row in prediction_rows:
+        key = row['prediction_id']
+        if key in seen_prediction_ids:
+            return {'status': 'duplicate_prediction'}
+        seen_prediction_ids[key] = row
+        if row['eligible'] and row['cohort_id'] == policy['cohort'] and (row['prediction_timestamp'] <= cutoff):
+            cohort[key] = row
+    matched = {}
+    seen = {}
+    losses = []
+    errors = []
+    for row in label_rows:
+        key = row['prediction_id']
+        if key in seen:
+            return {'status': 'duplicate_label'}
+        seen[key] = row
+        if key in cohort and row['label_timestamp'] <= policy['label_available_through']:
+            matched[key] = row
+            losses.append(row['loss'])
+            errors.append(cohort[key]['prediction'] != row['label'])
+        else:
+            rejected.append(key)
+    if len(matched) == 0:
+        return {'status': 'unavailable', 'cohort': cohort, 'excluded_label_ids': rejected}
+    return {'status': 'mature_cohort_only', 'cohort': cohort, 'matched': matched, 'eligible_ids': len(cohort), 'mature_ids': len(matched), 'coverage': len(matched) / len(cohort), 'errors': sum(errors), 'error_proportion': sum(errors) / len(matched), 'loss_mean': np.mean(losses), 'loss_std': np.std(losses, ddof=0), 'excluded_label_ids': rejected}
+
+mle.tile.083_085.s11
+Compute baseline statistics; construct the indicator, threshold, baseline window, ddof, owner and response mapping; safely write and reload alert.yaml; inspect resolved fields; replay windows; assert empty records for normal/equality windows and the exact configured owner/action record for a breach.
+[('import numpy as np', {'import:numpy'}), ('import yaml', {'import_mod'}), ('variable assignment', {'assign'}), ('np.mean(numeric_values)', {'attr:mean'}), ('np.std(numeric_values, ddof=0)', {'kw:ddof', 'attr:std', 'lit_int'}), ('np.std(numeric_values, ddof=1) only when the declared calculation requires the N−1 divisor', {'kw:ddof', 'attr:std', 'lit_int'}), ('comparison operators', {'cmp_eq', 'cmp_gt', 'cmp_lt', 'cmp_le', 'cmp_ge', 'cmp_ne'}), ('with open(...) as file_handle', {'call:open'}), ('yaml.safe_dump(config, file_handle)', {'attr:safe_dump'}), ('yaml.safe_load(file_handle)', {'attr:safe_load'})]
+baseline_mean = np.mean(baseline)
+baseline_std = np.std(baseline, ddof=0)
+config = {'indicator': policy['indicator'], 'baseline_window': policy['baseline_window'], 'threshold': baseline_mean + 4, 'ddof': policy['ddof'], 'owner': policy['owner'], 'response': policy['response']}
+with open('alert.yaml', 'w') as h:
+    yaml.safe_dump(serializable(config), h)
+with open('alert.yaml') as h:
+    resolved = yaml.safe_load(h)
+assert resolved == config
+result = replay(resolved)
+assert result[0]['records'] == []
+assert result[1]['records'] == []
+assert result[2]['records'] == [{'owner': resolved['owner'], 'action': resolved['response']}]
+
+mle.tile.083_085.s16
+Build selected_rates from error_counts and matched_counts, using each group’s own denominator and None for a zero denominator. Inspect release evidence and incident policy to select selected_response without executing recovery.
+[('variable assignment', {'assign'}), ('comparison operators', {'cmp_eq', 'cmp_gt', 'cmp_lt', 'cmp_le', 'cmp_ge', 'cmp_ne'}), ('np.count_nonzero(...)', {'attr:count_nonzero'})]
+for group in rate_groups:
+    rate = None
+    if matched_counts[group] > 0:
+        rate = error_counts[group] / matched_counts[group]
+    selected_rates = selected_rates + [rate]
+for row in evidence:
+    if row['active_config'] != row['approved_config']:
+        if row['matched_eligible_labels'] > 0:
+            if row['supported_response'] in policy['permitted_responses']:
+                selected_response = row['supported_response']
+
+mle.tile.086_089.s16
+Complete admit(event, coordinator, executor): atomically admit the event, defer busy claims without launch, return completed claims without relaunch, launch accepted claims with the persisted job ID, attach duplicates using that identity, and release only after confirmed terminal state. Add durable-state and logical-job-count assertions.
+[('variable assignment', {'assign'}), ('with open(...) as file_handle', {'call:open'}), ('yaml.safe_dump(config, file_handle)', {'attr:safe_dump'}), ('yaml.safe_load(file_handle)', {'attr:safe_load'}), ('raise SystemExit(...) for an unsuccessful rejected gate', {'call:SystemExit'})]
+def admit(event, coordinator, executor):
+    claim = coordinator.atomic_admit(event['run_key'], event['pipeline'])
+    if claim['status'] == 'busy':
+        return {'status': 'defer', 'job_id': claim['job_id']}
+    elif claim['completed']:
+        return {'status': 'completed', 'job_id': claim['job_id']}
+    elif claim['status'] == 'accepted':
+        executor.launch(claim['job_id'])
+    else:
+        executor.attach(claim['job_id'])
+    if executor.status(claim['job_id']) == 'terminal':
+        coordinator.confirm_terminal_and_release(event['run_key'], claim['job_id'])
+    return {'status': claim['status'], 'job_id': claim['job_id']}
+assert result['same_key']['results'][0]['job_id'] == result['same_key']['results'][1]['job_id']
+assert result['same_key']['logical_job_count'] == 1
+assert result['different_key']['result']['status'] == 'defer'
+assert result['different_key']['logical_job_count'] == 1
+assert result['restart_reservation']['result']['job_id'] == result['restart_launch']['result']['job_id']
+assert result['restart_reservation']['state']['jobs'] == result['restart_launch']['state']['jobs']
+assert result['completed_duplicate']['result']['status'] == 'completed'
+assert result['completed_duplicate']['state']['slots'] == {}
+
+mle.tile.086_089.s21
+Complete rates(model) and evaluate(incumbent, candidate, requested_identity): calculate conditional rates and expected cost, reject undefined groups, enforce incumbent-relative cost and every quality, slice, compatibility, cohort and exact-identity requirement, then write valid, equality-boundary and failure assertions and assign result=test_all(evaluate).
+[]
+def rates(model):
+    if model['FP'] + model['TN'] == 0 or model['FN'] + model['TP'] == 0:
+        return {'FPR': None, 'FNR': None, 'cost': None}
+    fpr = model['FP'] / (model['FP'] + model['TN'])
+    fnr = model['FN'] / (model['FN'] + model['TP'])
+    return {'FPR': fpr, 'FNR': fnr, 'cost': policy['P_Y0'] * fpr * policy['cost_FP'] + policy['P_Y1'] * fnr * policy['cost_FN']}
+
+def evaluate(incumbent, candidate, requested_identity):
+    inc = rates(incumbent)
+    cand = rates(candidate)
+    quality = False
+    if cand['cost'] != None and inc['cost'] != None:
+        quality = cand['FPR'] <= policy['acceptance']['maximum_FPR'] and cand['FNR'] <= policy['acceptance']['maximum_FNR'] and (cand['cost'] <= inc['cost'])
+    passed = quality and candidate['slice_pass'] and candidate['compatibility_pass'] and (candidate['cohort_id'] == incumbent['cohort_id']) and (candidate['cohort_id'] == policy['cohort']) and (candidate['registry_artifact_id'] == requested_identity)
+    return {'registry_artifact_id': candidate['registry_artifact_id'], 'cohort_id': candidate['cohort_id'], 'FPR': cand['FPR'], 'FNR': cand['FNR'], 'expected_cost': cand['cost'], 'incumbent_rates': inc, 'quality_pass': quality, 'slice_pass': candidate['slice_pass'], 'compatibility_pass': candidate['compatibility_pass'], 'verdict': passed}
+assert evaluate(fixtures['valid']['incumbent'], fixtures['valid']['candidate'], fixtures['valid']['candidate']['registry_artifact_id'])['verdict']
+assert evaluate(fixtures['boundary']['incumbent'], fixtures['boundary']['candidate'], fixtures['boundary']['candidate']['registry_artifact_id'])['verdict']
+assert not evaluate(fixtures['valid']['incumbent'], fixtures['valid']['candidate'], 'model.unrelated')['verdict']
+
+def check_failure(pair):
+    assert not evaluate(pair['incumbent'], pair['candidate'], pair['candidate']['registry_artifact_id'])['verdict']
+result = test_all(evaluate)
+
+mle.tile.091_094.s04
+Construct one mask for the declared instance, process, matching running process, RUNNING state and half-open interval. Apply that same mask to CPU and memory, then calculate means and ddof=0 standard deviations.
+[('import numpy as np', {'import:numpy'}), ('variable assignment', {'assign'}), ('comparison operators', {'cmp_eq', 'cmp_gt', 'cmp_lt', 'cmp_le', 'cmp_ge', 'cmp_ne'}), ('np.array', {'attr:array'}), ('np.mean(numeric_values)', {'attr:mean'}), ('np.std(numeric_values, ddof=0)', {'kw:ddof', 'attr:std', 'lit_int'}), ('np.std(numeric_values, ddof=1)', {'kw:ddof', 'attr:std', 'lit_int'}), ('len(numeric_values)', {'call:len'})]
+mask = (resource_telemetry['INSTANCE'] == policy['INSTANCE']) & (resource_telemetry['process_id'] == policy['process_id']) & (resource_telemetry['instance_state'] == 'RUNNING') & (resource_telemetry['running_process'] == policy['process_id']) & (resource_telemetry['timestamp'] >= policy['interval_start']) & (resource_telemetry['timestamp'] < policy['interval_end_exclusive'])
+cpu = resource_telemetry['cpu_percent'][mask]
+memory = resource_telemetry['memory_value'][mask]
+cpu_mean = np.mean(cpu)
+cpu_std = np.std(cpu, ddof=0)
+memory_mean = np.mean(memory)
+memory_std = np.std(memory, ddof=0)
+
+mle.tile.091_094.s09
+Allocate each eligible charge using resource_mapping and shared_rule, retain unmatched amounts explicitly, calculate per-workload per-window totals and unusual flags, and reconcile allocated plus unallocated amounts to the export; then calculate each workload’s mean and ddof=0 standard deviation.
+[('gcloud compute instances describe INSTANCE --zone=ZONE', {'kw:zone'}), ('gcloud compute instances start INSTANCE --zone=ZONE', {'kw:zone'}), ('gcloud compute ssh INSTANCE --zone=ZONE', {'kw:zone'}), ('gcloud compute instances stop INSTANCE --zone=ZONE', {'kw:zone'}), ('import numpy as np', {'import:numpy'}), ('sum(numeric_values)', {'call:sum'}), ('np.array(numeric_values)', {'attr:array'}), ('np.mean(numeric_values)', {'attr:mean'}), ('np.std(numeric_values, ddof=0)', {'kw:ddof', 'attr:std', 'lit_int'}), ('np.std(numeric_values, ddof=1) only when the supplied calculation requires the N−1 divisor', {'kw:ddof', 'attr:std', 'lit_int'})]
+allocated = {'training': {'w1': 0, 'w2': 0}, 'inference': {'w1': 0, 'w2': 0}}
+unallocated = 0
+export_total = 0
+unmatched = []
+for row in charges:
+    window = row['reporting_window']
+    amount = row['amount']
+    export_total = export_total + amount
+    if row['charge_category'] == 'shared':
+        allocated['training'][window] = allocated['training'][window] + amount * policy['shared_rule']['training']
+        allocated['inference'][window] = allocated['inference'][window] + amount * policy['shared_rule']['inference']
+    elif row['resource_id'] in policy['resource_mapping']:
+        workload = policy['resource_mapping'][row['resource_id']]
+        allocated[workload][window] = allocated[workload][window] + amount
+    else:
+        unallocated = unallocated + amount
+        unmatched = unmatched + [row['charge_id']]
+training_values = np.array([allocated['training']['w1'], allocated['training']['w2']])
+inference_values = np.array([allocated['inference']['w1'], allocated['inference']['w2']])
+training_mean = np.mean(training_values)
+training_std = np.std(training_values, ddof=0)
+inference_mean = np.mean(inference_values)
+inference_std = np.std(inference_values, ddof=0)
+summary = {}
+for workload in ['training', 'inference']:
+    values = np.array([allocated[workload]['w1'], allocated[workload]['w2']])
+    summary[workload] = {'windows': allocated[workload], 'mean': training_mean if workload == 'training' else inference_mean, 'std': training_std if workload == 'training' else inference_std, 'unusual_w1': allocated[workload]['w1'] > 10, 'unusual_w2': allocated[workload]['w2'] > 10}
+allocated_total = sum([allocated['training']['w1'], allocated['training']['w2'], allocated['inference']['w1'], allocated['inference']['w2']])
+reconciled = allocated_total + unallocated == export_total
+
+mle.tile.091_094.s14
+Construct config from policy with workload scope, amount, period, threshold, existing topic/pipeline binding, fixed authorized instance, identity and runtime secret reference with scoped secretEnv. Safely write and reload guardrail.yaml, inspect resolved fields, and pass the resolved mapping to apply_and_replay.
+[('import yaml', {'import_mod'}), ('Dictionary-key and list-index access', {'attr:index'}), ('with open(...) as file_handle', {'call:open'}), ('yaml.safe_dump(config, file_handle)', {'attr:safe_dump'}), ('yaml.safe_load(file_handle)', {'attr:safe_load'}), ('gcloud compute instances describe INSTANCE --zone=ZONE', {'kw:zone'}), ('gcloud compute instances stop INSTANCE --zone=ZONE', {'kw:zone'})]
+config = {'workload_scope': policy['workload_scope'], 'budget_amount': policy['budget_amount'], 'period': policy['period'], 'threshold_ratio': policy['threshold_ratio'], 'notification_topic': policy['notification_topic'], 'response_pipeline': policy['response_pipeline'], 'INSTANCE': policy['INSTANCE'], 'ZONE': policy['ZONE'], 'authorized_identity': policy['authorized_identity'], 'secret_version_reference': policy['secret_version_reference']}
+config['secretEnv'] = ['BUDGET_CLIENT']
+config['event_binding'] = {'topic': policy['notification_topic'], 'pipeline': policy['response_pipeline']}
+with open('guardrail.yaml', 'w') as h:
+    yaml.safe_dump(config, h)
+with open('guardrail.yaml') as h:
+    resolved = yaml.safe_load(h)
+inspected_scope = resolved['workload_scope']
+inspected_target = [resolved['INSTANCE'], resolved['ZONE']]
+inspected_binding = resolved['event_binding']
+inspected_secret = [resolved['secret_version_reference'], resolved['secretEnv']]
+result = apply_and_replay(resolved)

@@ -1,0 +1,775 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "aws_devops_engineer",
+  "tile_id": "aws_devops.tile.003",
+  "toc_location": {
+    "region_id": "aws_devops.region.01",
+    "terrain_id": "aws_devops.terrain.high_availability_design.003"
+  },
+  "title": "Configure subnet internet routing, teaching route-table association and CIDR destination routes; assume only external CIDR/IP addressing",
+  "summary": "Establish explicit association or main-table fallback first. Prefer the most specific matching prefix. The attached internet-gateway default serves destinations without a more specific match.",
+  "concept_ids": [
+    "aws_devops.configure_subnet_internet_routing"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_aws_devops_engineer",
+    "toc_freeze_hash": "d5913d190cbe704aa851d9831022ed920e80fe64ef66a1448fcc982e3dd3bb1e",
+    "glossary_bundle_hashes": {
+      "aws_devops.configure_subnet_internet_routing": "e9b23c628f618488fb5ff6e6f538cc258ce58663aee5424cf0055aceaeb0235a"
+    },
+    "scenario_registry_hash": "14d87babe2571c3f3c311a7e07ddb89bfc274fcea07deb1eedbed5e1fdecbc09"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core"
+    ],
+    "block_types": [
+      "diagram",
+      "prose",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "classify"
+    ],
+    "runtimes": [],
+    "asset_ids": []
+  },
+  "pacing": {
+    "estimated_minutes": 3.8
+  },
+  "steps": [
+    {
+      "step_id": "aws_devops.tile.003.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "aws_devops.configure_subnet_internet_routing"
+      ],
+      "title": "Check the operating model",
+      "lineage": {
+        "concept_ids": [
+          "aws_devops.configure_subnet_internet_routing"
+        ],
+        "teaching_block_ids": [
+          "aws_devops.configure_subnet_internet_routing#tb1",
+          "aws_devops.configure_subnet_internet_routing#tb2",
+          "aws_devops.configure_subnet_internet_routing#tb3"
+        ],
+        "fact_ids": [
+          "aws_devops.configure_subnet_internet_routing#f1",
+          "aws_devops.configure_subnet_internet_routing#f2",
+          "aws_devops.configure_subnet_internet_routing#f3"
+        ],
+        "anchors": [
+          "aws_devops.configure_subnet_internet_routing#visual"
+        ]
+      },
+      "eyebrow": "Learn",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Check which route table the subnet uses before comparing destination matches.",
+          "role": "intro",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_subnet_internet_routing"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_subnet_internet_routing#tb1"
+            ],
+            "fact_ids": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A subnet uses its explicitly associated route table or, without an explicit association, the VPC main route table.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_subnet_internet_routing"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_subnet_internet_routing#tb2"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_subnet_internet_routing#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Among matching destination routes, the most specific destination prefix takes priority.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_subnet_internet_routing"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_subnet_internet_routing#tb3"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_subnet_internet_routing#f2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Associate the subnet with the intended route table and add an IPv4 0.0.0.0/0 route targeting the attached internet gateway for internet-bound destinations not matched by a more specific route.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_subnet_internet_routing"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_subnet_internet_routing#tb3"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_subnet_internet_routing#f3"
+            ]
+          }
+        },
+        {
+          "type": "diagram",
+          "diagram_kind": "network",
+          "title": "Before and after explicit subnet association",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "Subnet: before",
+              "fields": [
+                "No explicit route-table association"
+              ]
+            },
+            {
+              "id": "n1",
+              "label": "VPC main route table",
+              "fields": [
+                "Used by fallback before association"
+              ]
+            },
+            {
+              "id": "n2",
+              "label": "Subnet: afterward",
+              "fields": [
+                "Explicitly associated with intended table"
+              ]
+            },
+            {
+              "id": "n3",
+              "label": "Intended route table",
+              "fields": [
+                "10.20.0.0/16",
+                "0.0.0.0/0 → attached internet gateway"
+              ]
+            },
+            {
+              "id": "n4",
+              "label": "10.20.2.10",
+              "fields": [
+                "Matches both displayed prefixes; select the more specific /16"
+              ]
+            },
+            {
+              "id": "n5",
+              "label": "198.51.100.8",
+              "fields": [
+                "Select internet-gateway default when no more specific route matches"
+              ]
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1",
+              "label": "main-table fallback"
+            },
+            {
+              "from": "n2",
+              "to": "n3",
+              "label": "explicit association"
+            },
+            {
+              "from": "n3",
+              "to": "n4",
+              "label": "more specific match"
+            },
+            {
+              "from": "n3",
+              "to": "n5",
+              "label": "default match"
+            }
+          ],
+          "layout": "manual",
+          "positions": {
+            "n0": {
+              "x": 0,
+              "y": 0
+            },
+            "n1": {
+              "x": 420,
+              "y": 0
+            },
+            "n2": {
+              "x": 0,
+              "y": 170
+            },
+            "n3": {
+              "x": 420,
+              "y": 170
+            },
+            "n4": {
+              "x": 0,
+              "y": 340
+            },
+            "n5": {
+              "x": 420,
+              "y": 340
+            }
+          },
+          "alt_text": "Before and after explicit subnet association. Subnet: before: No explicit route-table association; VPC main route table: Used by fallback before association; Subnet: afterward: Explicitly associated with intended table; Intended route table: 10.20.0.0/16, 0.0.0.0/0 → attached internet gateway; 10.20.2.10: Matches both displayed prefixes; select the more specific /16; 198.51.100.8: Select internet-gateway default when no more specific route matches",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_subnet_internet_routing"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_subnet_internet_routing#tb1",
+              "aws_devops.configure_subnet_internet_routing#tb2",
+              "aws_devops.configure_subnet_internet_routing#tb3"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_subnet_internet_routing#f1",
+              "aws_devops.configure_subnet_internet_routing#f2",
+              "aws_devops.configure_subnet_internet_routing#f3"
+            ],
+            "anchors": [
+              "aws_devops.configure_subnet_internet_routing#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "aws_devops.tile.003.s02",
+      "type": "explainer",
+      "concept_ids": [
+        "aws_devops.configure_subnet_internet_routing"
+      ],
+      "title": "Read the sandbox case",
+      "lineage": {
+        "concept_ids": [
+          "aws_devops.configure_subnet_internet_routing"
+        ],
+        "teaching_block_ids": [
+          "aws_devops.configure_subnet_internet_routing#tb4",
+          "aws_devops.configure_subnet_internet_routing#tb5"
+        ],
+        "fact_ids": [
+          "aws_devops.configure_subnet_internet_routing#f1",
+          "aws_devops.configure_subnet_internet_routing#f2",
+          "aws_devops.configure_subnet_internet_routing#f3"
+        ],
+        "anchors": []
+      },
+      "eyebrow": "Learn",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "In the intended table, 10.20.2.10 matches both 10.20.0.0/16 and 0.0.0.0/0; the more specific prefix wins. 198.51.100.8 uses the internet-gateway default when no more specific route matches. First verify association: without an explicit association, the subnet uses the main table, not necessarily the table you edited.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_subnet_internet_routing"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_subnet_internet_routing#tb4"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_subnet_internet_routing#f1",
+              "aws_devops.configure_subnet_internet_routing#f2",
+              "aws_devops.configure_subnet_internet_routing#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Editing a table does not establish association. A default route does not override more specific matches or prove a working connection.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_subnet_internet_routing"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_subnet_internet_routing#tb5"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_subnet_internet_routing#f1",
+              "aws_devops.configure_subnet_internet_routing#f2",
+              "aws_devops.configure_subnet_internet_routing#f3"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "aws_devops.tile.003.s03",
+      "type": "check",
+      "concept_ids": [
+        "aws_devops.configure_subnet_internet_routing"
+      ],
+      "title": "Choose the supported conclusion",
+      "lineage": {
+        "concept_ids": [
+          "aws_devops.configure_subnet_internet_routing"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "aws_devops.configure_subnet_internet_routing#f2",
+          "aws_devops.configure_subnet_internet_routing#f3"
+        ],
+        "anchors": [
+          "aws_devops.configure_subnet_internet_routing#assessment:select_most_specific_matching_destination_route"
+        ]
+      },
+      "eyebrow": "Check",
+      "lede": "Read the supplied excerpts in this step and decide which conclusions are correct, defective or unsafe.",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.aws_devops.tile.003.s03",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "aws_devops.configure_subnet_internet_routing",
+            "capability": "select_most_specific_matching_destination_route",
+            "fact_ids": [
+              "f2",
+              "f3"
+            ]
+          }
+        ],
+        "anchors": [
+          "aws_devops.configure_subnet_internet_routing#assessment:select_most_specific_matching_destination_route"
+        ],
+        "public": {
+          "prompt": "For destination 10.20.2.10, the effective table has 10.20.0.0/16 → local and 0.0.0.0/0 → attached internet gateway. Which route takes priority?",
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "10.20.0.0/16 → local"
+            },
+            {
+              "option_id": "o2",
+              "text": "0.0.0.0/0 → attached internet gateway"
+            },
+            {
+              "option_id": "o3",
+              "text": "Neither route, because two matching routes cancel one another."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "Both match, but the /16 destination prefix is more specific than /0."
+            },
+            "o2": {
+              "message": "The default route does not take priority over a more specific matching route."
+            },
+            "o3": {
+              "message": "The most specific matching prefix resolves this choice."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "Your selections match the supplied evidence and the taught criteria."
+          },
+          "incorrect": {
+            "message": "Recheck the supplied evidence against each criterion; a label or a partial match is not enough."
+          },
+          "hints": [
+            "Check association, destination prefix and target separately."
+          ],
+          "remediation_step_id": "aws_devops.tile.003.r01"
+        }
+      }
+    },
+    {
+      "step_id": "aws_devops.tile.003.s04",
+      "type": "hands_on",
+      "concept_ids": [
+        "aws_devops.configure_subnet_internet_routing"
+      ],
+      "title": "Review the supplied evidence",
+      "lineage": {
+        "concept_ids": [
+          "aws_devops.configure_subnet_internet_routing"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "aws_devops.configure_subnet_internet_routing#f1",
+          "aws_devops.configure_subnet_internet_routing#f3"
+        ],
+        "anchors": [
+          "aws_devops.configure_subnet_internet_routing#practice",
+          "aws_devops.configure_subnet_internet_routing#assessment:select_effective_subnet_route_table",
+          "aws_devops.configure_subnet_internet_routing#assessment:select_ipv4_default_route_and_internet_gateway_target"
+        ]
+      },
+      "eyebrow": "Review",
+      "lede": "Read the supplied excerpts in this step and decide which conclusions are correct, defective or unsafe.",
+      "interaction": {
+        "type": "classify",
+        "interaction_id": "ix.aws_devops.tile.003.s04",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "aws_devops.configure_subnet_internet_routing",
+            "capability": "select_effective_subnet_route_table",
+            "fact_ids": [
+              "f1"
+            ]
+          },
+          {
+            "concept_id": "aws_devops.configure_subnet_internet_routing",
+            "capability": "select_ipv4_default_route_and_internet_gateway_target",
+            "fact_ids": [
+              "f3"
+            ]
+          }
+        ],
+        "anchors": [
+          "aws_devops.configure_subnet_internet_routing#practice",
+          "aws_devops.configure_subnet_internet_routing#assessment:select_effective_subnet_route_table",
+          "aws_devops.configure_subnet_internet_routing#assessment:select_ipv4_default_route_and_internet_gateway_target"
+        ],
+        "public": {
+          "prompt": "Read the supplied route-table review excerpts. The subnet must be explicitly associated with the intended table, retain 10.20.0.0/16 → local, and use 0.0.0.0/0 → the supplied attached internet gateway. Decide which excerpts meet that configuration criterion.",
+          "buckets": [
+            {
+              "bucket_id": "meets",
+              "label": "Meets the supplied criterion"
+            },
+            {
+              "bucket_id": "violates",
+              "label": "Violates the supplied criterion"
+            }
+          ],
+          "items": [
+            {
+              "item_id": "i1",
+              "text": "Association: subnet → intended table (explicit)\nRoutes: 10.20.0.0/16 → local; 0.0.0.0/0 → supplied attached internet gateway"
+            },
+            {
+              "item_id": "i2",
+              "text": "Association: none explicit; main table differs from intended table\nIntended table routes: 10.20.0.0/16 → local; 0.0.0.0/0 → supplied attached internet gateway"
+            },
+            {
+              "item_id": "i3",
+              "text": "Association: subnet → intended table (explicit)\nRoutes: only 0.0.0.0/0 → supplied attached internet gateway; VPC route removed"
+            },
+            {
+              "item_id": "i4",
+              "text": "Association: subnet → intended table (explicit)\nRoutes: only 10.20.0.0/16 → local"
+            }
+          ]
+        },
+        "grading": {
+          "assignments": {
+            "i1": "meets",
+            "i2": "violates",
+            "i3": "violates",
+            "i4": "violates"
+          },
+          "item_feedback": {
+            "i1": {
+              "message": "The intended explicit association, VPC route and required default route are all present."
+            },
+            "i2": {
+              "message": "Without explicit association the subnet uses the main table, not this intended table."
+            },
+            "i3": {
+              "message": "The success criterion retains the VPC route as well as adding the default route."
+            },
+            "i4": {
+              "message": "The required IPv4 default route to the attached gateway is missing."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "Your selections match the supplied evidence and the taught criteria."
+          },
+          "incorrect": {
+            "message": "Recheck the supplied evidence against each criterion; a label or a partial match is not enough."
+          },
+          "hints": [
+            "Check association, destination prefix and target separately."
+          ],
+          "remediation_step_id": "aws_devops.tile.003.r02"
+        }
+      }
+    },
+    {
+      "step_id": "aws_devops.tile.003.s05",
+      "type": "recap",
+      "concept_ids": [
+        "aws_devops.configure_subnet_internet_routing"
+      ],
+      "title": "Keep the distinctions",
+      "lineage": {
+        "concept_ids": [
+          "aws_devops.configure_subnet_internet_routing"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [],
+        "anchors": []
+      },
+      "eyebrow": "Recap",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Establish explicit association or main-table fallback first. Prefer the most specific matching prefix. The attached internet-gateway default serves destinations without a more specific match.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_subnet_internet_routing"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_subnet_internet_routing#tb1",
+              "aws_devops.configure_subnet_internet_routing#tb2",
+              "aws_devops.configure_subnet_internet_routing#tb3",
+              "aws_devops.configure_subnet_internet_routing#tb4",
+              "aws_devops.configure_subnet_internet_routing#tb5"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_subnet_internet_routing#f1",
+              "aws_devops.configure_subnet_internet_routing#f2",
+              "aws_devops.configure_subnet_internet_routing#f3"
+            ]
+          }
+        },
+        {
+          "type": "up_next",
+          "title": "Next: Define recovery time and recovery point objectives",
+          "text": "Continue to aws_devops.tile.004."
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "aws_devops.tile.003.r01",
+      "type": "remediation",
+      "concept_ids": [
+        "aws_devops.configure_subnet_internet_routing"
+      ],
+      "title": "Separate the two kinds of evidence",
+      "eyebrow": "Review the contrast",
+      "lineage": {
+        "concept_ids": [
+          "aws_devops.configure_subnet_internet_routing"
+        ],
+        "teaching_block_ids": [
+          "aws_devops.configure_subnet_internet_routing#tb3",
+          "aws_devops.configure_subnet_internet_routing#tb4",
+          "aws_devops.configure_subnet_internet_routing#tb5"
+        ],
+        "fact_ids": [
+          "aws_devops.configure_subnet_internet_routing#f2",
+          "aws_devops.configure_subnet_internet_routing#f3"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Among matching destination routes, the most specific destination prefix takes priority.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_subnet_internet_routing"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_subnet_internet_routing#tb3",
+              "aws_devops.configure_subnet_internet_routing#tb4",
+              "aws_devops.configure_subnet_internet_routing#tb5"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_subnet_internet_routing#f2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Associate the subnet with the intended route table and add an IPv4 0.0.0.0/0 route targeting the attached internet gateway for internet-bound destinations not matched by a more specific route.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_subnet_internet_routing"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_subnet_internet_routing#tb3",
+              "aws_devops.configure_subnet_internet_routing#tb4",
+              "aws_devops.configure_subnet_internet_routing#tb5"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_subnet_internet_routing#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Editing a table does not establish association. A default route does not override more specific matches or prove a working connection.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_subnet_internet_routing"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_subnet_internet_routing#tb5"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_subnet_internet_routing#f1",
+              "aws_devops.configure_subnet_internet_routing#f2",
+              "aws_devops.configure_subnet_internet_routing#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Return to the same intended route table: distinguish the internal destination’s more specific match from the external destination’s default match.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_subnet_internet_routing"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_subnet_internet_routing#tb4"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_subnet_internet_routing#f1",
+              "aws_devops.configure_subnet_internet_routing#f2",
+              "aws_devops.configure_subnet_internet_routing#f3"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "aws_devops.tile.003.r02",
+      "type": "remediation",
+      "concept_ids": [
+        "aws_devops.configure_subnet_internet_routing"
+      ],
+      "title": "Separate the two kinds of evidence",
+      "eyebrow": "Review the contrast",
+      "lineage": {
+        "concept_ids": [
+          "aws_devops.configure_subnet_internet_routing"
+        ],
+        "teaching_block_ids": [
+          "aws_devops.configure_subnet_internet_routing#tb2",
+          "aws_devops.configure_subnet_internet_routing#tb3",
+          "aws_devops.configure_subnet_internet_routing#tb4",
+          "aws_devops.configure_subnet_internet_routing#tb5"
+        ],
+        "fact_ids": [
+          "aws_devops.configure_subnet_internet_routing#f1",
+          "aws_devops.configure_subnet_internet_routing#f3"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "A subnet uses its explicitly associated route table or, without an explicit association, the VPC main route table.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_subnet_internet_routing"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_subnet_internet_routing#tb2",
+              "aws_devops.configure_subnet_internet_routing#tb4",
+              "aws_devops.configure_subnet_internet_routing#tb5"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_subnet_internet_routing#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Associate the subnet with the intended route table and add an IPv4 0.0.0.0/0 route targeting the attached internet gateway for internet-bound destinations not matched by a more specific route.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_subnet_internet_routing"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_subnet_internet_routing#tb3",
+              "aws_devops.configure_subnet_internet_routing#tb4",
+              "aws_devops.configure_subnet_internet_routing#tb5"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_subnet_internet_routing#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Editing a table does not establish association. A default route does not override more specific matches or prove a working connection.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_subnet_internet_routing"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_subnet_internet_routing#tb5"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_subnet_internet_routing#f1",
+              "aws_devops.configure_subnet_internet_routing#f2",
+              "aws_devops.configure_subnet_internet_routing#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Return to the same intended route table: distinguish the internal destination’s more specific match from the external destination’s default match.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "aws_devops.configure_subnet_internet_routing"
+            ],
+            "teaching_block_ids": [
+              "aws_devops.configure_subnet_internet_routing#tb4"
+            ],
+            "fact_ids": [
+              "aws_devops.configure_subnet_internet_routing#f1",
+              "aws_devops.configure_subnet_internet_routing#f2",
+              "aws_devops.configure_subnet_internet_routing#f3"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "aws_devops.tile.004"
+  },
+  "content_hash": "d065aae8a21024958fca9c80d07670e6e8fe26d0ff7fb8520cee893ff574521f"
+}

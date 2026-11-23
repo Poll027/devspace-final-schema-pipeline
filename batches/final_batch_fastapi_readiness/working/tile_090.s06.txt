@@ -1,0 +1,237 @@
+PRACTICE {
+  "type": "live_code",
+  "objective": "Make two existing database tests order independent: one writes an item through TestClient and verifies its state, while the other verifies that the item is absent within its own isolated database boundary.",
+  "success": "Both tests pass in either execution order. The writing test reads its own resulting state, and the other test never inherits that write. Teardown closes the session and connection, rolls back the outer transaction, and restores dependency overrides.",
+  "live_code": {
+    "required_skill": "Implement a function-scoped yield fixture that binds a test session to an outer connection transaction, replaces the application's session provider, and reliably restores resources and overrides.",
+    "allowed_syntax": [
+      "def",
+      "yield",
+      "try/finally",
+      "with",
+      "assert",
+      "@pytest.fixture(scope=\"function\")",
+      "engine.connect()",
+      "connection.begin()",
+      "Session(bind=connection, join_transaction_mode=\"create_savepoint\")",
+      "app.dependency_overrides",
+      "dict.copy()",
+      "dict.clear()",
+      "dict.update(...)",
+      "TestClient(app)",
+      "client.post(...)",
+      "client.get(...)",
+      "select(...)",
+      "session.execute(...)",
+      "session.get(...)",
+      "session.close()",
+      "transaction.rollback()",
+      "connection.close()"
+    ],
+    "blocked_syntax": [
+      "OAuth2AuthorizationCodeBearer(...)",
+      "Security(..., scopes=[...])"
+    ],
+    "starter_state_intent": "Provide the existing application, session provider, test engine, and item write/read expressions without introducing additional item fields. Include two tests that currently share persistent state and an incomplete fixture. Keep schema preparation outside the per-test transaction fixture.",
+    "observable_success": "Each test receives a fresh outer transaction and a session bound with create_savepoint. TestClient requests use the overridden session provider, and database assertions use the same test boundary. Both execution orders pass without inherited item state, and cleanup restores the original overrides even when a test fails."
+  }
+}
+SOLUTION
+#!/usr/bin/env bash
+set -euo pipefail
+# Requires the supplied native workspace dependencies and any provisioned service.
+cat > 'starter.py' <<'DEVSPACE_FILE_0'
+import pytest
+from sqlalchemy.orm import Session
+from fastapi.testclient import TestClient
+from application import app, engine, session_provider
+@pytest.fixture(scope="function")
+def isolated_client():
+    original_overrides = app.dependency_overrides.copy()
+    connection = engine.connect()
+    outer_transaction = connection.begin()
+    # TODO: bind Session with join_transaction_mode="create_savepoint".
+    test_session = Session(bind=connection, join_transaction_mode="create_savepoint")
+    def provider():
+        yield test_session
+    app.dependency_overrides[session_provider] = provider
+    try:
+        with TestClient(app) as client:
+            yield client, test_session
+    finally:
+        # TODO: close session, roll back outer transaction, close connection,
+        # restore original_overrides even if the test fails.
+        try:
+            test_session.close()
+        finally:
+            try:
+                outer_transaction.rollback()
+            finally:
+                connection.close()
+                app.dependency_overrides.clear()
+                app.dependency_overrides.update(original_overrides)
+# TODO: test write/read within one boundary; test target absence in another.
+# Run both execution orders. Never migrate/create schema inside per-test transaction.
+DEVSPACE_FILE_0
+cat > 'test_items.py' <<'DEVSPACE_FILE_1'
+import json
+from pathlib import Path
+import pytest
+from fastapi.testclient import TestClient
+from application import app, engine, Item
+from sqlalchemy.orm import Session
+item = json.loads(Path('fixtures.json').read_text())['item']
+from starter import isolated_client
+def test_writes_item(isolated_client):
+    client, _ = isolated_client
+    assert client.post('/items', json=item).json() == item
+    assert client.get(f"/items/{item['id']}").json() == item
+def test_item_absent(isolated_client):
+    client, _ = isolated_client
+    response = client.get(f"/items/{item['id']}")
+    assert response.status_code == 404
+    assert response.json() == {'detail':'Not found'}
+DEVSPACE_FILE_1
+python run_orders.py
+python check_failure_cleanup.py
+
+
+FILE starter.py
+import pytest
+from sqlalchemy.orm import Session
+from fastapi.testclient import TestClient
+from application import app, engine, session_provider
+@pytest.fixture
+def isolated_client():
+    original_overrides = app.dependency_overrides.copy()
+    connection = engine.connect()
+    outer_transaction = connection.begin()
+    # TODO: bind Session with join_transaction_mode="create_savepoint".
+    test_session = None
+    # TODO: override session_provider with a yield provider using test_session.
+    try:
+        with TestClient(app) as client:
+            yield client, test_session
+    finally:
+        # TODO: close session, roll back outer transaction, close connection,
+        # restore original_overrides even if the test fails.
+        pass
+# TODO: test write/read within one boundary; test target absence in another.
+# Run both execution orders. Never migrate/create schema inside per-test transaction.
+
+FILE fixtures.json
+{
+  "item": {
+    "id": 1
+  },
+  "initial_items": [],
+  "execution_orders": [
+    [
+      "writes_item",
+      "item_absent"
+    ],
+    [
+      "item_absent",
+      "writes_item"
+    ]
+  ]
+}
+
+FILE application.py
+from fastapi import FastAPI, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
+class Base(DeclarativeBase):
+    pass
+class Item(Base):
+    __tablename__ = 'items'
+    id: Mapped[int] = mapped_column(primary_key=True)
+class ItemInput(BaseModel):
+    id: int
+engine = create_engine('sqlite:///state_sharing.sqlite', connect_args={'check_same_thread':False})
+# Explicit SQLite transaction control makes nested savepoints subordinate
+# to the outer transaction (including Python sqlite legacy transaction mode).
+@event.listens_for(engine, 'connect')
+def configure(dbapi_connection, _):
+    dbapi_connection.isolation_level = None
+@event.listens_for(engine, 'begin')
+def begin(connection):
+    connection.exec_driver_sql('BEGIN')
+Base.metadata.create_all(engine)  # only once, never in a per-test transaction
+app = FastAPI()
+def session_provider():
+    with Session(engine) as session:
+        yield session
+@app.post('/items')
+def write_item(item: ItemInput, session=Depends(session_provider)):
+    session.add(Item(id=item.id))
+    session.commit()
+    return {'id':item.id}
+@app.get('/items/{item_id}')
+def read_item(item_id: int, session=Depends(session_provider)):
+    item = session.get(Item, item_id)
+    if item is None:
+        raise HTTPException(404, 'Not found')
+    return {'id':item.id}
+
+FILE test_items.py
+import json
+from pathlib import Path
+import pytest
+from fastapi.testclient import TestClient
+from application import app, engine, Item
+from sqlalchemy.orm import Session
+item = json.loads(Path('fixtures.json').read_text())['item']
+# Initially sharing application state. Learner replaces this fixture by
+# importing isolated_client from starter instead of this fixture.
+@pytest.fixture
+def isolated_client():
+    with TestClient(app) as client:
+        yield client, None
+def test_writes_item(isolated_client):
+    client, _ = isolated_client
+    assert client.post('/items', json=item).json() == item
+    assert client.get(f"/items/{item['id']}").json() == item
+def test_item_absent(isolated_client):
+    client, _ = isolated_client
+    response = client.get(f"/items/{item['id']}")
+    assert response.status_code == 404
+    assert response.json() == {'detail':'Not found'}
+
+FILE run_orders.py
+import json, subprocess, sys
+from pathlib import Path
+from application import engine, Item
+from sqlalchemy.orm import Session
+orders = json.loads(Path('fixtures.json').read_text())['execution_orders']
+results=[]
+for order in orders:
+    # Initialize empty state only before a complete order, not between tests.
+    with Session(engine) as session:
+        session.query(Item).delete()
+        session.commit()
+    result = subprocess.run([sys.executable,'-m','pytest','-q'] + ['test_items.py::test_'+name for name in order])
+    results.append(result.returncode)
+raise SystemExit(any(results))
+
+FILE check_failure_cleanup.py
+from starter import isolated_client
+from application import app, engine, Item
+from sqlalchemy.orm import Session
+import json
+from pathlib import Path
+item=json.loads(Path('fixtures.json').read_text())['item']
+original=app.dependency_overrides.copy()
+# Drive the supplied yield fixture directly to exercise exception cleanup,
+# independent of the order runners. Run on a clean database.
+generator=isolated_client.__wrapped__()
+client, session=next(generator)
+client.post('/items',json=item)
+try:
+    generator.throw(RuntimeError('injected test failure'))
+except RuntimeError:
+    pass
+assert app.dependency_overrides == original
+with Session(engine) as probe:
+    assert probe.get(Item,item['id']) is None

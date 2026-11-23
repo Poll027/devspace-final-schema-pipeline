@@ -1,0 +1,117 @@
+{
+  "concept_id": "observability.evidence_based_service_diagnosis",
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "The situation",
+      "content": "An order endpoint becomes slow and emits failures. Changing code at the endpoint immediately may miss where the first delay or failure actually occurred.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "definition",
+      "title": "The rule and its boundary",
+      "content": "Compare request rate, failure fraction and latency for the affected operation and time window before choosing a diagnostic boundary, distinguishing increased traffic from increased failures or longer waits.",
+      "fact_ids": [
+        "f1"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "How to use the rule",
+      "content": "Follow the affected interaction identifier through related local and outbound logs to locate the first recorded failure or delayed operation rather than assuming the endpoint's final error identifies its origin. Compare integration timeout evidence and emitted database work with the failing request's log context to distinguish an upstream wait from persistence work or a local input rejection. Reproduce the supplied failure with a controlled request, record the observed outcome and related evidence, and change the suspected boundary only after checking that the evidence supports that location.",
+      "fact_ids": [
+        "f2",
+        "f3",
+        "f4"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "walkthrough",
+      "title": "Reason through an example",
+      "content": "Compare request rate, failure fraction and latency for the affected operation and time window. Follow its interaction identifier through local and outbound logs, locating the first recorded failure or delay. Compare timeout evidence and emitted database work in that context to distinguish upstream waiting, persistence work and local input rejection. Reproduce the supplied failure with a controlled request and record outcome plus supporting evidence before changing the suspected boundary. For a hypothetical delayed external lookup, the final endpoint error is only the last visible outcome; related evidence must support locating the problem at the integration. Keep observation, suspected location and proposed change separate so an unsupported guess does not become a diagnosis.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "misconception",
+      "title": "Keep this distinction",
+      "content": "The endpoint's final error does not necessarily identify the origin. Locate the first supported failure or delay before changing code.",
+      "fact_ids": [
+        "f2",
+        "f4"
+      ]
+    }
+  ],
+  "visual_anchor": {
+    "type": "comparison",
+    "purpose": "Make the affected operation's request rate, failure fraction and latency visible for the same time window beside a chronological sequence of interaction-correlated local, outbound and database records. Mark the first recorded failure or delay and distinguish the observed outcome, suspected boundary and proposed change."
+  },
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Investigate the supplied order-endpoint failure. Compare the supplied request-rate, failure-fraction and latency evidence for the affected operation and time window. Write one controlled request using the supplied test setup, record its outcome, and follow its interaction identifier through the supplied local, outbound and database evidence before choosing a diagnostic boundary.",
+    "success": "The controlled request reproduces the supplied failure and its outcome is recorded. The investigation distinguishes traffic growth from increased failures or latency, identifies the first recorded failure or delay, and compares timeout evidence with emitted database work and local input handling. The selected boundary is supported by that evidence rather than by the endpoint's final error alone; any proposed change remains separate from the observations.",
+    "live_code": {
+      "required_skill": "Use the supplied TestClient setup to send a controlled order request, capture its response and interaction identifier, and connect the recorded outcome to the supplied diagnostic evidence.",
+      "allowed_syntax": [
+        "with TestClient(app) as client:",
+        "client.post(..., json=..., headers=...)",
+        "variable assignment",
+        "dictionary literals",
+        "string and numeric literals",
+        "response.status_code",
+        "response.headers",
+        "assert ..."
+      ],
+      "blocked_syntax": [
+        "@retry(...)",
+        "selectinload(...)",
+        "joinedload(...)",
+        "Security(..., scopes=[...])"
+      ],
+      "starter_state_intent": "Provide the existing order application, a TestClient setup, the supplied failing order payload, the configured interaction-identifier header, and an evidence packet containing operation-level signals and correlated local, outbound and database records. Leave the controlled request and outcome assertions incomplete.",
+      "observable_success": "The completed request executes once and captures the expected failure status and interaction identifier. A diagnostic record connects that identifier to the first recorded failure or delay, cites the relevant signal comparison and timeout/database evidence, and supports the chosen boundary without changing application code prematurely."
+    }
+  },
+  "required_facts": [
+    {
+      "id": "f1",
+      "statement": "Compare request rate, failure fraction and latency for the affected operation and time window before choosing a diagnostic boundary, distinguishing increased traffic from increased failures or longer waits.",
+      "source_refs": [
+        "prometheus_client_python#https://prometheus.io/docs/prometheus/latest/querying/functions/#rate",
+        "prometheus_client_python#https://prometheus.github.io/client_python/instrumenting/histogram/#constructor"
+      ]
+    },
+    {
+      "id": "f2",
+      "statement": "Follow the affected interaction identifier through related local and outbound logs to locate the first recorded failure or delayed operation rather than assuming the endpoint's final error identifies its origin.",
+      "source_refs": [
+        "owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html#event-attributes"
+      ]
+    },
+    {
+      "id": "f3",
+      "statement": "Compare integration timeout evidence and emitted database work with the failing request's log context to distinguish an upstream wait from persistence work or a local input rejection.",
+      "source_refs": [
+        "fastapi_docs_advanced#https://www.python-httpx.org/advanced/timeouts/#fine-tuning-the-configuration",
+        "sqlalchemy_20_tutorial#https://docs.sqlalchemy.org/en/20/tutorial/dbapi_transactions.html#working-with-transactions-and-the-dbapi"
+      ]
+    },
+    {
+      "id": "f4",
+      "statement": "Reproduce the supplied failure with a controlled request, record the observed outcome and related evidence, and change the suspected boundary only after checking that the evidence supports that location.",
+      "source_refs": [
+        "owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html#verification",
+        "fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/testing/#using-testclient"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,267 @@
+import pandas as pd
+
+contract = pd.read_csv('acceptance_contract.csv').iloc[0]
+
+p_negative = contract['deployment_negative_probability']
+
+p_positive = contract['deployment_positive_probability']
+
+cost_FP = contract['cost_FP']
+
+cost_FN = contract['cost_FN']
+
+bound = contract['expected_cost_bound']
+
+import json
+
+trials = pd.read_csv('search_trials.csv').to_dict('records')
+
+configurations = [json.loads(row['configuration_json']) for row in trials]
+
+CALLS = []
+
+# Supplied helper initialization; leave unchanged.
+if True:
+    def run_trial(configuration):
+        for row in trials:
+            if json.loads(row['configuration_json']) == configuration:
+                CALLS.append(configuration.copy())
+                return row
+        raise ValueError('configuration outside declared search space')
+
+# Supplied helper initialization; leave unchanged.
+if True:
+    def search(configurations, p_negative, p_positive, cost_FP, cost_FN, bound, budget=3):
+        records = []
+        selected = None
+        best_cost = None
+        for configuration in configurations[:budget]:
+            trial = run_trial(configuration)
+            FP = trial['FP']
+            TN = trial['TN']
+            FN = trial['FN']
+            TP = trial['TP']
+            FPR = None
+            FNR = None
+            expected_cost = None
+            if FP + TN > 0:
+                FPR = FP / (FP + TN)
+            if FN + TP > 0:
+                FNR = FN / (FN + TP)
+            if FP + TN > 0:
+                if FN + TP > 0:
+                    expected_cost = expected_cost_rule(p_negative, FPR, cost_FP, p_positive, FNR, cost_FN)
+            eligible = False
+            if expected_cost is not None:
+                if expected_cost <= bound:
+                    if trial['operating_requirements_met']:
+                        eligible = True
+                        if best_cost is None:
+                            best_cost = expected_cost
+                            selected = configuration
+                        else:
+                            if expected_cost < best_cost:
+                                best_cost = expected_cost
+                                selected = configuration
+            records.append({'configuration': configuration, 'cohort_id': trial['cohort_id'], 'FP': FP, 'TN': TN, 'FN': FN, 'TP': TP, 'actual_negative_count': FP + TN, 'actual_positive_count': FN + TP, 'FPR': FPR, 'FNR': FNR, 'expected_cost': expected_cost, 'eligible': eligible})
+        return {'resolved_budget': budget, 'completed_trials': len(records), 'records': records, 'selected_configuration': selected}
+
+# Fixed cost contract helper; undefined groups are guarded by the caller.
+if True:
+    def deployment_weighted_cost(p_negative, FPR, cost_FP, p_positive, FNR, cost_FN):
+        return p_negative * FPR * cost_FP + p_positive * FNR * cost_FN
+
+# Complete the learner binding below; do not edit the supplied helpers.
+expected_cost_rule = deployment_weighted_cost
+
+TESTS
+[
+  {
+    "test_id": "t1",
+    "kind": "value_equals",
+    "spec": {
+      "expr": "search(configurations, p_negative, p_positive, cost_FP, cost_FN, bound)",
+      "expected": {
+        "resolved_budget": 3,
+        "completed_trials": 3,
+        "records": [
+          {
+            "configuration": {
+              "C": 10,
+              "random_state": 0
+            },
+            "cohort_id": "orders_100",
+            "FP": 15,
+            "TN": 65,
+            "FN": 4,
+            "TP": 16,
+            "actual_negative_count": 80,
+            "actual_positive_count": 20,
+            "FPR": 0.1875,
+            "FNR": 0.2,
+            "expected_cost": 0.3500000000000001,
+            "eligible": false
+          },
+          {
+            "configuration": {
+              "C": 1,
+              "random_state": 0
+            },
+            "cohort_id": "orders_100",
+            "FP": 8,
+            "TN": 72,
+            "FN": 4,
+            "TP": 16,
+            "actual_negative_count": 80,
+            "actual_positive_count": 20,
+            "FPR": 0.1,
+            "FNR": 0.2,
+            "expected_cost": 0.28,
+            "eligible": true
+          },
+          {
+            "configuration": {
+              "C": 0.1,
+              "random_state": 0
+            },
+            "cohort_id": "orders_100",
+            "FP": 0,
+            "TN": 80,
+            "FN": 4,
+            "TP": 16,
+            "actual_negative_count": 80,
+            "actual_positive_count": 20,
+            "FPR": 0,
+            "FNR": 0.2,
+            "expected_cost": 0.20000000000000004,
+            "eligible": true
+          }
+        ],
+        "selected_configuration": {
+          "C": 0.1,
+          "random_state": 0
+        }
+      }
+    },
+    "visible": true,
+    "message_on_fail": "Check the named result fields, fixed assumptions, and empty-group behavior."
+  },
+  {
+    "test_id": "t2",
+    "kind": "value_equals",
+    "spec": {
+      "expr": "search(configurations, p_negative, p_positive, cost_FP, cost_FN, bound, budget=2)",
+      "expected": {
+        "resolved_budget": 2,
+        "completed_trials": 2,
+        "records": [
+          {
+            "configuration": {
+              "C": 10,
+              "random_state": 0
+            },
+            "cohort_id": "orders_100",
+            "FP": 15,
+            "TN": 65,
+            "FN": 4,
+            "TP": 16,
+            "actual_negative_count": 80,
+            "actual_positive_count": 20,
+            "FPR": 0.1875,
+            "FNR": 0.2,
+            "expected_cost": 0.3500000000000001,
+            "eligible": false
+          },
+          {
+            "configuration": {
+              "C": 1,
+              "random_state": 0
+            },
+            "cohort_id": "orders_100",
+            "FP": 8,
+            "TN": 72,
+            "FN": 4,
+            "TP": 16,
+            "actual_negative_count": 80,
+            "actual_positive_count": 20,
+            "FPR": 0.1,
+            "FNR": 0.2,
+            "expected_cost": 0.28,
+            "eligible": true
+          }
+        ],
+        "selected_configuration": {
+          "C": 1,
+          "random_state": 0
+        }
+      }
+    },
+    "visible": false,
+    "message_on_fail": "Check the named result fields, fixed assumptions, and empty-group behavior."
+  },
+  {
+    "test_id": "t3",
+    "kind": "value_equals",
+    "spec": {
+      "expr": "(search(configurations, p_negative, p_positive, cost_FP, cost_FN, bound, budget=2), CALLS[-2:])",
+      "expected": [
+        {
+          "resolved_budget": 2,
+          "completed_trials": 2,
+          "records": [
+            {
+              "configuration": {
+                "C": 10,
+                "random_state": 0
+              },
+              "cohort_id": "orders_100",
+              "FP": 15,
+              "TN": 65,
+              "FN": 4,
+              "TP": 16,
+              "actual_negative_count": 80,
+              "actual_positive_count": 20,
+              "FPR": 0.1875,
+              "FNR": 0.2,
+              "expected_cost": 0.3500000000000001,
+              "eligible": false
+            },
+            {
+              "configuration": {
+                "C": 1,
+                "random_state": 0
+              },
+              "cohort_id": "orders_100",
+              "FP": 8,
+              "TN": 72,
+              "FN": 4,
+              "TP": 16,
+              "actual_negative_count": 80,
+              "actual_positive_count": 20,
+              "FPR": 0.1,
+              "FNR": 0.2,
+              "expected_cost": 0.28,
+              "eligible": true
+            }
+          ],
+          "selected_configuration": {
+            "C": 1,
+            "random_state": 0
+          }
+        },
+        [
+          {
+            "C": 10,
+            "random_state": 0
+          },
+          {
+            "C": 1,
+            "random_state": 0
+          }
+        ]
+      ]
+    },
+    "visible": false,
+    "message_on_fail": "Check the named result fields, fixed assumptions, and empty-group behavior."
+  }
+]

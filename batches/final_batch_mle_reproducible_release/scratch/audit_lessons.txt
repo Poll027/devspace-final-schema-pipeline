@@ -1,0 +1,1676 @@
+TILE mle.tile.052_055
+mle.tile.052_055.s01 explainer Leave notebook state behind
+{"type": "prose", "text": "Move the order-training task into a saved script. Its entry point runs directly, while ordinary imports must not launch training.", "role": "intro"}
+{"type": "prose", "text": "Guard the executable call with if __name__ == \"__main__\":. Define explicit training parameters and resolve defaults and keyword overrides before training. Decode the declared configuration with json.load, then map its fields to those arguments.", "role": "mechanism"}
+{"type": "prose", "text": "Run python training_script.py and compare recorded settings and outputs with the supplied notebook behavior. A caller can use subprocess.run([\"python\", script_path], check=True), which raises on a nonzero exit. Save structured records with json.dump(record, handle); recover their values with json.load(handle). JSON text itself is not a dictionary.", "role": "mechanism"}
+{"type": "code_walkthrough", "language": "python", "code": "import json\nfrom fixture_workflow import supplied_workflow\n\ndef train(dataset_path='training_orders.csv', threshold=40.0):\n    result = supplied_workflow(dataset_path=dataset_path, threshold=threshold)\n    for parameter_name, resolved_value in result['resolved_parameters'].items():\n        print(f\"{parameter_name}={resolved_value}\")\n    print(f\"validation_accuracy={result['validation_accuracy']}\")\n    return result\n\n# Direct execution runs the calls; ordinary import does not.\nif __name__ == '__main__':\n    default_result = train()\n    with open('configuration.json', encoding='utf-8') as handle:\n        configuration = json.load(handle)\n    override_result = train(**configuration)", "reveal": "all"}
+{"type": "code_walkthrough", "language": "bash", "code": "python training_script.py > capture.log 2>&1\ncat capture.log\ngit add training_script.py\ngit commit -m \"Save explicit training entry point\"\ngit rev-parse --verify HEAD", "reveal": "all"}
+mle.tile.052_055.s02 explainer Inspect and commit
+{"type": "prose", "text": "Call the entry function with defaults, then explicit keyword overrides. Keep task state in parameters or local values, not notebook globals. Emit resolved parameters and validation results with f-strings, such as f\"{parameter_name}={resolved_value}\". Save the repository script, stage it with git add SCRIPT_PATH, commit with git commit and retain the resulting revision.", "role": "mechanism"}
+{"type": "prose", "text": "From a clean shell, run python training_script.py > capture.log 2>&1. Inspect the captured resolved parameters and result.", "role": "mechanism"}
+mle.tile.052_055.s03 explainer Two calls, one explicit contract
+{"type": "prose", "text": "For the supplied order workflow, compare a default call with a keyword override. Map decoded JSON to the same arguments; round-trip the configuration. Guard direct execution, save and commit the script, and retain its revision. Run a clean subprocess with checked exit status and capture both output streams. Compare resolved parameters and validation output with notebook behavior: starting successfully does not prove forgotten notebook globals were removed.", "role": "mechanism"}
+{"type": "prose", "text": "Decode JSON before treating it as a dictionary. Do not rely on notebook globals or print defaults in place of resolved keyword overrides.", "role": "mechanism"}
+mle.tile.052_055.s04 video Watch the entry-point walkthrough
+{"type": "media_group", "segment_ids": ["seg_mle.ml_training_script_sugvnHA7ElY_0_298"], "segments": [{"segment_id": "seg_mle.ml_training_script_sugvnHA7ElY_0_298", "video_id": "sugvnHA7ElY", "youtube_url": "https://www.youtube.com/watch?v=sugvnHA7ElY", "review_url": "https://www.youtube.com/watch?v=sugvnHA7ElY&t=0s", "start_seconds": 0, "end_seconds": 298, "label": "Guard a Python entry point so importing the module does not call it", "summary": "Python assigns __name__ the value \"__main__\" when a file runs directly. When another file imports that module, __name__ instead identifies the imported module. The demonstration first leaves diagnostic output at module level, where it executes during import. It then moves that output into a main function and calls the function behind if __name__ == \"__main__\":. Direct execution calls main; importing the module does not. The guard controls the entry-point call, not every statement in the file.", "fact_ids": ["f1"], "transcript_ref": "sugvnHA7ElY:0-298"}], "group_title": "Make direct execution explicit with an entry-point guard", "bridge": {"before": "Watch how direct execution and importing assign different values to __name__. The creator calls the entry function a “main method”; here, it is a Python function.", "after": "The clip covers the guard only. The text supplies training parameters, defaults, keyword overrides, local state, JSON loading and saving, notebook comparisons, checked subprocess execution, f-string reporting, repository commits, and clean-shell output capture."}, "default_mode": "video"}
+mle.tile.052_055.s05 check Check: explicit, saved training execution
+{
+  "type": "choice",
+  "interaction_id": "ix.mle.tile.052_055.s05",
+  "difficulty": "intro",
+  "grading_mode": "client",
+  "standalone": true,
+  "measures": [
+    {
+      "concept_id": "mle.ml_training_script",
+      "capability": "save_and_commit_training_entry_point",
+      "fact_ids": [
+        "f9"
+      ]
+    }
+  ],
+  "anchors": [
+    "mle.ml_training_script#assessment:save_and_commit_training_entry_point"
+  ],
+  "public": {
+    "prompt": "The saved training_script.py reproduces the notebook behavior. Which action completes the taught repository provenance requirement?",
+    "selection": "single",
+    "shuffle": true,
+    "options": [
+      {
+        "option_id": "o1",
+        "text": "Stage training_script.py, commit it, and retain the resulting revision."
+      },
+      {
+        "option_id": "o2",
+        "text": "Save training_script.py but leave it untracked."
+      },
+      {
+        "option_id": "o3",
+        "text": "Stage training_script.py without committing it."
+      }
+    ]
+  },
+  "grading": {
+    "correct_option_ids": [
+      "o1"
+    ],
+    "option_feedback": {
+      "o1": {
+        "message": "Staging and committing the saved script provides the retained revision."
+      },
+      "o2": {
+        "message": "A saved untracked file is not the required committed entry point."
+      },
+      "o3": {
+        "message": "Staging alone does not produce the required retained commit revision."
+      }
+    }
+  },
+  "feedback": {
+    "correct": {
+      "message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."
+    },
+    "incorrect": {
+      "message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."
+    },
+    "hints": [
+      "Separate saving, staging, and recording a commit."
+    ],
+    "remediation_step_id": "mle.tile.052_055.r01"
+  }
+}
+mle.tile.052_055.s06 hands_on Practice: explicit, saved training execution
+{
+  "type": "classify",
+  "interaction_id": "ix.mle.tile.052_055.s06",
+  "difficulty": "core",
+  "grading_mode": "client",
+  "standalone": true,
+  "measures": [
+    {
+      "concept_id": "mle.ml_training_script",
+      "capability": "distinguish_direct_execution_from_import",
+      "fact_ids": [
+        "f1"
+      ]
+    },
+    {
+      "concept_id": "mle.ml_training_script",
+      "capability": "resolve_and_report_explicit_training_state",
+      "fact_ids": [
+        "f2",
+        "f3",
+        "f7",
+        "f8"
+      ]
+    },
+    {
+      "concept_id": "mle.ml_training_script",
+      "capability": "round_trip_structured_json_configuration",
+      "fact_ids": [
+        "f3",
+        "f6"
+      ]
+    },
+    {
+      "concept_id": "mle.ml_training_script",
+      "capability": "verify_clean_process_training_execution",
+      "fact_ids": [
+        "f4",
+        "f5",
+        "f10"
+      ]
+    },
+    {
+      "concept_id": "mle.ml_training_script",
+      "capability": "save_and_commit_training_entry_point",
+      "fact_ids": [
+        "f9"
+      ]
+    }
+  ],
+  "anchors": [
+    "mle.ml_training_script#practice",
+    "mle.ml_training_script#assessment:distinguish_direct_execution_from_import",
+    "mle.ml_training_script#assessment:resolve_and_report_explicit_training_state",
+    "mle.ml_training_script#assessment:round_trip_structured_json_configuration",
+    "mle.ml_training_script#assessment:verify_clean_process_training_execution",
+    "mle.ml_training_script#assessment:save_and_commit_training_entry_point"
+  ],
+  "public": {
+    "prompt": "Review independent code and captured-output excerpts for the fictional order-training script. Judge only the named requirement in each item. supplied_workflow is the supplied notebook workflow; config is parsed from the declared configuration. The displayed run values were computed from the registered training data.\nClassify every excerpt as meeting or violating the named check. A fragment need not demonstrate unrelated stages. Assume only the supplied inputs and explicitly stated checks; do not infer missing verification.",
+    "buckets": [
+      {
+        "bucket_id": "meets",
+        "label": "Meets the named check"
+      },
+      {
+        "bucket_id": "violates",
+        "label": "Violates the named check"
+      }
+    ],
+    "items": [
+      {
+        "item_id": "i1",
+        "text": "Import isolation: ```\nif __name__ == \"__main__\":\n    main()\n# ordinary import defines functions but does not call main\n```"
+      },
+      {
+        "item_id": "i2",
+        "text": "Import isolation: ```\ndef main():\n    train()\nmain()  # unconditional at module scope\n```"
+      },
+      {
+        "item_id": "i3",
+        "text": "Explicit state and reporting: ```\ndef train(dataset_path=\"training_orders.csv\", threshold=40.0):\n    result = supplied_workflow(dataset_path=dataset_path, threshold=threshold)\n    print(f\"dataset_path={dataset_path} threshold={threshold} validation_accuracy={result['validation_accuracy']}\")\n    return result\n# guarded entry code:\ndefault_run = train()\nconfigured_run = train(dataset_path=config[\"dataset_path\"], threshold=config[\"threshold\"])\n```\nComputed captured values:\n```\ndataset_path=training_orders.csv threshold=40.0 validation_accuracy=0.9375\ndataset_path=training_orders.csv threshold=50.0 validation_accuracy=0.9375\n```"
+      },
+      {
+        "item_id": "i4",
+        "text": "JSON round-trip: ```\nwith open(\"configuration.json\") as handle:\n    config = json.load(handle)\nwith open(\"run_record.json\", \"w\") as handle:\n    json.dump({\"default\": default_record, \"configured\": configured_record}, handle)\nwith open(\"run_record.json\") as handle:\n    restored = json.load(handle)\n```"
+      },
+      {
+        "item_id": "i5",
+        "text": "Clean process and retained revision: ```\ngit add training_script.py\ngit commit -m \"Save training entry point\"\ngit rev-parse --verify HEAD > training_revision.txt\npython training_script.py > capture.log 2>&1\n# inspect both captured parameter/result records against notebook expectations\nsubprocess.run([\"python\", script_path], check=True)\n```"
+      },
+      {
+        "item_id": "i6",
+        "text": "Clean-process verification: ```\n# rerun a notebook cell using its previously defined global dataset\n# do not execute training_script.py or inspect capture.log\n```"
+      }
+    ]
+  },
+  "grading": {
+    "assignments": {
+      "i1": "meets",
+      "i2": "violates",
+      "i3": "meets",
+      "i4": "meets",
+      "i5": "meets",
+      "i6": "violates"
+    },
+    "item_feedback": {
+      "i1": {
+        "message": "The guarded executable call runs on direct execution, not ordinary import."
+      },
+      "i2": {
+        "message": "The unconditional call launches training on import."
+      },
+      "i3": {
+        "message": "The explicit default and configured calls report resolved state and corresponding results; neither relies on notebook globals."
+      },
+      "i4": {
+        "message": "The record is written and then parsed back as structured values."
+      },
+      "i5": {
+        "message": "The script is committed, clean-shell output is captured and inspected, and the checked caller raises for unsuccessful execution."
+      },
+      "i6": {
+        "message": "Notebook state does not demonstrate successful execution of the saved entry point from a clean process."
+      }
+    }
+  },
+  "feedback": {
+    "correct": {
+      "message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."
+    },
+    "incorrect": {
+      "message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."
+    },
+    "hints": [
+      "For each fragment, identify the execution or serialization boundary it actually verifies."
+    ],
+    "remediation_step_id": "mle.tile.052_055.r02"
+  }
+}
+mle.tile.052_055.s07 explainer A name can stay while bytes change
+{"type": "prose", "text": "The dataset path can survive an overwrite. Reproduction needs the recorded generation and verified content identity, not merely a name called latest.", "role": "intro"}
+{"type": "prose", "text": "A mutable object name can point to overwritten contents. Object Versioning retains noncurrent versions for explicit selection. Retrieve the Google Cloud Storage snapshot with bucket.blob(object_name, generation=recorded_generation).download_to_filename(local_path), not the current object. Confirm that object/version exists with the authorized client before recording it as available.", "role": "mechanism"}
+{"type": "prose", "text": "Compute hashlib.sha256(data_bytes).hexdigest() from actual bytes and compare it with the expected content identity. Keep object name, generation and observed digest together in the local snapshot record. Upload to the version-enabled bucket with bucket.blob(object_name).upload_from_filename(local_path), then inspect and record the created generation.", "role": "mechanism"}
+{"type": "code_walkthrough", "language": "python", "code": "import hashlib, json\nfrom pathlib import Path\nfrom google.cloud import storage\nwith open('snapshot_fixture.json', encoding='utf-8') as handle:\n    supplied = json.load(handle)\nbucket = storage.Client().bucket(supplied['bucket_name'])\nwith open(supplied['local_path'], 'rb') as handle:\n    original_digest = hashlib.sha256(handle.read()).hexdigest()\nblob = bucket.blob(supplied['object_name'])\nblob.upload_from_filename(supplied['local_path'])\nrecord = {'object_name': supplied['object_name'],\n          'generation': blob.generation, 'digest': original_digest}\nselected = bucket.blob(record['object_name'], generation=record['generation'])\nassert selected.exists()\nwith open(supplied['record_path'], 'w', encoding='utf-8') as handle:\n    json.dump(record, handle)\nPath(supplied['download_path']).parent.mkdir(parents=True, exist_ok=True)\nselected.download_to_filename(supplied['download_path'])\nwith open(supplied['download_path'], 'rb') as handle:\n    retrieved_digest = hashlib.sha256(handle.read()).hexdigest()\nassert retrieved_digest == record['digest']\n# Authorized overwrite test: change only mutable latest, then select original again.\nbucket.blob(record['object_name']).upload_from_filename('changed_latest.csv')\nselected.download_to_filename(supplied['download_path'])\nwith open(supplied['download_path'], 'rb') as handle:\n    after_digest = hashlib.sha256(handle.read()).hexdigest()\nassert after_digest == record['digest']", "reveal": "all"}
+mle.tile.052_055.s08 explainer Verify across an overwrite
+{"type": "prose", "text": "Read the local dataset in binary mode with open(path, \"rb\") and update SHA-256 from those bytes before recording upload identity. In the test bucket, overwrite only mutable latest; download the original recorded generation again and compare its digest with the original snapshot digest.", "role": "mechanism"}
+mle.tile.052_055.s09 explainer Follow the same snapshot twice
+{"type": "prose", "text": "Upload the supplied order dataset and record its created generation and local-byte digest. Explicitly select that generation, confirm it exists, download it and compare its bytes with the expected digest. Change only mutable latest in the authorized overwrite fixture; retrieve the original generation again and verify the digest still matches. Keep the object name, generation and digest together: object family, selected version and checked content are distinct.", "role": "mechanism"}
+{"type": "prose", "text": "Check downloaded content rather than assuming the version-qualified request returned expected bytes. Compare the local pre-upload digest with the later download digest. Keep the generation even when original and latest share a name. This verifies the recorded fixture; it does not make mutable names intrinsically safe for reproduction.", "role": "mechanism"}
+mle.tile.052_055.s10 explainer A path is not identity
+{"type": "prose", "text": "A mutable name is not immutable data identity. A recorded digest alone does not prove the downloaded bytes belong to the intended snapshot.", "role": "mechanism"}
+mle.tile.052_055.s11 check Check: recorded order snapshot identity
+{
+  "type": "choice",
+  "interaction_id": "ix.mle.tile.052_055.s11",
+  "difficulty": "core",
+  "grading_mode": "client",
+  "standalone": true,
+  "measures": [
+    {
+      "concept_id": "mle.training_dataset_version",
+      "capability": "verify_snapshot_identity_after_latest_overwrite",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f4",
+        "f8"
+      ]
+    }
+  ],
+  "anchors": [
+    "mle.training_dataset_version#assessment:verify_snapshot_identity_after_latest_overwrite"
+  ],
+  "public": {
+    "prompt": "The authorized test bucket retains versions, but the mutable latest object has been overwritten. Which retrieval verifies that training still uses the recorded snapshot?",
+    "selection": "single",
+    "shuffle": true,
+    "options": [
+      {
+        "option_id": "o1",
+        "text": "Select the recorded generation, download it, and compare a digest computed from the downloaded bytes with the original recorded digest."
+      },
+      {
+        "option_id": "o2",
+        "text": "Download the current object by name and accept it because the name is unchanged."
+      },
+      {
+        "option_id": "o3",
+        "text": "Select the recorded generation but declare its content verified without inspecting the downloaded bytes."
+      }
+    ]
+  },
+  "grading": {
+    "correct_option_ids": [
+      "o1"
+    ],
+    "option_feedback": {
+      "o1": {
+        "message": "Generation selection fixes the snapshot identity; the observed digest checks its bytes."
+      },
+      "o2": {
+        "message": "An unchanged mutable name can resolve to overwritten content."
+      },
+      "o3": {
+        "message": "The taught content check compares an observed digest with the original record, not just the generation label."
+      }
+    }
+  },
+  "feedback": {
+    "correct": {
+      "message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."
+    },
+    "incorrect": {
+      "message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."
+    },
+    "hints": [
+      "Distinguish a location from a version and a content check."
+    ],
+    "remediation_step_id": "mle.tile.052_055.r03"
+  }
+}
+mle.tile.052_055.s12 hands_on Practice: recorded order snapshot identity
+{
+  "type": "classify",
+  "interaction_id": "ix.mle.tile.052_055.s12",
+  "difficulty": "core",
+  "grading_mode": "client",
+  "standalone": true,
+  "measures": [
+    {
+      "concept_id": "mle.training_dataset_version",
+      "capability": "record_exact_training_snapshot_reference",
+      "fact_ids": [
+        "f1",
+        "f5",
+        "f6"
+      ]
+    },
+    {
+      "concept_id": "mle.training_dataset_version",
+      "capability": "retrieve_and_verify_recorded_snapshot_identity",
+      "fact_ids": [
+        "f2",
+        "f3",
+        "f4",
+        "f7"
+      ]
+    },
+    {
+      "concept_id": "mle.training_dataset_version",
+      "capability": "verify_snapshot_identity_after_latest_overwrite",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f4",
+        "f8"
+      ]
+    }
+  ],
+  "anchors": [
+    "mle.training_dataset_version#practice",
+    "mle.training_dataset_version#assessment:record_exact_training_snapshot_reference",
+    "mle.training_dataset_version#assessment:retrieve_and_verify_recorded_snapshot_identity",
+    "mle.training_dataset_version#assessment:verify_snapshot_identity_after_latest_overwrite"
+  ],
+  "public": {
+    "prompt": "Inspect snapshot-record and retrieval excerpts. record is the saved object-name, generation and original-byte digest; bucket is the authorized version-enabled test bucket. Each item concerns only its stated snapshot check.\nClassify every excerpt as meeting or violating the named check. A fragment need not demonstrate unrelated stages. Assume only the supplied inputs and explicitly stated checks; do not infer missing verification.",
+    "buckets": [
+      {
+        "bucket_id": "meets",
+        "label": "Meets the named check"
+      },
+      {
+        "bucket_id": "violates",
+        "label": "Violates the named check"
+      }
+    ],
+    "items": [
+      {
+        "item_id": "i1",
+        "text": "Upload and availability: ```\nwith open(local_path, \"rb\") as handle:\n    original_hash = hashlib.sha256(handle.read()).hexdigest()\nblob = bucket.blob(object_name)\nblob.upload_from_filename(local_path)\ncreated_generation = blob.generation\nselected = bucket.blob(object_name, generation=created_generation)\nif not selected.exists():\n    raise ValueError(\"Unavailable snapshot\")\nrecord = {\"object_name\": object_name, \"generation\": created_generation, \"expected_hash\": original_hash}\n# save record locally\n```"
+      },
+      {
+        "item_id": "i2",
+        "text": "Recorded-generation download: ```\nselected = bucket.blob(record[\"object_name\"], generation=record[\"generation\"])\nselected.download_to_filename(download_path)\nwith open(download_path, \"rb\") as handle:\n    observed = hashlib.sha256(handle.read()).hexdigest()\nif observed != record[\"expected_hash\"]:\n    raise ValueError(\"Changed bytes\")\n```"
+      },
+      {
+        "item_id": "i3",
+        "text": "Overwrite check: ```\nbucket.blob(record[\"object_name\"]).upload_from_filename(\"changed_latest.csv\")\nbucket.blob(record[\"object_name\"], generation=record[\"generation\"]).download_to_filename(download_path)\nwith open(download_path, \"rb\") as handle:\n    after_hash = hashlib.sha256(handle.read()).hexdigest()\nassert after_hash == record[\"expected_hash\"]\n```\nRegistered-fixture digest comparison: {\"recorded_generation\": 1, \"original_digest\": \"d67e606cd75127f615b2ba02dfcc22f853460dcb774c3073bb47fa66ce83a21e\", \"selected_original_after_overwrite_digest\": \"d67e606cd75127f615b2ba02dfcc22f853460dcb774c3073bb47fa66ce83a21e\", \"current_latest_digest\": \"558a0933009e25a876447ff34245b6c0707744c0ad329c539eab30e649a95024\"}"
+      },
+      {
+        "item_id": "i4",
+        "text": "Overwrite check: ```\nbucket.blob(record[\"object_name\"]).download_to_filename(download_path)\n# accept because the object name equals record[\"object_name\"]\n```"
+      },
+      {
+        "item_id": "i5",
+        "text": "Availability: ```\nrecord[\"generation\"] = requested_generation\nrecord[\"available\"] = True\n# no existence check with the authorized client\n```"
+      }
+    ]
+  },
+  "grading": {
+    "assignments": {
+      "i1": "meets",
+      "i2": "meets",
+      "i3": "meets",
+      "i4": "violates",
+      "i5": "violates"
+    },
+    "item_feedback": {
+      "i1": {
+        "message": "The original bytes determine the digest; the uploaded generation is confirmed before being recorded as available."
+      },
+      "i2": {
+        "message": "Both explicit generation retrieval and digest verification preserve the recorded snapshot."
+      },
+      "i3": {
+        "message": "The selected original version still has the original digest despite different current bytes."
+      },
+      "i4": {
+        "message": "This resolves latest and never verifies the original bytes."
+      },
+      "i5": {
+        "message": "The record cannot declare a supplied generation available without confirming it exists."
+      }
+    }
+  },
+  "feedback": {
+    "correct": {
+      "message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."
+    },
+    "incorrect": {
+      "message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."
+    },
+    "hints": [
+      "Track which generation each download resolves and when availability is confirmed."
+    ],
+    "remediation_step_id": "mle.tile.052_055.r04"
+  }
+}
+mle.tile.052_055.s13 explainer Record the environment that ran
+{"type": "prose", "text": "Capture the actual execution environment. Remembered dependencies and typed commit labels are not independent evidence of the Python runtime and repository revision used.", "role": "intro"}
+{"type": "prose", "text": "Read the actual repository revision with git rev-parse --verify HEAD. Collect installed pins with python -m pip freeze; its package==version entries can be installed with pip install -r. Use imported runtime/environment facilities to capture execution context alongside the recorded runtime identity, revision and dependencies.", "role": "mechanism"}
+{"type": "prose", "text": "Import json. Write the manifest dictionary with json.dump and read it back with json.load, using explicit with open handles in \"w\" and \"r\" modes with encoding=\"utf-8\". Compare parsed revision, dependency mapping and runtime identity with independently inspected values. Reject a mismatch.", "role": "mechanism"}
+{"type": "prose", "text": "Import sys and record sys.version and sys.executable: actual interpreter details belong alongside the supplied runtime identity.", "role": "mechanism"}
+{"type": "code_walkthrough", "language": "python", "code": "import json, subprocess, sys\nrevision = subprocess.run(['git', 'rev-parse', '--verify', 'HEAD'],\n                          check=True, capture_output=True, text=True).stdout.strip()\nfreeze = subprocess.run([sys.executable, '-m', 'pip', 'freeze'],\n                        check=True, capture_output=True, text=True).stdout\npins = dict(line.split('==', 1) for line in freeze.splitlines() if '==' in line)\n# Symbolic runtime_identity and manifest_path bind the supplied contract.\n# Retain runtime_identity alongside observed fields.\nmanifest = {'revision': revision, 'dependencies': pins,\n            'runtime_identity': runtime_identity,\n            'sys_version': sys.version, 'sys_executable': sys.executable}\nwith open(manifest_path, 'w', encoding='utf-8') as handle:\n    json.dump(manifest, handle)\nwith open(manifest_path, 'r', encoding='utf-8') as handle:\n    parsed = json.load(handle)\n# independent_observations comes from fresh repository/runtime inspection.\nfor field in manifest:\n    assert parsed[field] == independent_observations[field]", "reveal": "all"}
+mle.tile.052_055.s14 explainer Compare the parsed record, not memory
+{"type": "prose", "text": "Inspect HEAD and pip freeze, and capture sys.version, sys.executable and the supplied runtime identity. Save the dictionary to the text manifest and parse it back. Compare parsed revision, dependency mapping and runtime identity with independent observations. If the record differs from HEAD, reject the match; do not change observations to fit it. Install pinned dependencies with pip install -r where needed. Retain the saved manifest and verified context for reproduction.", "role": "mechanism"}
+{"type": "prose", "text": "Verification concerns the file a later run will read, not just the dictionary before serialization. Compare parsed dependencies with freeze output, revision with HEAD, and Python/runtime fields with the actual process. Interpreter path and version complement the environment identity; neither substitutes for it. Resolve mismatches instead of declaring an inaccurate record verified.", "role": "mechanism"}
+mle.tile.052_055.s15 explainer Writing is not verification
+{"type": "prose", "text": "Manifest creation alone is not verification. Runtime details and dependency pins must be observed; a mismatched parsed record is not accurate.", "role": "mechanism"}
+mle.tile.052_055.s16 check Check: observed environment identity
+{
+  "type": "choice",
+  "interaction_id": "ix.mle.tile.052_055.s16",
+  "difficulty": "core",
+  "grading_mode": "client",
+  "standalone": true,
+  "measures": [
+    {
+      "concept_id": "mle.training_environment_record",
+      "capability": "verify_manifest_against_independent_environment_observations",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f6",
+        "f7"
+      ]
+    }
+  ],
+  "anchors": [
+    "mle.training_environment_record#assessment:verify_manifest_against_independent_environment_observations"
+  ],
+  "public": {
+    "prompt": "A parsed environment manifest disagrees with a fresh repository HEAD observation. Which verification behavior is defensible?",
+    "selection": "single",
+    "shuffle": true,
+    "options": [
+      {
+        "option_id": "o1",
+        "text": "Reject the manifest mismatch while keeping the independent observation unchanged."
+      },
+      {
+        "option_id": "o2",
+        "text": "Replace the freshly observed HEAD with the manifest revision and accept it."
+      },
+      {
+        "option_id": "o3",
+        "text": "Accept it because the file parses as JSON."
+      }
+    ]
+  },
+  "grading": {
+    "correct_option_ids": [
+      "o1"
+    ],
+    "option_feedback": {
+      "o1": {
+        "message": "Verification compares parsed fields to independent observations and rejects disagreement."
+      },
+      "o2": {
+        "message": "Changing the independent observation to match the manifest destroys the required comparison."
+      },
+      "o3": {
+        "message": "JSON parsing does not show that recorded revision, dependencies or runtime match the environment."
+      }
+    }
+  },
+  "feedback": {
+    "correct": {
+      "message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."
+    },
+    "incorrect": {
+      "message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."
+    },
+    "hints": [
+      "A record being readable is different from a record being accurate."
+    ],
+    "remediation_step_id": "mle.tile.052_055.r05"
+  }
+}
+mle.tile.052_055.s17 hands_on Practice: observed environment identity
+{
+  "type": "classify",
+  "interaction_id": "ix.mle.tile.052_055.s17",
+  "difficulty": "core",
+  "grading_mode": "client",
+  "standalone": true,
+  "measures": [
+    {
+      "concept_id": "mle.training_environment_record",
+      "capability": "collect_actual_revision_and_dependency_pins",
+      "fact_ids": [
+        "f1",
+        "f2"
+      ]
+    },
+    {
+      "concept_id": "mle.training_environment_record",
+      "capability": "capture_execution_runtime_identity",
+      "fact_ids": [
+        "f3",
+        "f7"
+      ]
+    },
+    {
+      "concept_id": "mle.training_environment_record",
+      "capability": "round_trip_environment_manifest_json",
+      "fact_ids": [
+        "f4",
+        "f5"
+      ]
+    },
+    {
+      "concept_id": "mle.training_environment_record",
+      "capability": "verify_manifest_against_independent_environment_observations",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f6",
+        "f7"
+      ]
+    }
+  ],
+  "anchors": [
+    "mle.training_environment_record#practice",
+    "mle.training_environment_record#assessment:collect_actual_revision_and_dependency_pins",
+    "mle.training_environment_record#assessment:capture_execution_runtime_identity",
+    "mle.training_environment_record#assessment:round_trip_environment_manifest_json",
+    "mle.training_environment_record#assessment:verify_manifest_against_independent_environment_observations"
+  ],
+  "public": {
+    "prompt": "Inspect environment collection and verification code. repository, runtime_identity and manifest_path are supplied fixture inputs. Independent observations below are fresh values from the actual repository and current interpreter, not typed replacement identities.\nClassify every excerpt as meeting or violating the named check. A fragment need not demonstrate unrelated stages. Assume only the supplied inputs and explicitly stated checks; do not infer missing verification.\nFor this fixture, every nonempty freeze-output line is a pinned `package==version` entry.",
+    "buckets": [
+      {
+        "bucket_id": "meets",
+        "label": "Meets the named check"
+      },
+      {
+        "bucket_id": "violates",
+        "label": "Violates the named check"
+      }
+    ],
+    "items": [
+      {
+        "item_id": "i1",
+        "text": "Repository and dependency observations: ```\nrevision = subprocess.run([\"git\", \"rev-parse\", \"--verify\", \"HEAD\"], cwd=repository, check=True, capture_output=True, text=True).stdout.strip()\nfreeze = subprocess.run([sys.executable, \"-m\", \"pip\", \"freeze\"], check=True, capture_output=True, text=True).stdout\ndependencies = {}\nfor line in freeze.splitlines():\n    package, version = line.split(\"==\", 1)\n    dependencies[package] = version\n```"
+      },
+      {
+        "item_id": "i2",
+        "text": "Runtime capture: ```\nmanifest = {\"revision\": revision, \"dependencies\": dependencies, \"runtime_identity\": runtime_identity, \"python_version\": sys.version, \"python_executable\": sys.executable}\n```"
+      },
+      {
+        "item_id": "i3",
+        "text": "Text JSON round-trip: ```\nwith open(manifest_path, \"w\", encoding=\"utf-8\") as handle:\n    json.dump(manifest, handle)\nwith open(manifest_path, \"r\", encoding=\"utf-8\") as handle:\n    parsed = json.load(handle)\n```"
+      },
+      {
+        "item_id": "i4",
+        "text": "Independent verification: ```\n# observed is freshly recollected, independently of parsed\nfor field in [\"revision\", \"dependencies\", \"runtime_identity\", \"python_version\", \"python_executable\"]:\n    if parsed[field] != observed[field]:\n        raise ValueError(\"Manifest mismatch\")\n```"
+      },
+      {
+        "item_id": "i5",
+        "text": "Mismatch handling: ```\nif parsed[\"dependencies\"] != observed[\"dependencies\"]:\n    observed[\"dependencies\"] = parsed[\"dependencies\"]\n# return success\n```"
+      }
+    ]
+  },
+  "grading": {
+    "assignments": {
+      "i1": "meets",
+      "i2": "meets",
+      "i3": "meets",
+      "i4": "meets",
+      "i5": "violates"
+    },
+    "item_feedback": {
+      "i1": {
+        "message": "The revision and package pins are collected from the supplied repository and current interpreter."
+      },
+      "i2": {
+        "message": "The observed context includes the supplied runtime identity and actual Python details."
+      },
+      "i3": {
+        "message": "Explicit UTF-8 text handles serialize and recover the manifest fields."
+      },
+      "i4": {
+        "message": "Matching fields are accepted, while a changed revision, dependency mapping or runtime field is rejected."
+      },
+      "i5": {
+        "message": "It edits the independent evidence instead of rejecting the recorded mismatch."
+      }
+    }
+  },
+  "feedback": {
+    "correct": {
+      "message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."
+    },
+    "incorrect": {
+      "message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."
+    },
+    "hints": [
+      "Ask whether each value was observed independently or copied from the record being checked."
+    ],
+    "remediation_step_id": "mle.tile.052_055.r06"
+  }
+}
+mle.tile.052_055.s18 explainer Resolve the recorded experiment
+{"type": "prose", "text": "Resolve recorded code, data, environment and settings first. Today’s working tree and current dataset can describe another experiment despite a familiar run name.", "role": "intro"}
+{"type": "prose", "text": "Retrieve the recorded revision, snapshot, environment and resolved settings. Check out the recorded local commit and verify HEAD rather than running a changed tree. Download the recorded dataset generation and verify its identity; do not resolve mutable latest.", "role": "mechanism"}
+{"type": "prose", "text": "Use the recorded Python/dependency environment and install pinned requirements where needed. Give the execution function defaults and explicit keyword overrides, passing resolved run state through parameters. Run the script in a clean subprocess from the recorded working directory, check exit status and capture output.", "role": "mechanism"}
+{"type": "code_walkthrough", "language": "python", "code": "import json, os, subprocess\n# Outline: run_record fields below bind the verified recorded execution context.\n\ndef execute_recorded(run_record, settings=None, **keyword_overrides):\n    resolved = dict(run_record['settings'] if settings is None else settings)\n    resolved.update(keyword_overrides)\n    # First retrieve the record, checkout its commit and verify HEAD.\n    # Verify the recorded dataset generation and use the pinned environment.\n    # Resolve relative paths after navigating the recorded directories.\n    os.chdir(run_record['working_directory'])\n    with open(run_record['configuration_path'], 'w', encoding='utf-8') as handle:\n        json.dump(resolved, handle)\n    completed = subprocess.run(\n        [run_record['python_executable'], run_record['script_path']],\n        check=True, capture_output=True, text=True)\n    # The script reads configuration mapped from resolved parameters.\n    # Inspect captured parameters and outcome against the record/tolerance.\n    return {'resolved': resolved, 'returncode': completed.returncode,\n            'stdout': completed.stdout, 'stderr': completed.stderr}", "reveal": "all"}
+{"type": "code_walkthrough", "language": "bash", "code": "git checkout RECORDED_COMMIT\ngit rev-parse --verify HEAD\ncd RECORDED_WORKING_DIRECTORY\npython -m pip install -r RECORDED_REQUIREMENTS\npython RECORDED_SCRIPT > capture.log 2>&1\ncat capture.log", "reveal": "all"}
+mle.tile.052_055.s19 explainer Resolve paths from the right directory
+{"type": "prose", "text": "Navigate the referenced repository and artifact directories before resolving relative script, dataset and configuration paths. Redirect with > capture.log 2>&1 and inspect the file. A pipe sends one command’s output to another command’s input; it is not this two-stream capture.", "role": "mechanism"}
+mle.tile.052_055.s20 explainer Rerun the recorded order task
+{"type": "prose", "text": "Resolve the recorded commit, generation and pinned environment. Verify HEAD and downloaded snapshot identity. Pass resolved defaults and overrides through execution-function parameters. Navigate recorded directories before resolving relative paths. Launch a clean subprocess with captured output and checked exit status, then inspect the result. In the failure fixture, distinguish changed latest or a different working directory from the recorded context. A pipe connects commands; redirection saves the declared streams.", "role": "mechanism"}
+{"type": "prose", "text": "Also compare captured resolved parameters with the run record. Successful exit alone can hide a wrong dataset or default. Relative paths depend on the actual working directory, so navigate explicitly before invoking the script. Recorded code and environment govern the implementation; the verified snapshot governs inputs. Check these separately rather than relying on memory of a notebook session.", "role": "mechanism"}
+mle.tile.052_055.s21 explainer Familiar names can hide a different run
+{"type": "prose", "text": "A familiar script filename is not reproduction identity. Changed code, mutable data or unresolved paths can change the experiment.", "role": "mechanism"}
+mle.tile.052_055.s22 check Check: the recorded order experiment
+{
+  "type": "choice",
+  "interaction_id": "ix.mle.tile.052_055.s22",
+  "difficulty": "core",
+  "grading_mode": "client",
+  "standalone": true,
+  "measures": [
+    {
+      "concept_id": "mle.experiment_reproduction",
+      "capability": "verify_reproduced_outcome_within_declared_stochastic_tolerances",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5",
+        "f6"
+      ]
+    }
+  ],
+  "anchors": [
+    "mle.experiment_reproduction#assessment:verify_reproduced_outcome_within_declared_stochastic_tolerances"
+  ],
+  "public": {
+    "prompt": "A rerun reports a matching score, but HEAD is a different commit from the recorded experiment. Should it be accepted as reproduction?",
+    "selection": "single",
+    "shuffle": true,
+    "options": [
+      {
+        "option_id": "o1",
+        "text": "No: verify the recorded commit, snapshot, environment, resolved settings and process execution before accepting the outcome under the declared tolerances."
+      },
+      {
+        "option_id": "o2",
+        "text": "Yes: the score proves the recorded revision was used."
+      },
+      {
+        "option_id": "o3",
+        "text": "Yes: code identity is irrelevant when the process exits successfully."
+      }
+    ]
+  },
+  "grading": {
+    "correct_option_ids": [
+      "o1"
+    ],
+    "option_feedback": {
+      "o1": {
+        "message": "A matching outcome alone does not establish the recorded execution context."
+      },
+      "o2": {
+        "message": "Different code can produce a matching score; HEAD must independently match the recorded revision."
+      },
+      "o3": {
+        "message": "A successful exit does not replace verification of the recorded commit and other inputs."
+      }
+    }
+  },
+  "feedback": {
+    "correct": {
+      "message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."
+    },
+    "incorrect": {
+      "message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."
+    },
+    "hints": [
+      "Separate execution-context identity from outcome agreement."
+    ],
+    "remediation_step_id": "mle.tile.052_055.r07"
+  }
+}
+mle.tile.052_055.s23 hands_on Practice: the recorded order experiment
+{
+  "type": "classify",
+  "interaction_id": "ix.mle.tile.052_055.s23",
+  "difficulty": "stretch",
+  "grading_mode": "client",
+  "standalone": true,
+  "measures": [
+    {
+      "concept_id": "mle.experiment_reproduction",
+      "capability": "verify_recorded_experiment_inputs",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4"
+      ]
+    },
+    {
+      "concept_id": "mle.experiment_reproduction",
+      "capability": "pass_resolved_run_settings_through_function_parameters",
+      "fact_ids": [
+        "f1",
+        "f5"
+      ]
+    },
+    {
+      "concept_id": "mle.experiment_reproduction",
+      "capability": "execute_and_inspect_a_recorded_rerun",
+      "fact_ids": [
+        "f6",
+        "f7",
+        "f8"
+      ]
+    },
+    {
+      "concept_id": "mle.experiment_reproduction",
+      "capability": "verify_reproduced_outcome_within_declared_stochastic_tolerances",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5",
+        "f6"
+      ]
+    }
+  ],
+  "anchors": [
+    "mle.experiment_reproduction#practice",
+    "mle.experiment_reproduction#assessment:verify_recorded_experiment_inputs",
+    "mle.experiment_reproduction#assessment:pass_resolved_run_settings_through_function_parameters",
+    "mle.experiment_reproduction#assessment:execute_and_inspect_a_recorded_rerun",
+    "mle.experiment_reproduction#assessment:verify_reproduced_outcome_within_declared_stochastic_tolerances"
+  ],
+  "public": {
+    "prompt": "Review rerun fragments for an already recorded experiment. record contains its exact revision, snapshot, environment, working directory, settings, outcome and tolerances; no new experiment selection is authorized.\nClassify every excerpt as meeting or violating the named check. A fragment need not demonstrate unrelated stages. Assume only the supplied inputs and explicitly stated checks; do not infer missing verification.",
+    "buckets": [
+      {
+        "bucket_id": "meets",
+        "label": "Meets the named check"
+      },
+      {
+        "bucket_id": "violates",
+        "label": "Violates the named check"
+      }
+    ],
+    "items": [
+      {
+        "item_id": "i1",
+        "text": "Input verification: ```\ngit checkout \"$RECORDED_REVISION\"\ngit rev-parse --verify HEAD\n# require HEAD == record[\"revision\"]\n# retrieve record[\"dataset_snapshot\"][\"generation\"] and verify its digest\n# inspect recorded interpreter and dependency pins; install pinned requirements if needed\n# require the inspected environment to equal the recorded environment\n```"
+      },
+      {
+        "item_id": "i2",
+        "text": "Resolved invocation: ```\ndef execute(script_path, working_directory, settings=default_settings):\n    # settings is a resolved parameter, not a notebook global\n    return run_recorded_training(script_path, working_directory, settings)\nexecute(record[\"script\"], working_directory=record[\"working_directory\"], settings=record[\"settings\"])\n```"
+      },
+      {
+        "item_id": "i3",
+        "text": "Process inspection: ```\nresult = subprocess.run(command, cwd=record[\"working_directory\"], capture_output=True, text=True)\nif result.returncode != 0:\n    raise ValueError(\"Rerun failed\")\nprint(result.stdout)\nprint(result.stderr)\n# parse the captured rerun result and compare to record[\"expected_outcome\"]\n# accept only within record[\"rtol\"] and record[\"atol\"]\n```"
+      },
+      {
+        "item_id": "i4",
+        "text": "Navigation, redirection and pipe: ```\ncd \"$RECORDED_WORKING_DIRECTORY\"\npython recorded_training_script.py > capture.log 2>&1\ncat capture.log | grep validation_accuracy\n# inspect capture.log including any standard-error content\n```"
+      },
+      {
+        "item_id": "i5",
+        "text": "Outcome acceptance: ```\n# skip checkout and snapshot verification\n# run whatever current files are present\n# accept solely because rerun_score equals recorded_score\n```"
+      }
+    ]
+  },
+  "grading": {
+    "assignments": {
+      "i1": "meets",
+      "i2": "meets",
+      "i3": "meets",
+      "i4": "meets",
+      "i5": "violates"
+    },
+    "item_feedback": {
+      "i1": {
+        "message": "The rerun uses the verified commit, snapshot and environment rather than current mutable state."
+      },
+      "i2": {
+        "message": "Explicit keyword overrides pass the recorded resolved state into the execution function."
+      },
+      "i3": {
+        "message": "Exit status, captured streams, working directory and tolerated outcome comparison are all checked."
+      },
+      "i4": {
+        "message": "Navigation resolves relative paths in the intended directory; redirection captures both streams and the pipe feeds one output into the next input."
+      },
+      "i5": {
+        "message": "Score agreement does not verify that the recorded experiment inputs were actually used."
+      }
+    }
+  },
+  "feedback": {
+    "correct": {
+      "message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."
+    },
+    "incorrect": {
+      "message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."
+    },
+    "hints": [
+      "Check identities, process evidence and tolerance comparison separately."
+    ],
+    "remediation_step_id": "mle.tile.052_055.r08"
+  }
+}
+mle.tile.052_055.s24 recap Keep the identities and boundaries clear
+{"type": "prose", "text": "Use a committed, guarded training script with explicit resolved state and inspected clean-process output. Identify data by recorded generation and verified bytes. Round-trip the environment manifest and compare it with independent observations. Reproduction resolves code, snapshot, environment, settings and working directory before execution; a familiar name or successful exit is not enough.", "role": "takeaway"}
+{"type": "up_next", "title": "Up next", "text": "Next: verify the originating run’s exact artifact before creating a registry version."}
+TILE mle.tile.056_057
+mle.tile.056_057.s01 explainer Verify before registering
+{"type": "prose", "text": "A registry version must point to the verified originating run artifact. Resolve its exact stored generation and check the bytes against the run’s expected hash first.", "role": "intro"}
+{"type": "prose", "text": "Retrieve the run’s artifact record, expected hash and immutable object version. Download with bucket.blob(key, generation=recorded_generation).download_to_filename(path), not the current object at key. Hash downloaded bytes with SHA-256 and reject a mismatch before registration.", "role": "mechanism"}
+{"type": "prose", "text": "Require the supplied model name to exist; create_registered_model(name) supports the declared new-name path. Call create_model_version(name=name, source=version_qualified_source, run_id=run_id) and retain its returned numeric version. Save exact object version and hash with set_model_version_tag. Retrieve the version with get_model_version(name, version) and its linked originating run; verify their recorded identities.", "role": "mechanism"}
+{"type": "code_walkthrough", "language": "python", "code": "import hashlib\nfrom mlflow import MlflowClient\nimport json\nfrom pathlib import Path\nfrom google.cloud import storage\nwith open('run_artifact_record.json', encoding='utf-8') as handle:\n    record = json.load(handle)\nbucket = storage.Client().bucket(record['bucket_name'])\nmodel_name = record['model_name']\nversion_qualified_source = record['version_qualified_source']\nartifact_path = record['local_path']\nPath(artifact_path).parent.mkdir(parents=True, exist_ok=True)\nselected = bucket.blob(record['key'], generation=record['generation'])\nselected.download_to_filename(artifact_path)\nwith open(artifact_path, 'rb') as handle:\n    observed_hash = hashlib.sha256(handle.read()).hexdigest()\nif observed_hash != record['expected_hash']:\n    raise ValueError('Artifact mismatch: do not create a version')\nclient = MlflowClient()\n# Require the registered name; only the declared new-name path creates it.\nversion = client.create_model_version(name=model_name,\n    source=version_qualified_source, run_id=record['run_id'])\nclient.set_model_version_tag(model_name, version.version, 'generation',\n                             str(record['generation']))\nclient.set_model_version_tag(model_name, version.version, 'sha256', observed_hash)\nretrieved = client.get_model_version(model_name, version.version)\noriginating_run = client.get_run(retrieved.run_id)\n# Compare retrieved source, tags and run link with the verified record.\n# After authorized latest overwrite, re-download selected and verify hash again.", "reveal": "all"}
+mle.tile.056_057.s02 explainer Verify after mutable latest changes
+{"type": "prose", "text": "Import MlflowClient from mlflow and construct the client for version creation, retrieval and tags. In the authorized test bucket, overwrite only latest, then retrieve the registered generation again and verify its registered hash. Return one keyed registration verdict. An overwrite is not a newly approved registry version.", "role": "mechanism"}
+{"type": "prose", "text": "The run record and mutable latest may identify different generations. Retrieve the recorded one and verify its hash before creating a registry version. Use the supplied model name, creating it only on the declared new-name path. Retain numeric version, version-qualified source, run link, generation and hash tags. Retrieve the version and linked run to compare identities. After the authorized latest overwrite, retrieve and verify the registered generation again. Return a keyed verdict binding these identities, not a verdict that approves the overwrite.", "role": "mechanism"}
+{"type": "prose", "text": "A numeric registry version does not verify a mutable source. Check exact generation and hash; an object overwrite is not an approved version creation.", "role": "mechanism"}
+mle.tile.056_057.s03 check Check: verified artifact registration
+{
+  "type": "choice",
+  "interaction_id": "ix.mle.tile.056_057.s03",
+  "difficulty": "intro",
+  "grading_mode": "client",
+  "standalone": true,
+  "measures": [
+    {
+      "concept_id": "mle.model_version_registration",
+      "capability": "verify_registered_content_survives_mutable_key_overwrite",
+      "fact_ids": [
+        "f7",
+        "f8"
+      ]
+    }
+  ],
+  "anchors": [
+    "mle.model_version_registration#assessment:verify_registered_content_survives_mutable_key_overwrite"
+  ],
+  "public": {
+    "prompt": "After authorized overwrite of a mutable artifact key, what establishes that an existing registered model version still identifies its original content?",
+    "selection": "single",
+    "shuffle": true,
+    "options": [
+      {
+        "option_id": "o1",
+        "text": "Retrieve its version-qualified original generation and verify the downloaded bytes against the registered hash."
+      },
+      {
+        "option_id": "o2",
+        "text": "Retrieve the latest artifact and silently attach it to the existing approved version."
+      },
+      {
+        "option_id": "o3",
+        "text": "Accept the artifact because its mutable object key is unchanged."
+      }
+    ]
+  },
+  "grading": {
+    "correct_option_ids": [
+      "o1"
+    ],
+    "option_feedback": {
+      "o1": {
+        "message": "The immutable reference and observed content hash preserve the registered version identity."
+      },
+      "o2": {
+        "message": "A mutable overwrite is not a new approved version and does not preserve original content identity."
+      },
+      "o3": {
+        "message": "The same key may resolve to changed bytes after overwrite."
+      }
+    }
+  },
+  "feedback": {
+    "correct": {
+      "message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."
+    },
+    "incorrect": {
+      "message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."
+    },
+    "hints": [
+      "An approved version needs more than an unchanged mutable name."
+    ],
+    "remediation_step_id": "mle.tile.056_057.r01"
+  }
+}
+mle.tile.056_057.s04 hands_on Practice: verified artifact registration
+{
+  "type": "classify",
+  "interaction_id": "ix.mle.tile.056_057.s04",
+  "difficulty": "core",
+  "grading_mode": "client",
+  "standalone": true,
+  "measures": [
+    {
+      "concept_id": "mle.model_version_registration",
+      "capability": "resolve_and_verify_exact_run_artifact",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3"
+      ]
+    },
+    {
+      "concept_id": "mle.model_version_registration",
+      "capability": "create_registry_version_with_pinned_artifact_identity",
+      "fact_ids": [
+        "f4",
+        "f5",
+        "f9"
+      ]
+    },
+    {
+      "concept_id": "mle.model_version_registration",
+      "capability": "retrieve_registry_version_and_verify_originating_run",
+      "fact_ids": [
+        "f6"
+      ]
+    },
+    {
+      "concept_id": "mle.model_version_registration",
+      "capability": "verify_registered_content_survives_mutable_key_overwrite",
+      "fact_ids": [
+        "f7",
+        "f8"
+      ]
+    }
+  ],
+  "anchors": [
+    "mle.model_version_registration#practice",
+    "mle.model_version_registration#assessment:resolve_and_verify_exact_run_artifact",
+    "mle.model_version_registration#assessment:create_registry_version_with_pinned_artifact_identity",
+    "mle.model_version_registration#assessment:retrieve_registry_version_and_verify_originating_run",
+    "mle.model_version_registration#assessment:verify_registered_content_survives_mutable_key_overwrite"
+  ],
+  "public": {
+    "prompt": "Inspect registry-version review excerpts. The originating run record is:\n```\n{\n  \"run_id\": \"run.order.B\",\n  \"bucket_name\": \"authorized-fixture\",\n  \"key\": \"models/B/latest.json\",\n  \"generation\": 1,\n  \"expected_hash\": \"cb182766714027c89ef572c9cf1c437b88b0cea465e51eeeec10a184cf8ae8c2\",\n  \"version_qualified_source\": \"gs://authorized-fixture/models/B/latest.json#1\",\n  \"model_name\": \"B\",\n  \"new_name_model\": \"baseline\",\n  \"local_path\": \"downloads/B.json\"\n}\n```\nclient is MlflowClient(); bucket is the authorized artifact bucket. Each item judges its stated stage.\nClassify every excerpt as meeting or violating the named check. A fragment need not demonstrate unrelated stages. Assume only the supplied inputs and explicitly stated checks; do not infer missing verification.",
+    "buckets": [
+      {
+        "bucket_id": "meets",
+        "label": "Meets the named check"
+      },
+      {
+        "bucket_id": "violates",
+        "label": "Violates the named check"
+      }
+    ],
+    "items": [
+      {
+        "item_id": "i1",
+        "text": "Pre-registration identity: ```\n# record is the supplied artifact dictionary already resolved from the originating tracked run.\nbucket.blob(record[\"key\"], generation=record[\"generation\"]).download_to_filename(path)\nwith open(path, \"rb\") as handle:\n    observed_hash = hashlib.sha256(handle.read()).hexdigest()\nif observed_hash != record[\"expected_hash\"]:\n    raise ValueError(\"Artifact mismatch\")\n# only after this branch may create_model_version be called\n```"
+      },
+      {
+        "item_id": "i2",
+        "text": "Version creation and metadata: ```\n# require registered model name to exist; create_registered_model for a supplied new name\nversion = client.create_model_version(name=record[\"model_name\"], source=record[\"version_qualified_source\"], run_id=record[\"run_id\"])\nclient.set_model_version_tag(record[\"model_name\"], version.version, \"generation\", str(record[\"generation\"]))\nclient.set_model_version_tag(record[\"model_name\"], version.version, \"sha256\", observed_hash)\n```"
+      },
+      {
+        "item_id": "i3",
+        "text": "Registry retrieval: ```\nsaved = client.get_model_version(record[\"model_name\"], version.version)\norigin = client.get_run(saved.run_id)\n# verify saved source, generation/hash tags, and originating run identities against record\n```"
+      },
+      {
+        "item_id": "i4",
+        "text": "Overwrite stability: ```\n# overwrite latest only in the authorized test bucket\n# resolve saved source and generation, not latest\nbucket.blob(record[\"key\"], generation=record[\"generation\"]).download_to_filename(path)\nwith open(path, \"rb\") as handle:\n    after_hash = hashlib.sha256(handle.read()).hexdigest()\nreturn {\"registration_verified\": after_hash == saved.tags[\"sha256\"]}\n```"
+      },
+      {
+        "item_id": "i5",
+        "text": "Mismatch handling: ```\nversion = client.create_model_version(name=name, source=source, run_id=run_id)\nif observed_hash != expected_hash:\n    raise ValueError(\"Artifact mismatch\")\n```"
+      }
+    ]
+  },
+  "grading": {
+    "assignments": {
+      "i1": "meets",
+      "i2": "meets",
+      "i3": "meets",
+      "i4": "meets",
+      "i5": "violates"
+    },
+    "item_feedback": {
+      "i1": {
+        "message": "The run artifact is resolved and its actual bytes verified before any version creation."
+      },
+      "i2": {
+        "message": "The version uses the qualified source, linked run, returned numeric version and exact generation/hash tags."
+      },
+      "i3": {
+        "message": "Retrieving both saved version and linked run permits verification of the originating identities."
+      },
+      "i4": {
+        "message": "The keyed verdict checks original content after overwrite without approving the overwritten latest."
+      },
+      "i5": {
+        "message": "The mismatch is detected too late: the required rejection must precede all registry-version creation."
+      }
+    }
+  },
+  "feedback": {
+    "correct": {
+      "message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."
+    },
+    "incorrect": {
+      "message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."
+    },
+    "hints": [
+      "Follow the order of verification and version creation, then the identity used after overwrite."
+    ],
+    "remediation_step_id": "mle.tile.056_057.r02"
+  }
+}
+mle.tile.056_057.s05 explainer Carry fitted state together
+{"type": "prose", "text": "Package the fitted model with its fitted preprocessor. Loading only weights or refitting preprocessing can run successfully while changing the intended prediction representation.", "role": "intro"}
+{"type": "side_by_side", "left": {"type": "code_walkthrough", "language": "python", "code": "import pickle\n# Supplied fitted objects; package_path is the recorded version-tied path.\nwith open(package_path, 'wb') as handle:\n    pickle.dump({'model': model, 'preprocessor': preprocessor},\n                handle, protocol=5)\n# Only load a trusted, verified artifact in the compatible pinned environment.\nwith open(package_path, 'rb') as handle:\n    reloaded = pickle.load(handle)\npredictions = reloaded['model'].predict(\n    reloaded['preprocessor'].transform(fixed_inputs))\n# Compare with pre-save predictions under declared tolerances.\n# Separately check preserved fitted preprocessing parameters.", "reveal": "all", "lineage": {"concept_ids": ["mle.model_preprocessing_package"], "teaching_block_ids": ["mle.model_preprocessing_package#tb1"], "fact_ids": [], "anchors": ["mle.model_preprocessing_package#visual"]}}, "right": {"type": "code_walkthrough", "language": "bash", "code": "cat > Dockerfile <<'DOCKERFILE'\nFROM python:3.12-slim\nWORKDIR /app\nCOPY requirements.txt ./\nRUN pip install --no-cache-dir -r requirements.txt\nCOPY package/ ./package/\nCOPY serve_fixture.py ./\nCOPY fixture_workflow.py package_contract.json ./\nCMD [\"python\", \"serve_fixture.py\"]\nDOCKERFILE\ndocker build -t order-fixture:version-1 .\ndocker run -d --name order-fixture -p 8080:8080 --env FIXTURE_MODE=fixed-orders order-fixture:version-1\ndocker container inspect order-fixture\ndocker container logs order-fixture", "reveal": "all", "lineage": {"concept_ids": ["mle.model_preprocessing_package"], "teaching_block_ids": ["mle.model_preprocessing_package#tb1"], "fact_ids": [], "anchors": ["mle.model_preprocessing_package#visual"]}}, "left_label": "Trusted fitted pair", "right_label": "Declared serving image", "takeaway": "Preserve fitted state; verify the reloaded image."}
+mle.tile.056_057.s06 explainer Persist trusted fitted state and build inputs
+{"type": "prose", "text": "Import pickle. In the recorded version-tied path, use a binary \"wb\" handle and pickle.dump({\"model\": model, \"preprocessor\": preprocessor}, handle, protocol=5). Reload only trusted, verified artifacts in the compatible pinned environment: use \"rb\", pickle.load(handle) and the corresponding dictionary keys. Untrusted pickle loading can execute arbitrary code.", "role": "mechanism"}
+{"type": "prose", "text": "Use Dockerfile FROM for the compatible Python image, WORKDIR /app, COPY requirements.txt ./ and RUN pip install --no-cache-dir -r requirements.txt. COPY the declared package and serving source from the build context to their /app paths. Set CMD to the supplied serving command and argument as a JSON array; replace placeholders with the declared package, dependencies and entry point.", "role": "mechanism"}
+mle.tile.056_057.s07 explainer Build the intended context and run the image
+{"type": "prose", "text": "Build with docker build -t IMAGE:TAG CONTEXT. Include the Dockerfile (or select it with -f) and every COPY source; check .dockerignore exclusions. Retain immutable image identity as well as its tag. Predictions must apply fitted training preprocessing before the model, without refitting. Start with docker run --name NAME -p HOST_PORT:CONTAINER_PORT --env KEY=VALUE IMAGE using declared ports and nonsecret settings.", "role": "mechanism"}
+{"type": "prose", "text": "Use docker container inspect NAME to check image identity and State. Inspect captured output and errors with docker container logs NAME for initialization or execution failures. Never put secrets in Dockerfile ARG or ENV: they persist in the image or metadata.", "role": "mechanism"}
+mle.tile.056_057.s08 explainer Dependencies are files; secrets are runtime inputs
+{"type": "prose", "text": "Supply sensitive values through the runtime secret mechanism, not literal Compose values. Save/reload model and preprocessor through binary handles, and write/read the pinned dependency manifest through text handles. Record inference pins in the package requirements manifest and install it in the serving image.", "role": "mechanism"}
+{"type": "prose", "text": "Assert pre-save and container-reloaded predictions agree on the same fixed inputs under declared tolerances. Separately verify fitted preprocessing parameters. Write assert predicates for declared valid, boundary and failure cases; a false predicate raises AssertionError in ordinary non-optimized execution.", "role": "mechanism"}
+mle.tile.056_057.s09 explainer Trace the package through the container
+{"type": "prose", "text": "Save the fitted pair in the trusted version-tied package using binary handles; retain inference pins in the text manifest. Build the context with package, requirements and serving source, and record immutable image identity. Start the declared image with its port and nonsecret settings; inspect identity, state and logs. Compare pre-save and container-reloaded predictions on fixed orders under declared tolerances, and check preprocessing parameters separately. Reject untrusted pickle despite familiar filenames. Keep credentials in the runtime mechanism, outside Dockerfile and Compose literals.", "role": "mechanism"}
+{"type": "prose", "text": "Do not refit preprocessing or embed credentials. A matching tag alone does not verify image identity. Pickle packages need trusted, verified provenance and a compatible pinned environment.", "role": "mechanism"}
+mle.tile.056_057.s10 check Check: trusted fitted-state packaging
+{
+  "type": "choice",
+  "interaction_id": "ix.mle.tile.056_057.s10",
+  "difficulty": "core",
+  "grading_mode": "client",
+  "standalone": true,
+  "measures": [
+    {
+      "concept_id": "mle.model_preprocessing_package",
+      "capability": "keep_sensitive_values_out_of_image_and_configuration_literals",
+      "fact_ids": [
+        "f9",
+        "f10"
+      ]
+    }
+  ],
+  "anchors": [
+    "mle.model_preprocessing_package#assessment:keep_sensitive_values_out_of_image_and_configuration_literals"
+  ],
+  "public": {
+    "prompt": "Which configuration obeys the taught secret boundary for the serving package?",
+    "selection": "single",
+    "shuffle": true,
+    "options": [
+      {
+        "option_id": "o1",
+        "text": "Use the authorized runtime secret mechanism, with no literal credential in Dockerfile ARG/ENV or Compose."
+      },
+      {
+        "option_id": "o2",
+        "text": "Put the credential in Dockerfile ARG because ARG is not ENV."
+      },
+      {
+        "option_id": "o3",
+        "text": "Put the literal credential in Compose instead of the Dockerfile."
+      }
+    ]
+  },
+  "grading": {
+    "correct_option_ids": [
+      "o1"
+    ],
+    "option_feedback": {
+      "o1": {
+        "message": "Sensitive values belong in the runtime secret mechanism, not persistent image or configuration literals."
+      },
+      "o2": {
+        "message": "Both ARG and ENV can persist secret values in the final image or its metadata."
+      },
+      "o3": {
+        "message": "Moving a literal secret to Compose does not satisfy the required runtime-secret boundary."
+      }
+    }
+  },
+  "feedback": {
+    "correct": {
+      "message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."
+    },
+    "incorrect": {
+      "message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."
+    },
+    "hints": [
+      "Trace where a literal value persists, not just its instruction name."
+    ],
+    "remediation_step_id": "mle.tile.056_057.r03"
+  }
+}
+mle.tile.056_057.s11 hands_on Practice: trusted fitted-state packaging
+{
+  "type": "classify",
+  "interaction_id": "ix.mle.tile.056_057.s11",
+  "difficulty": "stretch",
+  "grading_mode": "client",
+  "standalone": true,
+  "measures": [
+    {
+      "concept_id": "mle.model_preprocessing_package",
+      "capability": "persist_and_reload_a_trusted_versioned_package_with_pinned_dependencies",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f11",
+        "f12"
+      ]
+    },
+    {
+      "concept_id": "mle.model_preprocessing_package",
+      "capability": "build_run_and_inspect_the_referenced_package_image",
+      "fact_ids": [
+        "f3",
+        "f4",
+        "f6",
+        "f7",
+        "f8"
+      ]
+    },
+    {
+      "concept_id": "mle.model_preprocessing_package",
+      "capability": "verify_prediction_agreement_and_preserved_fitted_preprocessing",
+      "fact_ids": [
+        "f5",
+        "f13",
+        "f14"
+      ]
+    }
+  ],
+  "anchors": [
+    "mle.model_preprocessing_package#practice",
+    "mle.model_preprocessing_package#assessment:persist_and_reload_a_trusted_versioned_package_with_pinned_dependencies",
+    "mle.model_preprocessing_package#assessment:build_run_and_inspect_the_referenced_package_image",
+    "mle.model_preprocessing_package#assessment:verify_prediction_agreement_and_preserved_fitted_preprocessing"
+  ],
+  "public": {
+    "prompt": "Review independent packaging excerpts for the supplied fitted B model. Contract:\n```\n{\"model_identity\": \"B\", \"registry_version\": 1, \"package_path\": \"package/B/version_1.pkl\", \"manifest_path\": \"requirements.txt\", \"serving_source\": \"serve_fixture.py\", \"serving_command\": [\"python\", \"serve_fixture.py\"], \"compatible_python_image\": \"python:3.12-slim\", \"image_tag\": \"order-fixture:version-1\", \"container_name\": \"order-fixture\", \"host_port\": 8080, \"container_port\": 8080, \"nonsecret_settings\": {\"FIXTURE_MODE\": \"fixed-orders\"}, \"secret_policy\": \"Use authorized runtime secret mounts only; no literal credentials in Dockerfile or Compose.\", \"fixed_inputs\": [[5.0], [40.0], [80.0]], \"pre_save_predictions\": [0, 1, 1], \"expected_preprocessor_mean\": 42.5, \"rtol\": 1e-07, \"atol\": 1e-09, \"failure_cases\": [\"changed preprocessing mean\", \"flipped prediction\", \"untrusted artifact: reject before pickle.load\", \"deliberately false predicate raises AssertionError without -O\"]}\n```\nThese are authored inspect-and-judge examples, not claims of an actual Docker build. Judge the check named in each item; pinned_versions_text is independently collected from the compatible environment.\nClassify every excerpt as meeting or violating the named check. A fragment need not demonstrate unrelated stages. Assume only the supplied inputs and explicitly stated checks; do not infer missing verification.",
+    "buckets": [
+      {
+        "bucket_id": "meets",
+        "label": "Meets the named check"
+      },
+      {
+        "bucket_id": "violates",
+        "label": "Violates the named check"
+      }
+    ],
+    "items": [
+      {
+        "item_id": "i1",
+        "text": "Trusted binary package and text manifest: ```\nwith open(package_path, \"wb\") as handle:\n    pickle.dump({\"model\": model, \"preprocessor\": preprocessor}, handle, protocol=5)\n# verify trust and package identity before loading\nwith open(package_path, \"rb\") as handle:\n    reloaded = pickle.load(handle)\nwith open(manifest_path, \"w\", encoding=\"utf-8\") as handle:\n    handle.write(pinned_versions_text)\nwith open(manifest_path, \"r\", encoding=\"utf-8\") as handle:\n    restored_pins = handle.read()\nassert restored_pins == pinned_versions_text\n```"
+      },
+      {
+        "item_id": "i2",
+        "text": "Image dependencies and default entry point: ```\nFROM python:3.12-slim\nWORKDIR /app\nCOPY requirements.txt ./\nRUN pip install --no-cache-dir -r requirements.txt\nCOPY package/B/version_1.pkl /app/package/B/version_1.pkl\nCOPY serve_fixture.py /app/serve_fixture.py\nCMD [\"python\", \"serve_fixture.py\"]\n```\nBuild context contains all COPY sources and excludes none via .dockerignore."
+      },
+      {
+        "item_id": "i3",
+        "text": "Image execution and evidence inspection: ```\ndocker build -t order-fixture:version-1 .\n# retain the resulting immutable image identity as well as the tag\ndocker run --name order-fixture -p 8080:8080 --env FIXTURE_MODE=fixed-orders order-fixture:version-1\ndocker container inspect order-fixture\n# compare Image to retained identity and inspect expected State fields\ndocker container logs order-fixture\n# inspect captured output and errors for initialization/execution failures\n```"
+      },
+      {
+        "item_id": "i4",
+        "text": "Serving fitted state: ```\ntransformed = reloaded[\"preprocessor\"].transform(fixed_inputs)\npredictions = reloaded[\"model\"].predict(transformed)\nassert np.allclose(pre_save_predictions, predictions, rtol=rtol, atol=atol)\nassert np.allclose(reloaded[\"preprocessor\"].mean_, original_mean, rtol=rtol, atol=atol)\n```"
+      },
+      {
+        "item_id": "i5",
+        "text": "Assertion and final verdict: ```\n# ordinary non-optimized execution; valid and boundary predicates are checked\ntry:\n    assert deliberately_false_predicate\nexcept AssertionError:\n    failure_case_rejected = True\n# all_passed requires every declared package, manifest, image, state, logs, prediction and failure-case check\nreturn {\"reproducible\": all_passed}\n```"
+      },
+      {
+        "item_id": "i6",
+        "text": "Serving fitted state: ```\nreloaded[\"preprocessor\"].fit(incoming_requests)\npredictions = reloaded[\"model\"].predict(reloaded[\"preprocessor\"].transform(incoming_requests))\n```"
+      },
+      {
+        "item_id": "i7",
+        "text": "Artifact trust: ```\n# artifact provenance is unknown\nwith open(package_path, \"rb\") as handle:\n    reloaded = pickle.load(handle)\n```"
+      }
+    ]
+  },
+  "grading": {
+    "assignments": {
+      "i1": "meets",
+      "i2": "meets",
+      "i3": "meets",
+      "i4": "meets",
+      "i5": "meets",
+      "i6": "violates",
+      "i7": "violates"
+    },
+    "item_feedback": {
+      "i1": {
+        "message": "The fitted pair uses explicit binary handles; the pinned manifest round-trips through text handles, and loading is restricted to the trusted verified package."
+      },
+      "i2": {
+        "message": "The compatible image installs the pinned manifest and supplies the declared package and default serving entry point."
+      },
+      "i3": {
+        "message": "The referenced image is built and run; inspection verifies immutable identity and State, and logs are checked rather than assuming successful startup."
+      },
+      "i4": {
+        "message": "The reloaded fitted preprocessing precedes prediction; fixed-input predictions and fitted parameters receive separate tolerance checks."
+      },
+      "i5": {
+        "message": "False predicates must raise in ordinary execution; one verdict covers all declared checks rather than only prediction agreement."
+      },
+      "i6": {
+        "message": "Refitting at inference replaces the fitted training preprocessing and violates preserved state."
+      },
+      "i7": {
+        "message": "An untrusted pickle must not be loaded; loading can execute arbitrary code."
+      }
+    }
+  },
+  "feedback": {
+    "correct": {
+      "message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."
+    },
+    "incorrect": {
+      "message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."
+    },
+    "hints": [
+      "Keep artifact trust, fitted-state preservation and container evidence as separate checks."
+    ],
+    "remediation_step_id": "mle.tile.056_057.r04"
+  }
+}
+mle.tile.056_057.s12 recap Keep the identities and boundaries clear
+{"type": "prose", "text": "Verify exact run artifact generation and hash before creating a linked numeric registry version. Retrieve the version and run to check identities; mutable overwrite is not approval. Package trusted fitted model and preprocessing together with pinned dependencies. Verify immutable image identity, state, logs, fixed-input predictions and preserved preprocessing. Keep secrets in the runtime mechanism.", "role": "takeaway"}
+{"type": "up_next", "title": "Up next", "text": "Next: freeze candidate, fitted preprocessing and threshold before protected testing."}
+TILE mle.tile.058_058
+mle.tile.058_058.s01 explainer Freeze before protected testing
+{"type": "prose", "text": "Fix candidate, fitted preprocessing and threshold before protected testing. Report disappointment; do not let test outcomes choose a replacement.", "role": "intro"}
+{"type": "prose", "text": "After freezing the selected candidate, preprocessing and threshold, predict the same protected observations with candidate and baseline. Compare precommitted predictive quantities on that cohort. Test results must not select a new candidate or threshold. Use fixed deployment probabilities, error costs and operating requirements; report failure rather than retuning.", "role": "mechanism"}
+{"type": "prose", "text": "For binary counts, FPR = FP/(FP+TN) conditions on actual negatives; FNR = FN/(FN+TP) conditions on actual positives. An empty conditioning group has no defined rate. With zero cost for correct predictions and supplied deployment probabilities, expected error cost = P(Y=0) × FPR × cost_FP + P(Y=1) × FNR × cost_FN.", "role": "mechanism"}
+{"type": "side_by_side", "left": {"type": "data_table", "asset_ref": {"asset_id": "ds.protected_comparison", "columns": ["cohort", "model_identity", "preprocessing_identity", "threshold", "cohort_size", "TN", "FP", "FN", "TP"]}, "caption": "Frozen systems and actual-class counts", "lineage": {"concept_ids": ["mle.protected_test_comparison"], "teaching_block_ids": ["mle.protected_test_comparison#tb1", "mle.protected_test_comparison#tb2", "mle.protected_test_comparison#tb3"], "fact_ids": ["mle.protected_test_comparison#f1", "mle.protected_test_comparison#f2", "mle.protected_test_comparison#f3", "mle.protected_test_comparison#f4", "mle.protected_test_comparison#f5"], "anchors": ["mle.protected_test_comparison#visual"]}}, "right": {"type": "data_table", "asset_ref": {"asset_id": "ds.protected_comparison", "columns": ["cohort", "model_identity", "FPR", "FNR", "P_Y0", "P_Y1", "cost_FP", "cost_FN", "expected_error_cost", "max_expected_error_cost", "max_FPR", "max_FNR", "requirement_outcome"]}, "caption": "Fixed comparison inputs and requirement outcomes", "lineage": {"concept_ids": ["mle.protected_test_comparison"], "teaching_block_ids": ["mle.protected_test_comparison#tb1", "mle.protected_test_comparison#tb2", "mle.protected_test_comparison#tb3"], "fact_ids": ["mle.protected_test_comparison#f1", "mle.protected_test_comparison#f2", "mle.protected_test_comparison#f3", "mle.protected_test_comparison#f4", "mle.protected_test_comparison#f5"], "anchors": ["mle.protected_test_comparison#visual"]}}, "left_label": "Same protected cohort", "right_label": "Final comparison", "takeaway": "Report failed or undefined outcomes without retuning."}
+mle.tile.058_058.s02 explainer Report the frozen comparison, even when it fails
+{"type": "prose", "text": "Validation selected B and its threshold. Use B and baseline on the same protected orders, even if this cohort’s observed class mix differs. Keep fixed deployment probabilities and costs instead of changing inputs to make B pass. Retain actual-class conditioning counts and check precommitted quality and operating requirements. Report B’s failure. Adjusting the threshold from these outcomes would let protected observations select the system: this is a final matched comparison, not another selection round.", "role": "mechanism"}
+{"type": "prose", "text": "Freeze choices before observing outcomes: model identity, fitted preprocessing, threshold, metric inputs and requirements. Observed test conditioning counts and supplied deployment probabilities have different roles; retain both. Explicitly report undefined required quantities or failed requirements, without turning final testing into more tuning.", "role": "mechanism"}
+{"type": "prose", "text": "Protected testing is not another tuning round. Failure does not authorize switching candidate, refitting preprocessing or searching for a better threshold on those observations.", "role": "mechanism"}
+mle.tile.058_058.s03 check Check: the frozen protected comparison
+{
+  "type": "choice",
+  "interaction_id": "ix.mle.tile.058_058.s03",
+  "difficulty": "intro",
+  "grading_mode": "client",
+  "standalone": true,
+  "measures": [
+    {
+      "concept_id": "mle.protected_test_comparison",
+      "capability": "report_matched_test_comparison_without_new_selection",
+      "fact_ids": [
+        "f1",
+        "f2"
+      ]
+    }
+  ],
+  "anchors": [
+    "mle.protected_test_comparison#assessment:report_matched_test_comparison_without_new_selection"
+  ],
+  "public": {
+    "prompt": "The frozen B candidate fails a precommitted protected-test operating requirement. What is the permitted final-report action?",
+    "selection": "single",
+    "shuffle": true,
+    "options": [
+      {
+        "option_id": "o1",
+        "text": "Report the matched B/baseline comparison and failed requirement, keeping B, fitted preprocessing, threshold and comparison inputs fixed."
+      },
+      {
+        "option_id": "o2",
+        "text": "Change the threshold until the protected-test requirement passes."
+      },
+      {
+        "option_id": "o3",
+        "text": "Replace B with baseline because baseline looks better on the protected test."
+      }
+    ]
+  },
+  "grading": {
+    "correct_option_ids": [
+      "o1"
+    ],
+    "option_feedback": {
+      "o1": {
+        "message": "Protected results report the fixed choice and failures; they do not select a replacement."
+      },
+      "o2": {
+        "message": "Retuning on protected-test results uses them for selection instead of final evaluation."
+      },
+      "o3": {
+        "message": "A matched baseline comparison does not authorize replacing the preselected candidate using test outcomes."
+      }
+    }
+  },
+  "feedback": {
+    "correct": {
+      "message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."
+    },
+    "incorrect": {
+      "message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."
+    },
+    "hints": [
+      "Distinguish final reporting from another selection round."
+    ],
+    "remediation_step_id": "mle.tile.058_058.r01"
+  }
+}
+mle.tile.058_058.s04 hands_on Practice: the frozen protected comparison
+{
+  "type": "classify",
+  "interaction_id": "ix.mle.tile.058_058.s04",
+  "difficulty": "stretch",
+  "grading_mode": "client",
+  "standalone": true,
+  "measures": [
+    {
+      "concept_id": "mle.protected_test_comparison",
+      "capability": "apply_fixed_comparison_inputs_and_report_requirement_failures",
+      "fact_ids": [
+        "f3"
+      ]
+    },
+    {
+      "concept_id": "mle.protected_test_comparison",
+      "capability": "derive_conditional_error_rates_and_identify_undefined_rates",
+      "fact_ids": [
+        "f4"
+      ]
+    },
+    {
+      "concept_id": "mle.protected_test_comparison",
+      "capability": "compute_expected_error_cost_from_supplied_deployment_probabilities",
+      "fact_ids": [
+        "f5"
+      ]
+    }
+  ],
+  "anchors": [
+    "mle.protected_test_comparison#practice",
+    "mle.protected_test_comparison#assessment:apply_fixed_comparison_inputs_and_report_requirement_failures",
+    "mle.protected_test_comparison#assessment:derive_conditional_error_rates_and_identify_undefined_rates",
+    "mle.protected_test_comparison#assessment:compute_expected_error_cost_from_supplied_deployment_probabilities"
+  ],
+  "public": {
+    "prompt": "Inspect final-report excerpts. null denotes explicitly undefined, not zero. Frozen policy:\n```\n{\n  \"selected_candidate\": \"B\",\n  \"preprocessing_identity\": \"B.fitted.order_amount.center\",\n  \"threshold\": 40.0,\n  \"baseline_threshold\": 60.0,\n  \"deployment_probabilities\": {\n    \"0\": 0.7,\n    \"1\": 0.3\n  },\n  \"error_costs\": {\n    \"FP\": 2.0,\n    \"FN\": 5.0\n  },\n  \"requirements\": {\n    \"max_expected_error_cost\": 0.5,\n    \"max_FPR\": 0.25,\n    \"max_FNR\": 0.4\n  },\n  \"correct_prediction_cost\": 0.0\n}\n```\nCounts and costs below are computed from registered protected orders. Judge only the named evaluation behavior.\nClassify every excerpt as meeting or violating the named check. A fragment need not demonstrate unrelated stages. Assume only the supplied inputs and explicitly stated checks; do not infer missing verification.",
+    "buckets": [
+      {
+        "bucket_id": "meets",
+        "label": "Meets the named check"
+      },
+      {
+        "bucket_id": "violates",
+        "label": "Violates the named check"
+      }
+    ],
+    "items": [
+      {
+        "item_id": "i1",
+        "text": "Matched final comparison: ```\n[\n  {\n    \"identity\": \"B\",\n    \"FP\": 1,\n    \"TN\": 2,\n    \"FN\": 1,\n    \"TP\": 4,\n    \"actual_negatives\": 3,\n    \"actual_positives\": 5,\n    \"FPR\": 0.3333333333333333,\n    \"FNR\": 0.2,\n    \"expected_error_cost\": 0.7666666666666666,\n    \"requirements\": {\n      \"max_FPR\": false,\n      \"max_FNR\": true,\n      \"max_expected_error_cost\": false\n    }\n  },\n  {\n    \"identity\": \"baseline\",\n    \"FP\": 0,\n    \"TN\": 3,\n    \"FN\": 3,\n    \"TP\": 2,\n    \"actual_negatives\": 3,\n    \"actual_positives\": 5,\n    \"FPR\": 0.0,\n    \"FNR\": 0.6,\n    \"expected_error_cost\": 0.8999999999999999,\n    \"requirements\": {\n      \"max_FPR\": true,\n      \"max_FNR\": false,\n      \"max_expected_error_cost\": false\n    }\n  }\n]\n```\nB and baseline use the same protected rows, fixed fitted preprocessing and precommitted thresholds; failed requirements are reported without changing the policy."
+      },
+      {
+        "item_id": "i2",
+        "text": "No actual negatives: ```\n[\n  {\n    \"identity\": \"B\",\n    \"FP\": 0,\n    \"TN\": 0,\n    \"FN\": 1,\n    \"TP\": 4,\n    \"actual_negatives\": 0,\n    \"actual_positives\": 5,\n    \"FPR\": null,\n    \"FNR\": 0.2,\n    \"expected_error_cost\": null,\n    \"requirements\": {\n      \"max_FPR\": null,\n      \"max_FNR\": true,\n      \"max_expected_error_cost\": null\n    }\n  },\n  {\n    \"identity\": \"baseline\",\n    \"FP\": 0,\n    \"TN\": 0,\n    \"FN\": 3,\n    \"TP\": 2,\n    \"actual_negatives\": 0,\n    \"actual_positives\": 5,\n    \"FPR\": null,\n    \"FNR\": 0.6,\n    \"expected_error_cost\": null,\n    \"requirements\": {\n      \"max_FPR\": null,\n      \"max_FNR\": false,\n      \"max_expected_error_cost\": null\n    }\n  }\n]\n```\nThe report leaves each empty-negative FPR and dependent cost undefined."
+      },
+      {
+        "item_id": "i3",
+        "text": "No actual positives: ```\n[\n  {\n    \"identity\": \"B\",\n    \"FP\": 1,\n    \"TN\": 2,\n    \"FN\": 0,\n    \"TP\": 0,\n    \"actual_negatives\": 3,\n    \"actual_positives\": 0,\n    \"FPR\": 0.3333333333333333,\n    \"FNR\": null,\n    \"expected_error_cost\": null,\n    \"requirements\": {\n      \"max_FPR\": false,\n      \"max_FNR\": null,\n      \"max_expected_error_cost\": null\n    }\n  },\n  {\n    \"identity\": \"baseline\",\n    \"FP\": 0,\n    \"TN\": 3,\n    \"FN\": 0,\n    \"TP\": 0,\n    \"actual_negatives\": 3,\n    \"actual_positives\": 0,\n    \"FPR\": 0.0,\n    \"FNR\": null,\n    \"expected_error_cost\": null,\n    \"requirements\": {\n      \"max_FPR\": true,\n      \"max_FNR\": null,\n      \"max_expected_error_cost\": null\n    }\n  }\n]\n```\nThe report leaves each empty-positive FNR and dependent cost undefined."
+      },
+      {
+        "item_id": "i4",
+        "text": "Rate calculation: ```\nFPR = FP / (FP + TP)\nFNR = FN / (FN + TN)\n# denominators are nonzero in this item\n```"
+      },
+      {
+        "item_id": "i5",
+        "text": "Failed requirement handling: ```\n# after inspecting B protected-test failure:\n# change B threshold and reevaluate until the test requirement passes\n```"
+      },
+      {
+        "item_id": "i6",
+        "text": "Empty conditioning group: ```\nif FP + TN == 0:\n    FPR = 0.0\n# report a finite dependent expected cost\n```"
+      }
+    ]
+  },
+  "grading": {
+    "assignments": {
+      "i1": "meets",
+      "i2": "meets",
+      "i3": "meets",
+      "i4": "violates",
+      "i5": "violates",
+      "i6": "violates"
+    },
+    "item_feedback": {
+      "i1": {
+        "message": "The matched report includes actual-class counts, both conditioned rates, the fixed-cost calculation and requirement outcomes without another selection round."
+      },
+      "i2": {
+        "message": "An empty conditioning group has no defined rate; dependent expected error cost cannot be reported as a number."
+      },
+      "i3": {
+        "message": "An empty actual-positive denominator leaves FNR and dependent cost undefined."
+      },
+      "i4": {
+        "message": "These denominators do not condition on actual negatives and actual positives; the taught denominators are FP+TN and FN+TP."
+      },
+      "i5": {
+        "message": "This uses protected outcomes to retune the selected candidate."
+      },
+      "i6": {
+        "message": "Zero is not an observed rate for an empty group; the rate and dependent cost must remain explicitly undefined."
+      }
+    }
+  },
+  "feedback": {
+    "correct": {
+      "message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."
+    },
+    "incorrect": {
+      "message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."
+    },
+    "hints": [
+      "Check the actual class behind each denominator and whether a failure changes the frozen decision."
+    ],
+    "remediation_step_id": "mle.tile.058_058.r02"
+  }
+}
+mle.tile.058_058.s05 recap Keep the identities and boundaries clear
+{"type": "prose", "text": "Freeze candidate, fitted preprocessing and threshold before protected testing. Compare B and baseline on the same observations with fixed probabilities, costs and requirements. FPR conditions on negatives; FNR on positives. Empty groups leave rates undefined. Report failed or undefined requirements without selecting a new system from test outcomes.", "role": "takeaway"}
+{"type": "up_next", "title": "Up next", "text": "Next: resolve one authorized managed training request with bounded resources."}
+TILE mle.tile.059_059
+mle.tile.059_059.s01 explainer Submission starts a bounded job
+{"type": "prose", "text": "On the existing platform, bind one authorized job to resolved input versions, resource bounds and the expected artifact. Submission is not proof of successful training.", "role": "intro"}
+{"type": "prose", "text": "SageMaker CreateTrainingJob specifies TrainingJobName, AlgorithmSpecification, RoleArn, input/output configuration, ResourceConfig and StoppingCondition. Use the supplied TrainingImage, authorized instance count/type and MaxRuntimeInSeconds. Give InputDataConfig version-resolved inputs and OutputDataConfig the output S3 location; the role must be authorized for those resources.", "role": "mechanism"}
+{"type": "prose", "text": "Channels are exposed under /opt/ml/input/data/CHANNEL; write model output under /opt/ml/model for upload. Inspect final job status and artifact location, checking recorded configuration against the intended artifact. Keep dataset snapshot, code/configuration and resulting run/artifact identities in the execution record.", "role": "mechanism"}
+{"type": "code_walkthrough", "language": "python", "code": "import boto3, json\nimport time\nfrom datetime import datetime\n\ndef json_default(value):\n    if isinstance(value, datetime):\n        return value.isoformat()\n    raise TypeError(f\"Unsupported JSON value: {type(value).__name__}\")\n\nwith open('managed_contract.json', encoding='utf-8') as handle:\n    contract = json.load(handle)\n# Supply the authorized storage setting; do not assume an unapproved default.\ncontract['volume_size_gb'] = int(input('Supplied authorized storage setting (GB): '))\nstorage_client = boto3.client('s3')\n# Verify the selected version before creating a controlled immutable input copy.\nselected = storage_client.get_object(Bucket=contract['input_bucket'],\n    Key=contract['input_key'], VersionId=contract['input_version'])\ninput_bytes = selected['Body'].read()\nimport hashlib\nassert hashlib.sha256(input_bytes).hexdigest() == contract['dataset_snapshot']['expected_hash']\nstorage_client.copy_object(Bucket=contract['input_bucket'],\n    Key=contract['immutable_key'], CopySource={'Bucket': contract['input_bucket'],\n    'Key': contract['input_key'], 'VersionId': contract['input_version']})\nresolved_configuration = {\n 'TrainingJobName': contract['job_name'],\n 'AlgorithmSpecification': {'TrainingImage': contract['image'],\n                            'TrainingInputMode': 'File'},\n 'RoleArn': contract['role'],\n 'InputDataConfig': [{'ChannelName': contract['channel'], 'DataSource': {\n   'S3DataSource': {'S3DataType': 'S3Prefix', 'S3DataDistributionType': 'FullyReplicated',\n     'S3Uri': 's3://' + contract['input_bucket'] + '/' + contract['immutable_key']}}}],\n 'OutputDataConfig': {'S3OutputPath': contract['output_uri']},\n 'ResourceConfig': {'InstanceCount': contract['max_instance_count'], 'InstanceType': contract['instance_type'], 'VolumeSizeInGB': contract['volume_size_gb']},\n 'StoppingCondition': {'MaxRuntimeInSeconds': contract['max_runtime_seconds']}}\n# The supplied container reads contract['channel_path'], writes contract['model_output_path'].\nclient = boto3.client('sagemaker')\nresponse = client.create_training_job(**resolved_configuration)\n# Observe the same submitted job until its status is terminal.\nwhile True:\n    description = client.describe_training_job(TrainingJobName=contract['job_name'])\n    if description['TrainingJobStatus'] in ('Completed', 'Failed', 'Stopped'):\n        break\n    time.sleep(5)\nfailure_reason = description.get('FailureReason')\nif description['TrainingJobStatus'] != 'Completed':\n    raise ValueError(failure_reason or description['TrainingJobStatus'])\nartifact_reference = description['ModelArtifacts']['S3ModelArtifacts']\nassert artifact_reference == contract['artifact_uri']\n# Parse this verified S3 reference, then retrieve through authorized storage.\nfrom urllib.parse import urlparse\nlocation = urlparse(artifact_reference)\nstorage_client.download_file(location.netloc, location.path.lstrip('/'), 'downloads/model.tar.gz')\nrecord = {'dataset_snapshot': contract['dataset_snapshot'],\n          'code_reference': contract['code_reference'], 'configuration': resolved_configuration,\n          'submission': response, 'description': description,\n          'retrieved_artifact_reference': artifact_reference}\nwith open('execution_record.json', 'w', encoding='utf-8') as handle:\n    json.dump(record, handle, default=json_default)\nwith open('execution_record.json', 'r', encoding='utf-8') as handle:\n    parsed = json.load(handle)", "reveal": "all"}
+mle.tile.059_059.s02 explainer Submit, describe and round-trip
+{"type": "prose", "text": "Import boto3 and construct boto3.client(\"sagemaker\"). Submit with client.create_training_job(**resolved_configuration). Describe by TrainingJobName and inspect TrainingJobStatus, FailureReason when present, and ModelArtifacts.S3ModelArtifacts. Save structured configuration or records with json.dump and recover them with json.load; JSON text is not a dictionary.", "role": "mechanism"}
+{"type": "prose", "text": "Verify every selected input version before submission. If the API accepts only mutable channel URIs, materialize the selected version at a controlled immutable location; do not invent a version parameter. Retrieve the output with the authorized storage client and verify its reference against the completed job record. Managed training creates job resources and releases them after termination. Confirm terminal status; submission alone does not end compute use.", "role": "mechanism"}
+mle.tile.059_059.s03 explainer Follow one job to its artifact
+{"type": "prose", "text": "Resolve the supplied image, job name, role, channels, output location, instance bounds and runtime before submission. Verify selected input versions. When channel URIs cannot select versions, materialize the chosen version at the controlled immutable location. Read channels beneath /opt/ml/input/data and write the model beneath /opt/ml/model. Inspect terminal status, any failure reason and artifact location. Retrieve the artifact with the authorized client and compare its reference with the completed job record. Retain snapshot, code/configuration and run/artifact identities together.", "role": "mechanism"}
+{"type": "prose", "text": "Submission is not completion, and a name is not verified input identity. Resources are released after termination; confirm terminal status before concluding compute use has ended.", "role": "mechanism"}
+mle.tile.059_059.s04 check Check: one authorized bounded job
+{
+  "type": "choice",
+  "interaction_id": "ix.mle.tile.059_059.s04",
+  "difficulty": "intro",
+  "grading_mode": "client",
+  "standalone": true,
+  "measures": [
+    {
+      "concept_id": "mle.bounded_managed_training",
+      "capability": "verify_input_identity_and_container_contract",
+      "fact_ids": [
+        "f3",
+        "f4",
+        "f10"
+      ]
+    }
+  ],
+  "anchors": [
+    "mle.bounded_managed_training#assessment:verify_input_identity_and_container_contract"
+  ],
+  "public": {
+    "prompt": "A training API accepts a channel URI but not an object-version parameter. Which preparation preserves the recorded snapshot and container contract?",
+    "selection": "single",
+    "shuffle": true,
+    "options": [
+      {
+        "option_id": "o1",
+        "text": "Verify the selected version, materialize it at a controlled immutable input location, pass that URI, read the supplied channel under /opt/ml/input/data/CHANNEL and write model output under /opt/ml/model."
+      },
+      {
+        "option_id": "o2",
+        "text": "Pass the mutable latest URI and rely on the recorded version in a separate note."
+      },
+      {
+        "option_id": "o3",
+        "text": "Add an unsupported version parameter to the training request and write model output into the input channel directory."
+      }
+    ]
+  },
+  "grading": {
+    "correct_option_ids": [
+      "o1"
+    ],
+    "option_feedback": {
+      "o1": {
+        "message": "Verified version resolution is preserved through the immutable channel input, with the taught input and model-output paths."
+      },
+      "o2": {
+        "message": "A note does not cause a mutable channel URI to resolve the selected bytes."
+      },
+      "o3": {
+        "message": "An unsupported parameter does not select the version, and the input channel is not the model upload directory."
+      }
+    }
+  },
+  "feedback": {
+    "correct": {
+      "message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."
+    },
+    "incorrect": {
+      "message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."
+    },
+    "hints": [
+      "Trace the bytes selected before submission and the two container directories."
+    ],
+    "remediation_step_id": "mle.tile.059_059.r01"
+  }
+}
+mle.tile.059_059.s05 hands_on Practice: one authorized bounded job
+{
+  "type": "classify",
+  "interaction_id": "ix.mle.tile.059_059.s05",
+  "difficulty": "stretch",
+  "grading_mode": "client",
+  "standalone": true,
+  "measures": [
+    {
+      "concept_id": "mle.bounded_managed_training",
+      "capability": "submit_authorized_resource_bounded_training_job",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f7"
+      ]
+    },
+    {
+      "concept_id": "mle.bounded_managed_training",
+      "capability": "verify_terminal_status_and_retrieve_expected_artifact",
+      "fact_ids": [
+        "f5",
+        "f8",
+        "f11",
+        "f12"
+      ]
+    },
+    {
+      "concept_id": "mle.bounded_managed_training",
+      "capability": "preserve_structured_training_execution_record",
+      "fact_ids": [
+        "f6",
+        "f9"
+      ]
+    }
+  ],
+  "anchors": [
+    "mle.bounded_managed_training#practice",
+    "mle.bounded_managed_training#assessment:submit_authorized_resource_bounded_training_job",
+    "mle.bounded_managed_training#assessment:verify_terminal_status_and_retrieve_expected_artifact",
+    "mle.bounded_managed_training#assessment:preserve_structured_training_execution_record"
+  ],
+  "public": {
+    "prompt": "Review fictional managed-training fragments. Contract:\n```\n{\"job_name\": \"order-training-job\", \"image\": \"fixture.local/order-training:custom\", \"role\": \"arn:aws:iam::000000000000:role/fixture-training\", \"channel\": \"training\", \"input_bucket\": \"authorized-fixture\", \"input_key\": \"datasets/latest.csv\", \"input_version\": \"1\", \"immutable_key\": \"snapshots/order-training/input.csv\", \"output_uri\": \"s3://authorized-fixture/outputs\", \"instance_type\": \"ml.m5.large\", \"max_instance_count\": 1, \"max_runtime_seconds\": 120, \"dataset_snapshot\": {\"bucket_name\": \"authorized-fixture\", \"object_name\": \"datasets/latest.csv\", \"generation\": 1, \"expected_hash\": \"d67e606cd75127f615b2ba02dfcc22f853460dcb774c3073bb47fa66ce83a21e\", \"local_path\": \"training_orders.csv\", \"record_path\": \"snapshot_record.json\", \"download_path\": \"downloads/training_orders.csv\"}, \"code_reference\": \"managed_training_code.py\", \"configuration_path\": \"job_config.json\", \"artifact_uri\": \"s3://authorized-fixture/outputs/order-training-job/output/model.tar.gz\", \"channel_path\": \"/opt/ml/input/data/training\", \"model_output_path\": \"/opt/ml/model\", \"volume_size_gb\": 30}\n```\nThe fixture authorizes a 30 GB training volume.\nThese are authored review examples, not evidence of actual cloud execution. Each item judges its stated stage.\nClassify every excerpt as meeting or violating the named check. A fragment need not demonstrate unrelated stages. Assume only the supplied inputs and explicitly stated checks; do not infer missing verification.",
+    "buckets": [
+      {
+        "bucket_id": "meets",
+        "label": "Meets the named check"
+      },
+      {
+        "bucket_id": "violates",
+        "label": "Violates the named check"
+      }
+    ],
+    "items": [
+      {
+        "item_id": "i1",
+        "text": "Bounded single submission: ```\n{\n  \"TrainingJobName\": \"order-training-job\",\n  \"AlgorithmSpecification\": {\n    \"TrainingImage\": \"fixture.local/order-training:custom\",\n    \"TrainingInputMode\": \"File\"\n  },\n  \"RoleArn\": \"arn:aws:iam::000000000000:role/fixture-training\",\n  \"ResourceConfig\": {\n    \"InstanceCount\": 1,\n    \"InstanceType\": \"ml.m5.large\",\n    \"VolumeSizeInGB\": 30\n  },\n  \"StoppingCondition\": {\n    \"MaxRuntimeInSeconds\": 120\n  },\n  \"InputDataConfig\": [\n    {\n      \"ChannelName\": \"training\",\n      \"DataSource\": {\n        \"S3DataSource\": {\n          \"S3Uri\": \"s3://authorized-fixture/snapshots/order-training/input.csv\",\n          \"S3DataType\": \"S3Prefix\"\n        }\n      }\n    }\n  ],\n  \"OutputDataConfig\": {\n    \"S3OutputPath\": \"s3://authorized-fixture/outputs\"\n  }\n}\n```\nThe selected input version was verified and materialized at the controlled immutable channel URI before submission.\n```\nclient = boto3.client(\"sagemaker\")\nresponse = client.create_training_job(**resolved_configuration)\n# this call is made exactly once; resolved_configuration is the request above\n```"
+      },
+      {
+        "item_id": "i2",
+        "text": "Terminal status: ```\ndescription = client.describe_training_job(TrainingJobName=job_name)\n# repeat describe, never resubmit, while nonterminal\nif description[\"TrainingJobStatus\"] != \"Completed\":\n    raise ValueError(description.get(\"FailureReason\", \"Not completed\"))\nreturned_artifact = description[\"ModelArtifacts\"][\"S3ModelArtifacts\"]\nif returned_artifact != expected_artifact_uri:\n    raise ValueError(\"Unexpected artifact\")\n```"
+      },
+      {
+        "item_id": "i3",
+        "text": "Authorized artifact retrieval and structured record: ```\nstorage_client.download_file(artifact_bucket, artifact_key, local_artifact_path)\n# artifact_bucket/key resolve the verified completed-job returned_artifact\nrecord = {\"dataset_snapshot\": verified_snapshot, \"code_reference\": code_reference, \"configuration\": resolved_configuration, \"job_name\": job_name, \"status\": description[\"TrainingJobStatus\"], \"artifact_uri\": returned_artifact}\nwith open(record_path, \"w\") as handle:\n    json.dump(record, handle)\nwith open(record_path) as handle:\n    parsed = json.load(handle)\nassert parsed == record\n# terminal status records confirmation that job-managed compute use has ended\n```"
+      },
+      {
+        "item_id": "i4",
+        "text": "Submission handling: ```\nresponse = client.create_training_job(**resolved_configuration)\n# a submission response is present: declare compute use ended without describe\n```"
+      },
+      {
+        "item_id": "i5",
+        "text": "Artifact handling: ```\ndescription = client.describe_training_job(TrainingJobName=job_name)\n# status Completed, but returned URI differs from expected_artifact_uri\n# download expected_artifact_uri anyway and report success\n```"
+      },
+      {
+        "item_id": "i6",
+        "text": "Submission count: ```\nclient.create_training_job(**resolved_configuration)\nclient.create_training_job(**second_configuration)\n# both individually fit the resource bounds\n```"
+      }
+    ]
+  },
+  "grading": {
+    "assignments": {
+      "i1": "meets",
+      "i2": "meets",
+      "i3": "meets",
+      "i4": "violates",
+      "i5": "violates",
+      "i6": "violates"
+    },
+    "item_feedback": {
+      "i1": {
+        "message": "The single request uses supplied image, authorized role, verified input and output locations, permitted count/type and bounded runtime."
+      },
+      "i2": {
+        "message": "Only Completed with the expected returned artifact satisfies successful completion; description inspection does not create another job."
+      },
+      "i3": {
+        "message": "The authorized client retrieves the verified completed artifact, and the round-tripped record links snapshot, code/configuration, job, terminal status and artifact."
+      },
+      "i4": {
+        "message": "Submission is not terminal status and does not confirm that managed compute use has ended."
+      },
+      "i5": {
+        "message": "Completed is insufficient when the returned artifact reference disagrees with the intended execution record."
+      },
+      "i6": {
+        "message": "The anchor permits exactly one submitted job; individually bounded requests do not justify a second submission."
+      }
+    }
+  },
+  "feedback": {
+    "correct": {
+      "message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."
+    },
+    "incorrect": {
+      "message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."
+    },
+    "hints": [
+      "Separate authorization and request bounds from terminal-status and artifact evidence."
+    ],
+    "remediation_step_id": "mle.tile.059_059.r02"
+  }
+}
+mle.tile.059_059.s06 recap Keep the identities and boundaries clear
+{"type": "prose", "text": "Bind one authorized training job to verified input versions, code/configuration and resource bounds. Respect channel and model-output paths. Submission is not completion: inspect terminal status, retrieve the output and verify its reference against the completed job record. Round-trip the structured execution record and retain its identities.", "role": "takeaway"}
+{"type": "up_next", "title": "Up next", "text": "Next: validate prediction request and response schemas."}

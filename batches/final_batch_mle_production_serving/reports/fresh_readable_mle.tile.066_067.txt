@@ -1,0 +1,114 @@
+
+mle.tile.066_067.s01 Enforce prediction-service authentication on an existing platform
+Verify who the caller is, then whether that identity may predict. Neither check replaces runtime-secret handling.
+Authentication establishes the caller identity and authorization checks whether that identity may perform the prediction action; both are needed for the supplied protected service.
+Reference the protected credential through an authorized runtime secret, and give it only to the service permitted to use it rather than writing its literal value in the YAML.
+Inject the platform’s declared nonsecret authentication settings in the service configuration, keeping them separate from the credential secret.
+Make one request with the authorized supplied credential and negative requests with missing or invalid credentials; verify allowed and denied responses under the existing platform policy.
+Inspect runtime logs to verify failures are visible without displaying the credential or protected request values.
+A Compose YAML document declares services by name; use indented mappings for service fields and lists or mappings in the forms required by the Compose specification.
+{"type": "code_walkthrough", "language": "python", "code": "from google.oauth2 import id_token\nfrom google.auth.transport import requests\nfrom google.auth.exceptions import GoogleAuthError\n\ndef authorize_prediction(token, expected_audience, permitted_subjects):\n    if not token:\n        raise PermissionError(\"missing credential\")\n    try:\n        claims = id_token.verify_oauth2_token(token, requests.Request(), audience=expected_audience)\n    except (ValueError, GoogleAuthError):\n        raise PermissionError(\"verification failed\") from None\n    if claims[\"sub\"] not in permitted_subjects:\n        raise PermissionError(\"unpermitted subject\")\n    return claims\n# Harness maps PermissionError to denial before prediction.\n# Log failure classes only, never the token or protected request values.", "reveal": "all"}
+
+mle.tile.066_067.s02 Resolve authentication runtime settings
+Set a service’s image to its immutable artifact reference, its ports to HOST:CONTAINER mappings, and its environment to the declared nonsecret key/value settings.
+Use docker compose -f CONFIG_PATH config to parse, resolve and validate the authored YAML before applying it; check its resolved fields against the intended runtime contract.
+Apply the declared local Compose deployment with docker compose -f CONFIG_PATH up -d and inspect the resulting containers.
+
+mle.tile.066_067.s03 Verify tokens and permitted subjects
+For the supplied Google ID-token verifier contract, use from google.oauth2 import id_token and from google.auth.transport import requests; implement authorize_prediction(token, expected_audience, permitted_subjects) to reject a missing token, call claims = id_token.verify_oauth2_token(token, requests.Request(), audience=expected_audience), and return the verified claims only when claims["sub"] is in the supplied permitted_subjects policy, otherwise raising PermissionError. Use the verified sub identity, not an unverified decode or a changeable email address.
+Assert the declared valid, boundary and failure predicates. In ordinary non-optimized execution, a false assertion raises AssertionError.
+With the declared PyYAML dependency, import yaml; write a mapping/list configuration with yaml.safe_dump(config, file_handle), reload it with yaml.safe_load(file_handle), and inspect the required resolved fields before submitting it to the existing runtime. Safe loading supports standard YAML tags, not arbitrary Python object constructors.
+
+mle.tile.066_067.s04 Reject unauthorized requests before prediction
+Use from google.auth.exceptions import GoogleAuthError; catch (ValueError, GoogleAuthError) from verification and raise PermissionError for the service harness’s declared denied HTTP path before calling prediction; a ValueError signals verification failure and GoogleAuthError includes invalid issuer. Missing credentials, invalid tokens and verified-but-unpermitted subjects must all be denied without executing prediction or logging the token.
+Use the supplied audience and permitted-subject policy. Reject a missing token; verify an offered token, then check verified sub membership. A verified but unpermitted subject is denied too. Convert declared verification exceptions into the denied HTTP path before prediction. Safely inspect Compose image, ports, nonsecret settings and runtime secret references. Test authorized, missing, invalid and unpermitted fixtures. Denied requests must neither execute prediction nor disclose tokens in logs.
+Authentication does not automatically grant authorization. A verified-but-unpermitted subject must be denied, and neither YAML nor logs should contain the credential's literal value.
+
+mle.tile.066_067.s05 Check: Enforce prediction-service authentication on an existing platform
+QUESTION A denied prediction request must be visible in the evidence record. Which log entry respects the declared disclosure boundary?
+o1 Record the denial/failure class without the credential or protected request values.
+o2 Record the denial together with the complete credential to make the rejection easy to reproduce.
+o3 Suppress every denial record to avoid disclosing secrets.
+KEY ['o1']
+
+mle.tile.066_067.s06 Practice: Enforce prediction-service authentication on an existing platform
+QUESTION Inspect each independent authored nonproduction-lab excerpt. Classify whether the shown fragment/evidence meets the part of the declared practice it addresses or violates it. Judge only the explicit evidence; do not assume unseen checks. Names, limits and artifact identities are supplied fixture values.
+item1 Credential/config evidence
+```
+Safe-reloaded and Compose-resolved service prediction keeps image fixture.local/orders@sha256:29371dd36fb111803c6fe996426f342680170dec59168e1e52139cdb4fbfaf83, declared ports and nonsecret authentication settings. Credential is referenced by secret credential from runtime variable ORDER_FIXTURE_CREDENTIAL and granted only to prediction. Applied service inspection matches configuration; no literal credential.
+```
+item2 Verifier and request evidence
+```
+from google.oauth2 import id_token
+from google.auth.transport import requests
+from google.auth.exceptions import GoogleAuthError
+
+def authorize_prediction(token, expected_audience, permitted_subjects):
+    if not token:
+        raise PermissionError("missing credential")
+    try:
+        claims = id_token.verify_oauth2_token(token, requests.Request(), audience=expected_audience)
+    except (ValueError, GoogleAuthError):
+        raise PermissionError("verification failed") from None
+    if claims["sub"] not in permitted_subjects:
+        raise PermissionError("unpermitted subject")
+    return claims
+# Harness maps PermissionError to denial before prediction.
+# Log failure classes only, never the token or protected request values.
+# expected_audience and permitted_subjects are supplied policy values.
+# Missing credential, invalid credential, GoogleAuthError, and valid identity with unpermitted subject are explicitly denied.
+# Authorized identity receives valid prediction; missing/invalid/unpermitted identities receive declared denial.
+# Logs show failure class only, never credential or protected request values.
+```
+Denied fixtures execute no prediction; ordinary assertions confirm every allowed and denied outcome.
+item3 Identity-only authorization
+```
+Token verifier validates the declared audience and returns a valid subject not in permitted_subjects. authorize_prediction returns success without the subject policy check.
+```
+item4 Audience bypass
+```
+Token is decoded but not verified against expected_audience. Endpoint accepts its subject as authenticated and permits prediction.
+```
+item5 Disclosure on denial
+```
+Denied requests are logged with the complete credential and protected feature values, described as safe failure visibility.
+```
+KEY {'item1': 'b1', 'item2': 'b1', 'item3': 'b2', 'item4': 'b2', 'item5': 'b2'}
+
+mle.tile.066_067.s07 Instrument prediction-service availability, errors and latency
+Client outcomes can differ from handler records. Reconcile external requests with handler timing, including attempts that never arrived.
+Choose client-visible request outcomes and latency as service indicators instead of inferring availability only from container or CPU state.
+Measure an attempt’s elapsed time as time.perf_counter() after completion minus its start value, retaining a consistent duration unit.
+Record enough timestamped outcome and duration evidence to distinguish successes, errors and timeouts in the measurement window.
+Compute an error fraction as error attempts divided by eligible attempts, using the same clearly declared observation window and denominator as the success indicator.
+Estimate client-visible success probability as successful eligible attempts divided by all eligible attempts in the defined measurement window, counting failed attempts in the denominator.
+Use np.mean(numeric_values) for the arithmetic mean of the selected numeric observations.
+{"type": "data_table", "asset_ref": {"asset_id": "ds.serving_attempts"}, "caption": "Authored offline attempts: reconcile client outcomes with handler timestamps and absent handler records. These are not production measurements."}
+
+mle.tile.066_067.s08 Count every scheduled probe attempt
+Use np.std(numeric_values, ddof=0): divide squared deviations by N, then take the square root. Use ddof=1 only when the declared calculation requires N−1.
+Instrument the handler around JSON decoding, prediction and JSON response encoding, recording duration and status/error counts even on its handled error paths.
+For the prescribed probe, retain its half-open five-minute window [t0, t0+300 seconds), its one valid request per second and all 300 attempt outcomes.
+Count an attempt as available only for an HTTP 200 response with a valid prediction received within its two-second deadline; allow the final attempt its entire deadline before summarizing.
+Compute availability as that successful-deadline count divided by 300, including connection-refused and response-timeout attempts that never reach the handler.
+Reconcile absent handler records with the external failure record and report the probe window, numerator and denominator alongside handler latency/statistics and status counts.
+
+mle.tile.066_067.s09 Separate probe availability from handler telemetry
+For the prescribed probe, retain every scheduled attempt, including connection refusals and timeouts with no handler record. Count only valid successful predictions received by the deadline, allowing the final attempt its full deadline before summarizing. Report the window, successful-deadline numerator and full attempt denominator. Reconcile missing handler events with external failures. Handler timing covers JSON decoding, prediction and encoding, including handled error paths; its success rate alone is not client-visible availability.
+Handler success rate is not automatically client-visible availability. Excluding attempts that never reached the handler would omit part of the prescribed denominator and conceal failures.
+
+mle.tile.066_067.s10 Check: Instrument prediction-service availability, errors and latency
+QUESTION Some external probe attempts never reach the handler. How should availability be reported for the prescribed probe?
+o1 Keep all 300 attempts in the denominator, count only valid HTTP 200 predictions received within the deadline, and reconcile absent handler records with external failures.
+o2 Drop attempts with no handler record and divide by the remaining handler count.
+o3 Use the handler error count alone as the availability fraction without examining external outcomes.
+KEY ['o1']
+
+mle.tile.066_067.s11 Practice: Instrument prediction-service availability, errors and latency
+QUESTION Write the required JSON imports. Complete decode_payload, encode_payload, duration_mean and duration_std in learner.py. Decode request JSON before prediction, encode the prediction response as JSON, and calculate arithmetic mean and population standard deviation (ddof=0) of the supplied numeric handler durations in seconds. Do not edit the supplied instrumentation and external-probe harness: it records timestamps, duration and status on success and handled errors, preserves the declared five-minute window and denominator, and accounts for external failures missing from handler telemetry. The resulting report must satisfy every supplied predicate.
+TASK {"prompt": "Write the required JSON imports. Complete decode_payload, encode_payload, duration_mean and duration_std in learner.py. Decode request JSON before prediction, encode the prediction response as JSON, and calculate arithmetic mean and population standard deviation (ddof=0) of the supplied numeric handler durations in seconds. Do not edit the supplied instrumentation and external-probe harness: it records timestamps, duration and status on success and handled errors, preserves the declared five-minute window and denominator, and accounts for external failures missing from handler telemetry. The resulting report must satisfy every supplied predicate.", "runtime": {"kind": "python", "version": "0.29.5", "packages": ["numpy"]}, "workspace": {"entry": "learner.py", "files": [{"path": "learner.py", "role": "editable", "language": "python", "content": "# TODO: write the required imports.\nexec('import json\\nimport time\\nimport numpy as np\\nimport csv\\nwith open(\"serving_attempts.csv\") as handle:\\n    raw_rows = list(csv.DictReader(handle))\\nattempts = [{\"request_id\": r[\"request_id\"], \"request_start_seconds\": float(r[\"request_start_seconds\"]) if r[\"request_start_seconds\"] else None, \"response_complete_seconds\": float(r[\"response_complete_seconds\"]) if r[\"response_complete_seconds\"] else None, \"http_status\": int(r[\"http_status\"]) if r[\"http_status\"] else None, \"valid_prediction\": r[\"valid_prediction\"].lower() == \"true\", \"handler_start_seconds\": float(r[\"handler_start_seconds\"]) if r[\"handler_start_seconds\"] else None, \"handler_complete_seconds\": float(r[\"handler_complete_seconds\"]) if r[\"handler_complete_seconds\"] else None, \"handler_status\": int(r[\"handler_status\"]) if r[\"handler_status\"] else None, \"outcome\": r[\"outcome\"]} for r in raw_rows if r[\"experiment\"] == \"probe\"]\\ndeadline_seconds = 2.0\\nwindow_start = 0.0\\nwindow_seconds = 300\\nsummary_time = 301.0\\nerror_classification = \\'Every attempt not HTTP 200 with a valid prediction received within two seconds\\'\\nunits = \\'seconds\\'\\ntelemetry = []\\ncurrent_attempt = None\\nclock_phase = 0\\ndef timestamp():\\n    global clock_phase\\n    result = current_attempt[\"handler_start_seconds\"] if clock_phase == 0 else current_attempt[\"handler_complete_seconds\"]\\n    clock_phase += 1\\n    return result\\ndef supplied_predict(payload):\\n    if current_attempt[\"handler_status\"] != 200:\\n        raise ValueError(\"supplied handled prediction error\")\\n    return {\"predictions\": model.predict(preprocessing_pipeline.transform(payload[\"features\"])), \"version\": version}\\ndef record_telemetry(start, finish, status):\\n    telemetry.append({\"request_id\": current_attempt[\"request_id\"], \"timestamp\": start, \"duration\": finish - start, \"status\": status})\\ndef run_supplied_probe(handler):\\n    global current_attempt, clock_phase\\n    for attempt in attempts:\\n        if attempt[\"handler_start_seconds\"] is not None:\\n            current_attempt = attempt\\n            clock_phase = 0\\n            handler(json.dumps({\"features\": [[1.0, 2.0]]}))\\n    return attempts\\n\\nFEATURE_NAMES = (\"feature_1\", \"feature_2\")\\nclass FrozenPreprocessor:\\n    def transform(self, values):\\n        return [[float(x) for x in row] for row in values]\\nclass FrozenModel:\\n    def predict(self, values):\\n        return [row[0] + 2.0 * row[1] for row in values]\\npreprocessing_pipeline = FrozenPreprocessor()\\nmodel = FrozenModel()\\n\\nversion = \\'A\\'\\n')\n# Supplied handler timing, failure accounting and five-minute probe harness.\nexec('def instrumented_handler(body):\\n    start = timestamp()\\n    status = 200\\n    try:\\n        payload = decode_payload(body)\\n        response = supplied_predict(payload)\\n        encoded = encode_payload(response)\\n    except ValueError:\\n        status = 500\\n        encoded = json.dumps({\"error\": \"prediction failure\"})\\n    finally:\\n        finish = timestamp()\\n        record_telemetry(start, finish, status)\\n    return encoded\\n\\ndef accept_valid_deadline(attempt):\\n    return attempt[\"http_status\"] == 200 and attempt[\"valid_prediction\"] and attempt[\"response_complete_seconds\"] is not None and attempt[\"response_complete_seconds\"] - attempt[\"request_start_seconds\"] <= deadline_seconds\\ndef report_probe():\\n    external = run_supplied_probe(instrumented_handler)\\n    successes = 0\\n    absent = []\\n    external_failures = {}\\n    for attempt in external:\\n        if accept_valid_deadline(attempt):\\n            successes = successes + 1\\n        else:\\n            outcome = attempt[\"outcome\"]\\n            if outcome not in external_failures:\\n                external_failures[outcome] = 0\\n            external_failures[outcome] = external_failures[outcome] + 1\\n        if attempt[\"handler_start_seconds\"] is None:\\n            absent.append({\"request_id\": attempt[\"request_id\"], \"outcome\": attempt[\"outcome\"]})\\n    recorded_ids = []\\n    for record in telemetry:\\n        recorded_ids.append(record[\"request_id\"])\\n    absent = []\\n    for attempt in external:\\n        if attempt[\"request_id\"] not in recorded_ids:\\n            absent.append({\"request_id\": attempt[\"request_id\"], \"outcome\": attempt[\"outcome\"]})\\n    status_counts = {}\\n    handler_errors = 0\\n    numeric_values = []\\n    for record in telemetry:\\n        status = record[\"status\"]\\n        if status not in status_counts:\\n            status_counts[status] = 0\\n        status_counts[status] = status_counts[status] + 1\\n        if status != 200:\\n            handler_errors = handler_errors + 1\\n        numeric_values.append(record[\"duration\"])\\n    report = {\"window\": [window_start, window_start + window_seconds], \"summary_time\": summary_time, \"attempted\": len(external), \"successful\": successes, \"availability\": successes / window_seconds, \"error_fraction\": (len(external) - successes) / window_seconds, \"error_classification\": error_classification, \"handler_status_counts\": status_counts, \"handler_errors\": handler_errors, \"handler_mean\": duration_mean(numeric_values), \"handler_std\": duration_std(numeric_values), \"handler_count\": len(telemetry), \"units\": units, \"external_failures\": external_failures, \"absent_handler_records\": absent, \"telemetry\": telemetry}\\n    return report\\n\\n')\ndef decode_payload(body):\n    # TODO: complete the JSON or duration-statistic operation.\n    return None\n\ndef encode_payload(response):\n    # TODO: complete the JSON or duration-statistic operation.\n    return None\n\ndef duration_mean(numeric_values):\n    # TODO: complete the JSON or duration-statistic operation.\n    return None\n\ndef duration_std(numeric_values):\n    # TODO: complete the JSON or duration-statistic operation.\n    return None\n\nreport = report_probe()\n"}], "asset_mounts": [{"asset_id": "ds.serving_attempts", "mount_path": "serving_attempts.csv"}]}, "constraints": {"allowed_syntax": ["import time", "import json", "import numpy as np", "def", "return", "assignment", "function calls", "if/elif/else", "for", "try/except/finally", "list and dictionary literals", "list.append(...)", "dictionary indexing", "comparisons", "arithmetic operators", "len(...)", "sum(...)", "json.loads(...)", "json.dumps(...)", "time.perf_counter()", "np.mean(numeric_values)", "np.std(numeric_values, ddof=0)", "calls to supplied prediction, timestamp, telemetry, probe and fault-scaffolding helpers"], "blocked_syntax": ["async def", "await", "asyncio.gather(...)", "concurrent.futures.ThreadPoolExecutor(...)", "concurrent.futures.ProcessPoolExecutor(...)"]}}
+
+mle.tile.066_067.s12 Carry these rules forward
+Verified identity still needs permission. Never put credential values in YAML or logs.
+Handler success rate is not client availability; retain attempts that never reached the handler.
+{"type": "up_next", "title": "Load-test a prediction endpoint against tail-latency and sustainable-throughput objectives"}

@@ -1,0 +1,78 @@
+Configure the supplied evaluation scaffold by assigning `cost_rule` to `supplied_deployment_weighted_cost`. Assign the callable names without calling them. These interfaces control the Select regularization in response to validation-observed overfitting computation. Keep input loading, the complete evaluation functions, guards and returned fields unchanged; only replace the marked interface assignments.
+# Supplied input loading and dependencies.
+import pandas as pd
+
+contract = pd.read_csv('acceptance_contract.csv').iloc[0]
+
+p_negative = contract['deployment_negative_probability']
+
+p_positive = contract['deployment_positive_probability']
+
+cost_FP = contract['cost_FP']
+
+cost_FN = contract['cost_FN']
+
+bound = contract['expected_cost_bound']
+
+settings = pd.read_csv('regularization_records.csv').to_dict('records')
+
+# Supplied evaluation scaffolding. Configure its interfaces below; keep this block unchanged.
+if __name__:
+    def deployment_weighted_cost(p_negative, FPR, cost_FP, p_positive, FNR, cost_FN):
+        return p_negative * FPR * cost_FP + p_positive * FNR * cost_FN
+
+    def evaluate(settings, p_negative, p_positive, cost_FP, cost_FN, bound):
+        records = []
+        interpretation = []
+        selected = None
+        best_cost = None
+        for setting in settings:
+            if setting['cohort_id'] == 'orders_100':
+                FP = setting['FP']
+                TN = setting['TN']
+                FN = setting['FN']
+                TP = setting['TP']
+                FPR = None
+                FNR = None
+                expected_cost = None
+                if FP + TN > 0:
+                    FPR = FP / (FP + TN)
+                if FN + TP > 0:
+                    FNR = FN / (FN + TP)
+                if FP + TN > 0:
+                    if FN + TP > 0:
+                        expected_cost = cost_rule(p_negative, FPR, cost_FP, p_positive, FNR, cost_FN)
+                train_FP = setting['training_FP']
+                train_TN = setting['training_TN']
+                train_FN = setting['training_FN']
+                train_TP = setting['training_TP']
+                training_cost = None
+                if train_FP + train_TN > 0:
+                    if train_FN + train_TP > 0:
+                        training_cost = p_negative * train_FP / (train_FP + train_TN) * cost_FP + p_positive * train_FN / (train_FN + train_TP) * cost_FN
+                eligible = False
+                if expected_cost is not None and training_cost is not None:
+                    if expected_cost <= bound:
+                        if setting['operating_requirements_met']:
+                            eligible = True
+                            if best_cost is None:
+                                best_cost = expected_cost
+                                selected = setting['configuration_id']
+                            elif expected_cost < best_cost:
+                                best_cost = expected_cost
+                                selected = setting['configuration_id']
+                records.append({'configuration_id': setting['configuration_id'], 'parameter_value': setting['parameter_value'], 'FPR': FPR, 'FNR': FNR, 'actual_negative_count': FP + TN, 'actual_positive_count': FN + TP, 'training_cost': training_cost, 'validation_cost': expected_cost, 'eligible': eligible})
+                gap = None
+                if training_cost is not None and expected_cost is not None:
+                    gap = expected_cost - training_cost
+                interpretation.append({'configuration_id': setting['configuration_id'], 'training_cost': training_cost, 'validation_cost': expected_cost, 'validation_minus_training': gap})
+        return {'records': records, 'selected_configuration': selected, 'direction': 'C is inverse regularization strength; smaller C increases the penalty. Larger Ridge alpha increases the penalty.', 'interpretation': interpretation}
+
+# Supplied callable operations; keep these assignments unchanged.
+supplied_deployment_weighted_cost = deployment_weighted_cost
+# TODO: configure each interface using the matching supplied callable, without calling it.
+cost_rule = None  # TODO: select the supplied callable
+SYNTAX
+{'allowed_syntax': ['import and from ... import for required dependencies', 'def with parameters and return', 'local assignments and numeric literals', 'lists, tuples, and dictionaries', 'for loops over supplied settings', 'if and else branches', 'arithmetic and comparison operators', 'NumPy array operations and Boolean masks', 'Ridge(alpha=...)', 'LogisticRegression(C=...)', 'training-fitted preprocessing pipeline fit and predict', 'confusion_matrix(..., labels=[0, 1])'], 'blocked_syntax': ['GridSearchCV', 'RandomizedSearchCV', 'torch.tensor', 'torch.utils.data.DataLoader', 'torch.nn.Module', 'Tensor.backward', 'torch.optim', 'torch.save', 'torch.load']}
+TESTS
+[{'test_id': 't1', 'kind': 'value_equals', 'spec': {'expr': 'evaluate(settings, p_negative, p_positive, cost_FP, cost_FN, bound)', 'expected': {'records': [{'configuration_id': 'weak_penalty', 'parameter_value': 10, 'FPR': 0.1875, 'FNR': 0.2, 'actual_negative_count': 80, 'actual_positive_count': 20, 'training_cost': 0.1, 'validation_cost': 0.3500000000000001, 'eligible': False}, {'configuration_id': 'stronger_penalty', 'parameter_value': 1, 'FPR': 0.1, 'FNR': 0.2, 'actual_negative_count': 80, 'actual_positive_count': 20, 'training_cost': 0.18000000000000002, 'validation_cost': 0.28, 'eligible': True}], 'selected_configuration': 'stronger_penalty', 'direction': 'C is inverse regularization strength; smaller C increases the penalty. Larger Ridge alpha increases the penalty.', 'interpretation': [{'configuration_id': 'weak_penalty', 'training_cost': 0.1, 'validation_cost': 0.3500000000000001, 'validation_minus_training': 0.2500000000000001}, {'configuration_id': 'stronger_penalty', 'training_cost': 0.18000000000000002, 'validation_cost': 0.28, 'validation_minus_training': 0.1}]}}, 'visible': True, 'message_on_fail': 'Check the named result fields, fixed assumptions, and empty-group behavior.'}, {'test_id': 't2', 'kind': 'value_equals', 'spec': {'expr': 'evaluate(settings, p_negative, p_positive, cost_FP, cost_FN, -1)', 'expected': {'records': [{'configuration_id': 'weak_penalty', 'parameter_value': 10, 'FPR': 0.1875, 'FNR': 0.2, 'actual_negative_count': 80, 'actual_positive_count': 20, 'training_cost': 0.1, 'validation_cost': 0.3500000000000001, 'eligible': False}, {'configuration_id': 'stronger_penalty', 'parameter_value': 1, 'FPR': 0.1, 'FNR': 0.2, 'actual_negative_count': 80, 'actual_positive_count': 20, 'training_cost': 0.18000000000000002, 'validation_cost': 0.28, 'eligible': False}], 'selected_configuration': None, 'direction': 'C is inverse regularization strength; smaller C increases the penalty. Larger Ridge alpha increases the penalty.', 'interpretation': [{'configuration_id': 'weak_penalty', 'training_cost': 0.1, 'validation_cost': 0.3500000000000001, 'validation_minus_training': 0.2500000000000001}, {'configuration_id': 'stronger_penalty', 'training_cost': 0.18000000000000002, 'validation_cost': 0.28, 'validation_minus_training': 0.1}]}}, 'visible': False, 'message_on_fail': 'Check the named result fields, fixed assumptions, and empty-group behavior.'}]

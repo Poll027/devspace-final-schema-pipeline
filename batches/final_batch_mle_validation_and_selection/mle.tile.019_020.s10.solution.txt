@@ -1,0 +1,28 @@
+import csv
+import json
+def supplied_rows(path):
+    with open(path) as f:
+        raw = list(csv.DictReader(f))
+    def convert(v):
+        if v == '': return None
+        if v.lower() == 'true': return True
+        if v.lower() == 'false': return False
+        try: return float(v) if '.' in v or 'e' in v.lower() else int(v)
+        except ValueError: return v
+    return [{k: convert(v) for k,v in r.items()} for r in raw]
+acceptance_terms = supplied_rows('acceptance_terms.csv')
+acceptance_contract = supplied_rows('acceptance_contract.csv')
+p0 = 0.8
+p1 = 0.2
+cfp = 1
+cfn = 5
+bound = 0.3
+
+def acceptance(terms, requirements):
+    negative = terms[0]
+    positive = terms[1]
+    FPR = negative['conditional_error_rate']
+    FNR = positive['conditional_error_rate']
+    cost = requirements['deployment_negative_probability'] * FPR * requirements['cost_FP'] + requirements['deployment_positive_probability'] * FNR * requirements['cost_FN']
+    return {'FPR': FPR, 'FNR': FNR, 'expected_cost': cost, 'quality_pass': cost <= requirements['expected_cost_bound'], 'operating_limit': requirements['operating_limit'], 'operating_eligibility': 'unresolved: no numerical operating limit supplied', 'denominators': 'FPR: actual negatives; FNR: actual positives; empty conditioning group unresolved', 'contract': requirements}
+result = acceptance(acceptance_terms, acceptance_contract[0])

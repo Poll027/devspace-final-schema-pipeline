@@ -1,0 +1,36 @@
+permission app import json
+from pathlib import Path
+from fastapi import FastAPI, Depends, Security
+from pydantic import BaseModel
+from security import verified_token_context
+from starter import require_permissions
+app=FastAPI()
+fixtures=json.loads(Path('fixtures.json').read_text())
+order={key:fixtures['order'][key] for key in ['id','status']}
+class Modification(BaseModel):
+    status: str
+@app.patch('/orders/'+str(fixtures['order']['id']))
+def modify_order(body:Modification, context=Depends(verified_token_context)):
+    # TODO: replace context Depends with Security(require_permissions,
+    # scopes=['orders:write']); keep the verification dependency active.
+    order['status']=body.status
+    return dict(order)
+
+permission test import json
+from pathlib import Path
+import pytest
+from fastapi.testclient import TestClient
+from application import app, order, fixtures
+@pytest.mark.parametrize('condition',['verified_with_permission','verified_without_permission'])
+def test_modify(condition):
+    tokens=json.loads(Path('bearer_fixtures.json').read_text())
+    order.update({key:fixtures['order'][key] for key in ['id','status']})
+    with TestClient(app) as client:
+        response=client.patch('/orders/'+str(fixtures['order']['id']),json=fixtures['modification'],
+                              headers={'Authorization':'Bearer '+tokens[condition]})
+        # TODO: assert 200/public result for sufficiently scoped context;
+        # separately 403 {"detail":"Forbidden"} and unchanged order for no scope.
+
+delivery fixtures {'authenticated_events': [{'publisher_event_id': 'evt_a', 'order_id': 101, 'new_status': 'complete'}, {'publisher_event_id': 'evt_b', 'order_id': 202, 'new_status': 'complete'}], 'orders': [{'id': 101, 'owner_id': 'caller_a', 'status': 'pending'}, {'id': 202, 'owner_id': 'caller_b', 'status': 'pending'}, {'id': 303, 'owner_id': 'caller_a', 'status': 'complete'}], 'tests': ['sequential_duplicate', 'restart_with_database_retained', 'concurrent_duplicate', 'transaction_failure'], 'initial_processed_events': []}
+object fixtures {'principals': [{'owner_id': 'caller_a'}, {'owner_id': 'caller_b'}], 'orders': [{'id': 101, 'owner_id': 'caller_a', 'status': 'pending'}, {'id': 202, 'owner_id': 'caller_b', 'status': 'pending'}], 'pairs': [['caller_a', 101], ['caller_a', 202], ['caller_b', 101], ['caller_b', 202]], 'unavailable_object': {'status': 404, 'body': {'detail': 'Not found'}}}
+tiles 12 interactions 44 supported code 6 native unverified 12

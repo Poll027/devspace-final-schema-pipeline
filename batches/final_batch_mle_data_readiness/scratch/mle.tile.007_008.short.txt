@@ -1,0 +1,131 @@
+
+mle.tile.007_008.s01 explainer
+Before accepting a delivery-fixture result, state the contract and the checks this rule requires.
+A schema specifies expected features and permitted representations or values. Missing, unexpected and invalid features violate it. Compare table.columns and table.dtypes to the declared contract before checking constrained columns. Express value constraints as boolean predicates. Raise an explicit validation exception for a failed required column, type or value boundary.
+Use assert predicate for valid, boundary and failure fixtures. A false predicate raises AssertionError in ordinary non-optimized execution.
+{"type": "data_table", "asset_ref": {"asset_id": "ds.distance_zone"}, "caption": "Exact distance/zone schema"}
+import pandas as pd
+
+def validate(table, contract):
+    if set(table.columns) != set(contract["columns"]):
+        raise ValueError("column contract violated")
+    for name, dtype in contract["declared_types"].items():
+        if str(table[name].dtype) != dtype:
+            raise ValueError("dtype contract violated")
+    valid_distance = table["distance"].between(contract["distance_min"], contract["distance_max"])
+    valid_zone = table["zone"].isin(contract["zone_categories"])
+    print("predicates:", valid_distance.tolist(), valid_zone.tolist())
+    if not valid_distance.all() or not valid_zone.all():
+        raise ValueError("value contract violated")
+    return True
+
+for name in ("valid", "negative", "too_large", "unexpected_column", "missing_column", "invalid_representation"):
+    spec = fixture[name]
+    table = pd.DataFrame(spec["rows"], columns=spec["columns"])
+    table = table.astype({c:d for c,d in fixture["contract"]["declared_types"].items() if c in table})
+    print(name, list(table.columns), table.dtypes)
+    try:
+        assert validate(table, fixture["contract"])
+        print("accepted")
+    except ValueError as error:
+        print(str(error))
+
+mle.tile.007_008.s02 explainer
+Compare the distance/zone column set and declared dtypes first. Then check the inclusive distance bounds and permitted zone representation. A lower-bound row is a boundary fixture; an out-of-range row is a value failure. An unexpected feature is a structural failure even if its values look plausible. Use explicit exceptions for rejection and assertions to exercise the supplied fixtures.
+
+mle.tile.007_008.s03 explainer
+A loaded table can violate structure or value bounds; explicit exceptions reject it, while assertions exercise fixtures.
+
+mle.tile.007_008.s04 check
+{"prompt": "A required input boundary fails. Which action implements validation rather than a fixture-only assertion?", "selection": "single", "shuffle": true, "options": [{"option_id": "0", "text": "Conditionally raise a descriptive ValueError"}, {"option_id": "1", "text": "Continue with the invalid input"}, {"option_id": "2", "text": "Use only assert and call that the production rejection boundary"}]}
+FEEDBACK {"correct": {"message": "You applied the declared boundary and its required checks."}, "incorrect": {"message": "Recheck the declared contract and the evidence for each decision."}, "hints": ["Distinguish a runtime rejection rule from an assertion about a supplied fixture."], "remediation_step_id": "mle.tile.007_008.r01"}
+KEY {"correct_option_ids": ["0"], "option_feedback": {"0": {"message": "Correct. A conditional exception enforces input rejection; continuing accepts invalid data and assert is a fixture predicate that can be disabled by optimization."}, "1": {"message": "A conditional exception enforces input rejection; continuing accepts invalid data and assert is a fixture predicate that can be disabled by optimization."}, "2": {"message": "A conditional exception enforces input rejection; continuing accepts invalid data and assert is a fixture predicate that can be disabled by optimization."}}}
+
+mle.tile.007_008.s05 hands_on
+{"prompt": "Implement validate(table, contract) without altering the table. Check exactly the declared columns and dtypes before inclusive distance bounds and lowercase north/south predicates. Raise descriptive ValueError on each violation and return accepted table as result. Author assertions for both endpoints and every supplied failure fixture, including a wrong distance dtype. The provided rejected helper only catches ValueError."}
+FEEDBACK {"correct": {"message": "You applied the declared boundary and its required checks."}, "incorrect": {"message": "Recheck the declared contract and the evidence for each decision."}, "hints": ["Check columns and dtypes before applying value predicates; include both endpoints."], "remediation_step_id": "mle.tile.007_008.r02"}
+KEY {}
+
+mle.tile.007_008.s06 explainer
+Before accepting a delivery-fixture result, state the contract and the checks this rule requires.
+Track accepted observation keys in a set; check membership before adding the next accepted key. Choose the declared retain, repair or reject action from a policy dictionary for each invalid or repeated observation. Inspect and clean examples as needed, making representations consistent with their intended training use.
+Implement policy actions with conditional branches and report affected observation IDs rather than changing data silently. Use assert predicate for valid, boundary and failure fixtures. A false predicate raises AssertionError in ordinary non-optimized execution.
+{"type": "data_table", "asset_ref": {"asset_id": "ds.cleaning_orders"}, "caption": "Valid reference dataset; the walkthrough processes the policy_defects variant."}
+fixture = {'records': [{'observation_id': 'obs_A',
+              'order_key': 'A',
+              'distance': 2,
+              'zone': 'north'},
+             {'observation_id': 'obs_B',
+              'order_key': 'B',
+              'distance': 4,
+              'zone': 'South'},
+             {'observation_id': 'obs_C',
+              'order_key': 'C',
+              'distance': 0,
+              'zone': 'north'},
+             {'observation_id': 'obs_D',
+              'order_key': 'D',
+              'distance': -1,
+              'zone': 'south'},
+             {'observation_id': 'obs_A_repeat',
+              'order_key': 'A',
+              'distance': 2,
+              'zone': 'north'}],
+ 'valid': [{'observation_id': 'obs_A', 'order_key': 'A', 'distance': 2, 'zone': 'north'},
+           {'observation_id': 'obs_B', 'order_key': 'B', 'distance': 4, 'zone': 'south'},
+           {'observation_id': 'obs_C', 'order_key': 'C', 'distance': 0, 'zone': 'north'},
+           {'observation_id': 'obs_D',
+            'order_key': 'D',
+            'distance': 100,
+            'zone': 'south'}],
+ 'policy': {'repeat_accepted_key': 'reject',
+            'zone_repairs': {'South': 'south'},
+            'distance_min': 0,
+            'distance_max': 100,
+            'invalid_distance': 'reject'},
+ 'connection': 'authorized local fixture only'}
+
+accepted_keys = set()
+accepted = []
+affected = []
+policy = fixture["policy"]
+for original in fixture["records"]:
+    row = dict(original)
+    before = sorted(accepted_keys)
+    action = "retain"
+    if row["order_key"] in accepted_keys:
+        action = policy["repeat_accepted_key"]
+    elif not policy["distance_min"] <= row["distance"] <= policy["distance_max"]:
+        action = policy["invalid_distance"]
+    elif row["zone"] in policy["zone_repairs"]:
+        action = "repair"
+        row["zone"] = policy["zone_repairs"][row["zone"]]
+    if action != "retain":
+        affected.append({"observation_id": row["observation_id"], "action": action})
+    if action != "reject":
+        accepted.append(row)
+        accepted_keys.add(row["order_key"])
+    print(before, row["observation_id"], action, sorted(accepted_keys))
+assert len(accepted_keys) == len(accepted)
+print("result:", accepted, "affected:", affected)
+
+mle.tile.007_008.s07 explainer
+Check the accepted-key set before accepting another observation. Apply the supplied repeat-key rejection and approved zone-spelling repair through the policy dictionary, recording affected IDs. A different defect may require rejection rather than repair. These are this dataset's approved actions, not a universal deduplication rule; test normal, boundary and repeated-key cases.
+
+mle.tile.007_008.s08 explainer
+An approved spelling repair does not authorize silently repairing every defect; report each policy action and affected ID.
+
+mle.tile.007_008.s09 check
+{"prompt": "In ordinary non-optimized execution, what happens to a deliberately false cleaning-policy assertion?", "selection": "single", "shuffle": true, "options": [{"option_id": "0", "text": "It raises AssertionError"}, {"option_id": "1", "text": "It silently repairs the data"}, {"option_id": "2", "text": "It changes the declared policy to retain the row"}]}
+FEEDBACK {"correct": {"message": "You applied the declared boundary and its required checks."}, "incorrect": {"message": "Recheck the declared contract and the evidence for each decision."}, "hints": ["Evaluate the predicate first, then consider what assert does when it is false."], "remediation_step_id": "mle.tile.007_008.r03"}
+KEY {"correct_option_ids": ["0"], "option_feedback": {"0": {"message": "Correct. Assertions verify predicates; they neither repair data nor rewrite policy."}, "1": {"message": "Assertions verify predicates; they neither repair data nor rewrite policy."}, "2": {"message": "Assertions verify predicates; they neither repair data nor rewrite policy."}}}
+
+mle.tile.007_008.s10 hands_on
+{"prompt": "Implement clean(records, policy). Return {'cleaned': cleaned, 'report': report}. Preserve input order in cleaned and report. Each report entry is {'observation_id': the affected ID, 'action': the declared action}; do not report unchanged retained observations. Track only accepted keys; apply policy repeat rejection, inclusive distance bounds, and approved zone repair without mutating inputs. Report each affected observation_id and action. Assign result; author assertions for repairs, rejection, repeats and both boundaries using the records and valid fixtures. A false predicate must fail in ordinary execution."}
+FEEDBACK {"correct": {"message": "You applied the declared boundary and its required checks."}, "incorrect": {"message": "Recheck the declared contract and the evidence for each decision."}, "hints": ["Track accepted keys and distinguish changed observations from unchanged retained ones."], "remediation_step_id": "mle.tile.007_008.r04"}
+KEY {}
+
+mle.tile.007_008.s11 recap
+A loaded table can violate structure or value bounds; explicit exceptions reject it, while assertions exercise fixtures.
+An approved spelling repair does not authorize silently repairing every defect; report each policy action and affected ID.
+{"type": "up_next", "title": "Identify sampling and selection bias in dataset coverage", "text": "Next: Identify sampling and selection bias in dataset coverage."}

@@ -1,0 +1,4950 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "machine_learning_engineer",
+  "tile_id": "mle.tile.029_032",
+  "toc_location": {
+    "region_id": "mle.region.validation_and_selection",
+    "terrain_id": "mle.terrain.candidate_analysis"
+  },
+  "title": "Retain a keyed experiment · Compare completed seed pairs · Select regularization on validation · Bound the search",
+  "summary": "Validation-only evidence for the supplied order task.",
+  "concept_ids": [
+    "mle.experiment_metric_logging",
+    "mle.training_randomness",
+    "mle.validation_regularization",
+    "mle.bounded_hyperparameter_search"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_machine_learning_engineer",
+    "toc_freeze_hash": "f38fc7a62df329118a32053d1557dcc9a74ada7a9c52269ee9a0c50d28a67a36",
+    "glossary_bundle_hashes": {
+      "mle.experiment_metric_logging": "1076016905ecbb4396846c3122ff2d417dfc2197c2c683203e85ffa4ca0742bf",
+      "mle.training_randomness": "37d6a6ca4979a8cd9090f64bd75e4936bd3bd5a86cfb1e1fc0a19a8ab5601afc",
+      "mle.validation_regularization": "f82491bc06fa6f099e3fdb19dc685aec86222a22b2dda4201c0f7436a8cd874e",
+      "mle.bounded_hyperparameter_search": "c788aa58e7289b4b98cb4f9f54c519e1c319c7ced604ec78dd88943e8f828348"
+    },
+    "scenario_registry_hash": "25e8ea4df1d67158e7e6366ac1fe1ebbaf169edeea6c901a06f09ebaac797c84"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core",
+      "data"
+    ],
+    "block_types": [
+      "code_walkthrough",
+      "data_table",
+      "media_group",
+      "prose",
+      "side_by_side",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "code_exercise",
+      "table_select"
+    ],
+    "runtimes": [
+      "python",
+      "sql"
+    ],
+    "asset_ids": [
+      "ds.acceptance_contract",
+      "ds.execution_contract",
+      "ds.paired_trials",
+      "ds.regularization_directions",
+      "ds.regularization_records",
+      "ds.search_trials"
+    ]
+  },
+  "pacing": {
+    "estimated_minutes": 17.2
+  },
+  "steps": [
+    {
+      "step_id": "mle.tile.029_032.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.experiment_metric_logging"
+      ],
+      "title": "Retain a keyed experiment",
+      "lineage": {
+        "teaching_block_ids": [
+          "mle.experiment_metric_logging#tb1",
+          "mle.experiment_metric_logging#tb2"
+        ],
+        "fact_ids": [
+          "mle.experiment_metric_logging#f1",
+          "mle.experiment_metric_logging#f2",
+          "mle.experiment_metric_logging#f3"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.experiment_metric_logging#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Connect settings, results and artifacts by key.",
+          "role": "intro",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Use import mlflow and with mlflow.start_run() as run; retain the run_id identifying the tracking record.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f1"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Log resolved parameters with mlflow.log_params(params), validation metrics with mlflow.log_metric(name, value), and a diagnostic file with mlflow.log_artifact(local_path).",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f2"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Inspect git rev-parse --verify HEAD for the actual repository revision before recording code identity.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f3"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb2"
+            ]
+          }
+        },
+        {
+          "type": "code_walkthrough",
+          "language": "python",
+          "code": "import os\nimport subprocess\nimport mlflow\n\ndef log_trial(recorded_directory, diagnostic_file, expected_revision,\n              validation_metrics, trial_setting=10):\n    previous_directory = os.getcwd()\n    try:\n        os.chdir(recorded_directory)\n        resolved_directory = os.getcwd()\n        local_path = os.path.abspath(diagnostic_file)\n        revision = subprocess.run(\n            [\"git\", \"rev-parse\", \"--verify\", \"HEAD\"], cwd=resolved_directory,\n            capture_output=True, text=True, check=True).stdout.strip()\n        if revision != expected_revision:\n            raise ValueError(\"repository revision mismatch\")\n        params = {\"trial_setting\": trial_setting, \"repository_revision\": revision,\n                  \"local_artifact_path\": local_path}\n        with mlflow.start_run() as run:\n            run_id = run.info.run_id\n            mlflow.log_params(params)\n            for name, value in validation_metrics.items():\n                mlflow.log_metric(name, value)\n            mlflow.log_artifact(local_path)\n        recorded = mlflow.get_run(run_id)\n        return {\"run_id\": run_id, \"resolved_local_path\": local_path,\n                \"params\": recorded.data.params, \"metrics\": recorded.data.metrics,\n                \"artifact_uri\": recorded.info.artifact_uri}\n    finally:\n        os.chdir(previous_directory)\n\n# DEFAULT_TRIAL_SETTING and execution_contract come from the supplied fixture.\n# The caller's explicit keyword value overrides the default before logging.\n# log_trial(..., trial_setting=execution_contract[\"override_trial_setting\"])\n",
+          "reveal": "line_by_line",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [],
+            "teaching_block_ids": [],
+            "anchors": [
+              "mle.experiment_metric_logging#visual"
+            ]
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.execution_contract",
+            "columns": [
+              "default_trial_setting",
+              "override_trial_setting"
+            ]
+          },
+          "caption": "Default versus resolved override.",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [],
+            "teaching_block_ids": [],
+            "anchors": [
+              "mle.experiment_metric_logging#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.029_032.s02",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.experiment_metric_logging"
+      ],
+      "title": "Retain a keyed experiment",
+      "lineage": {
+        "teaching_block_ids": [
+          "mle.experiment_metric_logging#tb3",
+          "mle.experiment_metric_logging#tb4"
+        ],
+        "fact_ids": [
+          "mle.experiment_metric_logging#f4",
+          "mle.experiment_metric_logging#f5",
+          "mle.experiment_metric_logging#f6",
+          "mle.experiment_metric_logging#f7"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Retrieve recorded = mlflow.get_run(run_id). Read recorded.data.params, recorded.data.metrics and recorded.info.artifact_uri. Repeated metrics expose the most recent value at the largest step, not full history.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f4"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Give the logging function defaults and explicit keyword overrides; log the resolved values, not merely defaults.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f5"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Inspect os.getcwd() and use os.chdir(recorded_directory) to resolve repository/artifact paths. Retain the resolved local path in the lookup.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f6"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Capture subprocess.run output in the intended working directory when inspecting git rev-parse --verify HEAD. Reject revision mismatches before claiming artifact/run identity.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f7"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb4"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.029_032.s03",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.experiment_metric_logging"
+      ],
+      "title": "Retain a keyed experiment",
+      "lineage": {
+        "teaching_block_ids": [
+          "mle.experiment_metric_logging#tb5",
+          "mle.experiment_metric_logging#tb6"
+        ],
+        "fact_ids": [
+          "mle.experiment_metric_logging#f1",
+          "mle.experiment_metric_logging#f2",
+          "mle.experiment_metric_logging#f3",
+          "mle.experiment_metric_logging#f4",
+          "mle.experiment_metric_logging#f5",
+          "mle.experiment_metric_logging#f6",
+          "mle.experiment_metric_logging#f7"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "The explicit trial-setting override, not its default, belongs in the resolved parameter dictionary. Start the run, retain its key and log the diagnostic file from its resolved path. Inspect repository revision in the intended directory. Retrieve the keyed record and compare parameters, validation metrics and artifact location. Repeated RunData metrics are not full history. A revision mismatch or wrong local artifact path prevents claiming that the artifact belongs to this run.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f1",
+              "mle.experiment_metric_logging#f2",
+              "mle.experiment_metric_logging#f3",
+              "mle.experiment_metric_logging#f4",
+              "mle.experiment_metric_logging#f5",
+              "mle.experiment_metric_logging#f6",
+              "mle.experiment_metric_logging#f7"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb5"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A printed metric is not a verified keyed record; revision, resolved overrides and artifact path must agree.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f2",
+              "mle.experiment_metric_logging#f3",
+              "mle.experiment_metric_logging#f5",
+              "mle.experiment_metric_logging#f6",
+              "mle.experiment_metric_logging#f7"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb6"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.029_032.s04",
+      "type": "check",
+      "concept_ids": [
+        "mle.experiment_metric_logging"
+      ],
+      "title": "Check: Retain a keyed experiment",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.experiment_metric_logging#f2",
+          "mle.experiment_metric_logging#f3",
+          "mle.experiment_metric_logging#f6",
+          "mle.experiment_metric_logging#f7"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.experiment_metric_logging#assessment:verify_run_artifact_path_and_code_identity"
+        ]
+      },
+      "eyebrow": "Apply the fixed validation contract",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.mle.tile.029_032.s04",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "mle.experiment_metric_logging",
+            "capability": "verify_run_artifact_path_and_code_identity",
+            "fact_ids": [
+              "f2",
+              "f3",
+              "f6",
+              "f7"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.experiment_metric_logging#assessment:verify_run_artifact_path_and_code_identity"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Your answer follows the declared validation evidence and its limits."
+          },
+          "incorrect": {
+            "message": "Check the conditioning population and the fixed evidence boundary; do not substitute a different decision contract."
+          },
+          "hints": [
+            "Identify which observations supply the denominator.",
+            "Separate an observed validation result from claims it cannot establish."
+          ],
+          "remediation_step_id": "mle.tile.029_032.r01"
+        },
+        "public": {
+          "prompt": "What must a retained run-to-artifact association verify?",
+          "selection": "single",
+          "shuffle": true,
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "The run ID, repository directory, resolved local artifact path and actual code revision; reject a revision mismatch."
+            },
+            {
+              "option_id": "o2",
+              "text": "Only the artifact URI; a different code revision is acceptable."
+            },
+            {
+              "option_id": "o3",
+              "text": "Only the run’s display name, even if the run ID differs."
+            }
+          ]
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "The retained lookup ties run, paths and actual revision together."
+            },
+            "o2": {
+              "message": "A revision mismatch must be rejected."
+            },
+            "o3": {
+              "message": "The run ID identifies the run; a display name does not replace it."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.029_032.s05",
+      "type": "hands_on",
+      "concept_ids": [
+        "mle.experiment_metric_logging"
+      ],
+      "title": "Practice: Retain a keyed experiment",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.experiment_metric_logging#f1",
+          "mle.experiment_metric_logging#f2",
+          "mle.experiment_metric_logging#f3",
+          "mle.experiment_metric_logging#f4",
+          "mle.experiment_metric_logging#f5",
+          "mle.experiment_metric_logging#f6",
+          "mle.experiment_metric_logging#f7"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.experiment_metric_logging#practice",
+          "mle.experiment_metric_logging#assessment:retrieve_run_by_run_id",
+          "mle.experiment_metric_logging#assessment:retrieve_resolved_parameters_and_validation_metrics",
+          "mle.experiment_metric_logging#assessment:interpret_repeated_metric_run_data",
+          "mle.experiment_metric_logging#assessment:verify_run_artifact_path_and_code_identity"
+        ]
+      },
+      "eyebrow": "Apply the fixed validation contract",
+      "interaction": {
+        "type": "table_select",
+        "interaction_id": "ix.mle.tile.029_032.s05",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "mle.experiment_metric_logging",
+            "capability": "retrieve_run_by_run_id",
+            "fact_ids": [
+              "f1",
+              "f4"
+            ]
+          },
+          {
+            "concept_id": "mle.experiment_metric_logging",
+            "capability": "retrieve_resolved_parameters_and_validation_metrics",
+            "fact_ids": [
+              "f2",
+              "f4",
+              "f5"
+            ]
+          },
+          {
+            "concept_id": "mle.experiment_metric_logging",
+            "capability": "interpret_repeated_metric_run_data",
+            "fact_ids": [
+              "f4"
+            ]
+          },
+          {
+            "concept_id": "mle.experiment_metric_logging",
+            "capability": "verify_run_artifact_path_and_code_identity",
+            "fact_ids": [
+              "f2",
+              "f3",
+              "f6",
+              "f7"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.experiment_metric_logging#practice",
+          "mle.experiment_metric_logging#assessment:retrieve_run_by_run_id",
+          "mle.experiment_metric_logging#assessment:retrieve_resolved_parameters_and_validation_metrics",
+          "mle.experiment_metric_logging#assessment:interpret_repeated_metric_run_data",
+          "mle.experiment_metric_logging#assessment:verify_run_artifact_path_and_code_identity"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Your answer follows the declared validation evidence and its limits."
+          },
+          "incorrect": {
+            "message": "Check the conditioning population and the fixed evidence boundary; do not substitute a different decision contract."
+          },
+          "hints": [
+            "Identify which observations supply the denominator.",
+            "Separate an observed validation result from claims it cannot establish."
+          ],
+          "remediation_step_id": "mle.tile.029_032.r02"
+        },
+        "public": {
+          "asset_ref": {
+            "asset_id": "ds.execution_contract"
+          },
+          "intro": "Inspect the supplied execution contract. This table contains configuration inputs only, not a retrieved MLflow run or artifact evidence.",
+          "tasks": [
+            {
+              "task_id": "override",
+              "prompt": "Select the cell containing the resolved explicit trial-setting override, not the default.",
+              "target_kind": "cell"
+            },
+            {
+              "task_id": "default",
+              "prompt": "Select the default trial-setting cell, which is distinct from the explicit override.",
+              "target_kind": "cell"
+            }
+          ]
+        },
+        "grading": {
+          "answers": [
+            {
+              "task_id": "override",
+              "row": {
+                "where": {
+                  "default_trial_setting": 10
+                },
+                "occurrence": 0
+              },
+              "column": "override_trial_setting",
+              "expect_value": 20
+            },
+            {
+              "task_id": "default",
+              "row": {
+                "where": {
+                  "default_trial_setting": 10
+                },
+                "occurrence": 0
+              },
+              "column": "default_trial_setting",
+              "expect_value": 10
+            }
+          ]
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.029_032.s06",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.training_randomness"
+      ],
+      "title": "Compare completed seed pairs",
+      "lineage": {
+        "teaching_block_ids": [
+          "mle.training_randomness#tb1",
+          "mle.training_randomness#tb2",
+          "mle.training_randomness#tb3"
+        ],
+        "fact_ids": [
+          "mle.training_randomness#f1",
+          "mle.training_randomness#f2",
+          "mle.training_randomness#f3",
+          "mle.training_randomness#f4",
+          "mle.training_randomness#f5",
+          "mle.training_randomness#f6"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.training_randomness#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Retain each repeated comparison as a pair.",
+          "role": "intro",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [],
+            "teaching_block_ids": [
+              "mle.training_randomness#tb1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Supported integer random_state settings reset generators for repeatable calls. None or a shared RandomState consumes state differently.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [
+              "mle.training_randomness#f1"
+            ],
+            "teaching_block_ids": [
+              "mle.training_randomness#tb2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Control estimator and split randomness, without claiming every environment or computation is deterministic.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [
+              "mle.training_randomness#f2"
+            ],
+            "teaching_block_ids": [
+              "mle.training_randomness#tb2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Loop over the declared seeds with for, collecting each matched pair of validation results.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [
+              "mle.training_randomness#f3"
+            ],
+            "teaching_block_ids": [
+              "mle.training_randomness#tb2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Empirical win probability is winning pairs divided by all completed pairs; retain the completed trial count.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [
+              "mle.training_randomness#f4"
+            ],
+            "teaching_block_ids": [
+              "mle.training_randomness#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Average selected numeric results with np.mean(numeric_values).",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [
+              "mle.training_randomness#f5"
+            ],
+            "teaching_block_ids": [
+              "mle.training_randomness#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "np.std(numeric_values, ddof=0) divides squared deviations by N before the square root. Use ddof=1 only when N−1 is the required divisor.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [
+              "mle.training_randomness#f6"
+            ],
+            "teaching_block_ids": [
+              "mle.training_randomness#tb3"
+            ]
+          }
+        },
+        {
+          "type": "data_table",
+          "result_of": {
+            "runtime": "sql",
+            "sql": "SELECT *, candidate_result < baseline_result AS win FROM trials",
+            "asset_mounts": [
+              {
+                "asset_id": "ds.paired_trials",
+                "mount_path": "trials"
+              }
+            ]
+          },
+          "caption": "Completed seed pairs; lower cost wins.",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [],
+            "teaching_block_ids": [],
+            "anchors": [
+              "mle.training_randomness#visual"
+            ]
+          },
+          "result": {
+            "columns": [
+              "seed",
+              "baseline_result",
+              "candidate_result",
+              "win"
+            ],
+            "rows": [
+              [
+                0,
+                0.32,
+                0.31,
+                true
+              ],
+              [
+                1,
+                0.33,
+                0.32,
+                true
+              ],
+              [
+                2,
+                0.34,
+                0.33,
+                true
+              ],
+              [
+                3,
+                0.35,
+                0.36,
+                false
+              ],
+              [
+                4,
+                0.36,
+                0.37,
+                false
+              ]
+            ],
+            "execution_provenance": {
+              "runtime": "duckdb-wasm",
+              "runtime_version": "1.32.0",
+              "sql_sha256": "8321d48ce0d560e24274afbf5dd2f273ad20b5af0fa7f87105133adb69d9ad90"
+            }
+          }
+        },
+        {
+          "type": "data_table",
+          "result_of": {
+            "runtime": "sql",
+            "sql": "SELECT COUNT(*) AS completed_pairs, SUM(candidate_result < baseline_result) AS winning_pairs, 1.0*SUM(candidate_result < baseline_result)/COUNT(*) AS empirical_win_probability, AVG(candidate_result) AS candidate_mean, AVG(baseline_result) AS baseline_mean FROM trials",
+            "asset_mounts": [
+              {
+                "asset_id": "ds.paired_trials",
+                "mount_path": "trials"
+              }
+            ]
+          },
+          "caption": "Paired denominator and selected-result means.",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [],
+            "teaching_block_ids": [],
+            "anchors": [
+              "mle.training_randomness#visual"
+            ]
+          },
+          "result": {
+            "columns": [
+              "completed_pairs",
+              "winning_pairs",
+              "empirical_win_probability",
+              "candidate_mean",
+              "baseline_mean"
+            ],
+            "rows": [
+              [
+                5,
+                3,
+                0.6,
+                0.33799999999999997,
+                0.33999999999999997
+              ]
+            ],
+            "execution_provenance": {
+              "runtime": "duckdb-wasm",
+              "runtime_version": "1.32.0",
+              "sql_sha256": "030cc0ca6f6acdf5f505b090dd53dc0464383951bef5a2af876e9cbdbca7740f"
+            }
+          }
+        },
+        {
+          "type": "code_walkthrough",
+          "language": "python",
+          "code": "import numpy as np\n# paired_trials is the supplied completed-pair fixture.\ncandidate = np.array([r[\"candidate_result\"] for r in paired_trials])\nbaseline = np.array([r[\"baseline_result\"] for r in paired_trials])\nsummary = {\"candidate_std\": np.std(candidate, ddof=0),\n           \"baseline_std\": np.std(baseline, ddof=0)}",
+          "reveal": "line_by_line",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [],
+            "teaching_block_ids": [],
+            "anchors": [
+              "mle.training_randomness#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.029_032.s07",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.training_randomness"
+      ],
+      "title": "Read the supplied evidence",
+      "lineage": {
+        "teaching_block_ids": [
+          "mle.training_randomness#tb4"
+        ],
+        "fact_ids": [
+          "mle.training_randomness#f1",
+          "mle.training_randomness#f2",
+          "mle.training_randomness#f3",
+          "mle.training_randomness#f4",
+          "mle.training_randomness#f5",
+          "mle.training_randomness#f6"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Keep seed, baseline result and candidate result together. Count wins among completed pairs rather than comparing two unpaired averages. Retain the denominator and compute selected-result means and the declared standard deviation. A missing trial is not a win. Control both estimator and split sources as required; integer random_state behavior does not justify claims of computation-wide or environment-wide determinism.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [
+              "mle.training_randomness#f1",
+              "mle.training_randomness#f2",
+              "mle.training_randomness#f3",
+              "mle.training_randomness#f4",
+              "mle.training_randomness#f5",
+              "mle.training_randomness#f6"
+            ],
+            "teaching_block_ids": [
+              "mle.training_randomness#tb4"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.029_032.s08",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.training_randomness"
+      ],
+      "title": "Remember",
+      "lineage": {
+        "teaching_block_ids": [
+          "mle.training_randomness#tb5"
+        ],
+        "fact_ids": [
+          "mle.training_randomness#f2",
+          "mle.training_randomness#f4"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Controlled seeds do not guarantee universal determinism; an empirical win fraction describes completed trials only.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [
+              "mle.training_randomness#f2",
+              "mle.training_randomness#f4"
+            ],
+            "teaching_block_ids": [
+              "mle.training_randomness#tb5"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.029_032.s09",
+      "type": "check",
+      "concept_ids": [
+        "mle.training_randomness"
+      ],
+      "title": "Check: Compare completed seed pairs",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.training_randomness#f5",
+          "mle.training_randomness#f6"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.training_randomness#assessment:summarize_repeated_results_with_mean_and_specified_standard_deviation"
+        ]
+      },
+      "eyebrow": "Apply the fixed validation contract",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.mle.tile.029_032.s09",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "mle.training_randomness",
+            "capability": "summarize_repeated_results_with_mean_and_specified_standard_deviation",
+            "fact_ids": [
+              "f5",
+              "f6"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.training_randomness#assessment:summarize_repeated_results_with_mean_and_specified_standard_deviation"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Your answer follows the declared validation evidence and its limits."
+          },
+          "incorrect": {
+            "message": "Check the conditioning population and the fixed evidence boundary; do not substitute a different decision contract."
+          },
+          "hints": [
+            "Identify which observations supply the denominator.",
+            "Separate an observed validation result from claims it cannot establish."
+          ],
+          "remediation_step_id": "mle.tile.029_032.r03"
+        },
+        "public": {
+          "prompt": "What does a mean and population standard deviation over completed paired results summarize?",
+          "selection": "single",
+          "shuffle": true,
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "The average and spread of the selected numeric results using divisor N."
+            },
+            {
+              "option_id": "o2",
+              "text": "A guarantee of identical computation in every environment."
+            },
+            {
+              "option_id": "o3",
+              "text": "The probability of every future candidate win without regard to the supplied trials."
+            }
+          ]
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "The summaries describe the selected completed results."
+            },
+            "o2": {
+              "message": "Controlled seeds do not establish universal deterministic replay."
+            },
+            "o3": {
+              "message": "The empirical summary is bounded to supplied trials."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.029_032.s10",
+      "type": "hands_on",
+      "concept_ids": [
+        "mle.training_randomness"
+      ],
+      "title": "Practice: Compare completed seed pairs",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.training_randomness#f1",
+          "mle.training_randomness#f2",
+          "mle.training_randomness#f3",
+          "mle.training_randomness#f4",
+          "mle.training_randomness#f5",
+          "mle.training_randomness#f6"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.training_randomness#practice",
+          "mle.training_randomness#assessment:distinguish_random_state_consumption",
+          "mle.training_randomness#assessment:control_split_and_estimator_randomness_without_overclaiming_determinism",
+          "mle.training_randomness#assessment:collect_paired_seed_trials_and_estimate_empirical_win_probability",
+          "mle.training_randomness#assessment:summarize_repeated_results_with_mean_and_specified_standard_deviation"
+        ]
+      },
+      "eyebrow": "Apply the fixed validation contract",
+      "interaction": {
+        "type": "code_exercise",
+        "interaction_id": "ix.mle.tile.029_032.s10",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "mle.training_randomness",
+            "capability": "distinguish_random_state_consumption",
+            "fact_ids": [
+              "f1"
+            ]
+          },
+          {
+            "concept_id": "mle.training_randomness",
+            "capability": "control_split_and_estimator_randomness_without_overclaiming_determinism",
+            "fact_ids": [
+              "f2"
+            ]
+          },
+          {
+            "concept_id": "mle.training_randomness",
+            "capability": "collect_paired_seed_trials_and_estimate_empirical_win_probability",
+            "fact_ids": [
+              "f3",
+              "f4"
+            ]
+          },
+          {
+            "concept_id": "mle.training_randomness",
+            "capability": "summarize_repeated_results_with_mean_and_specified_standard_deviation",
+            "fact_ids": [
+              "f5",
+              "f6"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.training_randomness#practice",
+          "mle.training_randomness#assessment:distinguish_random_state_consumption",
+          "mle.training_randomness#assessment:control_split_and_estimator_randomness_without_overclaiming_determinism",
+          "mle.training_randomness#assessment:collect_paired_seed_trials_and_estimate_empirical_win_probability",
+          "mle.training_randomness#assessment:summarize_repeated_results_with_mean_and_specified_standard_deviation"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Your answer follows the declared validation evidence and its limits."
+          },
+          "incorrect": {
+            "message": "Check the conditioning population and the fixed evidence boundary; do not substitute a different decision contract."
+          },
+          "hints": [
+            "Identify which observations supply the denominator.",
+            "Separate an observed validation result from claims it cannot establish."
+          ],
+          "remediation_step_id": "mle.tile.029_032.r04"
+        },
+        "public": {
+          "prompt": "Complete candidate_mean and candidate_std from values using NumPy mean and population standard deviation (ddof=0). Retain the paired-record scaffold: incomplete pairs are excluded, lower cost wins, ties are not wins, and completed_pair_count is the empirical-probability denominator. Output result including every paired record, supplied equal split/estimator seed-control fields, counts, probability, summaries and bounded limitation. This exercise summarizes supplied paired trials; it does not rerun the training adapter.",
+          "runtime": {
+            "kind": "python",
+            "version": "0.29.5",
+            "packages": [
+              "numpy",
+              "pandas"
+            ]
+          },
+          "workspace": {
+            "entry": "learner.py",
+            "files": [
+              {
+                "path": "learner.py",
+                "role": "editable",
+                "language": "python",
+                "content": "import numpy as np\nimport pandas as pd\ntrials = pd.read_csv('paired_trials.csv')\ncontract = pd.read_csv('execution_contract.csv')\n# Supplied paired-comparison evidence, not newly fitted models.\npaired = trials.dropna(subset=['baseline_result','candidate_result'])\nseed_protocol = [{'seed':int(r.seed),'split_random_state':int(r.seed),'baseline_random_state':int(r.seed),'candidate_random_state':int(r.seed)} for r in paired.itertuples()]\nvalues = paired['candidate_result'].to_numpy()\n# Complete the following learner analysis lines; retain all scaffold statements.\ncandidate_mean = None\ncandidate_std = None\ncompleted = len(paired)\nwins = int((paired['candidate_result'] < paired['baseline_result']).sum())\nresult = {'pairs':paired[['seed','baseline_result','candidate_result']].to_dict('records'),'seed_control':seed_protocol,'completed_pair_count':completed,'candidate_win_count':wins,'empirical_win_probability':wins/completed if completed else None,'candidate_mean':candidate_mean,'candidate_std':candidate_std,'limitation':'Matched declared-seed evidence only; controlled randomness does not guarantee identical computation in every environment.'}\n"
+              }
+            ],
+            "asset_mounts": [
+              {
+                "asset_id": "ds.paired_trials",
+                "mount_path": "paired_trials.csv"
+              },
+              {
+                "asset_id": "ds.execution_contract",
+                "mount_path": "execution_contract.csv"
+              }
+            ]
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "import numpy as np",
+              "from supplied dependency modules import required names",
+              "def with parameters and return",
+              "variable assignment",
+              "integer and floating-point literals",
+              "lists and dictionaries",
+              "for seed in declared_seed_list",
+              "if statements",
+              "list.append",
+              "dictionary and list indexing",
+              "len",
+              "numeric comparisons and arithmetic",
+              "calls to supplied preparation and evaluation helpers",
+              "scikit-learn split and estimator calls with random_state",
+              "fit and predict",
+              "None",
+              "np.random.RandomState",
+              "np.mean(numeric_values)",
+              "np.std(numeric_values, ddof=0)",
+              "np.std(numeric_values, ddof=1) when explicitly required by the calculation"
+            ],
+            "blocked_syntax": [
+              "GridSearchCV",
+              "RandomizedSearchCV",
+              "torch imports and API calls",
+              "DataLoader",
+              "loss.backward()",
+              "optimizer.step()",
+              "torch.save",
+              "torch.load",
+              "if __name__ == '__main__':"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "learner.py",
+              "content": "import numpy as np\nimport pandas as pd\ntrials = pd.read_csv('paired_trials.csv')\ncontract = pd.read_csv('execution_contract.csv')\n# Supplied paired-comparison evidence, not newly fitted models.\npaired = trials.dropna(subset=['baseline_result','candidate_result'])\nseed_protocol = [{'seed':int(r.seed),'split_random_state':int(r.seed),'baseline_random_state':int(r.seed),'candidate_random_state':int(r.seed)} for r in paired.itertuples()]\nvalues = paired['candidate_result'].to_numpy()\ncandidate_mean = np.mean(values)\ncandidate_std = np.std(values, ddof=0)\ncompleted = len(paired)\nwins = int((paired['candidate_result'] < paired['baseline_result']).sum())\nresult = {'pairs':paired[['seed','baseline_result','candidate_result']].to_dict('records'),'seed_control':seed_protocol,'completed_pair_count':completed,'candidate_win_count':wins,'empirical_win_probability':wins/completed if completed else None,'candidate_mean':candidate_mean,'candidate_std':candidate_std,'limitation':'Matched declared-seed evidence only; controlled randomness does not guarantee identical computation in every environment.'}\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "report",
+              "kind": "value_equals",
+              "spec": {
+                "expr": "result",
+                "expected": {
+                  "pairs": [
+                    {
+                      "seed": 0,
+                      "baseline_result": 0.32,
+                      "candidate_result": 0.31
+                    },
+                    {
+                      "seed": 1,
+                      "baseline_result": 0.33,
+                      "candidate_result": 0.32
+                    },
+                    {
+                      "seed": 2,
+                      "baseline_result": 0.34,
+                      "candidate_result": 0.33
+                    },
+                    {
+                      "seed": 3,
+                      "baseline_result": 0.35,
+                      "candidate_result": 0.36
+                    },
+                    {
+                      "seed": 4,
+                      "baseline_result": 0.36,
+                      "candidate_result": 0.37
+                    }
+                  ],
+                  "seed_control": [
+                    {
+                      "seed": 0,
+                      "split_random_state": 0,
+                      "baseline_random_state": 0,
+                      "candidate_random_state": 0
+                    },
+                    {
+                      "seed": 1,
+                      "split_random_state": 1,
+                      "baseline_random_state": 1,
+                      "candidate_random_state": 1
+                    },
+                    {
+                      "seed": 2,
+                      "split_random_state": 2,
+                      "baseline_random_state": 2,
+                      "candidate_random_state": 2
+                    },
+                    {
+                      "seed": 3,
+                      "split_random_state": 3,
+                      "baseline_random_state": 3,
+                      "candidate_random_state": 3
+                    },
+                    {
+                      "seed": 4,
+                      "split_random_state": 4,
+                      "baseline_random_state": 4,
+                      "candidate_random_state": 4
+                    }
+                  ],
+                  "completed_pair_count": 5,
+                  "candidate_win_count": 3,
+                  "empirical_win_probability": 0.6,
+                  "candidate_mean": 0.33799999999999997,
+                  "candidate_std": 0.023151673805580447,
+                  "limitation": "Matched declared-seed evidence only; controlled randomness does not guarantee identical computation in every environment."
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The returned evidence record must follow the declared input contract."
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "pyodide",
+            "runtime_version": "0.29.5",
+            "solution_sha256": "265e525b46561f1ef6e29314025530cee159affbabed51bffec2229ee3659ba1",
+            "tests_passed": 1
+          },
+          "hidden_checks": [
+            {
+              "check_id": "hc_paired_trials.csv_drop_first_report",
+              "mutation": {
+                "table": "paired_trials.csv",
+                "ops": [
+                  {
+                    "op": "drop_row",
+                    "index": 0
+                  }
+                ]
+              },
+              "test_id": "report",
+              "expected": {
+                "value": {
+                  "pairs": [
+                    {
+                      "seed": 1,
+                      "baseline_result": 0.33,
+                      "candidate_result": 0.32
+                    },
+                    {
+                      "seed": 2,
+                      "baseline_result": 0.34,
+                      "candidate_result": 0.33
+                    },
+                    {
+                      "seed": 3,
+                      "baseline_result": 0.35,
+                      "candidate_result": 0.36
+                    },
+                    {
+                      "seed": 4,
+                      "baseline_result": 0.36,
+                      "candidate_result": 0.37
+                    }
+                  ],
+                  "seed_control": [
+                    {
+                      "seed": 1,
+                      "split_random_state": 1,
+                      "baseline_random_state": 1,
+                      "candidate_random_state": 1
+                    },
+                    {
+                      "seed": 2,
+                      "split_random_state": 2,
+                      "baseline_random_state": 2,
+                      "candidate_random_state": 2
+                    },
+                    {
+                      "seed": 3,
+                      "split_random_state": 3,
+                      "baseline_random_state": 3,
+                      "candidate_random_state": 3
+                    },
+                    {
+                      "seed": 4,
+                      "split_random_state": 4,
+                      "baseline_random_state": 4,
+                      "candidate_random_state": 4
+                    }
+                  ],
+                  "completed_pair_count": 4,
+                  "candidate_win_count": 2,
+                  "empirical_win_probability": 0.5,
+                  "candidate_mean": 0.345,
+                  "candidate_std": 0.020615528128088294,
+                  "limitation": "Matched declared-seed evidence only; controlled randomness does not guarantee identical computation in every environment."
+                }
+              },
+              "ordered": false
+            },
+            {
+              "check_id": "hc_paired_trials.csv_dup_last_report",
+              "mutation": {
+                "table": "paired_trials.csv",
+                "ops": [
+                  {
+                    "op": "duplicate_row",
+                    "index": 4
+                  }
+                ]
+              },
+              "test_id": "report",
+              "expected": {
+                "value": {
+                  "pairs": [
+                    {
+                      "seed": 0,
+                      "baseline_result": 0.32,
+                      "candidate_result": 0.31
+                    },
+                    {
+                      "seed": 1,
+                      "baseline_result": 0.33,
+                      "candidate_result": 0.32
+                    },
+                    {
+                      "seed": 2,
+                      "baseline_result": 0.34,
+                      "candidate_result": 0.33
+                    },
+                    {
+                      "seed": 3,
+                      "baseline_result": 0.35,
+                      "candidate_result": 0.36
+                    },
+                    {
+                      "seed": 4,
+                      "baseline_result": 0.36,
+                      "candidate_result": 0.37
+                    },
+                    {
+                      "seed": 4,
+                      "baseline_result": 0.36,
+                      "candidate_result": 0.37
+                    }
+                  ],
+                  "seed_control": [
+                    {
+                      "seed": 0,
+                      "split_random_state": 0,
+                      "baseline_random_state": 0,
+                      "candidate_random_state": 0
+                    },
+                    {
+                      "seed": 1,
+                      "split_random_state": 1,
+                      "baseline_random_state": 1,
+                      "candidate_random_state": 1
+                    },
+                    {
+                      "seed": 2,
+                      "split_random_state": 2,
+                      "baseline_random_state": 2,
+                      "candidate_random_state": 2
+                    },
+                    {
+                      "seed": 3,
+                      "split_random_state": 3,
+                      "baseline_random_state": 3,
+                      "candidate_random_state": 3
+                    },
+                    {
+                      "seed": 4,
+                      "split_random_state": 4,
+                      "baseline_random_state": 4,
+                      "candidate_random_state": 4
+                    },
+                    {
+                      "seed": 4,
+                      "split_random_state": 4,
+                      "baseline_random_state": 4,
+                      "candidate_random_state": 4
+                    }
+                  ],
+                  "completed_pair_count": 6,
+                  "candidate_win_count": 3,
+                  "empirical_win_probability": 0.5,
+                  "candidate_mean": 0.3433333333333333,
+                  "candidate_std": 0.02426703296426839,
+                  "limitation": "Matched declared-seed evidence only; controlled randomness does not guarantee identical computation in every environment."
+                }
+              },
+              "ordered": false
+            },
+            {
+              "check_id": "hc_paired_trials.csv_drop_last_report",
+              "mutation": {
+                "table": "paired_trials.csv",
+                "ops": [
+                  {
+                    "op": "drop_row",
+                    "index": 4
+                  }
+                ]
+              },
+              "test_id": "report",
+              "expected": {
+                "value": {
+                  "pairs": [
+                    {
+                      "seed": 0,
+                      "baseline_result": 0.32,
+                      "candidate_result": 0.31
+                    },
+                    {
+                      "seed": 1,
+                      "baseline_result": 0.33,
+                      "candidate_result": 0.32
+                    },
+                    {
+                      "seed": 2,
+                      "baseline_result": 0.34,
+                      "candidate_result": 0.33
+                    },
+                    {
+                      "seed": 3,
+                      "baseline_result": 0.35,
+                      "candidate_result": 0.36
+                    }
+                  ],
+                  "seed_control": [
+                    {
+                      "seed": 0,
+                      "split_random_state": 0,
+                      "baseline_random_state": 0,
+                      "candidate_random_state": 0
+                    },
+                    {
+                      "seed": 1,
+                      "split_random_state": 1,
+                      "baseline_random_state": 1,
+                      "candidate_random_state": 1
+                    },
+                    {
+                      "seed": 2,
+                      "split_random_state": 2,
+                      "baseline_random_state": 2,
+                      "candidate_random_state": 2
+                    },
+                    {
+                      "seed": 3,
+                      "split_random_state": 3,
+                      "baseline_random_state": 3,
+                      "candidate_random_state": 3
+                    }
+                  ],
+                  "completed_pair_count": 4,
+                  "candidate_win_count": 3,
+                  "empirical_win_probability": 0.75,
+                  "candidate_mean": 0.32999999999999996,
+                  "candidate_std": 0.0187082869338697,
+                  "limitation": "Matched declared-seed evidence only; controlled randomness does not guarantee identical computation in every environment."
+                }
+              },
+              "ordered": false
+            },
+            {
+              "check_id": "hc_paired_trials.csv_set_seed_report",
+              "mutation": {
+                "table": "paired_trials.csv",
+                "ops": [
+                  {
+                    "op": "set_cell",
+                    "index": 0,
+                    "column": "seed",
+                    "value": 1000
+                  }
+                ]
+              },
+              "test_id": "report",
+              "expected": {
+                "value": {
+                  "pairs": [
+                    {
+                      "seed": 1000,
+                      "baseline_result": 0.32,
+                      "candidate_result": 0.31
+                    },
+                    {
+                      "seed": 1,
+                      "baseline_result": 0.33,
+                      "candidate_result": 0.32
+                    },
+                    {
+                      "seed": 2,
+                      "baseline_result": 0.34,
+                      "candidate_result": 0.33
+                    },
+                    {
+                      "seed": 3,
+                      "baseline_result": 0.35,
+                      "candidate_result": 0.36
+                    },
+                    {
+                      "seed": 4,
+                      "baseline_result": 0.36,
+                      "candidate_result": 0.37
+                    }
+                  ],
+                  "seed_control": [
+                    {
+                      "seed": 1000,
+                      "split_random_state": 1000,
+                      "baseline_random_state": 1000,
+                      "candidate_random_state": 1000
+                    },
+                    {
+                      "seed": 1,
+                      "split_random_state": 1,
+                      "baseline_random_state": 1,
+                      "candidate_random_state": 1
+                    },
+                    {
+                      "seed": 2,
+                      "split_random_state": 2,
+                      "baseline_random_state": 2,
+                      "candidate_random_state": 2
+                    },
+                    {
+                      "seed": 3,
+                      "split_random_state": 3,
+                      "baseline_random_state": 3,
+                      "candidate_random_state": 3
+                    },
+                    {
+                      "seed": 4,
+                      "split_random_state": 4,
+                      "baseline_random_state": 4,
+                      "candidate_random_state": 4
+                    }
+                  ],
+                  "completed_pair_count": 5,
+                  "candidate_win_count": 3,
+                  "empirical_win_probability": 0.6,
+                  "candidate_mean": 0.33799999999999997,
+                  "candidate_std": 0.023151673805580447,
+                  "limitation": "Matched declared-seed evidence only; controlled randomness does not guarantee identical computation in every environment."
+                }
+              },
+              "ordered": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.029_032.s11",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.validation_regularization"
+      ],
+      "title": "Select regularization on validation",
+      "lineage": {
+        "teaching_block_ids": [
+          "mle.validation_regularization#tb1",
+          "mle.validation_regularization#tb2"
+        ],
+        "fact_ids": [
+          "mle.validation_regularization#f1",
+          "mle.validation_regularization#f2",
+          "mle.validation_regularization#f3"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.validation_regularization#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Investigate the training/validation gap.",
+          "role": "intro",
+          "lineage": {
+            "concept_ids": [
+              "mle.validation_regularization"
+            ],
+            "fact_ids": [],
+            "teaching_block_ids": [
+              "mle.validation_regularization#tb1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Good training performance alongside poor validation performance, under the same scoring interpretation, is evidence of overfitting.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.validation_regularization"
+            ],
+            "fact_ids": [
+              "mle.validation_regularization#f1"
+            ],
+            "teaching_block_ids": [
+              "mle.validation_regularization#tb2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Compare declared regularization settings under the same validation protocol. Select by the predeclared validation criterion, not training score alone.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.validation_regularization"
+            ],
+            "fact_ids": [
+              "mle.validation_regularization#f2"
+            ],
+            "teaching_block_ids": [
+              "mle.validation_regularization#tb2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "FPR = FP/(FP+TN) uses actual negatives; FNR = FN/(FN+TP) uses actual positives. Empty conditioning groups leave rates undefined.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.validation_regularization"
+            ],
+            "fact_ids": [
+              "mle.validation_regularization#f3"
+            ],
+            "teaching_block_ids": [
+              "mle.validation_regularization#tb2"
+            ]
+          }
+        },
+        {
+          "type": "side_by_side",
+          "left": {
+            "type": "data_table",
+            "result_of": {
+              "runtime": "sql",
+              "sql": "SELECT configuration_id, estimator, parameter_name, parameter_value, strength_direction, training_expected_error_cost FROM records",
+              "asset_mounts": [
+                {
+                  "asset_id": "ds.regularization_records",
+                  "mount_path": "records"
+                }
+              ]
+            },
+            "caption": "Training under the same cost interpretation.",
+            "lineage": {
+              "concept_ids": [
+                "mle.validation_regularization"
+              ],
+              "fact_ids": [],
+              "teaching_block_ids": [],
+              "anchors": [
+                "mle.validation_regularization#visual"
+              ]
+            },
+            "result": {
+              "columns": [
+                "configuration_id",
+                "estimator",
+                "parameter_name",
+                "parameter_value",
+                "strength_direction",
+                "training_expected_error_cost"
+              ],
+              "rows": [
+                [
+                  "weak_penalty",
+                  "LogisticRegression",
+                  "C",
+                  10,
+                  "inverse regularization strength",
+                  0.10000000000000002
+                ],
+                [
+                  "stronger_penalty",
+                  "LogisticRegression",
+                  "C",
+                  1,
+                  "inverse regularization strength",
+                  0.18
+                ]
+              ],
+              "execution_provenance": {
+                "runtime": "duckdb-wasm",
+                "runtime_version": "1.32.0",
+                "sql_sha256": "34681695eff4425fa272e541317d3195efb08afc94edcd14e1fad90c7ddb0524"
+              }
+            }
+          },
+          "right": {
+            "type": "data_table",
+            "result_of": {
+              "runtime": "sql",
+              "sql": "WITH checked AS (\n SELECT r.*, r.rowid AS declared_order, k.deployment_negative_probability, k.deployment_positive_probability,\n k.cost_FP, k.cost_FN, k.expected_cost_bound,\n CASE WHEN actual_positive_count = 0 OR actual_negative_count = 0 THEN 'undefined required rate'\n WHEN cohort_id != (SELECT cohort_id FROM records LIMIT 1) THEN 'different cohort'\n WHEN expected_error_cost > k.expected_cost_bound THEN 'quality limit'\n WHEN NOT (r.operating_requirements_met = 1) THEN 'operating limit' ELSE 'eligible' END AS eligibility\n FROM records r CROSS JOIN contract k),\n ranked AS (SELECT configuration_id, ROW_NUMBER() OVER (ORDER BY expected_error_cost, declared_order) AS eligible_rank\n FROM checked WHERE eligibility = 'eligible')\n SELECT checked.*, ranked.eligible_rank,\n CASE WHEN ranked.eligible_rank = 1 THEN 'retain selection' ELSE '' END AS selection\n FROM checked LEFT JOIN ranked USING (configuration_id)",
+              "asset_mounts": [
+                {
+                  "asset_id": "ds.regularization_records",
+                  "mount_path": "records"
+                },
+                {
+                  "asset_id": "ds.acceptance_contract",
+                  "mount_path": "contract"
+                }
+              ]
+            },
+            "caption": "Matched eligibility before fixed-cost ranking.",
+            "lineage": {
+              "concept_ids": [
+                "mle.validation_regularization"
+              ],
+              "fact_ids": [],
+              "teaching_block_ids": [],
+              "anchors": [
+                "mle.validation_regularization#visual"
+              ]
+            },
+            "result": {
+              "columns": [
+                "configuration_id",
+                "estimator",
+                "parameter_name",
+                "parameter_value",
+                "strength_direction",
+                "cohort_id",
+                "training_TP",
+                "training_FP",
+                "training_FN",
+                "training_TN",
+                "training_expected_error_cost",
+                "TP",
+                "FP",
+                "FN",
+                "TN",
+                "actual_positive_count",
+                "actual_negative_count",
+                "cohort_count",
+                "precision",
+                "recall",
+                "validation_prevalence",
+                "FPR",
+                "FNR",
+                "expected_error_cost",
+                "operating_requirements_met",
+                "declared_order",
+                "deployment_negative_probability",
+                "deployment_positive_probability",
+                "cost_FP",
+                "cost_FN",
+                "expected_cost_bound",
+                "eligibility",
+                "eligible_rank",
+                "selection"
+              ],
+              "rows": [
+                [
+                  "stronger_penalty",
+                  "LogisticRegression",
+                  "C",
+                  1,
+                  "inverse regularization strength",
+                  "orders_100",
+                  17,
+                  3,
+                  3,
+                  77,
+                  0.18,
+                  16,
+                  8,
+                  4,
+                  72,
+                  20,
+                  80,
+                  100,
+                  0.6666666666666666,
+                  0.8,
+                  0.2,
+                  0.1,
+                  0.2,
+                  0.28,
+                  true,
+                  1,
+                  0.8,
+                  0.2,
+                  1,
+                  5,
+                  0.3,
+                  "eligible",
+                  1,
+                  "retain selection"
+                ],
+                [
+                  "weak_penalty",
+                  "LogisticRegression",
+                  "C",
+                  10,
+                  "inverse regularization strength",
+                  "orders_100",
+                  18,
+                  0,
+                  2,
+                  80,
+                  0.10000000000000002,
+                  16,
+                  15,
+                  4,
+                  65,
+                  20,
+                  80,
+                  100,
+                  0.5161290322580645,
+                  0.8,
+                  0.2,
+                  0.1875,
+                  0.2,
+                  0.3500000000000001,
+                  true,
+                  0,
+                  0.8,
+                  0.2,
+                  1,
+                  5,
+                  0.3,
+                  "quality limit",
+                  null,
+                  ""
+                ]
+              ],
+              "execution_provenance": {
+                "runtime": "duckdb-wasm",
+                "runtime_version": "1.32.0",
+                "sql_sha256": "dace550ff04e0467d4e90a54cb9ed10a551a49c5fda819ca6159b618f6091e49"
+              }
+            }
+          },
+          "left_label": "Training",
+          "right_label": "Validation eligibility and selection",
+          "takeaway": "Select by fixed validation evidence, not training alone.",
+          "lineage": {
+            "concept_ids": [
+              "mle.validation_regularization"
+            ],
+            "fact_ids": [],
+            "teaching_block_ids": [],
+            "anchors": [
+              "mle.validation_regularization#visual"
+            ]
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.regularization_directions"
+          },
+          "caption": "Estimator-specific penalty directions.",
+          "lineage": {
+            "concept_ids": [
+              "mle.validation_regularization"
+            ],
+            "fact_ids": [],
+            "teaching_block_ids": [],
+            "anchors": [
+              "mle.validation_regularization#visual"
+            ]
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.acceptance_contract",
+            "columns": [
+              "deployment_negative_probability",
+              "deployment_positive_probability",
+              "cost_FP",
+              "cost_FN",
+              "correct_prediction_cost",
+              "expected_cost_bound",
+              "empty_group_rule",
+              "operating_limit"
+            ]
+          },
+          "caption": "Fixed predictive inputs; operating eligibility remains separate.",
+          "lineage": {
+            "concept_ids": [
+              "mle.validation_regularization"
+            ],
+            "fact_ids": [],
+            "teaching_block_ids": [],
+            "anchors": [
+              "mle.validation_regularization#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.029_032.s12",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.validation_regularization"
+      ],
+      "title": "Select regularization on validation",
+      "lineage": {
+        "teaching_block_ids": [
+          "mle.validation_regularization#tb3"
+        ],
+        "fact_ids": [
+          "mle.validation_regularization#f4",
+          "mle.validation_regularization#f5",
+          "mle.validation_regularization#f6"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "With correct predictions costing zero, expected cost = P(Y=0) × FPR × cost_FP + P(Y=1) × FNR × cost_FN, using supplied deployment probabilities.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.validation_regularization"
+            ],
+            "fact_ids": [
+              "mle.validation_regularization#f4"
+            ],
+            "teaching_block_ids": [
+              "mle.validation_regularization#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Protected-test observations cannot guide preprocessing fit, model choice or tuning; doing so leaks information into the chosen system.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.validation_regularization"
+            ],
+            "fact_ids": [
+              "mle.validation_regularization#f5"
+            ],
+            "teaching_block_ids": [
+              "mle.validation_regularization#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Regularization penalizes complexity during fitting. Larger Ridge alpha increases its penalty; LogisticRegression C is inverse regularization strength.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.validation_regularization"
+            ],
+            "fact_ids": [
+              "mle.validation_regularization#f6"
+            ],
+            "teaching_block_ids": [
+              "mle.validation_regularization#tb3"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.029_032.s13",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.validation_regularization"
+      ],
+      "title": "Read the supplied evidence",
+      "lineage": {
+        "teaching_block_ids": [
+          "mle.validation_regularization#tb4"
+        ],
+        "fact_ids": [
+          "mle.validation_regularization#f1",
+          "mle.validation_regularization#f2",
+          "mle.validation_regularization#f3",
+          "mle.validation_regularization#f4",
+          "mle.validation_regularization#f5",
+          "mle.validation_regularization#f6"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "The setting with the better training cost need not have the better validation cost. Use the same scoring interpretation, cohort, probabilities and costs while comparing supplied settings. Choose by fixed validation evidence and eligibility, not training alone. Keep estimator names beside parameters: larger Ridge alpha increases the penalty, while LogisticRegression C has the inverse-strength interpretation. The gap supports investigation, not an invented cause. Protected-test results cannot become another tuning trial.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.validation_regularization"
+            ],
+            "fact_ids": [
+              "mle.validation_regularization#f1",
+              "mle.validation_regularization#f2",
+              "mle.validation_regularization#f3",
+              "mle.validation_regularization#f4",
+              "mle.validation_regularization#f5",
+              "mle.validation_regularization#f6"
+            ],
+            "teaching_block_ids": [
+              "mle.validation_regularization#tb4"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.029_032.s14",
+      "type": "video",
+      "concept_ids": [
+        "mle.validation_regularization"
+      ],
+      "title": "Review the same evaluation idea",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.validation_regularization#f1"
+        ],
+        "segment_ids": [
+          "seg_mle.validation_regularization_EehRcPo1M-Q_35_115"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "media_group",
+          "segment_ids": [
+            "seg_mle.validation_regularization_EehRcPo1M-Q_35_115"
+          ],
+          "segments": [
+            {
+              "segment_id": "seg_mle.validation_regularization_EehRcPo1M-Q_35_115",
+              "video_id": "EehRcPo1M-Q",
+              "youtube_url": "https://www.youtube.com/watch?v=EehRcPo1M-Q",
+              "review_url": "https://www.youtube.com/watch?v=EehRcPo1M-Q&t=35s",
+              "start_seconds": 35,
+              "end_seconds": 115,
+              "label": "Compare training and validation loss to recognize overfitting",
+              "summary": "Overfitting occurs when a model fits training observations closely but generalizes poorly. A one-input, one-output example illustrates a fitted pattern that follows training values too closely. The speaker then describes training loss continuing to fall while validation loss rises as training proceeds. Under this lower-is-better interpretation, the divergence provides evidence of overfitting and motivates considering regularization.",
+              "fact_ids": [
+                "f1"
+              ],
+              "transcript_ref": "EehRcPo1M-Q:35-115"
+            }
+          ],
+          "group_title": "Recognize validation evidence of overfitting",
+          "bridge": {
+            "before": "Watch for falling training loss alongside rising validation loss. Here, loss is lower-is-better: the useful signal is worsening validation performance despite improving training performance, not simply a numerical difference.",
+            "after": "The clip establishes overfitting evidence, not setting selection. The text supplies fixed-protocol validation selection, conditional error rates and undefined-rate handling for empty conditioning groups, deployment-weighted error cost, protected-test safeguards, and the opposite penalty directions of Ridge alpha and LogisticRegression C."
+          },
+          "default_mode": "video"
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.029_032.s15",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.validation_regularization"
+      ],
+      "title": "Remember",
+      "lineage": {
+        "teaching_block_ids": [
+          "mle.validation_regularization#tb5"
+        ],
+        "fact_ids": [
+          "mle.validation_regularization#f2",
+          "mle.validation_regularization#f6"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Training performance alone does not select the setting. Larger C does not mean stronger LogisticRegression regularization.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.validation_regularization"
+            ],
+            "fact_ids": [
+              "mle.validation_regularization#f2",
+              "mle.validation_regularization#f6"
+            ],
+            "teaching_block_ids": [
+              "mle.validation_regularization#tb5"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.029_032.s16",
+      "type": "check",
+      "concept_ids": [
+        "mle.validation_regularization"
+      ],
+      "title": "Check: Select regularization on validation",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.validation_regularization#f6"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.validation_regularization#assessment:interpret_estimator_specific_regularization_strength"
+        ]
+      },
+      "eyebrow": "Apply the fixed validation contract",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.mle.tile.029_032.s16",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "mle.validation_regularization",
+            "capability": "interpret_estimator_specific_regularization_strength",
+            "fact_ids": [
+              "f6"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.validation_regularization#assessment:interpret_estimator_specific_regularization_strength"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Your answer follows the declared validation evidence and its limits."
+          },
+          "incorrect": {
+            "message": "Check the conditioning population and the fixed evidence boundary; do not substitute a different decision contract."
+          },
+          "hints": [
+            "Identify which observations supply the denominator.",
+            "Separate an observed validation result from claims it cannot establish."
+          ],
+          "remediation_step_id": "mle.tile.029_032.r05"
+        },
+        "public": {
+          "prompt": "Which parameter change increases regularization strength for the named estimator?",
+          "selection": "single",
+          "shuffle": true,
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Increase Ridge alpha; decrease LogisticRegression C."
+            },
+            {
+              "option_id": "o2",
+              "text": "Increase both Ridge alpha and LogisticRegression C."
+            },
+            {
+              "option_id": "o3",
+              "text": "Decrease Ridge alpha; increase LogisticRegression C."
+            }
+          ]
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "Ridge alpha and LogisticRegression C have opposite strength directions."
+            },
+            "o2": {
+              "message": "Larger C decreases LogisticRegression regularization strength."
+            },
+            "o3": {
+              "message": "Both changes weaken rather than strengthen their respective penalties."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.029_032.s17",
+      "type": "hands_on",
+      "concept_ids": [
+        "mle.validation_regularization"
+      ],
+      "title": "Practice: Select regularization on validation",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.validation_regularization#f1",
+          "mle.validation_regularization#f2",
+          "mle.validation_regularization#f3",
+          "mle.validation_regularization#f4",
+          "mle.validation_regularization#f5"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.validation_regularization#practice",
+          "mle.validation_regularization#assessment:recognize_overfitting_from_comparable_training_validation_scores",
+          "mle.validation_regularization#assessment:select_regularization_using_fixed_validation_criterion_without_test_access",
+          "mle.validation_regularization#assessment:calculate_conditional_error_rates_and_identify_undefined_rates",
+          "mle.validation_regularization#assessment:calculate_deployment_weighted_expected_error_cost"
+        ]
+      },
+      "eyebrow": "Apply the fixed validation contract",
+      "interaction": {
+        "type": "code_exercise",
+        "interaction_id": "ix.mle.tile.029_032.s17",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "mle.validation_regularization",
+            "capability": "recognize_overfitting_from_comparable_training_validation_scores",
+            "fact_ids": [
+              "f1"
+            ]
+          },
+          {
+            "concept_id": "mle.validation_regularization",
+            "capability": "select_regularization_using_fixed_validation_criterion_without_test_access",
+            "fact_ids": [
+              "f2",
+              "f5"
+            ]
+          },
+          {
+            "concept_id": "mle.validation_regularization",
+            "capability": "calculate_conditional_error_rates_and_identify_undefined_rates",
+            "fact_ids": [
+              "f3"
+            ]
+          },
+          {
+            "concept_id": "mle.validation_regularization",
+            "capability": "calculate_deployment_weighted_expected_error_cost",
+            "fact_ids": [
+              "f4"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.validation_regularization#practice",
+          "mle.validation_regularization#assessment:recognize_overfitting_from_comparable_training_validation_scores",
+          "mle.validation_regularization#assessment:select_regularization_using_fixed_validation_criterion_without_test_access",
+          "mle.validation_regularization#assessment:calculate_conditional_error_rates_and_identify_undefined_rates",
+          "mle.validation_regularization#assessment:calculate_deployment_weighted_expected_error_cost"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Your answer follows the declared validation evidence and its limits."
+          },
+          "incorrect": {
+            "message": "Check the conditioning population and the fixed evidence boundary; do not substitute a different decision contract."
+          },
+          "hints": [
+            "Identify which observations supply the denominator.",
+            "Separate an observed validation result from claims it cannot establish."
+          ],
+          "remediation_step_id": "mle.tile.029_032.r06"
+        },
+        "public": {
+          "prompt": "Set settings to declared_settings, preserving the supplied estimator identity, declared order and complete setting records. Retain the evidence-comparison scaffold. It recalculates validation FPR/FNR and deployment cost, retains training cost and the training-validation gap, excludes undefined or ineligible evidence and selects minimum eligible validation cost, first declared on ties. Output result with all scaffold fields. This bounded assignment uses supplied fitted-setting records, not additional fitting; no protected test is exposed.",
+          "runtime": {
+            "kind": "python",
+            "version": "0.29.5",
+            "packages": [
+              "numpy",
+              "pandas"
+            ]
+          },
+          "workspace": {
+            "entry": "learner.py",
+            "files": [
+              {
+                "path": "learner.py",
+                "role": "editable",
+                "language": "python",
+                "content": "import numpy as np\nimport pandas as pd\nsupplied = pd.read_csv('regularization_records.csv')\ncontract = pd.read_csv('acceptance_contract.csv')\ndeclared_settings = supplied.to_dict('records')\n# Complete the following learner analysis lines; retain all scaffold statements.\nsettings = None\np = contract.iloc[0]\nrecords = []\nfor row in (settings or []):\n    neg,pos = row['FP']+row['TN'],row['FN']+row['TP']\n    fpr,fnr = (row['FP']/neg if neg else None),(row['FN']/pos if pos else None)\n    cost = p.deployment_negative_probability*fpr*p.cost_FP+p.deployment_positive_probability*fnr*p.cost_FN if fpr is not None and fnr is not None else None\n    eligible = cost is not None and cost <= p.expected_cost_bound and row['operating_requirements_met'] and row['cohort_id']=='orders_100'\n    records.append({'configuration_id':row['configuration_id'],'estimator':row['estimator'],'parameter_name':row['parameter_name'],'parameter_value':row['parameter_value'],'training_expected_error_cost':row['training_expected_error_cost'],'FPR':fpr,'FNR':fnr,'validation_expected_error_cost':cost,'eligible':eligible,'training_validation_gap':cost-row['training_expected_error_cost'] if cost is not None else None})\neligible = [r for r in records if r['eligible']]\nresult = {'records':records,'selected':min(eligible,key=lambda r:r['validation_expected_error_cost']) if eligible else None,'boundary':'Fixed training-fitted preprocessing and supplied validation evidence only; no protected-test access. Larger LogisticRegression C means weaker regularization.'}\n"
+              }
+            ],
+            "asset_mounts": [
+              {
+                "asset_id": "ds.regularization_records",
+                "mount_path": "regularization_records.csv"
+              },
+              {
+                "asset_id": "ds.acceptance_contract",
+                "mount_path": "acceptance_contract.csv"
+              }
+            ]
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "import and from ... import for required dependencies",
+              "def with parameters and return",
+              "local assignments and numeric literals",
+              "lists, tuples, and dictionaries",
+              "for loops over supplied settings",
+              "if and else branches",
+              "arithmetic and comparison operators",
+              "NumPy array operations and Boolean masks",
+              "Ridge(alpha=...)",
+              "LogisticRegression(C=...)",
+              "training-fitted preprocessing pipeline fit and predict",
+              "confusion_matrix(..., labels=[0, 1])"
+            ],
+            "blocked_syntax": [
+              "GridSearchCV",
+              "RandomizedSearchCV",
+              "torch.tensor",
+              "torch.utils.data.DataLoader",
+              "torch.nn.Module",
+              "Tensor.backward",
+              "torch.optim",
+              "torch.save",
+              "torch.load"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "learner.py",
+              "content": "import numpy as np\nimport pandas as pd\nsupplied = pd.read_csv('regularization_records.csv')\ncontract = pd.read_csv('acceptance_contract.csv')\ndeclared_settings = supplied.to_dict('records')\nsettings = declared_settings\np = contract.iloc[0]\nrecords = []\nfor row in (settings or []):\n    neg,pos = row['FP']+row['TN'],row['FN']+row['TP']\n    fpr,fnr = (row['FP']/neg if neg else None),(row['FN']/pos if pos else None)\n    cost = p.deployment_negative_probability*fpr*p.cost_FP+p.deployment_positive_probability*fnr*p.cost_FN if fpr is not None and fnr is not None else None\n    eligible = cost is not None and cost <= p.expected_cost_bound and row['operating_requirements_met'] and row['cohort_id']=='orders_100'\n    records.append({'configuration_id':row['configuration_id'],'estimator':row['estimator'],'parameter_name':row['parameter_name'],'parameter_value':row['parameter_value'],'training_expected_error_cost':row['training_expected_error_cost'],'FPR':fpr,'FNR':fnr,'validation_expected_error_cost':cost,'eligible':eligible,'training_validation_gap':cost-row['training_expected_error_cost'] if cost is not None else None})\neligible = [r for r in records if r['eligible']]\nresult = {'records':records,'selected':min(eligible,key=lambda r:r['validation_expected_error_cost']) if eligible else None,'boundary':'Fixed training-fitted preprocessing and supplied validation evidence only; no protected-test access. Larger LogisticRegression C means weaker regularization.'}\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "report",
+              "kind": "value_equals",
+              "spec": {
+                "expr": "result",
+                "expected": {
+                  "records": [
+                    {
+                      "configuration_id": "weak_penalty",
+                      "estimator": "LogisticRegression",
+                      "parameter_name": "C",
+                      "parameter_value": 10,
+                      "training_expected_error_cost": 0.1,
+                      "FPR": 0.1875,
+                      "FNR": 0.2,
+                      "validation_expected_error_cost": 0.3500000000000001,
+                      "eligible": false,
+                      "training_validation_gap": 0.2500000000000001
+                    },
+                    {
+                      "configuration_id": "stronger_penalty",
+                      "estimator": "LogisticRegression",
+                      "parameter_name": "C",
+                      "parameter_value": 1,
+                      "training_expected_error_cost": 0.18,
+                      "FPR": 0.1,
+                      "FNR": 0.2,
+                      "validation_expected_error_cost": 0.28,
+                      "eligible": true,
+                      "training_validation_gap": 0.10000000000000003
+                    }
+                  ],
+                  "selected": {
+                    "configuration_id": "stronger_penalty",
+                    "estimator": "LogisticRegression",
+                    "parameter_name": "C",
+                    "parameter_value": 1,
+                    "training_expected_error_cost": 0.18,
+                    "FPR": 0.1,
+                    "FNR": 0.2,
+                    "validation_expected_error_cost": 0.28,
+                    "eligible": true,
+                    "training_validation_gap": 0.10000000000000003
+                  },
+                  "boundary": "Fixed training-fitted preprocessing and supplied validation evidence only; no protected-test access. Larger LogisticRegression C means weaker regularization."
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The returned evidence record must follow the declared input contract."
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "pyodide",
+            "runtime_version": "0.29.5",
+            "solution_sha256": "4ef9d98c4de6d655878bf7125578b40ffc2c51e9b7b0143fc9a5455e840be013",
+            "tests_passed": 1
+          },
+          "hidden_checks": [
+            {
+              "check_id": "hc_regularization_records.csv_drop_first_report",
+              "mutation": {
+                "table": "regularization_records.csv",
+                "ops": [
+                  {
+                    "op": "drop_row",
+                    "index": 0
+                  }
+                ]
+              },
+              "test_id": "report",
+              "expected": {
+                "value": {
+                  "records": [
+                    {
+                      "configuration_id": "stronger_penalty",
+                      "estimator": "LogisticRegression",
+                      "parameter_name": "C",
+                      "parameter_value": 1,
+                      "training_expected_error_cost": 0.18,
+                      "FPR": 0.1,
+                      "FNR": 0.2,
+                      "validation_expected_error_cost": 0.28,
+                      "eligible": true,
+                      "training_validation_gap": 0.10000000000000003
+                    }
+                  ],
+                  "selected": {
+                    "configuration_id": "stronger_penalty",
+                    "estimator": "LogisticRegression",
+                    "parameter_name": "C",
+                    "parameter_value": 1,
+                    "training_expected_error_cost": 0.18,
+                    "FPR": 0.1,
+                    "FNR": 0.2,
+                    "validation_expected_error_cost": 0.28,
+                    "eligible": true,
+                    "training_validation_gap": 0.10000000000000003
+                  },
+                  "boundary": "Fixed training-fitted preprocessing and supplied validation evidence only; no protected-test access. Larger LogisticRegression C means weaker regularization."
+                }
+              },
+              "ordered": false
+            },
+            {
+              "check_id": "hc_regularization_records.csv_dup_last_report",
+              "mutation": {
+                "table": "regularization_records.csv",
+                "ops": [
+                  {
+                    "op": "duplicate_row",
+                    "index": 1
+                  }
+                ]
+              },
+              "test_id": "report",
+              "expected": {
+                "value": {
+                  "records": [
+                    {
+                      "configuration_id": "weak_penalty",
+                      "estimator": "LogisticRegression",
+                      "parameter_name": "C",
+                      "parameter_value": 10,
+                      "training_expected_error_cost": 0.1,
+                      "FPR": 0.1875,
+                      "FNR": 0.2,
+                      "validation_expected_error_cost": 0.3500000000000001,
+                      "eligible": false,
+                      "training_validation_gap": 0.2500000000000001
+                    },
+                    {
+                      "configuration_id": "stronger_penalty",
+                      "estimator": "LogisticRegression",
+                      "parameter_name": "C",
+                      "parameter_value": 1,
+                      "training_expected_error_cost": 0.18,
+                      "FPR": 0.1,
+                      "FNR": 0.2,
+                      "validation_expected_error_cost": 0.28,
+                      "eligible": true,
+                      "training_validation_gap": 0.10000000000000003
+                    },
+                    {
+                      "configuration_id": "stronger_penalty",
+                      "estimator": "LogisticRegression",
+                      "parameter_name": "C",
+                      "parameter_value": 1,
+                      "training_expected_error_cost": 0.18,
+                      "FPR": 0.1,
+                      "FNR": 0.2,
+                      "validation_expected_error_cost": 0.28,
+                      "eligible": true,
+                      "training_validation_gap": 0.10000000000000003
+                    }
+                  ],
+                  "selected": {
+                    "configuration_id": "stronger_penalty",
+                    "estimator": "LogisticRegression",
+                    "parameter_name": "C",
+                    "parameter_value": 1,
+                    "training_expected_error_cost": 0.18,
+                    "FPR": 0.1,
+                    "FNR": 0.2,
+                    "validation_expected_error_cost": 0.28,
+                    "eligible": true,
+                    "training_validation_gap": 0.10000000000000003
+                  },
+                  "boundary": "Fixed training-fitted preprocessing and supplied validation evidence only; no protected-test access. Larger LogisticRegression C means weaker regularization."
+                }
+              },
+              "ordered": false
+            },
+            {
+              "check_id": "hc_regularization_records.csv_drop_last_report",
+              "mutation": {
+                "table": "regularization_records.csv",
+                "ops": [
+                  {
+                    "op": "drop_row",
+                    "index": 1
+                  }
+                ]
+              },
+              "test_id": "report",
+              "expected": {
+                "value": {
+                  "records": [
+                    {
+                      "configuration_id": "weak_penalty",
+                      "estimator": "LogisticRegression",
+                      "parameter_name": "C",
+                      "parameter_value": 10,
+                      "training_expected_error_cost": 0.1,
+                      "FPR": 0.1875,
+                      "FNR": 0.2,
+                      "validation_expected_error_cost": 0.3500000000000001,
+                      "eligible": false,
+                      "training_validation_gap": 0.2500000000000001
+                    }
+                  ],
+                  "selected": null,
+                  "boundary": "Fixed training-fitted preprocessing and supplied validation evidence only; no protected-test access. Larger LogisticRegression C means weaker regularization."
+                }
+              },
+              "ordered": false
+            },
+            {
+              "check_id": "hc_regularization_records.csv_null_configuration_id_report",
+              "mutation": {
+                "table": "regularization_records.csv",
+                "ops": [
+                  {
+                    "op": "set_cell",
+                    "index": 0,
+                    "column": "configuration_id",
+                    "value": null
+                  }
+                ]
+              },
+              "test_id": "report",
+              "expected": {
+                "value": {
+                  "records": [
+                    {
+                      "configuration_id": null,
+                      "estimator": "LogisticRegression",
+                      "parameter_name": "C",
+                      "parameter_value": 10,
+                      "training_expected_error_cost": 0.1,
+                      "FPR": 0.1875,
+                      "FNR": 0.2,
+                      "validation_expected_error_cost": 0.3500000000000001,
+                      "eligible": false,
+                      "training_validation_gap": 0.2500000000000001
+                    },
+                    {
+                      "configuration_id": "stronger_penalty",
+                      "estimator": "LogisticRegression",
+                      "parameter_name": "C",
+                      "parameter_value": 1,
+                      "training_expected_error_cost": 0.18,
+                      "FPR": 0.1,
+                      "FNR": 0.2,
+                      "validation_expected_error_cost": 0.28,
+                      "eligible": true,
+                      "training_validation_gap": 0.10000000000000003
+                    }
+                  ],
+                  "selected": {
+                    "configuration_id": "stronger_penalty",
+                    "estimator": "LogisticRegression",
+                    "parameter_name": "C",
+                    "parameter_value": 1,
+                    "training_expected_error_cost": 0.18,
+                    "FPR": 0.1,
+                    "FNR": 0.2,
+                    "validation_expected_error_cost": 0.28,
+                    "eligible": true,
+                    "training_validation_gap": 0.10000000000000003
+                  },
+                  "boundary": "Fixed training-fitted preprocessing and supplied validation evidence only; no protected-test access. Larger LogisticRegression C means weaker regularization."
+                }
+              },
+              "ordered": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.029_032.s18",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.bounded_hyperparameter_search"
+      ],
+      "title": "Bound the search",
+      "lineage": {
+        "teaching_block_ids": [
+          "mle.bounded_hyperparameter_search#tb1",
+          "mle.bounded_hyperparameter_search#tb2",
+          "mle.bounded_hyperparameter_search#tb3"
+        ],
+        "fact_ids": [
+          "mle.bounded_hyperparameter_search#f1",
+          "mle.bounded_hyperparameter_search#f2",
+          "mle.bounded_hyperparameter_search#f3",
+          "mle.bounded_hyperparameter_search#f4",
+          "mle.bounded_hyperparameter_search#f5",
+          "mle.bounded_hyperparameter_search#f6"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.bounded_hyperparameter_search#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Set the stopping boundary before trials.",
+          "role": "intro",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [],
+            "teaching_block_ids": [
+              "mle.bounded_hyperparameter_search#tb1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "GridSearchCV enumerates param_grid combinations. RandomizedSearchCV samples configurations within the n_iter bound.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [
+              "mle.bounded_hyperparameter_search#f1"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_hyperparameter_search#tb2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Declare scoring and evaluation protocol before search; inspect validation-selected best_params_ and cv_results_.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [
+              "mle.bounded_hyperparameter_search#f2"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_hyperparameter_search#tb2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For manual search, iterate the supplied bounded configuration dictionaries, run declared trials and record validation results without exceeding the fixed budget.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [
+              "mle.bounded_hyperparameter_search#f3"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_hyperparameter_search#tb2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "FPR = FP/(FP+TN) uses actual negatives; FNR = FN/(FN+TP) uses actual positives. Empty groups leave rates undefined.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [
+              "mle.bounded_hyperparameter_search#f4"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_hyperparameter_search#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "With zero correct-prediction cost, expected cost = P(Y=0) × FPR × cost_FP + P(Y=1) × FNR × cost_FN, using supplied deployment probabilities.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [
+              "mle.bounded_hyperparameter_search#f5"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_hyperparameter_search#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Keep protected-test observations out of preprocessing fit, model choice and tuning; otherwise information leaks into the chosen system.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [
+              "mle.bounded_hyperparameter_search#f6"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_hyperparameter_search#tb3"
+            ]
+          }
+        },
+        {
+          "type": "data_table",
+          "result_of": {
+            "runtime": "sql",
+            "sql": "SELECT t.configuration_id, t.declared_order, t.configuration_json, t.cohort_id, CASE WHEN t.declared_order < e.override_search_budget THEN t.TP END AS TP, CASE WHEN t.declared_order < e.override_search_budget THEN t.FP END AS FP, CASE WHEN t.declared_order < e.override_search_budget THEN t.FN END AS FN, CASE WHEN t.declared_order < e.override_search_budget THEN t.TN END AS TN, CASE WHEN t.declared_order < e.override_search_budget THEN t.operating_requirements_met END AS operating_requirements_met, e.override_search_budget AS resolved_budget,\n CASE WHEN t.declared_order < e.override_search_budget THEN 'completed' ELSE 'unexecuted' END AS trial_status,\n CASE WHEN t.declared_order < e.override_search_budget AND FP+TN > 0 THEN 1.0*FP/(FP+TN) END AS FPR,\n CASE WHEN t.declared_order < e.override_search_budget AND FN+TP > 0 THEN 1.0*FN/(FN+TP) END AS FNR\n FROM trials t CROSS JOIN execution e ORDER BY declared_order",
+            "asset_mounts": [
+              {
+                "asset_id": "ds.search_trials",
+                "mount_path": "trials"
+              },
+              {
+                "asset_id": "ds.execution_contract",
+                "mount_path": "execution"
+              }
+            ]
+          },
+          "caption": "Resolved budget: unexecuted configurations have no observed trial results.",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [],
+            "teaching_block_ids": [],
+            "anchors": [
+              "mle.bounded_hyperparameter_search#visual"
+            ]
+          },
+          "result": {
+            "columns": [
+              "configuration_id",
+              "declared_order",
+              "configuration_json",
+              "cohort_id",
+              "TP",
+              "FP",
+              "FN",
+              "TN",
+              "operating_requirements_met",
+              "resolved_budget",
+              "trial_status",
+              "FPR",
+              "FNR"
+            ],
+            "rows": [
+              [
+                "config_1",
+                0,
+                "{\"C\": 10.0, \"random_state\": 0}",
+                "orders_100",
+                16,
+                15,
+                4,
+                65,
+                true,
+                2,
+                "completed",
+                0.1875,
+                0.2
+              ],
+              [
+                "config_2",
+                1,
+                "{\"C\": 1.0, \"random_state\": 0}",
+                "orders_100",
+                16,
+                8,
+                4,
+                72,
+                true,
+                2,
+                "completed",
+                0.1,
+                0.2
+              ],
+              [
+                "config_3",
+                2,
+                "{\"C\": 0.1, \"random_state\": 0}",
+                "orders_100",
+                null,
+                null,
+                null,
+                null,
+                null,
+                2,
+                "unexecuted",
+                null,
+                null
+              ]
+            ],
+            "execution_provenance": {
+              "runtime": "duckdb-wasm",
+              "runtime_version": "1.32.0",
+              "sql_sha256": "7aeee1523398d9ee23ff0b9874883a5cff1189c0443f6f984f65bf8468c3bcfa"
+            }
+          }
+        },
+        {
+          "type": "data_table",
+          "result_of": {
+            "runtime": "sql",
+            "sql": "WITH costs AS (\n SELECT t.*, 1.0*FP/(FP+TN) AS FPR, 1.0*FN/(FN+TP) AS FNR,\n k.deployment_negative_probability * (1.0*FP/(FP+TN))*k.cost_FP +\n k.deployment_positive_probability * (1.0*FN/(FN+TP))*k.cost_FN AS expected_error_cost,\n k.expected_cost_bound\n FROM trials t CROSS JOIN execution e CROSS JOIN contract k\n WHERE declared_order < e.override_search_budget),\n eligible AS (SELECT *, ROW_NUMBER() OVER (ORDER BY expected_error_cost, declared_order) AS eligible_rank FROM costs\n WHERE expected_error_cost <= expected_cost_bound AND operating_requirements_met=1)\n SELECT costs.*, eligible.eligible_rank,\n CASE WHEN eligible.eligible_rank=1 THEN 'retain selection' ELSE '' END AS selection\n FROM costs LEFT JOIN eligible USING(configuration_id) ORDER BY costs.declared_order",
+            "asset_mounts": [
+              {
+                "asset_id": "ds.search_trials",
+                "mount_path": "trials"
+              },
+              {
+                "asset_id": "ds.execution_contract",
+                "mount_path": "execution"
+              },
+              {
+                "asset_id": "ds.acceptance_contract",
+                "mount_path": "contract"
+              }
+            ]
+          },
+          "caption": "Completed validation costs and eligible selection.",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [],
+            "teaching_block_ids": [],
+            "anchors": [
+              "mle.bounded_hyperparameter_search#visual"
+            ]
+          },
+          "result": {
+            "columns": [
+              "configuration_id",
+              "declared_order",
+              "configuration_json",
+              "cohort_id",
+              "TP",
+              "FP",
+              "FN",
+              "TN",
+              "operating_requirements_met",
+              "FPR",
+              "FNR",
+              "expected_error_cost",
+              "expected_cost_bound",
+              "eligible_rank",
+              "selection"
+            ],
+            "rows": [
+              [
+                "config_1",
+                0,
+                "{\"C\": 10.0, \"random_state\": 0}",
+                "orders_100",
+                16,
+                15,
+                4,
+                65,
+                true,
+                0.1875,
+                0.2,
+                0.3500000000000001,
+                0.3,
+                null,
+                ""
+              ],
+              [
+                "config_2",
+                1,
+                "{\"C\": 1.0, \"random_state\": 0}",
+                "orders_100",
+                16,
+                8,
+                4,
+                72,
+                true,
+                0.1,
+                0.2,
+                0.28,
+                0.3,
+                1,
+                "retain selection"
+              ]
+            ],
+            "execution_provenance": {
+              "runtime": "duckdb-wasm",
+              "runtime_version": "1.32.0",
+              "sql_sha256": "ed05992e01fae59366bddfc08c5e6f3f6fea12aa9786b3a222a802ed04f4b514"
+            }
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.acceptance_contract",
+            "columns": [
+              "deployment_negative_probability",
+              "deployment_positive_probability",
+              "cost_FP",
+              "cost_FN",
+              "correct_prediction_cost",
+              "expected_cost_bound",
+              "empty_group_rule",
+              "operating_limit"
+            ]
+          },
+          "caption": "Fixed predictive inputs; operating eligibility remains separate.",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [],
+            "teaching_block_ids": [],
+            "anchors": [
+              "mle.bounded_hyperparameter_search#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.029_032.s19",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.bounded_hyperparameter_search"
+      ],
+      "title": "Remember",
+      "lineage": {
+        "teaching_block_ids": [
+          "mle.bounded_hyperparameter_search#tb4"
+        ],
+        "fact_ids": [
+          "mle.bounded_hyperparameter_search#f7"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Define a default search budget and allow explicit keyword overrides. Resolve the actual budget before iterating trials.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [
+              "mle.bounded_hyperparameter_search#f7"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_hyperparameter_search#tb4"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.029_032.s20",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.bounded_hyperparameter_search"
+      ],
+      "title": "Read the supplied evidence",
+      "lineage": {
+        "teaching_block_ids": [
+          "mle.bounded_hyperparameter_search#tb5"
+        ],
+        "fact_ids": [
+          "mle.bounded_hyperparameter_search#f1",
+          "mle.bounded_hyperparameter_search#f2",
+          "mle.bounded_hyperparameter_search#f3",
+          "mle.bounded_hyperparameter_search#f4",
+          "mle.bounded_hyperparameter_search#f5",
+          "mle.bounded_hyperparameter_search#f6",
+          "mle.bounded_hyperparameter_search#f7"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Resolve the keyword budget override before running any configuration. The displayed third configuration is outside this bounded run, not a completed trial. Retain actual completed configuration dictionaries and validation quantities. Declare scoring and evaluation protocol separately from grid enumeration or randomized sampling. Inspect best_params_ and cv_results_ under that protocol. Apply fixed expected-cost inputs and eligibility requirements; a search’s best label is not automatic acceptance. Protected-test evidence cannot extend the search.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [
+              "mle.bounded_hyperparameter_search#f1",
+              "mle.bounded_hyperparameter_search#f2",
+              "mle.bounded_hyperparameter_search#f3",
+              "mle.bounded_hyperparameter_search#f4",
+              "mle.bounded_hyperparameter_search#f5",
+              "mle.bounded_hyperparameter_search#f6",
+              "mle.bounded_hyperparameter_search#f7"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_hyperparameter_search#tb5"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.029_032.s21",
+      "type": "explainer",
+      "concept_ids": [
+        "mle.bounded_hyperparameter_search"
+      ],
+      "title": "Remember",
+      "lineage": {
+        "teaching_block_ids": [
+          "mle.bounded_hyperparameter_search#tb6"
+        ],
+        "fact_ids": [
+          "mle.bounded_hyperparameter_search#f2",
+          "mle.bounded_hyperparameter_search#f6",
+          "mle.bounded_hyperparameter_search#f7"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "An override replaces the default budget. Protected-test evidence cannot authorize more tuning.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [
+              "mle.bounded_hyperparameter_search#f2",
+              "mle.bounded_hyperparameter_search#f6",
+              "mle.bounded_hyperparameter_search#f7"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_hyperparameter_search#tb6"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "mle.tile.029_032.s22",
+      "type": "check",
+      "concept_ids": [
+        "mle.bounded_hyperparameter_search"
+      ],
+      "title": "Check: Bound the search",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.bounded_hyperparameter_search#f6"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.bounded_hyperparameter_search#assessment:exclude_protected_test_evidence_from_search"
+        ]
+      },
+      "eyebrow": "Apply the fixed validation contract",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.mle.tile.029_032.s22",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "mle.bounded_hyperparameter_search",
+            "capability": "exclude_protected_test_evidence_from_search",
+            "fact_ids": [
+              "f6"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.bounded_hyperparameter_search#assessment:exclude_protected_test_evidence_from_search"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Your answer follows the declared validation evidence and its limits."
+          },
+          "incorrect": {
+            "message": "Check the conditioning population and the fixed evidence boundary; do not substitute a different decision contract."
+          },
+          "hints": [
+            "Identify which observations supply the denominator.",
+            "Separate an observed validation result from claims it cannot establish."
+          ],
+          "remediation_step_id": "mle.tile.029_032.r07"
+        },
+        "public": {
+          "prompt": "Which evidence is excluded from bounded configuration search?",
+          "selection": "single",
+          "shuffle": true,
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Protected-test observations for fitting preprocessing, tuning or selection."
+            },
+            {
+              "option_id": "o2",
+              "text": "Validation results under the predeclared protocol."
+            },
+            {
+              "option_id": "o3",
+              "text": "The declared configuration list and budget."
+            }
+          ]
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "Protected-test evidence must remain outside the search."
+            },
+            "o2": {
+              "message": "Declared validation evidence is the basis of this search."
+            },
+            "o3": {
+              "message": "The supplied configurations and budget define the bounded search."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.029_032.s23",
+      "type": "hands_on",
+      "concept_ids": [
+        "mle.bounded_hyperparameter_search"
+      ],
+      "title": "Practice: Bound the search",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "mle.bounded_hyperparameter_search#f1",
+          "mle.bounded_hyperparameter_search#f2",
+          "mle.bounded_hyperparameter_search#f3",
+          "mle.bounded_hyperparameter_search#f4",
+          "mle.bounded_hyperparameter_search#f5",
+          "mle.bounded_hyperparameter_search#f6",
+          "mle.bounded_hyperparameter_search#f7"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "mle.bounded_hyperparameter_search#practice",
+          "mle.bounded_hyperparameter_search#assessment:interpret_validation_selected_search_results",
+          "mle.bounded_hyperparameter_search#assessment:execute_trials_within_resolved_budget",
+          "mle.bounded_hyperparameter_search#assessment:select_configuration_by_validation_expected_error_cost",
+          "mle.bounded_hyperparameter_search#assessment:exclude_protected_test_evidence_from_search"
+        ]
+      },
+      "eyebrow": "Apply the fixed validation contract",
+      "interaction": {
+        "type": "code_exercise",
+        "interaction_id": "ix.mle.tile.029_032.s23",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "mle.bounded_hyperparameter_search",
+            "capability": "interpret_validation_selected_search_results",
+            "fact_ids": [
+              "f1",
+              "f2"
+            ]
+          },
+          {
+            "concept_id": "mle.bounded_hyperparameter_search",
+            "capability": "execute_trials_within_resolved_budget",
+            "fact_ids": [
+              "f3",
+              "f7"
+            ]
+          },
+          {
+            "concept_id": "mle.bounded_hyperparameter_search",
+            "capability": "select_configuration_by_validation_expected_error_cost",
+            "fact_ids": [
+              "f4",
+              "f5"
+            ]
+          },
+          {
+            "concept_id": "mle.bounded_hyperparameter_search",
+            "capability": "exclude_protected_test_evidence_from_search",
+            "fact_ids": [
+              "f6"
+            ]
+          }
+        ],
+        "anchors": [
+          "mle.bounded_hyperparameter_search#practice",
+          "mle.bounded_hyperparameter_search#assessment:interpret_validation_selected_search_results",
+          "mle.bounded_hyperparameter_search#assessment:execute_trials_within_resolved_budget",
+          "mle.bounded_hyperparameter_search#assessment:select_configuration_by_validation_expected_error_cost",
+          "mle.bounded_hyperparameter_search#assessment:exclude_protected_test_evidence_from_search"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Your answer follows the declared validation evidence and its limits."
+          },
+          "incorrect": {
+            "message": "Check the conditioning population and the fixed evidence boundary; do not substitute a different decision contract."
+          },
+          "hints": [
+            "Identify which observations supply the denominator.",
+            "Separate an observed validation result from claims it cannot establish."
+          ],
+          "remediation_step_id": "mle.tile.029_032.r08"
+        },
+        "public": {
+          "prompt": "Resolve the explicit override before iteration by assigning override_budget to budget. Retain the supplied trial-record scaffold, which limits iteration to that budget, calculates guarded conditional rates and deployment expected cost, and selects minimum-cost eligible validation configuration (first declared on ties), or None. Output result including default_budget, resolved_override_budget, executed_count, records, selected and boundary. This exercise replays supplied trial evidence, not a live trial interface.",
+          "runtime": {
+            "kind": "python",
+            "version": "0.29.5",
+            "packages": [
+              "numpy",
+              "pandas"
+            ]
+          },
+          "workspace": {
+            "entry": "learner.py",
+            "files": [
+              {
+                "path": "learner.py",
+                "role": "editable",
+                "language": "python",
+                "content": "import numpy as np\nimport pandas as pd\nimport json\ntrials = pd.read_csv('search_trials.csv')\nexecution = pd.read_csv('execution_contract.csv')\ncontract = pd.read_csv('acceptance_contract.csv')\ndefault_budget = int(execution.iloc[0].default_search_budget)\noverride_budget = int(execution.iloc[0].override_search_budget)\n# Complete the following learner analysis lines; retain all scaffold statements.\nbudget = None\np = contract.iloc[0]\nrecords = []\nif budget is not None:\n    for row in trials.iloc[:budget].to_dict('records'):\n        neg,pos = row['FP']+row['TN'],row['FN']+row['TP']\n        fpr,fnr = (row['FP']/neg if neg else None),(row['FN']/pos if pos else None)\n        cost = p.deployment_negative_probability*fpr*p.cost_FP+p.deployment_positive_probability*fnr*p.cost_FN if fpr is not None and fnr is not None else None\n        eligible = row['cohort_id']=='orders_100' and row['operating_requirements_met'] and cost is not None and cost <= p.expected_cost_bound\n        records.append({'configuration_id':row['configuration_id'],'configuration':json.loads(row['configuration_json']),'TP':row['TP'],'FP':row['FP'],'FN':row['FN'],'TN':row['TN'],'FPR':fpr,'FNR':fnr,'expected_error_cost':cost,'eligible':eligible})\neligible = [r for r in records if r['eligible']]\nresult = {'default_budget':default_budget,'resolved_override_budget':budget,'executed_count':len(records),'records':records,'selected':min(eligible,key=lambda r:r['expected_error_cost']) if eligible else None,'boundary':'Supplied trial evidence under a budget resolved before iteration; no protected-test access.'}\n"
+              }
+            ],
+            "asset_mounts": [
+              {
+                "asset_id": "ds.search_trials",
+                "mount_path": "search_trials.csv"
+              },
+              {
+                "asset_id": "ds.execution_contract",
+                "mount_path": "execution_contract.csv"
+              },
+              {
+                "asset_id": "ds.acceptance_contract",
+                "mount_path": "acceptance_contract.csv"
+              }
+            ]
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "import statements for required supplied library or client dependencies",
+              "def with a default budget parameter",
+              "function calls with explicit keyword arguments",
+              "return statements",
+              "variable assignment",
+              "dictionary literals and key access",
+              "list literals, indexing, slicing, and append",
+              "for loops over the bounded configuration list",
+              "if and else conditionals",
+              "None for undefined rates",
+              "numeric literals",
+              "arithmetic and comparison operators",
+              "len",
+              "calls to the supplied trial execution interface"
+            ],
+            "blocked_syntax": [
+              "import torch",
+              "from torch import ...",
+              "torch.nn.Module",
+              "torch.utils.data.DataLoader",
+              "Tensor.backward()",
+              "torch.optim",
+              "model.train()",
+              "model.eval()",
+              "torch.save",
+              "torch.load",
+              "if __name__ == \"__main__\":"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "learner.py",
+              "content": "import numpy as np\nimport pandas as pd\nimport json\ntrials = pd.read_csv('search_trials.csv')\nexecution = pd.read_csv('execution_contract.csv')\ncontract = pd.read_csv('acceptance_contract.csv')\ndefault_budget = int(execution.iloc[0].default_search_budget)\noverride_budget = int(execution.iloc[0].override_search_budget)\nbudget = override_budget\np = contract.iloc[0]\nrecords = []\nif budget is not None:\n    for row in trials.iloc[:budget].to_dict('records'):\n        neg,pos = row['FP']+row['TN'],row['FN']+row['TP']\n        fpr,fnr = (row['FP']/neg if neg else None),(row['FN']/pos if pos else None)\n        cost = p.deployment_negative_probability*fpr*p.cost_FP+p.deployment_positive_probability*fnr*p.cost_FN if fpr is not None and fnr is not None else None\n        eligible = row['cohort_id']=='orders_100' and row['operating_requirements_met'] and cost is not None and cost <= p.expected_cost_bound\n        records.append({'configuration_id':row['configuration_id'],'configuration':json.loads(row['configuration_json']),'TP':row['TP'],'FP':row['FP'],'FN':row['FN'],'TN':row['TN'],'FPR':fpr,'FNR':fnr,'expected_error_cost':cost,'eligible':eligible})\neligible = [r for r in records if r['eligible']]\nresult = {'default_budget':default_budget,'resolved_override_budget':budget,'executed_count':len(records),'records':records,'selected':min(eligible,key=lambda r:r['expected_error_cost']) if eligible else None,'boundary':'Supplied trial evidence under a budget resolved before iteration; no protected-test access.'}\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "report",
+              "kind": "value_equals",
+              "spec": {
+                "expr": "result",
+                "expected": {
+                  "default_budget": 3,
+                  "resolved_override_budget": 2,
+                  "executed_count": 2,
+                  "records": [
+                    {
+                      "configuration_id": "config_1",
+                      "configuration": {
+                        "C": 10,
+                        "random_state": 0
+                      },
+                      "TP": 16,
+                      "FP": 15,
+                      "FN": 4,
+                      "TN": 65,
+                      "FPR": 0.1875,
+                      "FNR": 0.2,
+                      "expected_error_cost": 0.3500000000000001,
+                      "eligible": false
+                    },
+                    {
+                      "configuration_id": "config_2",
+                      "configuration": {
+                        "C": 1,
+                        "random_state": 0
+                      },
+                      "TP": 16,
+                      "FP": 8,
+                      "FN": 4,
+                      "TN": 72,
+                      "FPR": 0.1,
+                      "FNR": 0.2,
+                      "expected_error_cost": 0.28,
+                      "eligible": true
+                    }
+                  ],
+                  "selected": {
+                    "configuration_id": "config_2",
+                    "configuration": {
+                      "C": 1,
+                      "random_state": 0
+                    },
+                    "TP": 16,
+                    "FP": 8,
+                    "FN": 4,
+                    "TN": 72,
+                    "FPR": 0.1,
+                    "FNR": 0.2,
+                    "expected_error_cost": 0.28,
+                    "eligible": true
+                  },
+                  "boundary": "Supplied trial evidence under a budget resolved before iteration; no protected-test access."
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The returned evidence record must follow the declared input contract."
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "pyodide",
+            "runtime_version": "0.29.5",
+            "solution_sha256": "d7e80bc8a012a5d197708ad969ad521d35b0bdb6b2ee9c46bb65caf480bef8e2",
+            "tests_passed": 1
+          },
+          "hidden_checks": [
+            {
+              "check_id": "hc_search_trials.csv_drop_first_report",
+              "mutation": {
+                "table": "search_trials.csv",
+                "ops": [
+                  {
+                    "op": "drop_row",
+                    "index": 0
+                  }
+                ]
+              },
+              "test_id": "report",
+              "expected": {
+                "value": {
+                  "default_budget": 3,
+                  "resolved_override_budget": 2,
+                  "executed_count": 2,
+                  "records": [
+                    {
+                      "configuration_id": "config_2",
+                      "configuration": {
+                        "C": 1,
+                        "random_state": 0
+                      },
+                      "TP": 16,
+                      "FP": 8,
+                      "FN": 4,
+                      "TN": 72,
+                      "FPR": 0.1,
+                      "FNR": 0.2,
+                      "expected_error_cost": 0.28,
+                      "eligible": true
+                    },
+                    {
+                      "configuration_id": "config_3",
+                      "configuration": {
+                        "C": 0.1,
+                        "random_state": 0
+                      },
+                      "TP": 16,
+                      "FP": 0,
+                      "FN": 4,
+                      "TN": 80,
+                      "FPR": 0,
+                      "FNR": 0.2,
+                      "expected_error_cost": 0.20000000000000004,
+                      "eligible": true
+                    }
+                  ],
+                  "selected": {
+                    "configuration_id": "config_3",
+                    "configuration": {
+                      "C": 0.1,
+                      "random_state": 0
+                    },
+                    "TP": 16,
+                    "FP": 0,
+                    "FN": 4,
+                    "TN": 80,
+                    "FPR": 0,
+                    "FNR": 0.2,
+                    "expected_error_cost": 0.20000000000000004,
+                    "eligible": true
+                  },
+                  "boundary": "Supplied trial evidence under a budget resolved before iteration; no protected-test access."
+                }
+              },
+              "ordered": false
+            },
+            {
+              "check_id": "hc_search_trials.csv_null_configuration_id_report",
+              "mutation": {
+                "table": "search_trials.csv",
+                "ops": [
+                  {
+                    "op": "set_cell",
+                    "index": 0,
+                    "column": "configuration_id",
+                    "value": null
+                  }
+                ]
+              },
+              "test_id": "report",
+              "expected": {
+                "value": {
+                  "default_budget": 3,
+                  "resolved_override_budget": 2,
+                  "executed_count": 2,
+                  "records": [
+                    {
+                      "configuration_id": null,
+                      "configuration": {
+                        "C": 10,
+                        "random_state": 0
+                      },
+                      "TP": 16,
+                      "FP": 15,
+                      "FN": 4,
+                      "TN": 65,
+                      "FPR": 0.1875,
+                      "FNR": 0.2,
+                      "expected_error_cost": 0.3500000000000001,
+                      "eligible": false
+                    },
+                    {
+                      "configuration_id": "config_2",
+                      "configuration": {
+                        "C": 1,
+                        "random_state": 0
+                      },
+                      "TP": 16,
+                      "FP": 8,
+                      "FN": 4,
+                      "TN": 72,
+                      "FPR": 0.1,
+                      "FNR": 0.2,
+                      "expected_error_cost": 0.28,
+                      "eligible": true
+                    }
+                  ],
+                  "selected": {
+                    "configuration_id": "config_2",
+                    "configuration": {
+                      "C": 1,
+                      "random_state": 0
+                    },
+                    "TP": 16,
+                    "FP": 8,
+                    "FN": 4,
+                    "TN": 72,
+                    "FPR": 0.1,
+                    "FNR": 0.2,
+                    "expected_error_cost": 0.28,
+                    "eligible": true
+                  },
+                  "boundary": "Supplied trial evidence under a budget resolved before iteration; no protected-test access."
+                }
+              },
+              "ordered": false
+            },
+            {
+              "check_id": "hc_search_trials.csv_set_configuration_id_report",
+              "mutation": {
+                "table": "search_trials.csv",
+                "ops": [
+                  {
+                    "op": "set_cell",
+                    "index": 0,
+                    "column": "configuration_id",
+                    "value": "config_1_x"
+                  }
+                ]
+              },
+              "test_id": "report",
+              "expected": {
+                "value": {
+                  "default_budget": 3,
+                  "resolved_override_budget": 2,
+                  "executed_count": 2,
+                  "records": [
+                    {
+                      "configuration_id": "config_1_x",
+                      "configuration": {
+                        "C": 10,
+                        "random_state": 0
+                      },
+                      "TP": 16,
+                      "FP": 15,
+                      "FN": 4,
+                      "TN": 65,
+                      "FPR": 0.1875,
+                      "FNR": 0.2,
+                      "expected_error_cost": 0.3500000000000001,
+                      "eligible": false
+                    },
+                    {
+                      "configuration_id": "config_2",
+                      "configuration": {
+                        "C": 1,
+                        "random_state": 0
+                      },
+                      "TP": 16,
+                      "FP": 8,
+                      "FN": 4,
+                      "TN": 72,
+                      "FPR": 0.1,
+                      "FNR": 0.2,
+                      "expected_error_cost": 0.28,
+                      "eligible": true
+                    }
+                  ],
+                  "selected": {
+                    "configuration_id": "config_2",
+                    "configuration": {
+                      "C": 1,
+                      "random_state": 0
+                    },
+                    "TP": 16,
+                    "FP": 8,
+                    "FN": 4,
+                    "TN": 72,
+                    "FPR": 0.1,
+                    "FNR": 0.2,
+                    "expected_error_cost": 0.28,
+                    "eligible": true
+                  },
+                  "boundary": "Supplied trial evidence under a budget resolved before iteration; no protected-test access."
+                }
+              },
+              "ordered": false
+            },
+            {
+              "check_id": "hc_search_trials.csv_null_TP_report",
+              "mutation": {
+                "table": "search_trials.csv",
+                "ops": [
+                  {
+                    "op": "set_cell",
+                    "index": 0,
+                    "column": "TP",
+                    "value": null
+                  }
+                ]
+              },
+              "test_id": "report",
+              "expected": {
+                "value": {
+                  "default_budget": 3,
+                  "resolved_override_budget": 2,
+                  "executed_count": 2,
+                  "records": [
+                    {
+                      "configuration_id": "config_1",
+                      "configuration": {
+                        "C": 10,
+                        "random_state": 0
+                      },
+                      "TP": null,
+                      "FP": 15,
+                      "FN": 4,
+                      "TN": 65,
+                      "FPR": 0.1875,
+                      "FNR": null,
+                      "expected_error_cost": null,
+                      "eligible": false
+                    },
+                    {
+                      "configuration_id": "config_2",
+                      "configuration": {
+                        "C": 1,
+                        "random_state": 0
+                      },
+                      "TP": 16,
+                      "FP": 8,
+                      "FN": 4,
+                      "TN": 72,
+                      "FPR": 0.1,
+                      "FNR": 0.2,
+                      "expected_error_cost": 0.28,
+                      "eligible": true
+                    }
+                  ],
+                  "selected": {
+                    "configuration_id": "config_2",
+                    "configuration": {
+                      "C": 1,
+                      "random_state": 0
+                    },
+                    "TP": 16,
+                    "FP": 8,
+                    "FN": 4,
+                    "TN": 72,
+                    "FPR": 0.1,
+                    "FNR": 0.2,
+                    "expected_error_cost": 0.28,
+                    "eligible": true
+                  },
+                  "boundary": "Supplied trial evidence under a budget resolved before iteration; no protected-test access."
+                }
+              },
+              "ordered": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "step_id": "mle.tile.029_032.s24",
+      "type": "recap",
+      "concept_ids": [
+        "mle.experiment_metric_logging",
+        "mle.training_randomness",
+        "mle.validation_regularization",
+        "mle.bounded_hyperparameter_search"
+      ],
+      "title": "Keep the decision bounded",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Verify resolved overrides, revision, keyed metrics and artifact paths.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f1",
+              "mle.experiment_metric_logging#f2",
+              "mle.experiment_metric_logging#f3",
+              "mle.experiment_metric_logging#f4",
+              "mle.experiment_metric_logging#f5",
+              "mle.experiment_metric_logging#f6",
+              "mle.experiment_metric_logging#f7"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb2",
+              "mle.experiment_metric_logging#tb3",
+              "mle.experiment_metric_logging#tb4",
+              "mle.experiment_metric_logging#tb5",
+              "mle.experiment_metric_logging#tb6"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Retain completed pairs and empirical wins without universal determinism claims.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [
+              "mle.training_randomness#f1",
+              "mle.training_randomness#f2",
+              "mle.training_randomness#f3",
+              "mle.training_randomness#f4",
+              "mle.training_randomness#f5",
+              "mle.training_randomness#f6"
+            ],
+            "teaching_block_ids": [
+              "mle.training_randomness#tb2",
+              "mle.training_randomness#tb3",
+              "mle.training_randomness#tb4",
+              "mle.training_randomness#tb5"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Select by fixed validation evidence; penalty direction depends on the estimator.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "mle.validation_regularization"
+            ],
+            "fact_ids": [
+              "mle.validation_regularization#f1",
+              "mle.validation_regularization#f2",
+              "mle.validation_regularization#f3",
+              "mle.validation_regularization#f4",
+              "mle.validation_regularization#f5",
+              "mle.validation_regularization#f6"
+            ],
+            "teaching_block_ids": [
+              "mle.validation_regularization#tb2",
+              "mle.validation_regularization#tb3",
+              "mle.validation_regularization#tb4",
+              "mle.validation_regularization#tb5"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Resolve the budget before trials and keep protected-test evidence outside search.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [
+              "mle.bounded_hyperparameter_search#f1",
+              "mle.bounded_hyperparameter_search#f2",
+              "mle.bounded_hyperparameter_search#f3",
+              "mle.bounded_hyperparameter_search#f4",
+              "mle.bounded_hyperparameter_search#f5",
+              "mle.bounded_hyperparameter_search#f6",
+              "mle.bounded_hyperparameter_search#f7"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_hyperparameter_search#tb2",
+              "mle.bounded_hyperparameter_search#tb3",
+              "mle.bounded_hyperparameter_search#tb4",
+              "mle.bounded_hyperparameter_search#tb5",
+              "mle.bounded_hyperparameter_search#tb6"
+            ]
+          }
+        },
+        {
+          "type": "up_next",
+          "title": "Up next",
+          "text": "Document model limitations and foreseeable misuse under an existing risk policy"
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "mle.tile.029_032.r01",
+      "type": "remediation",
+      "required": false,
+      "concept_ids": [
+        "mle.experiment_metric_logging"
+      ],
+      "title": "Review: Retain a keyed experiment",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Log resolved parameters with mlflow.log_params(params), validation metrics with mlflow.log_metric(name, value), and a diagnostic file with mlflow.log_artifact(local_path).",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f2"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Inspect git rev-parse --verify HEAD for the actual repository revision before recording code identity.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f3"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Inspect os.getcwd() and use os.chdir(recorded_directory) to resolve repository/artifact paths. Retain the resolved local path in the lookup.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f6"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Capture subprocess.run output in the intended working directory when inspecting git rev-parse --verify HEAD. Reject revision mismatches before claiming artifact/run identity.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f7"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb4"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A printed metric is not a verified keyed record; revision, resolved overrides and artifact path must agree.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f2",
+              "mle.experiment_metric_logging#f3",
+              "mle.experiment_metric_logging#f5",
+              "mle.experiment_metric_logging#f6",
+              "mle.experiment_metric_logging#f7"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb6"
+            ]
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.execution_contract",
+            "columns": [
+              "default_trial_setting",
+              "override_trial_setting"
+            ]
+          },
+          "caption": "Revisit the same supplied fixture.",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f2",
+              "mle.experiment_metric_logging#f3",
+              "mle.experiment_metric_logging#f6",
+              "mle.experiment_metric_logging#f7"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb2",
+              "mle.experiment_metric_logging#tb3",
+              "mle.experiment_metric_logging#tb4"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.experiment_metric_logging"
+        ],
+        "fact_ids": [
+          "mle.experiment_metric_logging#f2",
+          "mle.experiment_metric_logging#f3",
+          "mle.experiment_metric_logging#f6",
+          "mle.experiment_metric_logging#f7"
+        ],
+        "teaching_block_ids": [
+          "mle.experiment_metric_logging#tb2",
+          "mle.experiment_metric_logging#tb3",
+          "mle.experiment_metric_logging#tb4"
+        ]
+      }
+    },
+    {
+      "step_id": "mle.tile.029_032.r02",
+      "type": "remediation",
+      "required": false,
+      "concept_ids": [
+        "mle.experiment_metric_logging"
+      ],
+      "title": "Review: Retain a keyed experiment",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Use import mlflow and with mlflow.start_run() as run; retain the run_id identifying the tracking record.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f1"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Log resolved parameters with mlflow.log_params(params), validation metrics with mlflow.log_metric(name, value), and a diagnostic file with mlflow.log_artifact(local_path).",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f2"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Inspect git rev-parse --verify HEAD for the actual repository revision before recording code identity.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f3"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Retrieve recorded = mlflow.get_run(run_id). Read recorded.data.params, recorded.data.metrics and recorded.info.artifact_uri. Repeated metrics expose the most recent value at the largest step, not full history.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f4"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Give the logging function defaults and explicit keyword overrides; log the resolved values, not merely defaults.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f5"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Inspect os.getcwd() and use os.chdir(recorded_directory) to resolve repository/artifact paths. Retain the resolved local path in the lookup.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f6"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Capture subprocess.run output in the intended working directory when inspecting git rev-parse --verify HEAD. Reject revision mismatches before claiming artifact/run identity.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f7"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb4"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A printed metric is not a verified keyed record; revision, resolved overrides and artifact path must agree.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f2",
+              "mle.experiment_metric_logging#f3",
+              "mle.experiment_metric_logging#f5",
+              "mle.experiment_metric_logging#f6",
+              "mle.experiment_metric_logging#f7"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb6"
+            ]
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.execution_contract",
+            "columns": [
+              "default_trial_setting",
+              "override_trial_setting"
+            ]
+          },
+          "caption": "Revisit the same supplied fixture.",
+          "lineage": {
+            "concept_ids": [
+              "mle.experiment_metric_logging"
+            ],
+            "fact_ids": [
+              "mle.experiment_metric_logging#f1",
+              "mle.experiment_metric_logging#f2",
+              "mle.experiment_metric_logging#f3",
+              "mle.experiment_metric_logging#f4",
+              "mle.experiment_metric_logging#f5",
+              "mle.experiment_metric_logging#f6",
+              "mle.experiment_metric_logging#f7"
+            ],
+            "teaching_block_ids": [
+              "mle.experiment_metric_logging#tb2",
+              "mle.experiment_metric_logging#tb3",
+              "mle.experiment_metric_logging#tb4"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.experiment_metric_logging"
+        ],
+        "fact_ids": [
+          "mle.experiment_metric_logging#f1",
+          "mle.experiment_metric_logging#f2",
+          "mle.experiment_metric_logging#f3",
+          "mle.experiment_metric_logging#f4",
+          "mle.experiment_metric_logging#f5",
+          "mle.experiment_metric_logging#f6",
+          "mle.experiment_metric_logging#f7"
+        ],
+        "teaching_block_ids": [
+          "mle.experiment_metric_logging#tb2",
+          "mle.experiment_metric_logging#tb3",
+          "mle.experiment_metric_logging#tb4"
+        ]
+      }
+    },
+    {
+      "step_id": "mle.tile.029_032.r03",
+      "type": "remediation",
+      "required": false,
+      "concept_ids": [
+        "mle.training_randomness"
+      ],
+      "title": "Review: Compare completed seed pairs",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Average selected numeric results with np.mean(numeric_values).",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [
+              "mle.training_randomness#f5"
+            ],
+            "teaching_block_ids": [
+              "mle.training_randomness#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "np.std(numeric_values, ddof=0) divides squared deviations by N before the square root. Use ddof=1 only when N−1 is the required divisor.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [
+              "mle.training_randomness#f6"
+            ],
+            "teaching_block_ids": [
+              "mle.training_randomness#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Controlled seeds do not guarantee universal determinism; an empirical win fraction describes completed trials only.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [
+              "mle.training_randomness#f2",
+              "mle.training_randomness#f4"
+            ],
+            "teaching_block_ids": [
+              "mle.training_randomness#tb5"
+            ]
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.paired_trials"
+          },
+          "caption": "Revisit the same supplied fixture.",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [
+              "mle.training_randomness#f5",
+              "mle.training_randomness#f6"
+            ],
+            "teaching_block_ids": [
+              "mle.training_randomness#tb3"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.training_randomness"
+        ],
+        "fact_ids": [
+          "mle.training_randomness#f5",
+          "mle.training_randomness#f6"
+        ],
+        "teaching_block_ids": [
+          "mle.training_randomness#tb3"
+        ]
+      }
+    },
+    {
+      "step_id": "mle.tile.029_032.r04",
+      "type": "remediation",
+      "required": false,
+      "concept_ids": [
+        "mle.training_randomness"
+      ],
+      "title": "Review: Compare completed seed pairs",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Supported integer random_state settings reset generators for repeatable calls. None or a shared RandomState consumes state differently.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [
+              "mle.training_randomness#f1"
+            ],
+            "teaching_block_ids": [
+              "mle.training_randomness#tb2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Control estimator and split randomness, without claiming every environment or computation is deterministic.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [
+              "mle.training_randomness#f2"
+            ],
+            "teaching_block_ids": [
+              "mle.training_randomness#tb2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Loop over the declared seeds with for, collecting each matched pair of validation results.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [
+              "mle.training_randomness#f3"
+            ],
+            "teaching_block_ids": [
+              "mle.training_randomness#tb2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Empirical win probability is winning pairs divided by all completed pairs; retain the completed trial count.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [
+              "mle.training_randomness#f4"
+            ],
+            "teaching_block_ids": [
+              "mle.training_randomness#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Average selected numeric results with np.mean(numeric_values).",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [
+              "mle.training_randomness#f5"
+            ],
+            "teaching_block_ids": [
+              "mle.training_randomness#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "np.std(numeric_values, ddof=0) divides squared deviations by N before the square root. Use ddof=1 only when N−1 is the required divisor.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [
+              "mle.training_randomness#f6"
+            ],
+            "teaching_block_ids": [
+              "mle.training_randomness#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Controlled seeds do not guarantee universal determinism; an empirical win fraction describes completed trials only.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [
+              "mle.training_randomness#f2",
+              "mle.training_randomness#f4"
+            ],
+            "teaching_block_ids": [
+              "mle.training_randomness#tb5"
+            ]
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.paired_trials"
+          },
+          "caption": "Revisit the same supplied fixture.",
+          "lineage": {
+            "concept_ids": [
+              "mle.training_randomness"
+            ],
+            "fact_ids": [
+              "mle.training_randomness#f1",
+              "mle.training_randomness#f2",
+              "mle.training_randomness#f3",
+              "mle.training_randomness#f4",
+              "mle.training_randomness#f5",
+              "mle.training_randomness#f6"
+            ],
+            "teaching_block_ids": [
+              "mle.training_randomness#tb2",
+              "mle.training_randomness#tb3"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.training_randomness"
+        ],
+        "fact_ids": [
+          "mle.training_randomness#f1",
+          "mle.training_randomness#f2",
+          "mle.training_randomness#f3",
+          "mle.training_randomness#f4",
+          "mle.training_randomness#f5",
+          "mle.training_randomness#f6"
+        ],
+        "teaching_block_ids": [
+          "mle.training_randomness#tb2",
+          "mle.training_randomness#tb3"
+        ]
+      }
+    },
+    {
+      "step_id": "mle.tile.029_032.r05",
+      "type": "remediation",
+      "required": false,
+      "concept_ids": [
+        "mle.validation_regularization"
+      ],
+      "title": "Review: Select regularization on validation",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Regularization penalizes complexity during fitting. Larger Ridge alpha increases its penalty; LogisticRegression C is inverse regularization strength.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.validation_regularization"
+            ],
+            "fact_ids": [
+              "mle.validation_regularization#f6"
+            ],
+            "teaching_block_ids": [
+              "mle.validation_regularization#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Training performance alone does not select the setting. Larger C does not mean stronger LogisticRegression regularization.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.validation_regularization"
+            ],
+            "fact_ids": [
+              "mle.validation_regularization#f2",
+              "mle.validation_regularization#f6"
+            ],
+            "teaching_block_ids": [
+              "mle.validation_regularization#tb5"
+            ]
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.regularization_records",
+            "columns": [
+              "configuration_id",
+              "estimator",
+              "parameter_value",
+              "training_expected_error_cost",
+              "expected_error_cost"
+            ]
+          },
+          "caption": "Revisit the same supplied fixture.",
+          "lineage": {
+            "concept_ids": [
+              "mle.validation_regularization"
+            ],
+            "fact_ids": [
+              "mle.validation_regularization#f6"
+            ],
+            "teaching_block_ids": [
+              "mle.validation_regularization#tb3"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.validation_regularization"
+        ],
+        "fact_ids": [
+          "mle.validation_regularization#f6"
+        ],
+        "teaching_block_ids": [
+          "mle.validation_regularization#tb3"
+        ]
+      }
+    },
+    {
+      "step_id": "mle.tile.029_032.r06",
+      "type": "remediation",
+      "required": false,
+      "concept_ids": [
+        "mle.validation_regularization"
+      ],
+      "title": "Review: Select regularization on validation",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Good training performance alongside poor validation performance, under the same scoring interpretation, is evidence of overfitting.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.validation_regularization"
+            ],
+            "fact_ids": [
+              "mle.validation_regularization#f1"
+            ],
+            "teaching_block_ids": [
+              "mle.validation_regularization#tb2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Compare declared regularization settings under the same validation protocol. Select by the predeclared validation criterion, not training score alone.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.validation_regularization"
+            ],
+            "fact_ids": [
+              "mle.validation_regularization#f2"
+            ],
+            "teaching_block_ids": [
+              "mle.validation_regularization#tb2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "FPR = FP/(FP+TN) uses actual negatives; FNR = FN/(FN+TP) uses actual positives. Empty conditioning groups leave rates undefined.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.validation_regularization"
+            ],
+            "fact_ids": [
+              "mle.validation_regularization#f3"
+            ],
+            "teaching_block_ids": [
+              "mle.validation_regularization#tb2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "With correct predictions costing zero, expected cost = P(Y=0) × FPR × cost_FP + P(Y=1) × FNR × cost_FN, using supplied deployment probabilities.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.validation_regularization"
+            ],
+            "fact_ids": [
+              "mle.validation_regularization#f4"
+            ],
+            "teaching_block_ids": [
+              "mle.validation_regularization#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Protected-test observations cannot guide preprocessing fit, model choice or tuning; doing so leaks information into the chosen system.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.validation_regularization"
+            ],
+            "fact_ids": [
+              "mle.validation_regularization#f5"
+            ],
+            "teaching_block_ids": [
+              "mle.validation_regularization#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Training performance alone does not select the setting. Larger C does not mean stronger LogisticRegression regularization.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.validation_regularization"
+            ],
+            "fact_ids": [
+              "mle.validation_regularization#f2",
+              "mle.validation_regularization#f6"
+            ],
+            "teaching_block_ids": [
+              "mle.validation_regularization#tb5"
+            ]
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.regularization_records",
+            "columns": [
+              "configuration_id",
+              "estimator",
+              "parameter_value",
+              "training_expected_error_cost",
+              "expected_error_cost"
+            ]
+          },
+          "caption": "Revisit the same supplied fixture.",
+          "lineage": {
+            "concept_ids": [
+              "mle.validation_regularization"
+            ],
+            "fact_ids": [
+              "mle.validation_regularization#f1",
+              "mle.validation_regularization#f2",
+              "mle.validation_regularization#f3",
+              "mle.validation_regularization#f4",
+              "mle.validation_regularization#f5"
+            ],
+            "teaching_block_ids": [
+              "mle.validation_regularization#tb2",
+              "mle.validation_regularization#tb3"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.validation_regularization"
+        ],
+        "fact_ids": [
+          "mle.validation_regularization#f1",
+          "mle.validation_regularization#f2",
+          "mle.validation_regularization#f3",
+          "mle.validation_regularization#f4",
+          "mle.validation_regularization#f5"
+        ],
+        "teaching_block_ids": [
+          "mle.validation_regularization#tb2",
+          "mle.validation_regularization#tb3"
+        ]
+      }
+    },
+    {
+      "step_id": "mle.tile.029_032.r07",
+      "type": "remediation",
+      "required": false,
+      "concept_ids": [
+        "mle.bounded_hyperparameter_search"
+      ],
+      "title": "Review: Bound the search",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Keep protected-test observations out of preprocessing fit, model choice and tuning; otherwise information leaks into the chosen system.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [
+              "mle.bounded_hyperparameter_search#f6"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_hyperparameter_search#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "An override replaces the default budget. Protected-test evidence cannot authorize more tuning.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [
+              "mle.bounded_hyperparameter_search#f2",
+              "mle.bounded_hyperparameter_search#f6",
+              "mle.bounded_hyperparameter_search#f7"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_hyperparameter_search#tb6"
+            ]
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.execution_contract",
+            "columns": [
+              "default_search_budget",
+              "override_search_budget"
+            ]
+          },
+          "caption": "Revisit the same supplied fixture.",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [
+              "mle.bounded_hyperparameter_search#f6"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_hyperparameter_search#tb3"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.bounded_hyperparameter_search"
+        ],
+        "fact_ids": [
+          "mle.bounded_hyperparameter_search#f6"
+        ],
+        "teaching_block_ids": [
+          "mle.bounded_hyperparameter_search#tb3"
+        ]
+      }
+    },
+    {
+      "step_id": "mle.tile.029_032.r08",
+      "type": "remediation",
+      "required": false,
+      "concept_ids": [
+        "mle.bounded_hyperparameter_search"
+      ],
+      "title": "Review: Bound the search",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "GridSearchCV enumerates param_grid combinations. RandomizedSearchCV samples configurations within the n_iter bound.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [
+              "mle.bounded_hyperparameter_search#f1"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_hyperparameter_search#tb2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Declare scoring and evaluation protocol before search; inspect validation-selected best_params_ and cv_results_.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [
+              "mle.bounded_hyperparameter_search#f2"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_hyperparameter_search#tb2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For manual search, iterate the supplied bounded configuration dictionaries, run declared trials and record validation results without exceeding the fixed budget.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [
+              "mle.bounded_hyperparameter_search#f3"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_hyperparameter_search#tb2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "FPR = FP/(FP+TN) uses actual negatives; FNR = FN/(FN+TP) uses actual positives. Empty groups leave rates undefined.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [
+              "mle.bounded_hyperparameter_search#f4"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_hyperparameter_search#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "With zero correct-prediction cost, expected cost = P(Y=0) × FPR × cost_FP + P(Y=1) × FNR × cost_FN, using supplied deployment probabilities.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [
+              "mle.bounded_hyperparameter_search#f5"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_hyperparameter_search#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Keep protected-test observations out of preprocessing fit, model choice and tuning; otherwise information leaks into the chosen system.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [
+              "mle.bounded_hyperparameter_search#f6"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_hyperparameter_search#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Define a default search budget and allow explicit keyword overrides. Resolve the actual budget before iterating trials.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [
+              "mle.bounded_hyperparameter_search#f7"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_hyperparameter_search#tb4"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "An override replaces the default budget. Protected-test evidence cannot authorize more tuning.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [
+              "mle.bounded_hyperparameter_search#f2",
+              "mle.bounded_hyperparameter_search#f6",
+              "mle.bounded_hyperparameter_search#f7"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_hyperparameter_search#tb6"
+            ]
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.execution_contract",
+            "columns": [
+              "default_search_budget",
+              "override_search_budget"
+            ]
+          },
+          "caption": "Revisit the same supplied fixture.",
+          "lineage": {
+            "concept_ids": [
+              "mle.bounded_hyperparameter_search"
+            ],
+            "fact_ids": [
+              "mle.bounded_hyperparameter_search#f1",
+              "mle.bounded_hyperparameter_search#f2",
+              "mle.bounded_hyperparameter_search#f3",
+              "mle.bounded_hyperparameter_search#f4",
+              "mle.bounded_hyperparameter_search#f5",
+              "mle.bounded_hyperparameter_search#f6",
+              "mle.bounded_hyperparameter_search#f7"
+            ],
+            "teaching_block_ids": [
+              "mle.bounded_hyperparameter_search#tb2",
+              "mle.bounded_hyperparameter_search#tb3",
+              "mle.bounded_hyperparameter_search#tb4"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "mle.bounded_hyperparameter_search"
+        ],
+        "fact_ids": [
+          "mle.bounded_hyperparameter_search#f1",
+          "mle.bounded_hyperparameter_search#f2",
+          "mle.bounded_hyperparameter_search#f3",
+          "mle.bounded_hyperparameter_search#f4",
+          "mle.bounded_hyperparameter_search#f5",
+          "mle.bounded_hyperparameter_search#f6",
+          "mle.bounded_hyperparameter_search#f7"
+        ],
+        "teaching_block_ids": [
+          "mle.bounded_hyperparameter_search#tb2",
+          "mle.bounded_hyperparameter_search#tb3",
+          "mle.bounded_hyperparameter_search#tb4"
+        ]
+      }
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "mle.tile.033_033"
+  },
+  "content_hash": "b042433758f62b569994b06ee0e9c4f0b9f25ff6dd97542907b4e6724e88294a"
+}

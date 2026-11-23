@@ -1,0 +1,79 @@
+Configure the supplied evaluation scaffold by assigning `reference_factory` to `supplied_DummyClassifier`; `count_errors` to `supplied_np_sum`; `target_mean` to `supplied_np_mean`; `target_std` to `supplied_np_std`; `validation_metric` to `supplied_accuracy_score`. Assign the callable names without calling them. These interfaces control the Establish a simple reference prediction baseline computation. Keep input loading, the complete evaluation functions, guards and returned fields unchanged; only replace the marked interface assignments.
+# Supplied input loading and dependencies.
+import pandas as pd
+
+contract = pd.read_csv('acceptance_contract.csv').iloc[0]
+
+p_negative = contract['deployment_negative_probability']
+
+p_positive = contract['deployment_positive_probability']
+
+cost_FP = contract['cost_FP']
+
+cost_FN = contract['cost_FN']
+
+bound = contract['expected_cost_bound']
+
+train = pd.read_csv('reference_train.csv')
+
+validation = pd.read_csv('orders_validation.csv')
+
+X_train = train[['feature_1']].to_numpy()
+
+y_train = train['y_train'].to_numpy()
+
+X_validation = validation[['feature_1']].to_numpy()
+
+y_validation = validation['y_validation'].to_numpy()
+
+import numpy as np
+
+from sklearn.dummy import DummyClassifier
+
+from sklearn.metrics import accuracy_score
+
+# Supplied evaluation scaffolding. Configure its interfaces below; keep this block unchanged.
+if __name__:
+    def evaluate(X_train, y_train, X_validation, y, p_negative, p_positive, cost_FP, cost_FN):
+        estimator = reference_factory(strategy="most_frequent")
+        estimator.fit(X_train, y_train)
+        predictions = estimator.predict(X_validation)
+        FP = count_errors((y == 0) & (predictions == 1))
+        TN = count_errors((y == 0) & (predictions == 0))
+        FN = count_errors((y == 1) & (predictions == 0))
+        TP = count_errors((y == 1) & (predictions == 1))
+        negative_count = FP + TN
+        positive_count = FN + TP
+        FPR = None
+        FNR = None
+        expected_cost = None
+        if negative_count > 0:
+            FPR = FP / negative_count
+        if positive_count > 0:
+            FNR = FN / positive_count
+        if negative_count > 0:
+            if positive_count > 0:
+                expected_cost = p_negative * FPR * cost_FP + p_positive * FNR * cost_FN
+        training_mean = target_mean(y_train)
+        training_std = target_std(y_train, ddof=0)
+        training_positive_prevalence = count_errors(y_train == 1) / len(y_train)
+        training_negative_prevalence = count_errors(y_train == 0) / len(y_train)
+        validation_accuracy = validation_metric(y, predictions)
+        return {'FP': FP, 'TN': TN, 'FN': FN, 'TP': TP, 'actual_negative_count': negative_count, 'actual_positive_count': positive_count, 'FPR': FPR, 'FNR': FNR, 'expected_cost': expected_cost, 'predictions': predictions, 'rule': 'most_frequent', 'training_mean': training_mean, 'training_std': training_std, 'training_positive_prevalence': training_positive_prevalence, 'training_negative_prevalence': training_negative_prevalence, 'validation_accuracy': validation_accuracy}
+
+# Supplied callable operations; keep these assignments unchanged.
+supplied_DummyClassifier = DummyClassifier
+supplied_np_sum = np.sum
+supplied_np_mean = np.mean
+supplied_np_std = np.std
+supplied_accuracy_score = accuracy_score
+# TODO: configure each interface using the matching supplied callable, without calling it.
+reference_factory = None  # TODO: select the supplied callable
+count_errors = None  # TODO: select the supplied callable
+target_mean = None  # TODO: select the supplied callable
+target_std = None  # TODO: select the supplied callable
+validation_metric = None  # TODO: select the supplied callable
+SYNTAX
+{'allowed_syntax': ['import numpy as np', 'from sklearn.dummy import DummyClassifier', 'from sklearn.metrics import accuracy_score', 'def', 'return', 'variable assignment', 'function parameters', 'dictionary literals', 'numeric and string literals', 'None', 'if and else', 'arithmetic operators', 'array equality comparisons', 'elementwise Boolean &', 'np.array', 'np.mean(numeric_values)', 'np.std(numeric_values, ddof=0)', 'np.std(numeric_values, ddof=1) only when explicitly required', 'np.sum', 'len', 'DummyClassifier(strategy="most_frequent")', 'estimator.fit', 'estimator.predict', 'accuracy_score'], 'blocked_syntax': ['from sklearn.linear_model import LogisticRegression', 'from sklearn.model_selection import GridSearchCV', 'from sklearn.model_selection import RandomizedSearchCV', 'estimator.predict_proba', 'mlflow.start_run', 'mlflow.log_metric', 'import torch']}
+TESTS
+[{'test_id': 't1', 'kind': 'value_equals', 'spec': {'expr': 'evaluate(X_train, y_train, X_validation, y_validation, p_negative, p_positive, cost_FP, cost_FN)', 'expected': {'FP': 0, 'TN': 3, 'FN': 3, 'TP': 0, 'actual_negative_count': 3, 'actual_positive_count': 3, 'FPR': 0, 'FNR': 1, 'expected_cost': 1, 'predictions': [0, 0, 0, 0, 0, 0], 'rule': 'most_frequent', 'training_mean': 0.2, 'training_std': 0.4, 'training_positive_prevalence': 0.2, 'training_negative_prevalence': 0.8, 'validation_accuracy': 0.5}}, 'visible': True, 'message_on_fail': 'Check the named result fields, fixed assumptions, and empty-group behavior.'}, {'test_id': 't2', 'kind': 'value_equals', 'spec': {'expr': 'evaluate(X_train, y_train, X_validation[y_validation == 0], y_validation[y_validation == 0], p_negative, p_positive, cost_FP, cost_FN)', 'expected': {'FP': 0, 'TN': 3, 'FN': 0, 'TP': 0, 'actual_negative_count': 3, 'actual_positive_count': 0, 'FPR': 0, 'FNR': None, 'expected_cost': None, 'predictions': [0, 0, 0], 'rule': 'most_frequent', 'training_mean': 0.2, 'training_std': 0.4, 'training_positive_prevalence': 0.2, 'training_negative_prevalence': 0.8, 'validation_accuracy': 1}}, 'visible': False, 'message_on_fail': 'Check the named result fields, fixed assumptions, and empty-group behavior.'}, {'test_id': 't3', 'kind': 'value_equals', 'spec': {'expr': 'evaluate(X_train, y_train, X_validation[y_validation == 1], y_validation[y_validation == 1], p_negative, p_positive, cost_FP, cost_FN)', 'expected': {'FP': 0, 'TN': 0, 'FN': 3, 'TP': 0, 'actual_negative_count': 0, 'actual_positive_count': 3, 'FPR': None, 'FNR': 1, 'expected_cost': None, 'predictions': [0, 0, 0], 'rule': 'most_frequent', 'training_mean': 0.2, 'training_std': 0.4, 'training_positive_prevalence': 0.2, 'training_negative_prevalence': 0.8, 'validation_accuracy': 0}}, 'visible': False, 'message_on_fail': 'Check the named result fields, fixed assumptions, and empty-group behavior.'}]

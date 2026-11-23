@@ -1,0 +1,186 @@
+{
+  "type": "code_exercise",
+  "public": {
+    "prompt": "Complete the operation bindings marked TODO. Bind each name to the NumPy operation for its role: asarray_operation (asarray), count_nonzero_operation (count_nonzero), sum_operation (sum), abs_operation (abs), mean_operation (mean), std_operation (std). The supplied orchestration applies these operations to the mounted data, supplies the declared eligibility rules and denominators, and constructs the existing report. Keep population standard deviations (ddof=0) and the supplied record fields and ordering. Do not replace the report with constants. The supplied drift calculation uses half the sum of absolute probability differences and the declared strict threshold; its result describes distribution differences, not demonstrated quality loss. The graded output remains `report`, with the supplied structure and ordering.",
+    "runtime": {
+      "kind": "python",
+      "version": "0.29.5",
+      "packages": [
+        "numpy"
+      ]
+    },
+    "workspace": {
+      "entry": "main.py",
+      "files": [
+        {
+          "path": "main.py",
+          "role": "editable",
+          "language": "python",
+          "content": "# Complete only the TODO operation/calculation/serialization lines described in the prompt.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'reference': {'numeric_values': 'number', 'category': 'string', 'predicted_class': 'string'}, 'production': {'numeric_values': 'number', 'category': 'string', 'predicted_class': 'string'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\ndef aligned_counts(data,names):\\n    return np.asarray([np.count_nonzero(column(data,'category')==k) for k in names])\\npolicy = {'reference_id': 'reference', 'current_id': 'production', 'comparison_window': '2026-01-02T10:00:00Z/2026-01-02T11:00:00Z', 'fixed_edges': [0, 5, 10], 'eligible_numeric_range': [0, 10], 'declared_categories': ['short_distance', 'long_distance', 'not_reported'], 'ddof': 0, 'distance_equation': '0.5 * sum(abs(reference_probability[i]-current_probability[i])) over all aligned positions', 'criterion': 'distance > 0.20; equality is not a crossing', 'numeric_rule': 'Apply the same distance to aligned numerical-bin proportions; retain mean and ddof=0 standard deviation separately', 'quality_claim': 'unresolved without matched labels'}\\ndef bin_counts(values,edges):\\n    return np.histogram(values,bins=edges)[0]\\ndef eligible_total(rows):\\n    return len(rows)\\n\\n\\n# Supplied orchestration; operations are selected by the learner.\\ndef analyze_drift(reference_rows, production_rows, policy):\\n    reference = reference_rows\\n    production = production_rows\\n    r = column(reference, 'numeric_values')\\n    p = column(production, 'numeric_values')\\n    low = policy['eligible_numeric_range'][0]\\n    high = policy['eligible_numeric_range'][1]\\n    r = r[(r >= low) & (r <= high)]\\n    p = p[(p >= low) & (p <= high)]\\n    r_total = eligible_total(reference)\\n    p_total = eligible_total(production)\\n    r_counts = aligned_counts(reference, policy['declared_categories'])\\n    p_counts = aligned_counts(production, policy['declared_categories'])\\n    fixed_edges = asarray_operation(policy['fixed_edges'])\\n    r_bin_counts = bin_counts(r, fixed_edges)\\n    p_bin_counts = bin_counts(p, fixed_edges)\\n    r_mean = mean_operation(r)\\n    p_mean = mean_operation(p)\\n    r_std = std_operation(r, ddof=0)\\n    p_std = std_operation(p, ddof=0)\\n    r_prob = r_counts / r_total\\n    p_prob = p_counts / p_total\\n    r_bin_prob = r_bin_counts / count_nonzero_operation((r >= low) & (r <= high))\\n    p_bin_prob = p_bin_counts / count_nonzero_operation((p >= low) & (p <= high))\\n    distance = factor * sum_operation(abs_operation(p_prob - r_prob))\\n    numeric_distance = factor * sum_operation(abs_operation(p_bin_prob - r_bin_prob))\\n    category_drift = distance > threshold\\n    numeric_drift = numeric_distance > threshold\\n    report = {'definitions': policy, 'r_total': r_total, 'p_total': p_total, 'r_mean': r_mean, 'p_mean': p_mean, 'r_std': r_std, 'p_std': p_std, 'r_prob': r_prob, 'p_prob': p_prob, 'r_bin_prob': r_bin_prob, 'p_bin_prob': p_bin_prob, 'category_distance': distance, 'numeric_distance': numeric_distance, 'category_drift': category_drift, 'numeric_drift': numeric_drift, 'interpretation': 'distribution difference only'}\\n    return report\\n\"\nexec(_fixture_support)\nasarray_operation = None  # TODO: complete this binding or calculation\ncount_nonzero_operation = None  # TODO: complete this binding or calculation\nsum_operation = None  # TODO: complete this binding or calculation\nabs_operation = None  # TODO: complete this binding or calculation\nmean_operation = None  # TODO: complete this binding or calculation\nstd_operation = None  # TODO: complete this binding or calculation\npolicy = {'reference_id': 'reference', 'current_id': 'production', 'comparison_window': '2026-01-02T10:00:00Z/2026-01-02T11:00:00Z', 'fixed_edges': [0, 5, 10], 'eligible_numeric_range': [0, 10], 'declared_categories': ['short_distance', 'long_distance', 'not_reported'], 'ddof': 0, 'distance_equation': '0.5 * sum(abs(reference_probability[i]-current_probability[i])) over all aligned positions', 'criterion': 'distance > 0.20; equality is not a crossing', 'numeric_rule': 'Apply the same distance to aligned numerical-bin proportions; retain mean and ddof=0 standard deviation separately', 'quality_claim': 'unresolved without matched labels'}\nthreshold = 0.2\nfactor = 0.5\nreport = analyze_drift(load('reference'), load('production'), policy)\n"
+        }
+      ],
+      "asset_mounts": [
+        {
+          "asset_id": "ds.reference",
+          "mount_path": "reference.csv"
+        },
+        {
+          "asset_id": "ds.production",
+          "mount_path": "production.csv"
+        }
+      ]
+    },
+    "constraints": {
+      "allowed_syntax": [
+        "import numpy as np",
+        "Imports for required dependencies explicitly identified by the supplied infrastructure scaffolding",
+        "def with parameters",
+        "return",
+        "Variable assignment",
+        "Lists and dictionaries",
+        "Array indexing and Boolean masks",
+        "np.asarray(...)",
+        "np.mean(numeric_values)",
+        "np.std(numeric_values, ddof=0)",
+        "np.std(numeric_values, ddof=1) only when the supplied calculation requires the N\u22121 divisor",
+        "np.count_nonzero(...)",
+        "np.sum(...)",
+        "np.abs(...)",
+        "Elementwise arithmetic and broadcasting",
+        "Comparison operators",
+        "Calls to supplied infrastructure interfaces"
+      ],
+      "blocked_syntax": []
+    }
+  },
+  "grading": {
+    "solution_files": [
+      {
+        "path": "main.py",
+        "content": "_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'reference': {'numeric_values': 'number', 'category': 'string', 'predicted_class': 'string'}, 'production': {'numeric_values': 'number', 'category': 'string', 'predicted_class': 'string'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\ndef aligned_counts(data,names):\\n    return np.asarray([np.count_nonzero(column(data,'category')==k) for k in names])\\npolicy = {'reference_id': 'reference', 'current_id': 'production', 'comparison_window': '2026-01-02T10:00:00Z/2026-01-02T11:00:00Z', 'fixed_edges': [0, 5, 10], 'eligible_numeric_range': [0, 10], 'declared_categories': ['short_distance', 'long_distance', 'not_reported'], 'ddof': 0, 'distance_equation': '0.5 * sum(abs(reference_probability[i]-current_probability[i])) over all aligned positions', 'criterion': 'distance > 0.20; equality is not a crossing', 'numeric_rule': 'Apply the same distance to aligned numerical-bin proportions; retain mean and ddof=0 standard deviation separately', 'quality_claim': 'unresolved without matched labels'}\\ndef bin_counts(values,edges):\\n    return np.histogram(values,bins=edges)[0]\\ndef eligible_total(rows):\\n    return len(rows)\\n\\n\\n# Supplied orchestration; operations are selected by the learner.\\ndef analyze_drift(reference_rows, production_rows, policy):\\n    reference = reference_rows\\n    production = production_rows\\n    r = column(reference, 'numeric_values')\\n    p = column(production, 'numeric_values')\\n    low = policy['eligible_numeric_range'][0]\\n    high = policy['eligible_numeric_range'][1]\\n    r = r[(r >= low) & (r <= high)]\\n    p = p[(p >= low) & (p <= high)]\\n    r_total = eligible_total(reference)\\n    p_total = eligible_total(production)\\n    r_counts = aligned_counts(reference, policy['declared_categories'])\\n    p_counts = aligned_counts(production, policy['declared_categories'])\\n    fixed_edges = asarray_operation(policy['fixed_edges'])\\n    r_bin_counts = bin_counts(r, fixed_edges)\\n    p_bin_counts = bin_counts(p, fixed_edges)\\n    r_mean = mean_operation(r)\\n    p_mean = mean_operation(p)\\n    r_std = std_operation(r, ddof=0)\\n    p_std = std_operation(p, ddof=0)\\n    r_prob = r_counts / r_total\\n    p_prob = p_counts / p_total\\n    r_bin_prob = r_bin_counts / count_nonzero_operation((r >= low) & (r <= high))\\n    p_bin_prob = p_bin_counts / count_nonzero_operation((p >= low) & (p <= high))\\n    distance = factor * sum_operation(abs_operation(p_prob - r_prob))\\n    numeric_distance = factor * sum_operation(abs_operation(p_bin_prob - r_bin_prob))\\n    category_drift = distance > threshold\\n    numeric_drift = numeric_distance > threshold\\n    report = {'definitions': policy, 'r_total': r_total, 'p_total': p_total, 'r_mean': r_mean, 'p_mean': p_mean, 'r_std': r_std, 'p_std': p_std, 'r_prob': r_prob, 'p_prob': p_prob, 'r_bin_prob': r_bin_prob, 'p_bin_prob': p_bin_prob, 'category_distance': distance, 'numeric_distance': numeric_distance, 'category_drift': category_drift, 'numeric_drift': numeric_drift, 'interpretation': 'distribution difference only'}\\n    return report\\n\"\nexec(_fixture_support)\nasarray_operation = np.asarray\ncount_nonzero_operation = np.count_nonzero\nsum_operation = np.sum\nabs_operation = np.abs\nmean_operation = np.mean\nstd_operation = np.std\npolicy = {'reference_id': 'reference', 'current_id': 'production', 'comparison_window': '2026-01-02T10:00:00Z/2026-01-02T11:00:00Z', 'fixed_edges': [0, 5, 10], 'eligible_numeric_range': [0, 10], 'declared_categories': ['short_distance', 'long_distance', 'not_reported'], 'ddof': 0, 'distance_equation': '0.5 * sum(abs(reference_probability[i]-current_probability[i])) over all aligned positions', 'criterion': 'distance > 0.20; equality is not a crossing', 'numeric_rule': 'Apply the same distance to aligned numerical-bin proportions; retain mean and ddof=0 standard deviation separately', 'quality_claim': 'unresolved without matched labels'}\nthreshold = 0.2\nfactor = 0.5\nreport = analyze_drift(load('reference'), load('production'), policy)\n"
+      }
+    ],
+    "tests": [
+      {
+        "test_id": "report",
+        "kind": "value_equals",
+        "spec": {
+          "expr": "report",
+          "expected": {
+            "definitions": {
+              "reference_id": "reference",
+              "current_id": "production",
+              "comparison_window": "2026-01-02T10:00:00Z/2026-01-02T11:00:00Z",
+              "fixed_edges": [
+                0,
+                5,
+                10
+              ],
+              "eligible_numeric_range": [
+                0,
+                10
+              ],
+              "declared_categories": [
+                "short_distance",
+                "long_distance",
+                "not_reported"
+              ],
+              "ddof": 0,
+              "distance_equation": "0.5 * sum(abs(reference_probability[i]-current_probability[i])) over all aligned positions",
+              "criterion": "distance > 0.20; equality is not a crossing",
+              "numeric_rule": "Apply the same distance to aligned numerical-bin proportions; retain mean and ddof=0 standard deviation separately",
+              "quality_claim": "unresolved without matched labels"
+            },
+            "r_total": 100,
+            "p_total": 100,
+            "r_mean": 4.96,
+            "p_mean": 4.96,
+            "r_std": 2.5996922894835075,
+            "p_std": 2.5996922894835075,
+            "r_prob": [
+              0.6,
+              0.4,
+              0
+            ],
+            "p_prob": [
+              0.3,
+              0.7,
+              0
+            ],
+            "r_bin_prob": [
+              0.45,
+              0.55
+            ],
+            "p_bin_prob": [
+              0.45,
+              0.55
+            ],
+            "category_distance": 0.29999999999999993,
+            "numeric_distance": 0,
+            "category_drift": true,
+            "numeric_drift": false,
+            "interpretation": "distribution difference only"
+          }
+        },
+        "message_on_fail": "The report differs from the declared fixture contract. Recheck execution order, scope, definitions and required evidence."
+      }
+    ]
+  },
+  "interaction_id": "ix.mle.tile.080_082.s14",
+  "difficulty": "stretch",
+  "grading_mode": "client",
+  "standalone": true,
+  "measures": [
+    {
+      "concept_id": "mle.data_drift_detection",
+      "capability": "identify_valid_reference_window_and_distribution_alignment",
+      "fact_ids": [
+        "f1",
+        "f2"
+      ]
+    },
+    {
+      "concept_id": "mle.data_drift_detection",
+      "capability": "calculate_numeric_mean_and_declared_standard_deviation",
+      "fact_ids": [
+        "f5",
+        "f6"
+      ]
+    },
+    {
+      "concept_id": "mle.data_drift_detection",
+      "capability": "calculate_aligned_category_probabilities_and_distance",
+      "fact_ids": [
+        "f2",
+        "f7"
+      ]
+    },
+    {
+      "concept_id": "mle.data_drift_detection",
+      "capability": "identify_feature_level_drift_without_inferring_quality_loss",
+      "fact_ids": [
+        "f3",
+        "f4"
+      ]
+    }
+  ],
+  "anchors": [
+    "mle.data_drift_detection#practice",
+    "mle.data_drift_detection#assessment:identify_valid_reference_window_and_distribution_alignment",
+    "mle.data_drift_detection#assessment:calculate_numeric_mean_and_declared_standard_deviation",
+    "mle.data_drift_detection#assessment:calculate_aligned_category_probabilities_and_distance",
+    "mle.data_drift_detection#assessment:identify_feature_level_drift_without_inferring_quality_loss"
+  ],
+  "feedback": {
+    "correct": {
+      "message": "The report preserves alignment and distinguishes distribution differences from quality loss."
+    },
+    "incorrect": {
+      "message": "Recheck aligned proportions, both distances and the strict crossing predicate."
+    },
+    "hints": [
+      "Normalize each aligned feature using its own window\u2019s denominator.",
+      "Equality at 0.20 does not cross the strict distance criterion."
+    ]
+  }
+}

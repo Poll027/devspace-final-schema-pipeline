@@ -1,0 +1,3289 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "python_fastapi_backend_developer",
+  "tile_id": "tile_093",
+  "toc_location": {
+    "region_id": "region_readiness",
+    "terrain_id": "terrain_security_contract"
+  },
+  "title": "Webhook delivery idempotency / Webhook replay freshness / Bounded retry decisions respecting HTTP idempotency",
+  "summary": "",
+  "concept_ids": [
+    "fastapi_backend.webhook_delivery_idempotency",
+    "fastapi_backend.webhook_replay_freshness",
+    "integration.bounded_idempotent_retries"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_python_fastapi_backend_developer",
+    "toc_freeze_hash": "96d245a8da4552263398bda220dd1f88774cc30045abdf029e8d40064881cb7e",
+    "glossary_bundle_hashes": {
+      "fastapi_backend.webhook_delivery_idempotency": "ef30c618a0ddd15e699a9bf5cf10eadc6975fecfb355aeaaaa1e242013445c96",
+      "fastapi_backend.webhook_replay_freshness": "95562c8a906d87f04ce542a3ac67a54115839db422ff1e11dfee32f713422468",
+      "integration.bounded_idempotent_retries": "48bdda979285a6c2d3c5e0aa12bb81c229915ed2087fde8e34a06ed673abac19"
+    },
+    "scenario_registry_hash": "8457b835acb638f3087af0988b1e25455e51b5c8a0efda9e9bd119a35f922ffe"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core",
+      "data"
+    ],
+    "block_types": [
+      "data_table",
+      "process_flow",
+      "prose",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "code_exercise"
+    ],
+    "runtimes": [
+      "python_asgi",
+      "sql"
+    ],
+    "asset_ids": [
+      "ds.delivery_timestamps"
+    ]
+  },
+  "pacing": {
+    "estimated_minutes": 11.0
+  },
+  "steps": [
+    {
+      "step_id": "tile_093.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "fastapi_backend.webhook_delivery_idempotency"
+      ],
+      "title": "Webhook delivery idempotency",
+      "lineage": {
+        "teaching_block_ids": [
+          "fastapi_backend.webhook_delivery_idempotency#tb1",
+          "fastapi_backend.webhook_delivery_idempotency#tb2",
+          "fastapi_backend.webhook_delivery_idempotency#tb3"
+        ],
+        "fact_ids": [
+          "fastapi_backend.webhook_delivery_idempotency#f1",
+          "fastapi_backend.webhook_delivery_idempotency#f2",
+          "fastapi_backend.webhook_delivery_idempotency#f3"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "fastapi_backend.webhook_delivery_idempotency#visual"
+        ]
+      },
+      "eyebrow": "Learn the rule",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Deduplicate on an authenticated publisher event ID; persist its record across restarts for the required replay window.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_delivery_idempotency"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#f1"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#tb2"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "In one transaction, atomically record the event ID and durable state changes. A uniqueness constraint prevents concurrent deliveries from both applying the effect.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_delivery_idempotency"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#f2"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#tb3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Acknowledge an already processed event successfully without changing state again. Test duplicate and concurrent deliveries separately.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_delivery_idempotency"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#f3"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#tb3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "process_flow",
+          "direction": "TB",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "Delivery A: authenticated publisher event ID",
+              "kind": "step"
+            },
+            {
+              "id": "n1",
+              "label": "Delivery B: same authenticated publisher event ID",
+              "kind": "step"
+            },
+            {
+              "id": "n2",
+              "label": "Persistent uniqueness boundary (survives application restart)",
+              "kind": "step"
+            },
+            {
+              "id": "n3",
+              "label": "One transaction: record ID atomically with durable order change",
+              "kind": "step"
+            },
+            {
+              "id": "n4",
+              "label": "New ID → one committed effect",
+              "kind": "step"
+            },
+            {
+              "id": "n5",
+              "label": "Already processed → successful duplicate acknowledgment, no repeated change",
+              "kind": "step"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n2"
+            },
+            {
+              "from": "n1",
+              "to": "n2"
+            },
+            {
+              "from": "n2",
+              "to": "n3"
+            },
+            {
+              "from": "n3",
+              "to": "n4",
+              "label": "new",
+              "kind": "yes"
+            },
+            {
+              "from": "n3",
+              "to": "n5",
+              "label": "duplicate",
+              "kind": "no"
+            }
+          ],
+          "alt_text": "Delivery A: authenticated publisher event ID; Delivery B: same authenticated publisher event ID; Persistent uniqueness boundary (survives application restart); One transaction: record ID atomically with durable order change; New ID → one committed effect; Already processed → successful duplicate acknowledgment, no repeated change",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_delivery_idempotency"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#f1",
+              "fastapi_backend.webhook_delivery_idempotency#f2",
+              "fastapi_backend.webhook_delivery_idempotency#f3"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#tb2",
+              "fastapi_backend.webhook_delivery_idempotency#tb3",
+              "fastapi_backend.webhook_delivery_idempotency#tb4",
+              "fastapi_backend.webhook_delivery_idempotency#tb5"
+            ],
+            "anchors": [
+              "fastapi_backend.webhook_delivery_idempotency#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_093.s02",
+      "type": "explainer",
+      "concept_ids": [
+        "fastapi_backend.webhook_delivery_idempotency"
+      ],
+      "title": "Keep the boundary clear",
+      "lineage": {
+        "teaching_block_ids": [
+          "fastapi_backend.webhook_delivery_idempotency#tb4",
+          "fastapi_backend.webhook_delivery_idempotency#tb5"
+        ],
+        "fact_ids": [
+          "fastapi_backend.webhook_delivery_idempotency#f1",
+          "fastapi_backend.webhook_delivery_idempotency#f2",
+          "fastapi_backend.webhook_delivery_idempotency#f3"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "eyebrow": "Work the boundary",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Successful duplicate acknowledgment is not a second state change. Persistence and atomic uniqueness must also hold across restart and concurrent delivery.",
+          "role": "walkthrough",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_delivery_idempotency"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#f1",
+              "fastapi_backend.webhook_delivery_idempotency#f2",
+              "fastapi_backend.webhook_delivery_idempotency#f3"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#tb4",
+              "fastapi_backend.webhook_delivery_idempotency#tb5"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_093.s03",
+      "type": "check",
+      "concept_ids": [
+        "fastapi_backend.webhook_delivery_idempotency"
+      ],
+      "title": "Choose the boundary",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "fastapi_backend.webhook_delivery_idempotency#f1",
+          "fastapi_backend.webhook_delivery_idempotency#f3"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "fastapi_backend.webhook_delivery_idempotency#assessment:determine_effects_of_repeated_event_identifiers_across_restarts"
+        ]
+      },
+      "eyebrow": "Check",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_093.s03",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "fastapi_backend.webhook_delivery_idempotency",
+            "capability": "determine_effects_of_repeated_event_identifiers_across_restarts",
+            "fact_ids": [
+              "f1",
+              "f3"
+            ]
+          }
+        ],
+        "anchors": [
+          "fastapi_backend.webhook_delivery_idempotency#assessment:determine_effects_of_repeated_event_identifiers_across_restarts"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Use an authenticated publisher event identifier as the deduplication key and retain the deduplication record across application restarts for the required replay window. Treat an already processed event as a successful duplicate acknowledgment without repeating its state change, and test duplicate and concurrent deliveries separately."
+          },
+          "incorrect": {
+            "message": "Check this rule: Use an authenticated publisher event identifier as the deduplication key and retain the deduplication record across application restarts for the required replay window. Treat an already processed event as a successful duplicate acknowledgment without repeating its state change, and test duplicate and concurrent deliveries separately."
+          },
+          "hints": [
+            "Trace the inputs, the decision boundary, and the observable output separately."
+          ],
+          "remediation_step_id": "tile_093.r01"
+        },
+        "public": {
+          "prompt": "An authenticated event was committed, then the application restarts with its event-record database retained. The same publisher event identifier arrives again. What effect is required?",
+          "selection": "single",
+          "shuffle": true,
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Confirm the persistent processed-event record and acknowledge without another committed order change."
+            },
+            {
+              "option_id": "o2",
+              "text": "Apply the change again because process memory is empty."
+            },
+            {
+              "option_id": "o3",
+              "text": "Treat any database integrity error as proof this event was processed."
+            }
+          ]
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "This option applies the taught boundary to the evidence."
+            },
+            "o2": {
+              "message": "Restart does not erase the persistent event identity used for deduplication."
+            },
+            "o3": {
+              "message": "Only a confirmed duplicate identity justifies successful duplicate acknowledgment; unrelated integrity failures do not."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_093.s04",
+      "type": "hands_on",
+      "concept_ids": [
+        "fastapi_backend.webhook_delivery_idempotency"
+      ],
+      "title": "Apply the contract",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "fastapi_backend.webhook_delivery_idempotency#f2",
+          "fastapi_backend.webhook_delivery_idempotency#f3"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "fastapi_backend.webhook_delivery_idempotency#practice",
+          "fastapi_backend.webhook_delivery_idempotency#assessment:determine_effects_of_concurrent_deliveries_with_the_same_event_identifier"
+        ]
+      },
+      "eyebrow": "Practice",
+      "interaction": {
+        "type": "code_exercise",
+        "interaction_id": "ix.tile_093.s04",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "fastapi_backend.webhook_delivery_idempotency",
+            "capability": "determine_effects_of_concurrent_deliveries_with_the_same_event_identifier",
+            "fact_ids": [
+              "f2",
+              "f3"
+            ]
+          }
+        ],
+        "anchors": [
+          "fastapi_backend.webhook_delivery_idempotency#practice",
+          "fastapi_backend.webhook_delivery_idempotency#assessment:determine_effects_of_concurrent_deliveries_with_the_same_event_identifier"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Your response respects the stated boundary and the supplied evidence."
+          },
+          "incorrect": {
+            "message": "Recheck which evidence establishes the boundary; a declaration or successful single case is not a substitute for the required checks."
+          },
+          "hints": [
+            "Trace the inputs, the decision boundary, and the observable output separately."
+          ]
+        },
+        "public": {
+          "prompt": "Complete handle_authenticated_event(event, session) after authenticity has already been established by the supplied controlled harness. Persist the unique publisher_event_id and order status update in one async with session.begin() transaction. On IntegrityError, acknowledge only after confirming that exact processed event identity; otherwise re-raise. Return {received:true} after commit or confirmed duplicate. Do not change the facade, models, failure hooks or harness. Tests dispatch the same authenticated event sequentially, concurrently, and across actual child-app reconstruction with the database retained: each must acknowledge both and leave one persistent identity and exactly one committed order change. Controlled transaction failure and unrelated integrity failure must return the generic 500 and leave no event or change committed. Each test grades the complete response/snapshot for both fixture event inputs.",
+          "runtime": {
+            "kind": "python_asgi",
+            "version": "0.29.5",
+            "packages": [
+              "fastapi",
+              "httpx",
+              "sqlalchemy"
+            ]
+          },
+          "workspace": {
+            "entry": "main.py",
+            "files": [
+              {
+                "path": "main.py",
+                "role": "editable",
+                "language": "python",
+                "content": "import asyncio, httpx, uuid\nfrom contextlib import asynccontextmanager\nfrom fastapi import FastAPI, HTTPException\nfrom fastapi.responses import JSONResponse\nfrom sqlalchemy import create_engine, String, ForeignKey, select, event, UniqueConstraint\nfrom sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session\nfrom sqlalchemy.pool import QueuePool\nfrom sqlalchemy.exc import IntegrityError\nfixtures = {'authenticated_events': [{'publisher_event_id': 'evt_a', 'order_id': 101, 'new_status': 'complete'}, {'publisher_event_id': 'evt_b', 'order_id': 202, 'new_status': 'complete'}], 'orders': [{'id': 101, 'owner_id': 'caller_a', 'status': 'pending'}, {'id': 202, 'owner_id': 'caller_b', 'status': 'pending'}, {'id': 303, 'owner_id': 'caller_a', 'status': 'complete'}], 'tests': ['sequential_duplicate', 'restart_with_database_retained', 'concurrent_duplicate', 'transaction_failure'], 'initial_processed_events': []}\nclass Base(DeclarativeBase): pass\nclass Order(Base):\n    __tablename__ = 'orders'\n    id: Mapped[int] = mapped_column(primary_key=True)\n    owner_id: Mapped[str] = mapped_column(String)\n    status: Mapped[str] = mapped_column(String)\nclass ProcessedEvent(Base):\n    __tablename__ = 'processed_events'\n    id: Mapped[int] = mapped_column(primary_key=True)\n    publisher_event_id: Mapped[str] = mapped_column(String)\n    __table_args__ = (UniqueConstraint('publisher_event_id'),)\nclass OrderChange(Base):\n    __tablename__ = 'order_changes'\n    id: Mapped[int] = mapped_column(primary_key=True)\n    order_id: Mapped[int] = mapped_column(ForeignKey('orders.id'))\n@event.listens_for(Order, 'after_update')\ndef count_change(mapper, connection, target):\n    connection.execute(OrderChange.__table__.insert().values(order_id=target.id))\nengine = create_engine('sqlite:///file:' + uuid.uuid4().hex + '?mode=memory&cache=shared&uri=true', poolclass=QueuePool, connect_args={'check_same_thread':False})\nBase.metadata.create_all(engine)\nwith Session(engine) as session:\n    session.add_all([Order(**x) for x in fixtures['orders']]); session.commit()\n# Controlled cooperative SQLite adapter: independent connections, overlapping\n# reads, and one writer at a time (SQLite's write boundary), without threads.\nclass DeliverySchedule:\n    def __init__(self, concurrent):\n        self.start = asyncio.Barrier(2) if concurrent else None\n        self.before_write = asyncio.Barrier(2) if concurrent else None\n        self.writer = asyncio.Lock()\n        self.connections = []\nclass AsyncSessionFacade:\n    def __init__(self, session, schedule):\n        self.session, self.schedule = session, schedule\n        self.checked = False\n        self.writing = False\n    async def checkpoint(self):\n        if not self.checked:\n            self.checked = True\n            if self.schedule.before_write:\n                await self.schedule.before_write.wait()\n        await asyncio.sleep(0)\n    async def write_boundary(self):\n        await self.checkpoint()\n        if not self.writing:\n            await self.schedule.writer.acquire()\n            self.writing = True\n    @asynccontextmanager\n    async def begin(self):\n        try:\n            with self.session.begin():\n                connection = self.session.connection().connection.driver_connection\n                self.schedule.connections.append(connection)\n                if self.schedule.start:\n                    await self.schedule.start.wait()\n                    assert self.schedule.connections[0] is not self.schedule.connections[1]\n                await asyncio.sleep(0)\n                yield self\n                await self.write_boundary()\n        finally:\n            if self.writing:\n                self.writing = False\n                self.schedule.writer.release()\n    def add(self, value): self.session.add(value)\n    async def flush(self):\n        await self.write_boundary()\n        self.session.flush()\n        await asyncio.sleep(0)\n    async def scalar(self, statement):\n        await asyncio.sleep(0)\n        result = self.session.scalar(statement)\n        await self.checkpoint()\n        return result\ndef snapshot():\n    with Session(engine) as session:\n        orders = session.scalars(select(Order).order_by(Order.id)).all()\n        events = session.scalars(select(ProcessedEvent).order_by(ProcessedEvent.publisher_event_id)).all()\n        changes = session.scalars(select(OrderChange).order_by(OrderChange.id)).all()\n        return {'orders':[{'id':o.id,'owner_id':o.owner_id,'status':o.status} for o in orders], 'events':[e.publisher_event_id for e in events], 'committed_changes':[x.order_id for x in changes]}\ndef make_app(concurrent=False):\n    schedule = DeliverySchedule(concurrent)\n    api = FastAPI()\n    @api.exception_handler(Exception)\n    async def failed(request, exc): return JSONResponse(status_code=500,content={'detail':'Internal server error'})\n    @api.post('/authenticated-events')\n    async def deliver(value:dict, failure:str='none'):\n        # Exercise begins after signature authentication; this is a controlled trusted-event harness.\n        with Session(engine) as session:\n            if failure != 'none':\n                @event.listens_for(session, 'after_flush_postexec', once=True)\n                def inject(session, context):\n                    if failure == 'integrity': raise IntegrityError('unrelated controlled constraint',{},Exception('internal'))\n                    raise RuntimeError('controlled transaction failure')\n            return await handle_authenticated_event(value, AsyncSessionFacade(session, schedule))\n    return api\napp = FastAPI()\n@app.post('/scenario/{kind}')\nasync def scenario(kind:str, value:dict):\n    child = make_app(concurrent=kind == 'concurrent')\n    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=child,raise_app_exceptions=False),base_url='http://test') as client:\n        if kind == 'concurrent':\n            responses = await asyncio.wait_for(asyncio.gather(client.post('/authenticated-events',json=value),client.post('/authenticated-events',json=value)), timeout=2)\n        elif kind == 'failure' or kind == 'integrity':\n            responses = [await client.post('/authenticated-events',params={'failure':kind},json=value)]\n        else:\n            responses = [await client.post('/authenticated-events',json=value)]\n            if kind == 'sequential': responses.append(await client.post('/authenticated-events',json=value))\n    if kind == 'restart':\n        # Reconstruct a new app and request-local session, retain the same persistent engine.\n        child = make_app()\n        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=child,raise_app_exceptions=False),base_url='http://test') as client:\n            responses.append(await client.post('/authenticated-events',json=value))\n    return {'responses':[{'status':r.status_code,'json':r.json()} for r in responses], 'snapshot':snapshot()}\n# Complete only the transactional handler below, not the durable models or harness.\nasync def handle_authenticated_event(event, session):\n    return {\"received\":False}\n"
+              }
+            ],
+            "asset_mounts": []
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "async def",
+              "await",
+              "function calls",
+              "type annotations",
+              "if",
+              "return",
+              "try",
+              "except IntegrityError",
+              "raise",
+              "async with session.begin()",
+              "session.add(...)",
+              "await session.flush()",
+              "await session.scalar(...)",
+              "select(...)",
+              ".where(...)",
+              "attribute access and assignment",
+              "UniqueConstraint(...)",
+              "assert"
+            ],
+            "blocked_syntax": [
+              "time.time()",
+              "datetime.now()",
+              "@retry(...)"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "main.py",
+              "content": "import asyncio, httpx, uuid\nfrom contextlib import asynccontextmanager\nfrom fastapi import FastAPI, HTTPException\nfrom fastapi.responses import JSONResponse\nfrom sqlalchemy import create_engine, String, ForeignKey, select, event, UniqueConstraint\nfrom sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session\nfrom sqlalchemy.pool import QueuePool\nfrom sqlalchemy.exc import IntegrityError\nfixtures = {'authenticated_events': [{'publisher_event_id': 'evt_a', 'order_id': 101, 'new_status': 'complete'}, {'publisher_event_id': 'evt_b', 'order_id': 202, 'new_status': 'complete'}], 'orders': [{'id': 101, 'owner_id': 'caller_a', 'status': 'pending'}, {'id': 202, 'owner_id': 'caller_b', 'status': 'pending'}, {'id': 303, 'owner_id': 'caller_a', 'status': 'complete'}], 'tests': ['sequential_duplicate', 'restart_with_database_retained', 'concurrent_duplicate', 'transaction_failure'], 'initial_processed_events': []}\nclass Base(DeclarativeBase): pass\nclass Order(Base):\n    __tablename__ = 'orders'\n    id: Mapped[int] = mapped_column(primary_key=True)\n    owner_id: Mapped[str] = mapped_column(String)\n    status: Mapped[str] = mapped_column(String)\nclass ProcessedEvent(Base):\n    __tablename__ = 'processed_events'\n    id: Mapped[int] = mapped_column(primary_key=True)\n    publisher_event_id: Mapped[str] = mapped_column(String)\n    __table_args__ = (UniqueConstraint('publisher_event_id'),)\nclass OrderChange(Base):\n    __tablename__ = 'order_changes'\n    id: Mapped[int] = mapped_column(primary_key=True)\n    order_id: Mapped[int] = mapped_column(ForeignKey('orders.id'))\n@event.listens_for(Order, 'after_update')\ndef count_change(mapper, connection, target):\n    connection.execute(OrderChange.__table__.insert().values(order_id=target.id))\nengine = create_engine('sqlite:///file:' + uuid.uuid4().hex + '?mode=memory&cache=shared&uri=true', poolclass=QueuePool, connect_args={'check_same_thread':False})\nBase.metadata.create_all(engine)\nwith Session(engine) as session:\n    session.add_all([Order(**x) for x in fixtures['orders']]); session.commit()\n# Controlled cooperative SQLite adapter: independent connections, overlapping\n# reads, and one writer at a time (SQLite's write boundary), without threads.\nclass DeliverySchedule:\n    def __init__(self, concurrent):\n        self.start = asyncio.Barrier(2) if concurrent else None\n        self.before_write = asyncio.Barrier(2) if concurrent else None\n        self.writer = asyncio.Lock()\n        self.connections = []\nclass AsyncSessionFacade:\n    def __init__(self, session, schedule):\n        self.session, self.schedule = session, schedule\n        self.checked = False\n        self.writing = False\n    async def checkpoint(self):\n        if not self.checked:\n            self.checked = True\n            if self.schedule.before_write:\n                await self.schedule.before_write.wait()\n        await asyncio.sleep(0)\n    async def write_boundary(self):\n        await self.checkpoint()\n        if not self.writing:\n            await self.schedule.writer.acquire()\n            self.writing = True\n    @asynccontextmanager\n    async def begin(self):\n        try:\n            with self.session.begin():\n                connection = self.session.connection().connection.driver_connection\n                self.schedule.connections.append(connection)\n                if self.schedule.start:\n                    await self.schedule.start.wait()\n                    assert self.schedule.connections[0] is not self.schedule.connections[1]\n                await asyncio.sleep(0)\n                yield self\n                await self.write_boundary()\n        finally:\n            if self.writing:\n                self.writing = False\n                self.schedule.writer.release()\n    def add(self, value): self.session.add(value)\n    async def flush(self):\n        await self.write_boundary()\n        self.session.flush()\n        await asyncio.sleep(0)\n    async def scalar(self, statement):\n        await asyncio.sleep(0)\n        result = self.session.scalar(statement)\n        await self.checkpoint()\n        return result\ndef snapshot():\n    with Session(engine) as session:\n        orders = session.scalars(select(Order).order_by(Order.id)).all()\n        events = session.scalars(select(ProcessedEvent).order_by(ProcessedEvent.publisher_event_id)).all()\n        changes = session.scalars(select(OrderChange).order_by(OrderChange.id)).all()\n        return {'orders':[{'id':o.id,'owner_id':o.owner_id,'status':o.status} for o in orders], 'events':[e.publisher_event_id for e in events], 'committed_changes':[x.order_id for x in changes]}\ndef make_app(concurrent=False):\n    schedule = DeliverySchedule(concurrent)\n    api = FastAPI()\n    @api.exception_handler(Exception)\n    async def failed(request, exc): return JSONResponse(status_code=500,content={'detail':'Internal server error'})\n    @api.post('/authenticated-events')\n    async def deliver(value:dict, failure:str='none'):\n        # Exercise begins after signature authentication; this is a controlled trusted-event harness.\n        with Session(engine) as session:\n            if failure != 'none':\n                @event.listens_for(session, 'after_flush_postexec', once=True)\n                def inject(session, context):\n                    if failure == 'integrity': raise IntegrityError('unrelated controlled constraint',{},Exception('internal'))\n                    raise RuntimeError('controlled transaction failure')\n            return await handle_authenticated_event(value, AsyncSessionFacade(session, schedule))\n    return api\napp = FastAPI()\n@app.post('/scenario/{kind}')\nasync def scenario(kind:str, value:dict):\n    child = make_app(concurrent=kind == 'concurrent')\n    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=child,raise_app_exceptions=False),base_url='http://test') as client:\n        if kind == 'concurrent':\n            responses = await asyncio.wait_for(asyncio.gather(client.post('/authenticated-events',json=value),client.post('/authenticated-events',json=value)), timeout=2)\n        elif kind == 'failure' or kind == 'integrity':\n            responses = [await client.post('/authenticated-events',params={'failure':kind},json=value)]\n        else:\n            responses = [await client.post('/authenticated-events',json=value)]\n            if kind == 'sequential': responses.append(await client.post('/authenticated-events',json=value))\n    if kind == 'restart':\n        # Reconstruct a new app and request-local session, retain the same persistent engine.\n        child = make_app()\n        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=child,raise_app_exceptions=False),base_url='http://test') as client:\n            responses.append(await client.post('/authenticated-events',json=value))\n    return {'responses':[{'status':r.status_code,'json':r.json()} for r in responses], 'snapshot':snapshot()}\n# Complete only the transactional handler below, not the durable models or harness.\nasync def handle_authenticated_event(event, session):\n    try:\n        async with session.begin():\n            order = await session.scalar(select(Order).where(Order.id == event['order_id']))\n            if order is None:\n                raise HTTPException(status_code=404, detail='Not found')\n            session.add(ProcessedEvent(publisher_event_id=event['publisher_event_id']))\n            await session.flush()\n            order.status = event['new_status']\n    except IntegrityError:\n        existing = await session.scalar(select(ProcessedEvent).where(ProcessedEvent.publisher_event_id == event['publisher_event_id']))\n        if existing is None:\n            raise\n    return {'received':True}\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "sequential_0",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/scenario/sequential",
+                    "json": {
+                      "publisher_event_id": "evt_a",
+                      "order_id": 101,
+                      "new_status": "complete"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "responses": [
+                      {
+                        "status": 200,
+                        "json": {
+                          "received": true
+                        }
+                      },
+                      {
+                        "status": 200,
+                        "json": {
+                          "received": true
+                        }
+                      }
+                    ],
+                    "snapshot": {
+                      "orders": [
+                        {
+                          "id": 101,
+                          "owner_id": "caller_a",
+                          "status": "complete"
+                        },
+                        {
+                          "id": 202,
+                          "owner_id": "caller_b",
+                          "status": "pending"
+                        },
+                        {
+                          "id": 303,
+                          "owner_id": "caller_a",
+                          "status": "complete"
+                        }
+                      ],
+                      "events": [
+                        "evt_a"
+                      ],
+                      "committed_changes": [
+                        101
+                      ]
+                    }
+                  }
+                }
+              },
+              "message_on_fail": "The sequential_0 case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "sequential_1",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/scenario/sequential",
+                    "json": {
+                      "publisher_event_id": "evt_b",
+                      "order_id": 202,
+                      "new_status": "complete"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "responses": [
+                      {
+                        "status": 200,
+                        "json": {
+                          "received": true
+                        }
+                      },
+                      {
+                        "status": 200,
+                        "json": {
+                          "received": true
+                        }
+                      }
+                    ],
+                    "snapshot": {
+                      "orders": [
+                        {
+                          "id": 101,
+                          "owner_id": "caller_a",
+                          "status": "pending"
+                        },
+                        {
+                          "id": 202,
+                          "owner_id": "caller_b",
+                          "status": "complete"
+                        },
+                        {
+                          "id": 303,
+                          "owner_id": "caller_a",
+                          "status": "complete"
+                        }
+                      ],
+                      "events": [
+                        "evt_b"
+                      ],
+                      "committed_changes": [
+                        202
+                      ]
+                    }
+                  }
+                }
+              },
+              "message_on_fail": "The sequential_1 case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "restart_0",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/scenario/restart",
+                    "json": {
+                      "publisher_event_id": "evt_a",
+                      "order_id": 101,
+                      "new_status": "complete"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "responses": [
+                      {
+                        "status": 200,
+                        "json": {
+                          "received": true
+                        }
+                      },
+                      {
+                        "status": 200,
+                        "json": {
+                          "received": true
+                        }
+                      }
+                    ],
+                    "snapshot": {
+                      "orders": [
+                        {
+                          "id": 101,
+                          "owner_id": "caller_a",
+                          "status": "complete"
+                        },
+                        {
+                          "id": 202,
+                          "owner_id": "caller_b",
+                          "status": "pending"
+                        },
+                        {
+                          "id": 303,
+                          "owner_id": "caller_a",
+                          "status": "complete"
+                        }
+                      ],
+                      "events": [
+                        "evt_a"
+                      ],
+                      "committed_changes": [
+                        101
+                      ]
+                    }
+                  }
+                }
+              },
+              "message_on_fail": "The restart_0 case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "restart_1",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/scenario/restart",
+                    "json": {
+                      "publisher_event_id": "evt_b",
+                      "order_id": 202,
+                      "new_status": "complete"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "responses": [
+                      {
+                        "status": 200,
+                        "json": {
+                          "received": true
+                        }
+                      },
+                      {
+                        "status": 200,
+                        "json": {
+                          "received": true
+                        }
+                      }
+                    ],
+                    "snapshot": {
+                      "orders": [
+                        {
+                          "id": 101,
+                          "owner_id": "caller_a",
+                          "status": "pending"
+                        },
+                        {
+                          "id": 202,
+                          "owner_id": "caller_b",
+                          "status": "complete"
+                        },
+                        {
+                          "id": 303,
+                          "owner_id": "caller_a",
+                          "status": "complete"
+                        }
+                      ],
+                      "events": [
+                        "evt_b"
+                      ],
+                      "committed_changes": [
+                        202
+                      ]
+                    }
+                  }
+                }
+              },
+              "message_on_fail": "The restart_1 case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "concurrent_0",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/scenario/concurrent",
+                    "json": {
+                      "publisher_event_id": "evt_a",
+                      "order_id": 101,
+                      "new_status": "complete"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "responses": [
+                      {
+                        "status": 200,
+                        "json": {
+                          "received": true
+                        }
+                      },
+                      {
+                        "status": 200,
+                        "json": {
+                          "received": true
+                        }
+                      }
+                    ],
+                    "snapshot": {
+                      "orders": [
+                        {
+                          "id": 101,
+                          "owner_id": "caller_a",
+                          "status": "complete"
+                        },
+                        {
+                          "id": 202,
+                          "owner_id": "caller_b",
+                          "status": "pending"
+                        },
+                        {
+                          "id": 303,
+                          "owner_id": "caller_a",
+                          "status": "complete"
+                        }
+                      ],
+                      "events": [
+                        "evt_a"
+                      ],
+                      "committed_changes": [
+                        101
+                      ]
+                    }
+                  }
+                }
+              },
+              "message_on_fail": "The concurrent_0 case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "concurrent_1",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/scenario/concurrent",
+                    "json": {
+                      "publisher_event_id": "evt_b",
+                      "order_id": 202,
+                      "new_status": "complete"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "responses": [
+                      {
+                        "status": 200,
+                        "json": {
+                          "received": true
+                        }
+                      },
+                      {
+                        "status": 200,
+                        "json": {
+                          "received": true
+                        }
+                      }
+                    ],
+                    "snapshot": {
+                      "orders": [
+                        {
+                          "id": 101,
+                          "owner_id": "caller_a",
+                          "status": "pending"
+                        },
+                        {
+                          "id": 202,
+                          "owner_id": "caller_b",
+                          "status": "complete"
+                        },
+                        {
+                          "id": 303,
+                          "owner_id": "caller_a",
+                          "status": "complete"
+                        }
+                      ],
+                      "events": [
+                        "evt_b"
+                      ],
+                      "committed_changes": [
+                        202
+                      ]
+                    }
+                  }
+                }
+              },
+              "message_on_fail": "The concurrent_1 case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "failure_0",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/scenario/failure",
+                    "json": {
+                      "publisher_event_id": "evt_a",
+                      "order_id": 101,
+                      "new_status": "complete"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "responses": [
+                      {
+                        "status": 500,
+                        "json": {
+                          "detail": "Internal server error"
+                        }
+                      }
+                    ],
+                    "snapshot": {
+                      "orders": [
+                        {
+                          "id": 101,
+                          "owner_id": "caller_a",
+                          "status": "pending"
+                        },
+                        {
+                          "id": 202,
+                          "owner_id": "caller_b",
+                          "status": "pending"
+                        },
+                        {
+                          "id": 303,
+                          "owner_id": "caller_a",
+                          "status": "complete"
+                        }
+                      ],
+                      "events": [],
+                      "committed_changes": []
+                    }
+                  }
+                }
+              },
+              "message_on_fail": "The failure_0 case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "failure_1",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/scenario/failure",
+                    "json": {
+                      "publisher_event_id": "evt_b",
+                      "order_id": 202,
+                      "new_status": "complete"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "responses": [
+                      {
+                        "status": 500,
+                        "json": {
+                          "detail": "Internal server error"
+                        }
+                      }
+                    ],
+                    "snapshot": {
+                      "orders": [
+                        {
+                          "id": 101,
+                          "owner_id": "caller_a",
+                          "status": "pending"
+                        },
+                        {
+                          "id": 202,
+                          "owner_id": "caller_b",
+                          "status": "pending"
+                        },
+                        {
+                          "id": 303,
+                          "owner_id": "caller_a",
+                          "status": "complete"
+                        }
+                      ],
+                      "events": [],
+                      "committed_changes": []
+                    }
+                  }
+                }
+              },
+              "message_on_fail": "The failure_1 case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "integrity_0",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/scenario/integrity",
+                    "json": {
+                      "publisher_event_id": "evt_a",
+                      "order_id": 101,
+                      "new_status": "complete"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "responses": [
+                      {
+                        "status": 500,
+                        "json": {
+                          "detail": "Internal server error"
+                        }
+                      }
+                    ],
+                    "snapshot": {
+                      "orders": [
+                        {
+                          "id": 101,
+                          "owner_id": "caller_a",
+                          "status": "pending"
+                        },
+                        {
+                          "id": 202,
+                          "owner_id": "caller_b",
+                          "status": "pending"
+                        },
+                        {
+                          "id": 303,
+                          "owner_id": "caller_a",
+                          "status": "complete"
+                        }
+                      ],
+                      "events": [],
+                      "committed_changes": []
+                    }
+                  }
+                }
+              },
+              "message_on_fail": "The integrity_0 case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "integrity_1",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/scenario/integrity",
+                    "json": {
+                      "publisher_event_id": "evt_b",
+                      "order_id": 202,
+                      "new_status": "complete"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "responses": [
+                      {
+                        "status": 500,
+                        "json": {
+                          "detail": "Internal server error"
+                        }
+                      }
+                    ],
+                    "snapshot": {
+                      "orders": [
+                        {
+                          "id": 101,
+                          "owner_id": "caller_a",
+                          "status": "pending"
+                        },
+                        {
+                          "id": 202,
+                          "owner_id": "caller_b",
+                          "status": "pending"
+                        },
+                        {
+                          "id": 303,
+                          "owner_id": "caller_a",
+                          "status": "complete"
+                        }
+                      ],
+                      "events": [],
+                      "committed_changes": []
+                    }
+                  }
+                }
+              },
+              "message_on_fail": "The integrity_1 case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "pyodide",
+            "runtime_version": "0.29.5",
+            "solution_sha256": "762179a93c5de7809176476e17d547c097ebbaeac77754b7d8814441cb290dd6",
+            "tests_passed": 10
+          },
+          "hidden_checks": []
+        }
+      }
+    },
+    {
+      "step_id": "tile_093.s05",
+      "type": "explainer",
+      "concept_ids": [
+        "fastapi_backend.webhook_replay_freshness"
+      ],
+      "title": "Webhook replay freshness",
+      "lineage": {
+        "teaching_block_ids": [
+          "fastapi_backend.webhook_replay_freshness#tb1",
+          "fastapi_backend.webhook_replay_freshness#tb2",
+          "fastapi_backend.webhook_replay_freshness#tb3"
+        ],
+        "fact_ids": [
+          "fastapi_backend.webhook_replay_freshness#f1",
+          "fastapi_backend.webhook_replay_freshness#f2",
+          "fastapi_backend.webhook_replay_freshness#f3",
+          "fastapi_backend.webhook_replay_freshness#f4"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "fastapi_backend.webhook_replay_freshness#visual"
+        ]
+      },
+      "eyebrow": "Learn the rule",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Freshness needs a provider-signature-authenticated delivery timestamp. Providers can refresh it and its signature on retries: it measures delivery freshness, not original event age. Unsigned time proves no authenticated freshness.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_replay_freshness"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_replay_freshness#f1"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_replay_freshness#tb2"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "After signature verification, parse signed time and reject timestamps outside the configured window, including impermissibly future timestamps under provider policy.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_replay_freshness"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_replay_freshness#f2"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_replay_freshness#tb3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Synchronize the receiver clock so clock drift does not distort the intended freshness window.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_replay_freshness"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_replay_freshness#f3"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_replay_freshness#tb3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Test valid signatures with in-window, expired and impermissibly future timestamps: authentic does not necessarily mean fresh.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_replay_freshness"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_replay_freshness#f4"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_replay_freshness#tb3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "data_table",
+          "result_of": {
+            "runtime": "sql",
+            "sql": "SELECT case_id, signature_verified, signed_delivery_timestamp, receiver_now, CAST(signed_delivery_timestamp AS INTEGER)-receiver_now AS signed_time_difference, acceptance_window, future_tolerance, CASE WHEN signature_verified AND CAST(signed_delivery_timestamp AS INTEGER) BETWEEN receiver_now-acceptance_window AND receiver_now+future_tolerance THEN 'accept' ELSE 'reject' END AS delivery_freshness FROM deliveries",
+            "asset_mounts": [
+              {
+                "asset_id": "ds.delivery_timestamps",
+                "mount_path": "deliveries"
+              }
+            ]
+          },
+          "caption": "Supplied timestamp policy, including boundaries. Delivery freshness is not original event age; the receiver clock must be synchronized.",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_replay_freshness"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_replay_freshness#f1",
+              "fastapi_backend.webhook_replay_freshness#f2",
+              "fastapi_backend.webhook_replay_freshness#f3",
+              "fastapi_backend.webhook_replay_freshness#f4"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_replay_freshness#tb2",
+              "fastapi_backend.webhook_replay_freshness#tb3",
+              "fastapi_backend.webhook_replay_freshness#tb4",
+              "fastapi_backend.webhook_replay_freshness#tb5"
+            ],
+            "anchors": [
+              "fastapi_backend.webhook_replay_freshness#visual"
+            ]
+          },
+          "result": {
+            "columns": [
+              "case_id",
+              "signature_verified",
+              "signed_delivery_timestamp",
+              "receiver_now",
+              "signed_time_difference",
+              "acceptance_window",
+              "future_tolerance",
+              "delivery_freshness"
+            ],
+            "rows": [
+              [
+                "fresh",
+                true,
+                "1799999940",
+                1800000000,
+                -60,
+                300,
+                30,
+                "accept"
+              ],
+              [
+                "past_boundary",
+                true,
+                "1799999700",
+                1800000000,
+                -300,
+                300,
+                30,
+                "accept"
+              ],
+              [
+                "expired",
+                true,
+                "1799999699",
+                1800000000,
+                -301,
+                300,
+                30,
+                "reject"
+              ],
+              [
+                "future_boundary",
+                true,
+                "1800000030",
+                1800000000,
+                30,
+                300,
+                30,
+                "accept"
+              ],
+              [
+                "future_rejected",
+                true,
+                "1800000031",
+                1800000000,
+                31,
+                300,
+                30,
+                "reject"
+              ],
+              [
+                "now",
+                true,
+                "1800000000",
+                1800000000,
+                0,
+                300,
+                30,
+                "accept"
+              ]
+            ],
+            "execution_provenance": {
+              "runtime": "duckdb-wasm",
+              "runtime_version": "1.32.0",
+              "sql_sha256": "64de07b757722e6b69679d3f6af7cedcf4633976d3e4b9214b2620923e58de4f"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_093.s06",
+      "type": "explainer",
+      "concept_ids": [
+        "fastapi_backend.webhook_replay_freshness"
+      ],
+      "title": "Keep the boundary clear",
+      "lineage": {
+        "teaching_block_ids": [
+          "fastapi_backend.webhook_replay_freshness#tb4",
+          "fastapi_backend.webhook_replay_freshness#tb5"
+        ],
+        "fact_ids": [
+          "fastapi_backend.webhook_replay_freshness#f1",
+          "fastapi_backend.webhook_replay_freshness#f2",
+          "fastapi_backend.webhook_replay_freshness#f3",
+          "fastapi_backend.webhook_replay_freshness#f4"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "eyebrow": "Work the boundary",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "A valid signature authenticates the timestamp, not its freshness. Retry timestamps also do not establish original event age.",
+          "role": "walkthrough",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_replay_freshness"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_replay_freshness#f1",
+              "fastapi_backend.webhook_replay_freshness#f2",
+              "fastapi_backend.webhook_replay_freshness#f4"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_replay_freshness#tb4",
+              "fastapi_backend.webhook_replay_freshness#tb5"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_093.s07",
+      "type": "check",
+      "concept_ids": [
+        "fastapi_backend.webhook_replay_freshness"
+      ],
+      "title": "Choose the boundary",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "fastapi_backend.webhook_replay_freshness#f3"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "fastapi_backend.webhook_replay_freshness#assessment:explain_receiver_clock_accuracy_requirement"
+        ]
+      },
+      "eyebrow": "Check",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_093.s07",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "fastapi_backend.webhook_replay_freshness",
+            "capability": "explain_receiver_clock_accuracy_requirement",
+            "fact_ids": [
+              "f3"
+            ]
+          }
+        ],
+        "anchors": [
+          "fastapi_backend.webhook_replay_freshness#assessment:explain_receiver_clock_accuracy_requirement"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Keep the receiver clock synchronized so comparing an authenticated timestamp with the local clock enforces the intended freshness window rather than a window distorted by clock drift."
+          },
+          "incorrect": {
+            "message": "Check this rule: Keep the receiver clock synchronized so comparing an authenticated timestamp with the local clock enforces the intended freshness window rather than a window distorted by clock drift."
+          },
+          "hints": [
+            "Trace the inputs, the decision boundary, and the observable output separately."
+          ],
+          "remediation_step_id": "tile_093.r03"
+        },
+        "public": {
+          "prompt": "A signed delivery timestamp is compared with receiver_now. Why must the receiver clock be synchronized accurately?",
+          "selection": "single",
+          "shuffle": true,
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Clock error can distort the computed past age or future offset and thus the freshness decision."
+            },
+            {
+              "option_id": "o2",
+              "text": "A valid signature automatically synchronizes the receiver clock."
+            },
+            {
+              "option_id": "o3",
+              "text": "Freshness proves when the original business event occurred regardless of delivery time."
+            }
+          ]
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "This option applies the taught boundary to the evidence."
+            },
+            "o2": {
+              "message": "Signature authenticity does not establish receiver clock accuracy."
+            },
+            "o3": {
+              "message": "The check concerns signed delivery-timestamp freshness, not original event age."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_093.s08",
+      "type": "check",
+      "concept_ids": [
+        "fastapi_backend.webhook_replay_freshness"
+      ],
+      "title": "Choose the boundary",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "fastapi_backend.webhook_replay_freshness#f4"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "fastapi_backend.webhook_replay_freshness#assessment:verify_freshness_outcomes_for_validly_signed_deliveries"
+        ]
+      },
+      "eyebrow": "Check",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_093.s08",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "fastapi_backend.webhook_replay_freshness",
+            "capability": "verify_freshness_outcomes_for_validly_signed_deliveries",
+            "fact_ids": [
+              "f4"
+            ]
+          }
+        ],
+        "anchors": [
+          "fastapi_backend.webhook_replay_freshness#assessment:verify_freshness_outcomes_for_validly_signed_deliveries"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Test valid signatures for an in-window delivery timestamp, an expired delivery timestamp and an impermissibly future delivery timestamp, verifying that authenticity alone does not make every signed delivery fresh."
+          },
+          "incorrect": {
+            "message": "Check this rule: Test valid signatures for an in-window delivery timestamp, an expired delivery timestamp and an impermissibly future delivery timestamp, verifying that authenticity alone does not make every signed delivery fresh."
+          },
+          "hints": [
+            "Trace the inputs, the decision boundary, and the observable output separately."
+          ]
+        },
+        "public": {
+          "prompt": "Under an inclusive policy of 300 seconds past age and 30 seconds future tolerance, what should tests of already-authenticated deliveries establish?",
+          "selection": "single",
+          "shuffle": true,
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Accept 60 seconds behind; reject 301 seconds behind and 31 seconds ahead; accept both exact policy boundaries."
+            },
+            {
+              "option_id": "o2",
+              "text": "Accept every signed timestamp because authenticity implies freshness."
+            },
+            {
+              "option_id": "o3",
+              "text": "Reject all future timestamps, including the permitted future boundary."
+            }
+          ]
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "This option applies the taught boundary to the evidence."
+            },
+            "o2": {
+              "message": "Authenticity is established before a separate freshness decision."
+            },
+            "o3": {
+              "message": "The supplied future tolerance explicitly permits the inclusive future boundary."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_093.s09",
+      "type": "hands_on",
+      "concept_ids": [
+        "fastapi_backend.webhook_replay_freshness"
+      ],
+      "title": "Apply the contract",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "fastapi_backend.webhook_replay_freshness#f1",
+          "fastapi_backend.webhook_replay_freshness#f2"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "fastapi_backend.webhook_replay_freshness#practice",
+          "fastapi_backend.webhook_replay_freshness#assessment:distinguish_authenticated_delivery_freshness_from_original_event_age",
+          "fastapi_backend.webhook_replay_freshness#assessment:classify_signed_delivery_timestamp_against_acceptance_window"
+        ]
+      },
+      "eyebrow": "Practice",
+      "interaction": {
+        "type": "code_exercise",
+        "interaction_id": "ix.tile_093.s09",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "fastapi_backend.webhook_replay_freshness",
+            "capability": "distinguish_authenticated_delivery_freshness_from_original_event_age",
+            "fact_ids": [
+              "f1"
+            ]
+          },
+          {
+            "concept_id": "fastapi_backend.webhook_replay_freshness",
+            "capability": "classify_signed_delivery_timestamp_against_acceptance_window",
+            "fact_ids": [
+              "f2"
+            ]
+          }
+        ],
+        "anchors": [
+          "fastapi_backend.webhook_replay_freshness#practice",
+          "fastapi_backend.webhook_replay_freshness#assessment:distinguish_authenticated_delivery_freshness_from_original_event_age",
+          "fastapi_backend.webhook_replay_freshness#assessment:classify_signed_delivery_timestamp_against_acceptance_window"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Your response respects the stated boundary and the supplied evidence."
+          },
+          "incorrect": {
+            "message": "Recheck which evidence establishes the boundary; a declaration or successful single case is not a substitute for the required checks."
+          },
+          "hints": [
+            "Trace the inputs, the decision boundary, and the observable output separately."
+          ]
+        },
+        "public": {
+          "prompt": "Implement delivery_is_fresh(signed_delivery_timestamp, receiver_now, acceptance_window, future_tolerance) returning bool. Parse the authenticated valid integer-seconds string with int; compute receiver time minus delivery time. Accept inclusive past-age and future-offset bounds using the supplied limits. Signatures are verified beforehand; this is delivery-timestamp freshness, not original event age. Tests cover in-window, expired, future-outside, both exact boundaries, now, and changed limits. Do not read the real clock or hard-code the policy.",
+          "runtime": {
+            "kind": "python_asgi",
+            "version": "0.29.5",
+            "packages": [
+              "fastapi"
+            ]
+          },
+          "workspace": {
+            "entry": "main.py",
+            "files": [
+              {
+                "path": "main.py",
+                "role": "editable",
+                "language": "python",
+                "content": "from fastapi import FastAPI\napp = FastAPI()\ndef delivery_is_fresh(signed_delivery_timestamp, receiver_now, acceptance_window, future_tolerance):\n    return False\n"
+              }
+            ],
+            "asset_mounts": []
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "def",
+              "str, int and bool type annotations",
+              "integer and string literals",
+              "int(...)",
+              "variable assignment",
+              "subtraction",
+              "unary minus",
+              "comparison operators",
+              "and",
+              "return",
+              "function calls",
+              "assert"
+            ],
+            "blocked_syntax": [
+              "@tenacity.retry(...)",
+              "tenacity.Retrying(...)",
+              "tenacity.AsyncRetrying(...)"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "main.py",
+              "content": "from fastapi import FastAPI\napp = FastAPI()\ndef delivery_is_fresh(signed_delivery_timestamp, receiver_now, acceptance_window, future_tolerance):\n    age = receiver_now - int(signed_delivery_timestamp)\n    return -future_tolerance <= age and age <= acceptance_window\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "fresh",
+              "kind": "function_call",
+              "spec": {
+                "function": "delivery_is_fresh",
+                "args": [
+                  "1799999940",
+                  1800000000,
+                  300,
+                  30
+                ],
+                "expected": true
+              },
+              "message_on_fail": "The fresh case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "past_boundary",
+              "kind": "function_call",
+              "spec": {
+                "function": "delivery_is_fresh",
+                "args": [
+                  "1799999700",
+                  1800000000,
+                  300,
+                  30
+                ],
+                "expected": true
+              },
+              "message_on_fail": "The past_boundary case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "expired",
+              "kind": "function_call",
+              "spec": {
+                "function": "delivery_is_fresh",
+                "args": [
+                  "1799999699",
+                  1800000000,
+                  300,
+                  30
+                ],
+                "expected": false
+              },
+              "message_on_fail": "The expired case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "future_boundary",
+              "kind": "function_call",
+              "spec": {
+                "function": "delivery_is_fresh",
+                "args": [
+                  "1800000030",
+                  1800000000,
+                  300,
+                  30
+                ],
+                "expected": true
+              },
+              "message_on_fail": "The future_boundary case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "future_rejected",
+              "kind": "function_call",
+              "spec": {
+                "function": "delivery_is_fresh",
+                "args": [
+                  "1800000031",
+                  1800000000,
+                  300,
+                  30
+                ],
+                "expected": false
+              },
+              "message_on_fail": "The future_rejected case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "now",
+              "kind": "function_call",
+              "spec": {
+                "function": "delivery_is_fresh",
+                "args": [
+                  "1800000000",
+                  1800000000,
+                  300,
+                  30
+                ],
+                "expected": true
+              },
+              "message_on_fail": "The now case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "changed_past_limit",
+              "kind": "function_call",
+              "spec": {
+                "function": "delivery_is_fresh",
+                "args": [
+                  "1799999940",
+                  1800000000,
+                  30,
+                  30
+                ],
+                "expected": false
+              },
+              "message_on_fail": "The changed_past_limit case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "pyodide",
+            "runtime_version": "0.29.5",
+            "solution_sha256": "1d5183216b908488a304d8a9990be0937d7d0e2e3aae8dc64afe25ee81bcda3b",
+            "tests_passed": 7
+          },
+          "hidden_checks": []
+        }
+      }
+    },
+    {
+      "step_id": "tile_093.s10",
+      "type": "explainer",
+      "concept_ids": [
+        "integration.bounded_idempotent_retries"
+      ],
+      "title": "Bounded retry decisions respecting HTTP idempotency",
+      "lineage": {
+        "teaching_block_ids": [
+          "integration.bounded_idempotent_retries#tb1",
+          "integration.bounded_idempotent_retries#tb2",
+          "integration.bounded_idempotent_retries#tb3"
+        ],
+        "fact_ids": [
+          "integration.bounded_idempotent_retries#f1",
+          "integration.bounded_idempotent_retries#f2",
+          "integration.bounded_idempotent_retries#f3",
+          "integration.bounded_idempotent_retries#f4",
+          "integration.bounded_idempotent_retries#f5"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "integration.bounded_idempotent_retries#visual"
+        ]
+      },
+      "eyebrow": "Learn the rule",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Repeating non-idempotent requests can duplicate effects. Retry only when method or application contract establishes idempotency, or proves the original was not applied.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.bounded_idempotent_retries"
+            ],
+            "fact_ids": [
+              "integration.bounded_idempotent_retries#f1"
+            ],
+            "teaching_block_ids": [
+              "integration.bounded_idempotent_retries#tb2"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Retry-After may be an HTTP date or seconds of delay. Incorporate a valid supplied delay instead of immediately retrying against it.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.bounded_idempotent_retries"
+            ],
+            "fact_ids": [
+              "integration.bounded_idempotent_retries#f2"
+            ],
+            "teaching_block_ids": [
+              "integration.bounded_idempotent_retries#tb3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Bound attempts and total time; use a maintained client’s bounded backoff where applicable so transient failures eventually stop.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.bounded_idempotent_retries"
+            ],
+            "fact_ids": [
+              "integration.bounded_idempotent_retries#f3"
+            ],
+            "teaching_block_ids": [
+              "integration.bounded_idempotent_retries#tb3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Classify the supplied failure as retryable or terminal under the operation contract. A timeout or lost response alone does not prove no remote effect.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.bounded_idempotent_retries"
+            ],
+            "fact_ids": [
+              "integration.bounded_idempotent_retries#f4"
+            ],
+            "teaching_block_ids": [
+              "integration.bounded_idempotent_retries#tb3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Test transient failure then success and repeated failures reaching the limit. Do not blindly repeat a non-idempotent operation lacking a retry-safe contract.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.bounded_idempotent_retries"
+            ],
+            "fact_ids": [
+              "integration.bounded_idempotent_retries#f5"
+            ],
+            "teaching_block_ids": [
+              "integration.bounded_idempotent_retries#tb3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "process_flow",
+          "direction": "TB",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "Permission to repeat: idempotent contract or proof original was not applied?",
+              "kind": "step"
+            },
+            {
+              "id": "n1",
+              "label": "No → stop; lost response may hide an already-applied effect",
+              "kind": "step"
+            },
+            {
+              "id": "n2",
+              "label": "Yes → classify supplied failure under operation contract",
+              "kind": "step"
+            },
+            {
+              "id": "n3",
+              "label": "Terminal → stop",
+              "kind": "step"
+            },
+            {
+              "id": "n4",
+              "label": "Retryable → honor valid Retry-After (date or seconds) and bounded backoff",
+              "kind": "step"
+            },
+            {
+              "id": "n5",
+              "label": "Remaining finite attempts AND total time?",
+              "kind": "step"
+            },
+            {
+              "id": "n6",
+              "label": "Yes → retry; transient success ends repetition",
+              "kind": "step"
+            },
+            {
+              "id": "n7",
+              "label": "No → stop at limit",
+              "kind": "step"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1",
+              "kind": "no"
+            },
+            {
+              "from": "n0",
+              "to": "n2",
+              "kind": "yes"
+            },
+            {
+              "from": "n2",
+              "to": "n3",
+              "label": "terminal"
+            },
+            {
+              "from": "n2",
+              "to": "n4",
+              "label": "retryable"
+            },
+            {
+              "from": "n4",
+              "to": "n5"
+            },
+            {
+              "from": "n5",
+              "to": "n6",
+              "kind": "yes"
+            },
+            {
+              "from": "n5",
+              "to": "n7",
+              "kind": "no"
+            },
+            {
+              "from": "n6",
+              "to": "n2",
+              "kind": "loop_back",
+              "label": "another failure"
+            }
+          ],
+          "alt_text": "Permission to repeat: idempotent contract or proof original was not applied?; No → stop; lost response may hide an already-applied effect; Yes → classify supplied failure under operation contract; Terminal → stop; Retryable → honor valid Retry-After (date or seconds) and bounded backoff; Remaining finite attempts AND total time?; Yes → retry; transient success ends repetition; No → stop at limit",
+          "lineage": {
+            "concept_ids": [
+              "integration.bounded_idempotent_retries"
+            ],
+            "fact_ids": [
+              "integration.bounded_idempotent_retries#f1",
+              "integration.bounded_idempotent_retries#f2",
+              "integration.bounded_idempotent_retries#f3",
+              "integration.bounded_idempotent_retries#f4",
+              "integration.bounded_idempotent_retries#f5"
+            ],
+            "teaching_block_ids": [
+              "integration.bounded_idempotent_retries#tb2",
+              "integration.bounded_idempotent_retries#tb3",
+              "integration.bounded_idempotent_retries#tb4",
+              "integration.bounded_idempotent_retries#tb5"
+            ],
+            "anchors": [
+              "integration.bounded_idempotent_retries#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_093.s11",
+      "type": "explainer",
+      "concept_ids": [
+        "integration.bounded_idempotent_retries"
+      ],
+      "title": "Keep the boundary clear",
+      "lineage": {
+        "teaching_block_ids": [
+          "integration.bounded_idempotent_retries#tb4",
+          "integration.bounded_idempotent_retries#tb5"
+        ],
+        "fact_ids": [
+          "integration.bounded_idempotent_retries#f1",
+          "integration.bounded_idempotent_retries#f2",
+          "integration.bounded_idempotent_retries#f3",
+          "integration.bounded_idempotent_retries#f4",
+          "integration.bounded_idempotent_retries#f5"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "eyebrow": "Work the boundary",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "A lost response leaves the remote effect uncertain. A retry budget limits repetition but does not make unsafe repetition idempotent.",
+          "role": "walkthrough",
+          "lineage": {
+            "concept_ids": [
+              "integration.bounded_idempotent_retries"
+            ],
+            "fact_ids": [
+              "integration.bounded_idempotent_retries#f1",
+              "integration.bounded_idempotent_retries#f3",
+              "integration.bounded_idempotent_retries#f4"
+            ],
+            "teaching_block_ids": [
+              "integration.bounded_idempotent_retries#tb4",
+              "integration.bounded_idempotent_retries#tb5"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_093.s12",
+      "type": "check",
+      "concept_ids": [
+        "integration.bounded_idempotent_retries"
+      ],
+      "title": "Choose the boundary",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "integration.bounded_idempotent_retries#f5"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "integration.bounded_idempotent_retries#assessment:verify_retry_success_exhaustion_and_unsafe_repetition_prevention"
+        ]
+      },
+      "eyebrow": "Check",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_093.s12",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "integration.bounded_idempotent_retries",
+            "capability": "verify_retry_success_exhaustion_and_unsafe_repetition_prevention",
+            "fact_ids": [
+              "f5"
+            ]
+          }
+        ],
+        "anchors": [
+          "integration.bounded_idempotent_retries#assessment:verify_retry_success_exhaustion_and_unsafe_repetition_prevention"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Verify a transient failure followed by success and repeated failures exhausting the configured limit, and confirm that a non-idempotent operation without a retry-safe contract is not blindly repeated."
+          },
+          "incorrect": {
+            "message": "Check this rule: Verify a transient failure followed by success and repeated failures exhausting the configured limit, and confirm that a non-idempotent operation without a retry-safe contract is not blindly repeated."
+          },
+          "hints": [
+            "Trace the inputs, the decision boundary, and the observable output separately."
+          ],
+          "remediation_step_id": "tile_093.r06"
+        },
+        "public": {
+          "prompt": "Which supplied retry-check outcome meets a bounded retry-safe contract?",
+          "selection": "single",
+          "shuffle": true,
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "A permitted transient failure can reach success, repeated failure stops at finite limits, and an unsafe non-idempotent lost response gets no blind retry."
+            },
+            {
+              "option_id": "o2",
+              "text": "Retry every timeout indefinitely because it proves the remote operation had no effect."
+            },
+            {
+              "option_id": "o3",
+              "text": "Retry an unsafe POST just like an idempotent GET whenever the response is lost."
+            }
+          ]
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "This option applies the taught boundary to the evidence."
+            },
+            "o2": {
+              "message": "A timeout does not prove lack of remote effect, and finite limits are required."
+            },
+            "o3": {
+              "message": "A lost response alone does not authorize repetition of a non-idempotent operation."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_093.s13",
+      "type": "hands_on",
+      "concept_ids": [
+        "integration.bounded_idempotent_retries"
+      ],
+      "title": "Apply the contract",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "integration.bounded_idempotent_retries#f1",
+          "integration.bounded_idempotent_retries#f2",
+          "integration.bounded_idempotent_retries#f3",
+          "integration.bounded_idempotent_retries#f4",
+          "integration.bounded_idempotent_retries#f5"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "integration.bounded_idempotent_retries#practice",
+          "integration.bounded_idempotent_retries#assessment:decide_whether_repetition_is_safe",
+          "integration.bounded_idempotent_retries#assessment:classify_retryable_and_terminal_failures",
+          "integration.bounded_idempotent_retries#assessment:determine_retry_timing_and_stopping_limits",
+          "integration.bounded_idempotent_retries#assessment:verify_retry_success_exhaustion_and_unsafe_repetition_prevention"
+        ]
+      },
+      "eyebrow": "Practice",
+      "interaction": {
+        "type": "code_exercise",
+        "interaction_id": "ix.tile_093.s13",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "integration.bounded_idempotent_retries",
+            "capability": "decide_whether_repetition_is_safe",
+            "fact_ids": [
+              "f1",
+              "f4"
+            ]
+          },
+          {
+            "concept_id": "integration.bounded_idempotent_retries",
+            "capability": "classify_retryable_and_terminal_failures",
+            "fact_ids": [
+              "f4"
+            ]
+          },
+          {
+            "concept_id": "integration.bounded_idempotent_retries",
+            "capability": "determine_retry_timing_and_stopping_limits",
+            "fact_ids": [
+              "f2",
+              "f3"
+            ]
+          },
+          {
+            "concept_id": "integration.bounded_idempotent_retries",
+            "capability": "verify_retry_success_exhaustion_and_unsafe_repetition_prevention",
+            "fact_ids": [
+              "f5"
+            ]
+          }
+        ],
+        "anchors": [
+          "integration.bounded_idempotent_retries#practice",
+          "integration.bounded_idempotent_retries#assessment:decide_whether_repetition_is_safe",
+          "integration.bounded_idempotent_retries#assessment:classify_retryable_and_terminal_failures",
+          "integration.bounded_idempotent_retries#assessment:determine_retry_timing_and_stopping_limits",
+          "integration.bounded_idempotent_retries#assessment:verify_retry_success_exhaustion_and_unsafe_repetition_prevention"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Your response respects the stated boundary and the supplied evidence."
+          },
+          "incorrect": {
+            "message": "Recheck which evidence establishes the boundary; a declaration or successful single case is not a substitute for the required checks."
+          },
+          "hints": [
+            "Trace the inputs, the decision boundary, and the observable output separately."
+          ]
+        },
+        "public": {
+          "prompt": "Complete only policy for the supplied maintained-client adapter: retryable_failures=[\"transient\"] (terminal failures excluded), max_attempts and total_time_budget from contract.hypothetical_limits, retry_after=true to honor both delay-seconds and HTTP-date forms, bounded_backoff from max_backoff_seconds, and retry_safe=true subject to the adapter enforcing the operation contract. Use literal values matching the supplied fixture. The runtime verification mirror tests deterministic configuration decisions (not live outbound execution): transient then success, repeated-failure exhaustion, both server-delay forms, over-budget delay, terminal failure and one attempt only for an unsafe POST with a lost response. A timeout never establishes no remote effect. No retry engine changes are permitted. Read adapter_reference.py for the supplied maintained-client implementation; it is reference-only because tenacity is outside this in-process runtime.",
+          "runtime": {
+            "kind": "python_asgi",
+            "version": "0.29.5",
+            "packages": [
+              "fastapi"
+            ]
+          },
+          "workspace": {
+            "entry": "main.py",
+            "files": [
+              {
+                "path": "main.py",
+                "role": "editable",
+                "language": "python",
+                "content": "from fastapi import FastAPI\nfrom email.utils import parsedate_to_datetime\napp = FastAPI()\ncontract = {'hypothetical_limits': {'max_attempts': 3, 'total_time_budget_seconds': 10, 'max_backoff_seconds': 2}, 'operations': [{'method': 'GET', 'contract_idempotent': True}, {'method': 'POST', 'contract_idempotent': False, 'known_not_applied': False}], 'verification_scenarios': ['transient_then_success', 'repeated_failures', 'non_idempotent_lost_response'], 'retry_after_delay_seconds': '2', 'retry_after_http_date': 'Fri, 15 Jan 2027 08:00:02 GMT', 'receiver_now': 1800000000, 'note': 'Authored fixture policy. Adapter configuration names must be supplied; no client-internal implementation is implied.'}\n# Runtime verification mirror of the supplied maintained-client adapter's configuration contract.\n# No outbound network occurs; these scripted checks exercise policy decisions only.\ndef server_delay(value, now):\n    if value is None: return None\n    try:\n        if str(value).isdigit(): return float(value)\n        return max(0, parsedate_to_datetime(value).timestamp() - now)\n    except (ValueError,TypeError,OverflowError): return None\ndef verify_policy(operation, steps, receiver_now):\n    if any(policy.get(k) is None for k in ['retryable_failures','max_attempts','total_time_budget','retry_after','bounded_backoff','retry_safe']):\n        return {'error':'Incomplete policy'}\n    calls, elapsed, delays = 0, 0, []\n    safe = policy['retry_safe'] and (operation.get('contract_idempotent',False) or operation.get('known_not_applied',False))\n    while True:\n        calls += 1\n        step = steps[min(calls-1,len(steps)-1)]\n        elapsed += step.get('duration',0)\n        if 'failure' not in step: return {'outcome':'success','calls':calls,'elapsed':elapsed,'delays':delays}\n        if not safe or step['failure'] not in policy['retryable_failures']:\n            return {'outcome':'terminal','calls':calls,'elapsed':elapsed,'delays':delays}\n        delay = server_delay(step.get('retry_after'),receiver_now + elapsed) if policy['retry_after'] else None\n        if delay is None: delay = min(2**(calls-1),policy['bounded_backoff'])\n        if calls >= policy['max_attempts'] or elapsed + delay >= policy['total_time_budget']:\n            return {'outcome':'exhausted','calls':calls,'elapsed':elapsed,'delays':delays}\n        delays.append(delay); elapsed += delay\n@app.get('/verify')\ndef verify(case:str):\n    safe, unsafe = contract['operations']\n    scripts = {\n      'transient':[{'failure':'transient'},{'result':{'ok':True}}],\n      'exhausted':[{'failure':'transient'}],\n      'delay_seconds':[{'failure':'transient','retry_after':contract['retry_after_delay_seconds']},{'result':{'ok':True}}],\n      'delay_date':[{'failure':'transient','retry_after':contract['retry_after_http_date']},{'result':{'ok':True}}],\n      'over_budget_delay':[{'failure':'transient','retry_after':str(contract['hypothetical_limits']['total_time_budget_seconds'] + 1)}],\n      'terminal':[{'failure':'terminal'}],\n      'unsafe':[{'failure':'transient'}]}\n    return {'policy':policy, 'result':verify_policy(unsafe if case=='unsafe' else safe, scripts[case], contract['receiver_now'])}\n# Edit only the mapping. No loop or retry engine is requested from the learner.\npolicy = {'retryable_failures':None,'max_attempts':None,'total_time_budget':None,'retry_after':None,'bounded_backoff':None,'retry_safe':None}\n"
+              },
+              {
+                "path": "adapter_reference.py",
+                "role": "readonly",
+                "language": "python",
+                "content": "from dataclasses import dataclass\nfrom email.utils import parsedate_to_datetime\nfrom tenacity import Retrying, retry_if_exception\nclass ControlledFailure(Exception):\n    def __init__(self, classification, retry_after=None):\n        super().__init__(classification)\n        self.classification=classification\n        self.retry_after=retry_after\n@dataclass\nclass Clock:\n    epoch: float\n    elapsed: float=0\n    def sleep(self,seconds):\n        self.elapsed+=seconds\n    def now(self): return self.epoch+self.elapsed\nclass ScriptedTransport:\n    def __init__(self,steps,clock):\n        self.steps=list(steps); self.calls=0; self.clock=clock\n    def __call__(self):\n        self.calls+=1\n        step=self.steps[min(self.calls-1,len(self.steps)-1)]\n        self.clock.sleep(step.get('duration',0))\n        if 'failure' in step:\n            raise ControlledFailure(step['failure'],step.get('retry_after'))\n        return step.get('result',{'ok':True})\ndef server_delay(value,now):\n    if value is None: return None\n    try:\n        if str(value).isdigit(): return float(value)\n        return max(0,parsedate_to_datetime(value).timestamp()-now)\n    except (ValueError,TypeError,OverflowError):\n        return None\ndef execute(policy,operation,transport,clock):\n    # Configuration adapter around maintained Tenacity; learners need no loop.\n    required=['retryable_failures','max_attempts','total_time_budget','retry_after','bounded_backoff','retry_safe']\n    if any(policy.get(key) is None for key in required):\n        raise ValueError('Complete all documented policy fields')\n    if policy['max_attempts']<1 or policy['total_time_budget']<=0 or policy['bounded_backoff']<0:\n        raise ValueError('Finite positive budgets required')\n    safe=policy['retry_safe'] and (operation.get('contract_idempotent',False) or operation.get('known_not_applied',False))\n    start=clock.elapsed\n    def retry(exception):\n        return safe and isinstance(exception,ControlledFailure) and exception.classification in policy['retryable_failures']\n    def wait(state):\n        failure=state.outcome.exception()\n        delay=server_delay(failure.retry_after,clock.now()) if policy['retry_after'] else None\n        # A valid server delay is not clipped by the client-backoff cap. If it\n        # cannot fit in total_time_budget, stop rather than retrying earlier.\n        return delay if delay is not None else min(2**(state.attempt_number-1),policy['bounded_backoff'])\n    def stop(state):\n        return state.attempt_number>=policy['max_attempts'] or clock.elapsed-start+state.upcoming_sleep>=policy['total_time_budget']\n    runner=Retrying(retry=retry_if_exception(retry),wait=wait,stop=stop,sleep=clock.sleep,reraise=True)\n    return runner(transport)\n"
+              }
+            ],
+            "asset_mounts": []
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "Assignment to the supplied policy mapping",
+              "Dictionary literals with string keys",
+              "String, integer, float, Boolean, and None literals",
+              "List literals for supplied failure classifications"
+            ],
+            "blocked_syntax": []
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "main.py",
+              "content": "from fastapi import FastAPI\nfrom email.utils import parsedate_to_datetime\napp = FastAPI()\ncontract = {'hypothetical_limits': {'max_attempts': 3, 'total_time_budget_seconds': 10, 'max_backoff_seconds': 2}, 'operations': [{'method': 'GET', 'contract_idempotent': True}, {'method': 'POST', 'contract_idempotent': False, 'known_not_applied': False}], 'verification_scenarios': ['transient_then_success', 'repeated_failures', 'non_idempotent_lost_response'], 'retry_after_delay_seconds': '2', 'retry_after_http_date': 'Fri, 15 Jan 2027 08:00:02 GMT', 'receiver_now': 1800000000, 'note': 'Authored fixture policy. Adapter configuration names must be supplied; no client-internal implementation is implied.'}\n# Runtime verification mirror of the supplied maintained-client adapter's configuration contract.\n# No outbound network occurs; these scripted checks exercise policy decisions only.\ndef server_delay(value, now):\n    if value is None: return None\n    try:\n        if str(value).isdigit(): return float(value)\n        return max(0, parsedate_to_datetime(value).timestamp() - now)\n    except (ValueError,TypeError,OverflowError): return None\ndef verify_policy(operation, steps, receiver_now):\n    if any(policy.get(k) is None for k in ['retryable_failures','max_attempts','total_time_budget','retry_after','bounded_backoff','retry_safe']):\n        return {'error':'Incomplete policy'}\n    calls, elapsed, delays = 0, 0, []\n    safe = policy['retry_safe'] and (operation.get('contract_idempotent',False) or operation.get('known_not_applied',False))\n    while True:\n        calls += 1\n        step = steps[min(calls-1,len(steps)-1)]\n        elapsed += step.get('duration',0)\n        if 'failure' not in step: return {'outcome':'success','calls':calls,'elapsed':elapsed,'delays':delays}\n        if not safe or step['failure'] not in policy['retryable_failures']:\n            return {'outcome':'terminal','calls':calls,'elapsed':elapsed,'delays':delays}\n        delay = server_delay(step.get('retry_after'),receiver_now + elapsed) if policy['retry_after'] else None\n        if delay is None: delay = min(2**(calls-1),policy['bounded_backoff'])\n        if calls >= policy['max_attempts'] or elapsed + delay >= policy['total_time_budget']:\n            return {'outcome':'exhausted','calls':calls,'elapsed':elapsed,'delays':delays}\n        delays.append(delay); elapsed += delay\n@app.get('/verify')\ndef verify(case:str):\n    safe, unsafe = contract['operations']\n    scripts = {\n      'transient':[{'failure':'transient'},{'result':{'ok':True}}],\n      'exhausted':[{'failure':'transient'}],\n      'delay_seconds':[{'failure':'transient','retry_after':contract['retry_after_delay_seconds']},{'result':{'ok':True}}],\n      'delay_date':[{'failure':'transient','retry_after':contract['retry_after_http_date']},{'result':{'ok':True}}],\n      'over_budget_delay':[{'failure':'transient','retry_after':str(contract['hypothetical_limits']['total_time_budget_seconds'] + 1)}],\n      'terminal':[{'failure':'terminal'}],\n      'unsafe':[{'failure':'transient'}]}\n    return {'policy':policy, 'result':verify_policy(unsafe if case=='unsafe' else safe, scripts[case], contract['receiver_now'])}\n# Edit only the mapping. No loop or retry engine is requested from the learner.\npolicy = {'retryable_failures': ['transient'], 'max_attempts': 3, 'total_time_budget': 10, 'retry_after': True, 'bounded_backoff': 2, 'retry_safe': True}\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "transient",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "GET",
+                    "path": "/verify",
+                    "params": {
+                      "case": "transient"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "policy": {
+                      "retryable_failures": [
+                        "transient"
+                      ],
+                      "max_attempts": 3,
+                      "total_time_budget": 10,
+                      "retry_after": true,
+                      "bounded_backoff": 2,
+                      "retry_safe": true
+                    },
+                    "result": {
+                      "outcome": "success",
+                      "calls": 2,
+                      "elapsed": 1,
+                      "delays": [
+                        1
+                      ]
+                    }
+                  }
+                }
+              },
+              "message_on_fail": "The transient case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "exhausted",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "GET",
+                    "path": "/verify",
+                    "params": {
+                      "case": "exhausted"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "policy": {
+                      "retryable_failures": [
+                        "transient"
+                      ],
+                      "max_attempts": 3,
+                      "total_time_budget": 10,
+                      "retry_after": true,
+                      "bounded_backoff": 2,
+                      "retry_safe": true
+                    },
+                    "result": {
+                      "outcome": "exhausted",
+                      "calls": 3,
+                      "elapsed": 3,
+                      "delays": [
+                        1,
+                        2
+                      ]
+                    }
+                  }
+                }
+              },
+              "message_on_fail": "The exhausted case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "delay_seconds",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "GET",
+                    "path": "/verify",
+                    "params": {
+                      "case": "delay_seconds"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "policy": {
+                      "retryable_failures": [
+                        "transient"
+                      ],
+                      "max_attempts": 3,
+                      "total_time_budget": 10,
+                      "retry_after": true,
+                      "bounded_backoff": 2,
+                      "retry_safe": true
+                    },
+                    "result": {
+                      "outcome": "success",
+                      "calls": 2,
+                      "elapsed": 2,
+                      "delays": [
+                        2
+                      ]
+                    }
+                  }
+                }
+              },
+              "message_on_fail": "The delay_seconds case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "delay_date",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "GET",
+                    "path": "/verify",
+                    "params": {
+                      "case": "delay_date"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "policy": {
+                      "retryable_failures": [
+                        "transient"
+                      ],
+                      "max_attempts": 3,
+                      "total_time_budget": 10,
+                      "retry_after": true,
+                      "bounded_backoff": 2,
+                      "retry_safe": true
+                    },
+                    "result": {
+                      "outcome": "success",
+                      "calls": 2,
+                      "elapsed": 2,
+                      "delays": [
+                        2
+                      ]
+                    }
+                  }
+                }
+              },
+              "message_on_fail": "The delay_date case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "over_budget_delay",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "GET",
+                    "path": "/verify",
+                    "params": {
+                      "case": "over_budget_delay"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "policy": {
+                      "retryable_failures": [
+                        "transient"
+                      ],
+                      "max_attempts": 3,
+                      "total_time_budget": 10,
+                      "retry_after": true,
+                      "bounded_backoff": 2,
+                      "retry_safe": true
+                    },
+                    "result": {
+                      "outcome": "exhausted",
+                      "calls": 1,
+                      "elapsed": 0,
+                      "delays": []
+                    }
+                  }
+                }
+              },
+              "message_on_fail": "The over_budget_delay case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "terminal",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "GET",
+                    "path": "/verify",
+                    "params": {
+                      "case": "terminal"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "policy": {
+                      "retryable_failures": [
+                        "transient"
+                      ],
+                      "max_attempts": 3,
+                      "total_time_budget": 10,
+                      "retry_after": true,
+                      "bounded_backoff": 2,
+                      "retry_safe": true
+                    },
+                    "result": {
+                      "outcome": "terminal",
+                      "calls": 1,
+                      "elapsed": 0,
+                      "delays": []
+                    }
+                  }
+                }
+              },
+              "message_on_fail": "The terminal case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "unsafe",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "GET",
+                    "path": "/verify",
+                    "params": {
+                      "case": "unsafe"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "policy": {
+                      "retryable_failures": [
+                        "transient"
+                      ],
+                      "max_attempts": 3,
+                      "total_time_budget": 10,
+                      "retry_after": true,
+                      "bounded_backoff": 2,
+                      "retry_safe": true
+                    },
+                    "result": {
+                      "outcome": "terminal",
+                      "calls": 1,
+                      "elapsed": 0,
+                      "delays": []
+                    }
+                  }
+                }
+              },
+              "message_on_fail": "The unsafe case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "pyodide",
+            "runtime_version": "0.29.5",
+            "solution_sha256": "ab9ef42ead4ab33d19583e274096e43deb5d7902a32c081eda8e4da2f4e74454",
+            "tests_passed": 7
+          },
+          "hidden_checks": []
+        }
+      }
+    },
+    {
+      "step_id": "tile_093.s14",
+      "type": "recap",
+      "concept_ids": [
+        "fastapi_backend.webhook_delivery_idempotency",
+        "fastapi_backend.webhook_replay_freshness",
+        "integration.bounded_idempotent_retries"
+      ],
+      "title": "Take the rule with you",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Successful duplicate acknowledgment is not a second state change. Persistence and atomic uniqueness must also hold across restart and concurrent delivery.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_delivery_idempotency"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#f1",
+              "fastapi_backend.webhook_delivery_idempotency#f2"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A valid signature authenticates the timestamp, not its freshness. Retry timestamps also do not establish original event age.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_replay_freshness"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_replay_freshness#f1",
+              "fastapi_backend.webhook_replay_freshness#f2",
+              "fastapi_backend.webhook_replay_freshness#f4"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_replay_freshness#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A lost response leaves the remote effect uncertain. A retry budget limits repetition but does not make unsafe repetition idempotent.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "integration.bounded_idempotent_retries"
+            ],
+            "fact_ids": [
+              "integration.bounded_idempotent_retries#f1",
+              "integration.bounded_idempotent_retries#f4"
+            ],
+            "teaching_block_ids": [
+              "integration.bounded_idempotent_retries#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "up_next",
+          "title": "Object-level authorization against the authenticated principal",
+          "text": "An authenticated caller can substitute another order identifier in a request. Permission for the specific object must not be inferred from a valid identifier."
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "tile_093.r01",
+      "type": "remediation",
+      "title": "Review: Webhook delivery idempotency",
+      "concept_ids": [
+        "fastapi_backend.webhook_delivery_idempotency"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "fastapi_backend.webhook_delivery_idempotency"
+        ],
+        "fact_ids": [
+          "fastapi_backend.webhook_delivery_idempotency#f1",
+          "fastapi_backend.webhook_delivery_idempotency#f3"
+        ],
+        "teaching_block_ids": [
+          "fastapi_backend.webhook_delivery_idempotency#tb2",
+          "fastapi_backend.webhook_delivery_idempotency#tb3",
+          "fastapi_backend.webhook_delivery_idempotency#tb4",
+          "fastapi_backend.webhook_delivery_idempotency#tb5"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Deduplicate on an authenticated publisher event ID; persist its record across restarts for the required replay window.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_delivery_idempotency"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#f1"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#tb2",
+              "fastapi_backend.webhook_delivery_idempotency#tb4",
+              "fastapi_backend.webhook_delivery_idempotency#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Acknowledge an already processed event successfully without changing state again. Test duplicate and concurrent deliveries separately.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_delivery_idempotency"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#f3"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#tb3",
+              "fastapi_backend.webhook_delivery_idempotency#tb4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Successful duplicate acknowledgment is not a second state change. Persistence and atomic uniqueness must also hold across restart and concurrent delivery.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_delivery_idempotency"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#f1",
+              "fastapi_backend.webhook_delivery_idempotency#f3"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#tb2",
+              "fastapi_backend.webhook_delivery_idempotency#tb3",
+              "fastapi_backend.webhook_delivery_idempotency#tb4",
+              "fastapi_backend.webhook_delivery_idempotency#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.order_events",
+            "columns": [
+              "publisher_event_id",
+              "order_id",
+              "new_status"
+            ]
+          },
+          "caption": "Authenticated publisher event fixtures",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_delivery_idempotency"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#f1",
+              "fastapi_backend.webhook_delivery_idempotency#f2",
+              "fastapi_backend.webhook_delivery_idempotency#f3"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#tb2",
+              "fastapi_backend.webhook_delivery_idempotency#tb3",
+              "fastapi_backend.webhook_delivery_idempotency#tb4",
+              "fastapi_backend.webhook_delivery_idempotency#tb5"
+            ],
+            "anchors": [
+              "fastapi_backend.webhook_delivery_idempotency#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_093.r02",
+      "type": "remediation",
+      "title": "Review: Webhook delivery idempotency",
+      "concept_ids": [
+        "fastapi_backend.webhook_delivery_idempotency"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "fastapi_backend.webhook_delivery_idempotency"
+        ],
+        "fact_ids": [
+          "fastapi_backend.webhook_delivery_idempotency#f2",
+          "fastapi_backend.webhook_delivery_idempotency#f3"
+        ],
+        "teaching_block_ids": [
+          "fastapi_backend.webhook_delivery_idempotency#tb3",
+          "fastapi_backend.webhook_delivery_idempotency#tb4",
+          "fastapi_backend.webhook_delivery_idempotency#tb5"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "In one transaction, atomically record the event ID and durable state changes. A uniqueness constraint prevents concurrent deliveries from both applying the effect.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_delivery_idempotency"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#f2"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#tb3",
+              "fastapi_backend.webhook_delivery_idempotency#tb4",
+              "fastapi_backend.webhook_delivery_idempotency#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Acknowledge an already processed event successfully without changing state again. Test duplicate and concurrent deliveries separately.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_delivery_idempotency"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#f3"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#tb3",
+              "fastapi_backend.webhook_delivery_idempotency#tb4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Successful duplicate acknowledgment is not a second state change. Persistence and atomic uniqueness must also hold across restart and concurrent delivery.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_delivery_idempotency"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#f2",
+              "fastapi_backend.webhook_delivery_idempotency#f3"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#tb3",
+              "fastapi_backend.webhook_delivery_idempotency#tb4",
+              "fastapi_backend.webhook_delivery_idempotency#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.order_events",
+            "columns": [
+              "publisher_event_id",
+              "order_id",
+              "new_status"
+            ]
+          },
+          "caption": "Authenticated publisher event fixtures",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_delivery_idempotency"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#f1",
+              "fastapi_backend.webhook_delivery_idempotency#f2",
+              "fastapi_backend.webhook_delivery_idempotency#f3"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_delivery_idempotency#tb2",
+              "fastapi_backend.webhook_delivery_idempotency#tb3",
+              "fastapi_backend.webhook_delivery_idempotency#tb4",
+              "fastapi_backend.webhook_delivery_idempotency#tb5"
+            ],
+            "anchors": [
+              "fastapi_backend.webhook_delivery_idempotency#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_093.r03",
+      "type": "remediation",
+      "title": "Review: Webhook replay freshness",
+      "concept_ids": [
+        "fastapi_backend.webhook_replay_freshness"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "fastapi_backend.webhook_replay_freshness"
+        ],
+        "fact_ids": [
+          "fastapi_backend.webhook_replay_freshness#f3"
+        ],
+        "teaching_block_ids": [
+          "fastapi_backend.webhook_replay_freshness#tb3",
+          "fastapi_backend.webhook_replay_freshness#tb4"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Synchronize the receiver clock so clock drift does not distort the intended freshness window.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_replay_freshness"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_replay_freshness#f3"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_replay_freshness#tb3",
+              "fastapi_backend.webhook_replay_freshness#tb4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A valid signature authenticates the timestamp, not its freshness. Retry timestamps also do not establish original event age.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_replay_freshness"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_replay_freshness#f3"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_replay_freshness#tb3",
+              "fastapi_backend.webhook_replay_freshness#tb4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.delivery_timestamps",
+            "columns": [
+              "case_id",
+              "signed_delivery_timestamp",
+              "receiver_now",
+              "acceptance_window",
+              "future_tolerance",
+              "signature_verified"
+            ]
+          },
+          "caption": "Authenticated delivery-timestamp cases",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_replay_freshness"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_replay_freshness#f1",
+              "fastapi_backend.webhook_replay_freshness#f2",
+              "fastapi_backend.webhook_replay_freshness#f3",
+              "fastapi_backend.webhook_replay_freshness#f4"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_replay_freshness#tb2",
+              "fastapi_backend.webhook_replay_freshness#tb3",
+              "fastapi_backend.webhook_replay_freshness#tb4",
+              "fastapi_backend.webhook_replay_freshness#tb5"
+            ],
+            "anchors": [
+              "fastapi_backend.webhook_replay_freshness#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_093.r04",
+      "type": "remediation",
+      "title": "Review: Webhook replay freshness",
+      "concept_ids": [
+        "fastapi_backend.webhook_replay_freshness"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "fastapi_backend.webhook_replay_freshness"
+        ],
+        "fact_ids": [
+          "fastapi_backend.webhook_replay_freshness#f4"
+        ],
+        "teaching_block_ids": [
+          "fastapi_backend.webhook_replay_freshness#tb3",
+          "fastapi_backend.webhook_replay_freshness#tb4",
+          "fastapi_backend.webhook_replay_freshness#tb5"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Test valid signatures with in-window, expired and impermissibly future timestamps: authentic does not necessarily mean fresh.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_replay_freshness"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_replay_freshness#f4"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_replay_freshness#tb3",
+              "fastapi_backend.webhook_replay_freshness#tb4",
+              "fastapi_backend.webhook_replay_freshness#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A valid signature authenticates the timestamp, not its freshness. Retry timestamps also do not establish original event age.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_replay_freshness"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_replay_freshness#f4"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_replay_freshness#tb3",
+              "fastapi_backend.webhook_replay_freshness#tb4",
+              "fastapi_backend.webhook_replay_freshness#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.delivery_timestamps",
+            "columns": [
+              "case_id",
+              "signed_delivery_timestamp",
+              "receiver_now",
+              "acceptance_window",
+              "future_tolerance",
+              "signature_verified"
+            ]
+          },
+          "caption": "Authenticated delivery-timestamp cases",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_replay_freshness"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_replay_freshness#f1",
+              "fastapi_backend.webhook_replay_freshness#f2",
+              "fastapi_backend.webhook_replay_freshness#f3",
+              "fastapi_backend.webhook_replay_freshness#f4"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_replay_freshness#tb2",
+              "fastapi_backend.webhook_replay_freshness#tb3",
+              "fastapi_backend.webhook_replay_freshness#tb4",
+              "fastapi_backend.webhook_replay_freshness#tb5"
+            ],
+            "anchors": [
+              "fastapi_backend.webhook_replay_freshness#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_093.r05",
+      "type": "remediation",
+      "title": "Review: Webhook replay freshness",
+      "concept_ids": [
+        "fastapi_backend.webhook_replay_freshness"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "fastapi_backend.webhook_replay_freshness"
+        ],
+        "fact_ids": [
+          "fastapi_backend.webhook_replay_freshness#f1",
+          "fastapi_backend.webhook_replay_freshness#f2"
+        ],
+        "teaching_block_ids": [
+          "fastapi_backend.webhook_replay_freshness#tb2",
+          "fastapi_backend.webhook_replay_freshness#tb3",
+          "fastapi_backend.webhook_replay_freshness#tb4",
+          "fastapi_backend.webhook_replay_freshness#tb5"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Freshness needs a provider-signature-authenticated delivery timestamp. Providers can refresh it and its signature on retries: it measures delivery freshness, not original event age. Unsigned time proves no authenticated freshness.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_replay_freshness"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_replay_freshness#f1"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_replay_freshness#tb2",
+              "fastapi_backend.webhook_replay_freshness#tb4",
+              "fastapi_backend.webhook_replay_freshness#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "After signature verification, parse signed time and reject timestamps outside the configured window, including impermissibly future timestamps under provider policy.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_replay_freshness"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_replay_freshness#f2"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_replay_freshness#tb3",
+              "fastapi_backend.webhook_replay_freshness#tb4",
+              "fastapi_backend.webhook_replay_freshness#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A valid signature authenticates the timestamp, not its freshness. Retry timestamps also do not establish original event age.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_replay_freshness"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_replay_freshness#f1",
+              "fastapi_backend.webhook_replay_freshness#f2"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_replay_freshness#tb2",
+              "fastapi_backend.webhook_replay_freshness#tb3",
+              "fastapi_backend.webhook_replay_freshness#tb4",
+              "fastapi_backend.webhook_replay_freshness#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.delivery_timestamps",
+            "columns": [
+              "case_id",
+              "signed_delivery_timestamp",
+              "receiver_now",
+              "acceptance_window",
+              "future_tolerance",
+              "signature_verified"
+            ]
+          },
+          "caption": "Authenticated delivery-timestamp cases",
+          "lineage": {
+            "concept_ids": [
+              "fastapi_backend.webhook_replay_freshness"
+            ],
+            "fact_ids": [
+              "fastapi_backend.webhook_replay_freshness#f1",
+              "fastapi_backend.webhook_replay_freshness#f2",
+              "fastapi_backend.webhook_replay_freshness#f3",
+              "fastapi_backend.webhook_replay_freshness#f4"
+            ],
+            "teaching_block_ids": [
+              "fastapi_backend.webhook_replay_freshness#tb2",
+              "fastapi_backend.webhook_replay_freshness#tb3",
+              "fastapi_backend.webhook_replay_freshness#tb4",
+              "fastapi_backend.webhook_replay_freshness#tb5"
+            ],
+            "anchors": [
+              "fastapi_backend.webhook_replay_freshness#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_093.r06",
+      "type": "remediation",
+      "title": "Review: Bounded retry decisions respecting HTTP idempotency",
+      "concept_ids": [
+        "integration.bounded_idempotent_retries"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "integration.bounded_idempotent_retries"
+        ],
+        "fact_ids": [
+          "integration.bounded_idempotent_retries#f5"
+        ],
+        "teaching_block_ids": [
+          "integration.bounded_idempotent_retries#tb3",
+          "integration.bounded_idempotent_retries#tb4"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Test transient failure then success and repeated failures reaching the limit. Do not blindly repeat a non-idempotent operation lacking a retry-safe contract.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.bounded_idempotent_retries"
+            ],
+            "fact_ids": [
+              "integration.bounded_idempotent_retries#f5"
+            ],
+            "teaching_block_ids": [
+              "integration.bounded_idempotent_retries#tb3",
+              "integration.bounded_idempotent_retries#tb4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "The supplied policy bounds attempts at 3 and total time at 10 seconds. The fixture contrasts GET with POST lacking a retry-safe contract.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "integration.bounded_idempotent_retries"
+            ],
+            "fact_ids": [
+              "integration.bounded_idempotent_retries#f5"
+            ],
+            "teaching_block_ids": [
+              "integration.bounded_idempotent_retries#tb3",
+              "integration.bounded_idempotent_retries#tb4"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_093.r07",
+      "type": "remediation",
+      "title": "Review: Bounded retry decisions respecting HTTP idempotency",
+      "concept_ids": [
+        "integration.bounded_idempotent_retries"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "integration.bounded_idempotent_retries"
+        ],
+        "fact_ids": [
+          "integration.bounded_idempotent_retries#f1",
+          "integration.bounded_idempotent_retries#f2",
+          "integration.bounded_idempotent_retries#f3",
+          "integration.bounded_idempotent_retries#f4",
+          "integration.bounded_idempotent_retries#f5"
+        ],
+        "teaching_block_ids": [
+          "integration.bounded_idempotent_retries#tb2",
+          "integration.bounded_idempotent_retries#tb3",
+          "integration.bounded_idempotent_retries#tb4",
+          "integration.bounded_idempotent_retries#tb5"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Repeating non-idempotent requests can duplicate effects. Retry only when method or application contract establishes idempotency, or proves the original was not applied.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.bounded_idempotent_retries"
+            ],
+            "fact_ids": [
+              "integration.bounded_idempotent_retries#f1"
+            ],
+            "teaching_block_ids": [
+              "integration.bounded_idempotent_retries#tb2",
+              "integration.bounded_idempotent_retries#tb4",
+              "integration.bounded_idempotent_retries#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Retry-After may be an HTTP date or seconds of delay. Incorporate a valid supplied delay instead of immediately retrying against it.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.bounded_idempotent_retries"
+            ],
+            "fact_ids": [
+              "integration.bounded_idempotent_retries#f2"
+            ],
+            "teaching_block_ids": [
+              "integration.bounded_idempotent_retries#tb3",
+              "integration.bounded_idempotent_retries#tb4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Bound attempts and total time; use a maintained client’s bounded backoff where applicable so transient failures eventually stop.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.bounded_idempotent_retries"
+            ],
+            "fact_ids": [
+              "integration.bounded_idempotent_retries#f3"
+            ],
+            "teaching_block_ids": [
+              "integration.bounded_idempotent_retries#tb3",
+              "integration.bounded_idempotent_retries#tb4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Classify the supplied failure as retryable or terminal under the operation contract. A timeout or lost response alone does not prove no remote effect.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.bounded_idempotent_retries"
+            ],
+            "fact_ids": [
+              "integration.bounded_idempotent_retries#f4"
+            ],
+            "teaching_block_ids": [
+              "integration.bounded_idempotent_retries#tb3",
+              "integration.bounded_idempotent_retries#tb4",
+              "integration.bounded_idempotent_retries#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Test transient failure then success and repeated failures reaching the limit. Do not blindly repeat a non-idempotent operation lacking a retry-safe contract.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.bounded_idempotent_retries"
+            ],
+            "fact_ids": [
+              "integration.bounded_idempotent_retries#f5"
+            ],
+            "teaching_block_ids": [
+              "integration.bounded_idempotent_retries#tb3",
+              "integration.bounded_idempotent_retries#tb4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "The supplied policy bounds attempts at 3 and total time at 10 seconds. The fixture contrasts GET with POST lacking a retry-safe contract.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "integration.bounded_idempotent_retries"
+            ],
+            "fact_ids": [
+              "integration.bounded_idempotent_retries#f1",
+              "integration.bounded_idempotent_retries#f2",
+              "integration.bounded_idempotent_retries#f3",
+              "integration.bounded_idempotent_retries#f4",
+              "integration.bounded_idempotent_retries#f5"
+            ],
+            "teaching_block_ids": [
+              "integration.bounded_idempotent_retries#tb2",
+              "integration.bounded_idempotent_retries#tb3",
+              "integration.bounded_idempotent_retries#tb4",
+              "integration.bounded_idempotent_retries#tb5"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "tile_096"
+  },
+  "content_hash": "edc2dcfa6770c7f9bc62c28f9ef6ba0894986c032932a1b68d8b420049c4f37c"
+}

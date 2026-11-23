@@ -1,0 +1,78 @@
+Complete only the two NumPy operation bindings (three for fixed-edge monitoring): mean_operation=np.mean, std_operation=np.std and histogram_operation=np.histogram. The visible supplied adapter implements the broader workflow below and calls your bindings on the selected arrays; it is not learner-written code. Do not change the supplied adapter. This is a narrowed supported-syntax task, not independent implementation of the full workflow.  Supplied workflow specification (context only, not additional learner edits): Write NumPy imports and summarize(reference, production, policy), then call emit once. All production rows belong to policy.production_window and reference.csv is the approved reference. Use fixed edges and numeric eligibility [0,10], each series own denominator, declared categories/classes including absent zero entries, and ddof=0. Emit one record with window, reference_id, fixed_edges, declared_categories, declared_classes, ddof and reference/production summaries. Each summary must have eligible_numeric_total, bin_proportions, category_total, class_total, category_probabilities, class_probabilities, mean and std. The supplied client records emissions; report exposes that one deliverable.
+
+if True:
+    import csv, json
+    from datetime import datetime, timedelta
+
+    def load(path):
+        with open(path) as f:
+            data = list(csv.DictReader(f))
+        for r in data:
+            for k,v in r.items():
+                if v == 'True': r[k] = True
+                elif v == 'False': r[k] = False
+        return data
+
+    def number(v):
+        return float(v)
+    # Supplied CSV-to-array adapter and single-record emission client.
+    import numpy as _np
+    policy = {'reference_id': 'reference', 'production_window': {'start': '2026-01-02T10:00:00Z', 'end': '2026-01-02T11:00:00Z'}, 'fixed_edges': [0, 5, 10], 'eligible_numeric_range': [0, 10], 'declared_categories': ['short_distance', 'long_distance', 'not_reported'], 'declared_classes': ['on_time', 'late', 'abstain'], 'ddof': 0, 'window_membership': 'All rows of production.csv are in the declared bounded window; reference.csv is the approved reference. Alternate fixtures are independent windows.', 'summary_client': 'from summary_client import emit; emit(record) appends a single JSON record to summary.jsonl'}
+    reference_rows = load('reference.csv')
+    production_rows = load('production.csv')
+    def arrays(data):
+        return {'numeric': _np.asarray([number(r['numeric_values']) for r in data]),
+                'category': _np.asarray([r['category'] for r in data]),
+                'class': _np.asarray([r['predicted_class'] for r in data])}
+    reference = arrays(reference_rows)
+    production = arrays(production_rows)
+    emitted = []
+    def emit(record):
+        emitted.append(record)
+
+    import numpy as np
+
+mean_operation = np.mean
+std_operation = np.std
+histogram_operation = np.histogram
+
+if True:
+
+    import numpy as np
+
+    def summarize(reference, production, policy):
+        record = {'window': policy['production_window'], 'reference_id': policy['reference_id'], 'fixed_edges': policy['fixed_edges'], 'declared_categories': policy['declared_categories'], 'declared_classes': policy['declared_classes'], 'ddof': policy['ddof']}
+        for name in ['reference', 'production']:
+            data = reference
+            if name == 'production':
+                data = production
+            values = data['numeric']
+            eligible = values[(values >= 0) & (values <= 10)]
+            counts = histogram_operation(eligible, bins=policy['fixed_edges'])[0]
+            category_probabilities = []
+            class_probabilities = []
+            for category in policy['declared_categories']:
+                category_probabilities.append(np.sum(data['category'] == category) / len(data['category']))
+            for label in policy['declared_classes']:
+                class_probabilities.append(np.sum(data['class'] == label) / len(data['class']))
+            record[name] = {'eligible_numeric_total': len(eligible), 'bin_proportions': counts / len(eligible), 'category_total': len(data['category']), 'class_total': len(data['class']), 'category_probabilities': category_probabilities, 'class_probabilities': class_probabilities, 'mean': mean_operation(eligible), 'std': std_operation(eligible, ddof=0)}
+        return record
+
+    emit(summarize(reference, production, policy))
+
+    def plain(v):
+        if isinstance(v, dict): return {k:plain(x) for k,x in v.items()}
+        if isinstance(v, list): return [plain(x) for x in v]
+        if hasattr(v,'tolist'): return v.tolist()
+        return v
+    report = {'emission_count':len(emitted), 'record':plain(emitted[0])} if emitted else None
+
+    def plain(v):
+        if isinstance(v,dict):return {k:plain(x) for k,x in v.items()}
+        if isinstance(v,list):return [plain(x) for x in v]
+        if hasattr(v,'tolist'):return v.tolist()
+        return v
+    report=plain(report)
+
+CONSTRAINTS
+{'allowed_syntax': ['import numpy as np', 'imports for client dependencies identified by the supplied scaffolding', 'def', 'return', 'variable assignment', 'function parameters and calls', 'for loops', 'if statements', 'lists and dictionaries', 'numeric and string literals', 'array indexing and Boolean masks', 'array comparisons', 'arithmetic operators', 'len', 'np.asarray', 'np.histogram(values, bins=fixed_edges)', 'np.mean(numeric_values)', 'np.std(numeric_values, ddof=0)', 'np.std(numeric_values, ddof=1)', 'np.sum', 'summary-emission calls defined by the supplied client contract'], 'blocked_syntax': ['scipy.stats.ks_2samp', 'scipy.stats.chisquare', 'scipy.stats.wasserstein_distance']}

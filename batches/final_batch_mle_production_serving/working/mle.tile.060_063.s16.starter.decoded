@@ -1,0 +1,143 @@
+import pandas as pd
+import json
+import pandas as pd
+import json
+FEATURE_NAMES = ("feature_1", "feature_2")
+class FrozenPreprocessor:
+    def transform(self, values):
+        return [[float(x) for x in row] for row in values]
+class FrozenModel:
+    def predict(self, values):
+        return [row[0] + 2.0 * row[1] for row in values]
+preprocessing_pipeline = FrozenPreprocessor()
+model = FrozenModel()
+class FittedPackage:
+    def predict(self, values):
+        return model.predict(preprocessing_pipeline.transform(values))
+fitted_package = FittedPackage()
+contract = {'fixture_only': True, 'domain': 'anonymous two-feature orders', 'feature_names': ['feature_1', 'feature_2'], 'request_keys': ['features'], 'response_keys': ['predictions', 'version'], 'matrix_rank': 2, 'matrix_width': 2, 'feature_min': 0.0, 'feature_max': 10.0, 'limits_inclusive': True, 'numpy_dtype': 'float64', 'prediction_rows': 'one per request row', 'batch_key': 'order_id', 'batch_result_keys': ['order_id', 'prediction', 'version'], 'chunk_size': 2, 'batch_input_path': 'orders.csv', 'batch_output_path': 'learner_results.jsonl', 'host': '127.0.0.1', 'port': 8080, 'prediction_route': '/predict', 'readiness_route': '/ping', 'success_status': 200, 'schema_rejection_status': 400, 'denied_status': 403, 'not_ready_status': 503, 'ready_payload': {'ready': True}, 'not_ready_payload': {'ready': False}, 'timeout_seconds': 2.0, 'healthcheck': {'command': ['CMD', 'python', 'health_probe.py'], 'interval_seconds': 5, 'timeout_seconds': 2, 'retries': 3}, 'version': 'A', 'expected_request': {'features': [[1.0, 2.0], [2.0, 3.0], [3.0, 4.0]]}, 'expected_response': {'predictions': [5.0, 8.0, 11.0], 'version': 'A'}, 'expected_audience': 'order-prediction-fixture', 'permitted_subjects': ['fixture-subject-permitted'], 'credential_secret_reference': 'credential', 'injected_secret_variable': 'ORDER_FIXTURE_CREDENTIAL', 'logging_policy': 'Record failure class only; never record token, credential literal or protected request values.'}
+def supplied_failure_fixtures(decoded):
+    return [decoded[:-1], decoded + decoded[:1], [dict(r, order_id='unknown') if i == 0 else r for i,r in enumerate(decoded)], [dict(r, prediction='malformed') if i == 0 else r for i,r in enumerate(decoded)]]
+import builtins
+real_open = builtins.open
+real_read_csv = pd.read_csv
+io_events = []
+class ObservedOutput:
+    def __init__(self, handle):
+        self.handle = handle
+    def __enter__(self):
+        self.handle.__enter__()
+        return self
+    def __exit__(self, *args):
+        return self.handle.__exit__(*args)
+    def write(self, value):
+        result = self.handle.write(value)
+        io_events.append(('write', value))
+        return result
+    def flush(self):
+        return self.handle.flush()
+def observed_open(path, mode='r', *args, **kwargs):
+    handle = real_open(path, mode, *args, **kwargs)
+    if path == contract['batch_output_path'] and mode == 'w':
+        return ObservedOutput(handle)
+    return handle
+def observed_read_csv(handle, *args, **kwargs):
+    result = real_read_csv(handle, *args, **kwargs)
+    if 'chunksize' not in kwargs:
+        return result
+    def chunks():
+        for chunk in result:
+            io_events.append(('read', len(chunk)))
+            yield chunk
+    return chunks()
+builtins.open = observed_open
+pd.read_csv = observed_read_csv
+
+def supplied_numeric_prediction(value):
+    return isinstance(value, (int, float))
+def supplied_feature_values(chunk, names):
+    return chunk[names].values.tolist()
+
+
+
+def assert_batch_output(records, expected, contract):
+    keys = []
+    for record in records:
+        verify_predicate(set(record) == set(contract['batch_result_keys']))
+        verify_predicate(supplied_numeric_prediction(record['prediction']))
+        verify_predicate(record['version'] == contract['version'])
+        keys.append(record[contract['batch_key']])
+    verify_predicate(len(keys) == len(set(keys)))
+    verify_predicate(sorted(keys) == sorted(expected))
+
+def predict_batch(contract, fitted_package):
+    expected_keys = []
+    chunk_sizes = []
+    writes_before_next_read = []
+    with open(contract['batch_input_path']) as handle:
+        with open(contract['batch_output_path'], 'w') as output:
+            for chunk in pd.read_csv(handle, chunksize=contract['chunk_size']):
+                keys = []
+                for key in chunk[contract['batch_key']]:
+                    keys.append(key)
+                predictions = predict_features(supplied_feature_values(chunk, contract['feature_names']))
+                verify_predicate(len(predictions) == len(keys))
+                chunk_sizes.append(len(keys))
+                for key, prediction in zip(keys, predictions):
+                    record = {contract['batch_key']: key, 'prediction': prediction, 'version': contract['version']}
+                    output.write(json.dumps(record) + '\n')
+                    expected_keys.append(key)
+                writes_before_next_read.append(len(keys))
+    with open(contract['batch_output_path']) as handle:
+        decoded = []
+        for line in handle:
+            decoded.append(json.loads(line))
+    assert_batch_output(decoded, expected_keys, contract)
+    return {'records': decoded, 'chunk_sizes': chunk_sizes, 'writes_before_next_read': writes_before_next_read}
+
+def verify_predicate(predicate):
+    # TODO: assert the supplied contract predicate.
+    pass
+
+def predict_features(values):
+    # TODO: return predictions from the frozen fitted package.
+    return None
+
+
+batch_report = predict_batch(contract, fitted_package)
+fixture_keys = list(pd.read_csv(contract['batch_input_path'])[contract['batch_key']])
+failures_detected = []
+for bad in supplied_failure_fixtures(batch_report['records']):
+    try:
+        assert_batch_output(bad, fixture_keys, contract)
+        failures_detected.append(False)
+    except AssertionError:
+        failures_detected.append(True)
+for detected in failures_detected:
+    assert (detected)
+batch_report['failures_detected'] = failures_detected
+assert_batch_output(batch_report['records'], fixture_keys, contract)
+assert_batch_output(list(reversed(batch_report['records'])), fixture_keys, contract)
+assert_batch_output(batch_report['records'][-1:], fixture_keys[-1:], contract)
+fixture_failures = []
+for bad in [batch_report['records'][:-1], batch_report['records'] + batch_report['records'][:1], [dict(r, order_id='unknown') for r in batch_report['records']], [dict(r, prediction='malformed') for r in batch_report['records']]]:
+    try:
+        assert_batch_output(bad, fixture_keys, contract)
+        fixture_failures.append(False)
+    except AssertionError:
+        fixture_failures.append(True)
+builtins.open = real_open
+pd.read_csv = real_read_csv
+observed_writes = []
+pending = 0
+for event, value in io_events:
+    if event == 'read':
+        if pending:
+            observed_writes.append(pending)
+        pending = 0
+    else:
+        pending += 1
+if pending:
+    observed_writes.append(pending)
+assert observed_writes == batch_report['chunk_sizes']
+assert batch_report['writes_before_next_read'] == observed_writes

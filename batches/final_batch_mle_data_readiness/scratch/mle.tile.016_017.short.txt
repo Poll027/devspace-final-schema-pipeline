@@ -1,0 +1,87 @@
+
+mle.tile.016_017.s01 explainer
+Before accepting a delivery-fixture result, state the contract and the checks this rule requires.
+Leakage uses information unavailable at prediction time to build a model and can make held-out performance estimates overly optimistic. Trace rows and fields reaching fit and prediction, then remove held-out or future information from those operations. Separate training and evaluation before fitting preprocessing. On held-out inputs call transform, not fit or fit_transform.
+Use assert predicate for valid, boundary and failure fixtures. A false predicate raises AssertionError in ordinary non-optimized execution.
+{"type": "data_table", "asset_ref": {"asset_id": "ds.orders"}, "caption": "orders-b.csv"}
+import pandas as pd
+from sklearn.impute import SimpleImputer
+permitted = fixture["permitted_features"]
+assert fixture["future_field"] not in permitted
+train = pd.DataFrame(fixture["training"])
+held_out = pd.DataFrame(fixture["held_out"])
+fit_ids = train["order_key"].tolist()
+assert set(fit_ids).isdisjoint(held_out["order_key"])
+print("fit row trace:", fit_ids, "prediction input columns:", permitted)
+# The distance preprocessing fit receives only designated training rows.
+preprocessor = SimpleImputer(strategy="mean").fit(train[["distance"]])
+before = preprocessor.statistics_.copy()
+transformed = preprocessor.transform(held_out[["distance"]])
+assert (before == preprocessor.statistics_).all()
+print("held-out transform:", transformed)
+print("contrasts: future field and held-out fit-row trace:", fixture["failure_features"],
+      [row["order_key"] for row in fixture["failure_fit_rows"]])
+
+mle.tile.016_017.s02 explainer
+At order acceptance, the eventual-arrival field is unavailable. Remove it from prediction inputs. Independently inspect preprocessing fit rows: fitting on training plus held-out rows violates that boundary even if the estimator fits training only. Split first and transform held-out inputs with training state. Check field selection and fit-row membership explicitly; separate filenames alone do not establish the boundary.
+
+mle.tile.016_017.s03 explainer
+Excluding future fields does not repair a preprocessing fit that still sees held-out rows; check both boundaries.
+
+mle.tile.016_017.s04 check
+{"prompt": "For an acceptance-time task, which change removes both supplied information-boundary defects?", "selection": "single", "shuffle": true, "options": [{"option_id": "0", "text": "Exclude eventual arrival from inputs and fit preprocessing on training only"}, {"option_id": "1", "text": "Exclude eventual arrival but fit on combined training and held-out rows"}, {"option_id": "2", "text": "Fit on training only but keep eventual arrival as an input"}]}
+FEEDBACK {"correct": {"message": "You applied the declared boundary and its required checks."}, "incorrect": {"message": "Recheck the declared contract and the evidence for each decision."}, "hints": ["Trace both future input fields and held-out rows reaching preprocessing fits."], "remediation_step_id": "mle.tile.016_017.r01"}
+KEY {"correct_option_ids": ["0"], "option_feedback": {"0": {"message": "Correct. Each alternative leaves one defect: held-out fit rows or a future input."}, "1": {"message": "Each alternative leaves one defect: held-out fit rows or a future input."}, "2": {"message": "Each alternative leaves one defect: held-out fit rows or a future input."}}}
+
+mle.tile.016_017.s05 hands_on
+{"prompt": "Correct the acceptance-time workflow in correct(training, held_out, features). Select only the supplied distance and zone fields on each side, fit_transform training only and transform held-out without refitting. Invoke verify for input columns and fit-row IDs; assert fitted numeric state is unchanged. Return [training_representation, held_out_representation, training_mean] as result. Use the same boundary assertions on the future-field and combined-fit-row failure fixtures: they must fail before correction and pass for this corrected workflow."}
+FEEDBACK {"correct": {"message": "You applied the declared boundary and its required checks."}, "incorrect": {"message": "Recheck the declared contract and the evidence for each decision."}, "hints": ["Check selected columns and fit-row IDs independently before checking unchanged fitted state."], "remediation_step_id": "mle.tile.016_017.r02"}
+KEY {}
+
+mle.tile.016_017.s06 explainer
+Before accepting a delivery-fixture result, state the contract and the checks this rule requires.
+Derive prediction features only from information available when the prediction is made. Select available records with [row for row in records if row["available_at"] <= prediction_time]. Changing lookup tables can produce different training and serving values. Use the value at the relevant recorded boundary, not an assumed historical latest value.
+Compare the feature on original records and on records augmented with later unavailable observations; assert the earlier feature is unchanged. Apply arithmetic only to time-filtered records. For a sum, initialize total = 0 and accumulate total += record["value"] over the accepted list.
+{"type": "data_table", "asset_ref": {"asset_id": "ds.feature_records"}, "caption": "Timestamp-bounded sum records"}
+from datetime import datetime
+
+def derive(records, boundary):
+    prediction_time = datetime.fromisoformat(boundary)
+    dated = [dict(row, available_at=datetime.fromisoformat(row["available_at"])) for row in records]
+    accepted = [row for row in dated if row["available_at"] <= prediction_time]
+    total = 0
+    for record in accepted:
+        total += record["value"]
+    return accepted, total
+
+original, total = derive(fixture["records"], fixture["prediction_time"])
+augmented, later_total = derive(fixture["augmented_records"], fixture["prediction_time"])
+assert original == augmented
+assert total == later_total
+print("boundary:", fixture["prediction_time"])
+print("original input, augmented input:", fixture["records"], fixture["augmented_records"])
+print("accepted, total, augmented accepted, augmented total:", original, total, augmented, later_total)
+
+mle.tile.016_017.s07 explainer
+Filter records by availability before summing their values. Compare original and later-augmented records at the same prediction time; the accepted list and earlier feature must not change. A record exactly on the boundary follows the supplied <= predicate. If a changing lookup contributes, select its value at the recorded boundary rather than assuming the latest lookup is historical.
+
+mle.tile.016_017.s08 explainer
+Removing timestamps after arithmetic cannot remove a later record's contribution. Filter before summing.
+
+mle.tile.016_017.s09 video
+{"type": "media_group", "segment_ids": ["seg_mle.leakage_safe_features_9QtL7m3YS9I_253_335"], "segments": [{"segment_id": "seg_mle.leakage_safe_features_9QtL7m3YS9I_253_335", "video_id": "9QtL7m3YS9I", "youtube_url": "https://www.youtube.com/watch?v=9QtL7m3YS9I", "review_url": "https://www.youtube.com/watch?v=9QtL7m3YS9I&t=253s", "start_seconds": 253, "end_seconds": 335, "label": "Use known earlier values to predict the next time step", "summary": "To predict sales at time t+1 while currently at time t, construct features from values already known, such as those at t and t−1. These earlier-value inputs are called lag features. For a prediction of sales at time t, the corresponding inputs instead start at t−1 and t−2. The available history shifts with each prediction boundary. Using future information would leak information into an earlier prediction.", "fact_ids": ["f1"], "transcript_ref": "9QtL7m3YS9I:253-335"}], "group_title": "Keep feature inputs inside the prediction boundary", "bridge": {"before": "Watch how earlier values become prediction inputs. Interpret the speaker’s phrase “at the time of the target” through the explicit example: predicting t+1 while currently at t.", "after": "The clip establishes the availability rule. The text supplies what it does not demonstrate: timestamp-filtering code, historical lookup handling, unchanged-feature assertions after adding later observations, and accumulation over accepted records."}, "default_mode": "video"}
+
+mle.tile.016_017.s10 check
+{"prompt": "An earlier feature was calculated using records and a lookup snapshot available at prediction_time. Later unavailable records are added and the latest lookup changes. Which treatment preserves the earlier prediction boundary?", "selection": "single", "shuffle": true, "options": [{"option_id": "0", "text": "Exclude the later records and retain the lookup value recorded at the earlier boundary."}, {"option_id": "1", "text": "Exclude later records but substitute the latest lookup value"}, {"option_id": "2", "text": "Retain the earlier lookup value but include later records."}]}
+FEEDBACK {"correct": {"message": "You applied the declared boundary and its required checks."}, "incorrect": {"message": "Recheck the declared contract and the evidence for each decision."}, "hints": ["Trace the availability boundary for records and the lookup snapshot separately."], "remediation_step_id": "mle.tile.016_017.r03"}
+KEY {"correct_option_ids": ["0"], "option_feedback": {"0": {"message": "Correct. Excluding later unavailable records and retaining the recorded lookup snapshot preserves the earlier prediction boundary."}, "1": {"message": "Substituting the changed latest lookup admits information unavailable at the earlier boundary, even though later records are excluded."}, "2": {"message": "Including later unavailable records admits information unavailable at the earlier boundary, even though the earlier lookup value is retained."}}}
+
+mle.tile.016_017.s11 hands_on
+{"prompt": "Implement feature(records, prediction_time). Select available_at <= prediction_time with a list comprehension, initialize total and accumulate only accepted value entries. Return total and assign result. Author assertions for the added-later record, empty input and exact-boundary inclusion; use the supplied datetime fixtures, never a latest lookup without a boundary."}
+FEEDBACK {"correct": {"message": "You applied the declared boundary and its required checks."}, "incorrect": {"message": "Recheck the declared contract and the evidence for each decision."}, "hints": ["Filter by availability before summing, then compare the original and augmented inputs."], "remediation_step_id": "mle.tile.016_017.r04"}
+KEY {}
+
+mle.tile.016_017.s12 recap
+Excluding future fields does not repair a preprocessing fit that still sees held-out rows; check both boundaries.
+Removing timestamps after arithmetic cannot remove a later record's contribution. Filter before summing.
+{"type": "up_next", "title": "Protect sensitive training and inference data under an existing handling policy", "text": "Next: Protect sensitive training and inference data under an existing handling policy."}

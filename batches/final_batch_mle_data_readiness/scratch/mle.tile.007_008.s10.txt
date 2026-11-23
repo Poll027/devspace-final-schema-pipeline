@@ -1,0 +1,59 @@
+# Supplied implementation, fixtures and verification harness; complete only the marked assignments and assertions.
+records = [{'observation_id': 'obs_A', 'order_key': 'A', 'distance': 2, 'zone': 'north'}, {'observation_id': 'obs_B', 'order_key': 'B', 'distance': 4, 'zone': 'South'}, {'observation_id': 'obs_C', 'order_key': 'C', 'distance': 0, 'zone': 'north'}, {'observation_id': 'obs_D', 'order_key': 'D', 'distance': -1, 'zone': 'south'}, {'observation_id': 'obs_A_repeat', 'order_key': 'A', 'distance': 2, 'zone': 'north'}]
+
+valid = [{'observation_id': 'obs_A', 'order_key': 'A', 'distance': 2, 'zone': 'north'}, {'observation_id': 'obs_B', 'order_key': 'B', 'distance': 4, 'zone': 'south'}, {'observation_id': 'obs_C', 'order_key': 'C', 'distance': 0, 'zone': 'north'}, {'observation_id': 'obs_D', 'order_key': 'D', 'distance': 100, 'zone': 'south'}]
+
+policy = {'repeat_accepted_key': 'reject', 'zone_repairs': {'South': 'south'}, 'distance_min': 0, 'distance_max': 100, 'invalid_distance': 'reject'}
+
+if True:
+
+    def supplied_clean(records, policy):
+        accepted_keys = set()
+        cleaned = []
+        report = []
+        for row in records:
+            key = row['order_key']
+            if row['distance'] < policy['distance_min'] or row['distance'] > policy['distance_max']:
+                report.append({'observation_id': row['observation_id'], 'action': 'rejected'})
+            elif key in accepted_keys:
+                report.append({'observation_id': row['observation_id'], 'action': 'rejected_repeat'})
+            else:
+                new = {'observation_id': row['observation_id'], 'order_key': key, 'distance': row['distance'], 'zone': row['zone']}
+                if row['zone'] in policy['zone_repairs']:
+                    new['zone'] = policy['zone_repairs'][row['zone']]
+                    report.append({'observation_id': row['observation_id'], 'action': 'repaired'})
+                accepted_keys.add(key)
+                cleaned.append(new)
+        return {'cleaned': cleaned, 'report': report}
+
+# TODO: complete the required clean assignment.
+clean = None
+
+result = clean(records, policy)
+
+valid_result = clean(valid, policy)
+
+assert result['cleaned'][1]['zone'] == 'south'
+
+assert len(result['cleaned']) == 3
+
+assert len(valid_result['cleaned']) == 4
+
+try:
+    assert len(result['cleaned']) == -1
+except AssertionError:
+    false_assertion_caught = True
+
+# TODO: assert the supplied check outcome.
+
+assert records[1]['zone'] != result['cleaned'][1]['zone']
+
+assert result['cleaned'][2]['observation_id'] == records[2]['observation_id']
+
+assert records[3]['observation_id'] not in [r['observation_id'] for r in result['cleaned']]
+
+assert records[4]['observation_id'] not in [r['observation_id'] for r in result['cleaned']]
+
+assert [r['action'] for r in result['report']] == ['repaired', 'rejected', 'rejected_repeat']
+
+exec('def probe_contract(records,policy):\n    return clean(records,policy)\n')

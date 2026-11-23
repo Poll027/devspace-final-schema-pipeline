@@ -1,0 +1,429 @@
+{
+  "step_id": "tile_055.s01",
+  "type": "explainer",
+  "concept_ids": [
+    "fastapi.dependency_overrides"
+  ],
+  "title": "Substitute at the dependency boundary",
+  "blocks": [
+    {
+      "type": "prose",
+      "text": "An isolated endpoint test substitutes at the declared dependency boundary. app.dependency_overrides maps the original provider callable to a replacement callable. FastAPI uses that replacement when resolving the dependency; the mapping is not keyed by a provider name or returned value.",
+      "role": "mechanism"
+    },
+    {
+      "type": "prose",
+      "text": "Assign app.dependency_overrides[original] = replacement, send the HTTP request, then assert the replacement is observable in the response. In this synthetic fixture, original returns 'actual user' and replacement returns 'mock user'; the handler exposes the selected value under user.",
+      "role": "mechanism"
+    },
+    {
+      "type": "prose",
+      "text": "Save and restore the previous override state in try/finally. Reset to an empty dictionary only when there were no previous overrides. An active replacement can leak into later tests; restoration is not automatic. Trace setup, request, assertion and cleanup together.",
+      "role": "mechanism"
+    },
+    {
+      "type": "code_walkthrough",
+      "language": "python",
+      "code": "from fastapi import FastAPI, Depends\nfrom fastapi.testclient import TestClient\n\napp = FastAPI()\n\ndef original():\n    return \"actual user\"\n\n@app.get(\"/\")\ndef hello(user: str = Depends(original)):\n    return {\"user\": user}\n\ndef replacement():\n    return \"mock user\"\n\nfrom main import app, original, replacement\nfrom fastapi.testclient import TestClient\n\ndef test_override():\n    previous = app.dependency_overrides.copy()\n    app.dependency_overrides[original] = replacement\n    try:\n        with TestClient(app) as client:\n            response = client.get(\"/\")\n            assert response.json()[\"user\"] == replacement()\n    finally:\n        app.dependency_overrides = previous\n",
+      "reveal": "all"
+    }
+  ]
+}
+{
+  "step_id": "tile_055.s02",
+  "type": "video",
+  "concept_ids": [
+    "fastapi.dependency_overrides"
+  ],
+  "title": "Trace provider substitution",
+  "blocks": [
+    {
+      "type": "media_group",
+      "segment_ids": [
+        "seg_fastapi.dependency_overrides_Qtn_mQeW7hc_0_199"
+      ],
+      "segments": [
+        {
+          "segment_id": "seg_fastapi.dependency_overrides_Qtn_mQeW7hc_0_199",
+          "video_id": "Qtn_mQeW7hc",
+          "youtube_url": "https://www.youtube.com/watch?v=Qtn_mQeW7hc",
+          "review_url": "https://www.youtube.com/watch?v=Qtn_mQeW7hc&t=0s",
+          "start_seconds": 0,
+          "end_seconds": 199,
+          "label": "Map an original provider to a test replacement",
+          "summary": "A simple endpoint uses Depends to obtain a string from a provider. Initially, running the endpoint test prints 'actual user'. A replacement provider returns 'mock user', and the application\u2019s dependency_overrides dictionary maps the original provider callable to that replacement. Running the test again prints 'mock user', demonstrating that FastAPI resolves the dependency through the replacement. The printed value demonstrates substitution, but the example does not assert that value or restore the override afterward.",
+          "fact_ids": [
+            "f1"
+          ],
+          "transcript_ref": "Qtn_mQeW7hc:0-199"
+        }
+      ],
+      "group_title": "Replace a provider at the dependency boundary",
+      "bridge": {
+        "before": "Watch how the original provider callable becomes the dictionary key and the replacement becomes its value. The clip\u2019s user-named provider simply returns a string; treat it as a controlled input.",
+        "after": "The clip demonstrates provider replacement through printed output, but omits an assertion of the replacement\u2019s behavior and override restoration. The text covers both steps so later tests retain their intended provider behavior."
+      },
+      "default_mode": "video"
+    }
+  ]
+}
+{
+  "step_id": "tile_055.s03",
+  "type": "check",
+  "concept_ids": [
+    "fastapi.dependency_overrides"
+  ],
+  "title": "Follow the active provider mapping",
+  "interaction": {
+    "type": "choice",
+    "interaction_id": "ix.tile_055.s03",
+    "difficulty": "intro",
+    "grading_mode": "client",
+    "standalone": true,
+    "measures": [
+      {
+        "concept_id": "fastapi.dependency_overrides",
+        "fact_ids": [
+          "f1"
+        ],
+        "capability": "determine_provider_used_under_override"
+      }
+    ],
+    "anchors": [
+      "fastapi.dependency_overrides#assessment:determine_provider_used_under_override"
+    ],
+    "feedback": {
+      "correct": {
+        "message": "The original callable maps to the replacement callable during dependency resolution."
+      },
+      "incorrect": {
+        "message": "Revisit the stated boundary and compare it with the supplied case."
+      },
+      "hints": [
+        "Use the original callable as the key and put cleanup in finally"
+      ],
+      "remediation_step_id": "tile_055.r01"
+    },
+    "public": {
+      "prompt": "An endpoint uses Depends(original). While app.dependency_overrides[original] = replacement is active, which provider resolves this dependency?",
+      "options": [
+        {
+          "option_id": "o1",
+          "text": "replacement"
+        },
+        {
+          "option_id": "o2",
+          "text": "original"
+        },
+        {
+          "option_id": "o3",
+          "text": "Both providers in sequence"
+        }
+      ],
+      "selection": "single",
+      "shuffle": true
+    },
+    "grading": {
+      "correct_option_ids": [
+        "o1"
+      ],
+      "option_feedback": {
+        "o1": {
+          "message": "The original callable maps to the replacement callable during dependency resolution."
+        },
+        "o2": {
+          "message": "The active override substitutes the replacement for this original callable."
+        },
+        "o3": {
+          "message": "The mapping selects a replacement; it does not define a sequence of both providers."
+        }
+      }
+    }
+  }
+}
+{
+  "step_id": "tile_055.s04",
+  "type": "check",
+  "concept_ids": [
+    "fastapi.dependency_overrides"
+  ],
+  "title": "Follow the restored provider mapping",
+  "interaction": {
+    "type": "choice",
+    "interaction_id": "ix.tile_055.s04",
+    "difficulty": "core",
+    "grading_mode": "client",
+    "standalone": true,
+    "measures": [
+      {
+        "concept_id": "fastapi.dependency_overrides",
+        "fact_ids": [
+          "f1",
+          "f3"
+        ],
+        "capability": "determine_provider_used_after_override_restoration"
+      }
+    ],
+    "anchors": [
+      "fastapi.dependency_overrides#assessment:determine_provider_used_after_override_restoration"
+    ],
+    "feedback": {
+      "correct": {
+        "message": "Restoring the empty mapping removes the substitution."
+      },
+      "incorrect": {
+        "message": "Revisit the stated boundary and compare it with the supplied case."
+      },
+      "hints": [
+        "Use the original callable as the key and put cleanup in finally"
+      ]
+    },
+    "public": {
+      "prompt": "The override dictionary was initially empty. After a test, finally resets app.dependency_overrides = {}. Which provider resolves the next request using Depends(original)?",
+      "options": [
+        {
+          "option_id": "o1",
+          "text": "original"
+        },
+        {
+          "option_id": "o2",
+          "text": "replacement"
+        },
+        {
+          "option_id": "o3",
+          "text": "No provider; the dependency is removed"
+        }
+      ],
+      "selection": "single",
+      "shuffle": true
+    },
+    "grading": {
+      "correct_option_ids": [
+        "o1"
+      ],
+      "option_feedback": {
+        "o1": {
+          "message": "Restoring the empty mapping removes the substitution."
+        },
+        "o2": {
+          "message": "The replacement no longer has an active mapping after cleanup."
+        },
+        "o3": {
+          "message": "Resetting overrides removes substitutions, not the endpoint dependency."
+        }
+      }
+    }
+  }
+}
+{
+  "step_id": "tile_055.s05",
+  "type": "hands_on",
+  "concept_ids": [
+    "fastapi.dependency_overrides"
+  ],
+  "title": "Override, request, assert, restore",
+  "interaction": {
+    "type": "code_exercise",
+    "interaction_id": "ix.tile_055.s05",
+    "difficulty": "stretch",
+    "grading_mode": "client",
+    "standalone": true,
+    "measures": [
+      {
+        "concept_id": "fastapi.dependency_overrides",
+        "fact_ids": [
+          "f1"
+        ],
+        "capability": "determine_provider_used_under_override"
+      },
+      {
+        "concept_id": "fastapi.dependency_overrides",
+        "fact_ids": [
+          "f1",
+          "f3"
+        ],
+        "capability": "determine_provider_used_after_override_restoration"
+      }
+    ],
+    "anchors": [
+      "fastapi.dependency_overrides#practice"
+    ],
+    "feedback": {
+      "correct": {
+        "message": "The completed verification matches the supplied cases and preserves the contract."
+      },
+      "incorrect": {
+        "message": "Revisit the stated boundary and compare it with the supplied case."
+      },
+      "hints": [
+        "Use the original callable as the key and put cleanup in finally"
+      ]
+    },
+    "public": {
+      "prompt": "Complete test_override: map the original callable to replacement, assert response.json()[\"user\"] equals the supplied expected_user, and restore the initially empty overrides in finally. Keep endpoint and providers unchanged. The verification scaffold runs the test normally and on a controlled assertion-failure path, then checks that the original provider is restored.",
+      "runtime": {
+        "kind": "python_asgi",
+        "version": "0.29.5",
+        "packages": []
+      },
+      "workspace": {
+        "entry": "main.py",
+        "files": [
+          {
+            "path": "main.py",
+            "role": "editable",
+            "language": "python",
+            "content": "expected_user = \"mock user\"\nfrom fastapi import FastAPI, Depends\nfrom fastapi.testclient import TestClient\n\n# Read-only sandbox adapter: WASM has no threads. These fixture requests\n# complete synchronously through the real ASGI transport (no timer/socket IO).\nimport httpx, sniffio\nclass TestClient:\n    def __init__(self, app):\n        self.app = app\n    def __enter__(self):\n        return self\n    def __exit__(self, *exc):\n        return False\n    def request(self, method, path, **kwargs):\n        async def perform():\n            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=self.app), base_url=\"http://testserver\") as client:\n                return await client.request(method, path, **kwargs)\n        coroutine = perform()\n        token = sniffio.current_async_library_cvar.set(\"asyncio\")\n        try:\n            while True:\n                suspended = coroutine.send(None)\n                if suspended is not None:\n                    raise RuntimeError(\"Fixture unexpectedly requires asynchronous IO\")\n        except StopIteration as completed:\n            return completed.value\n        finally:\n            coroutine.close()\n            sniffio.current_async_library_cvar.reset(token)\n    def get(self, path, **kwargs):\n        return self.request(\"GET\", path, **kwargs)\n    def post(self, path, **kwargs):\n        return self.request(\"POST\", path, **kwargs)\n\n\napp = FastAPI()\n\ndef original():\n    return \"actual user\"\n\n@app.get(\"/\")\ndef hello(user: str = Depends(original)):\n    return {\"user\": user}\n\ndef replacement():\n    return \"mock user\"\n\ndef test_override():\n    assert app.dependency_overrides == {}\n    # TODO: register the replacement using the original callable as the key.\n    try:\n        with TestClient(app) as client:\n            response = client.get(\"/\")\n            # TODO: assert the synthetic value under user.\n    finally:\n        # TODO: restore the initially empty override dictionary.\n        pass\n\n    return response.json()\n\n# Read-only verification scaffold.\ndef override_probe(value):\n    global replacement, expected_user\n    expected_user = value\n    def replacement():\n        return value\n    observed = test_override()\n    assert app. [TRUNCATED]"
+          }
+        ],
+        "asset_mounts": []
+      }
+    },
+    "grading": {
+      "solution_files": [
+        {
+          "path": "main.py",
+          "content": "expected_user = \"mock user\"\nfrom fastapi import FastAPI, Depends\nfrom fastapi.testclient import TestClient\n\n# Read-only sandbox adapter: WASM has no threads. These fixture requests\n# complete synchronously through the real ASGI transport (no timer/socket IO).\nimport httpx, sniffio\nclass TestClient:\n    def __init__(self, app):\n        self.app = app\n    def __enter__(self):\n        return self\n    def __exit__(self, *exc):\n        return False\n    def request(self, method, path, **kwargs):\n        async def perform():\n            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=self.app), base_url=\"http://testserver\") as client:\n                return await client.request(method, path, **kwargs)\n        coroutine = perform()\n        token = sniffio.current_async_library_cvar.set(\"asyncio\")\n        try:\n            while True:\n                suspended = coroutine.send(None)\n                if suspended is not None:\n                    raise RuntimeError(\"Fixture unexpectedly requires asynchronous IO\")\n        except StopIteration as completed:\n            return completed.value\n        finally:\n            coroutine.close()\n            sniffio.current_async_library_cvar.reset(token)\n    def get(self, path, **kwargs):\n        return self.request(\"GET\", path, **kwargs)\n    def post(self, path, **kwargs):\n        return self.request(\"POST\", path, **kwargs)\n\n\napp = FastAPI()\n\ndef original():\n    return \"actual user\"\n\n@app.get(\"/\")\ndef hello(user: str = Depends(original)):\n    return {\"user\": user}\n\ndef replacement():\n    return \"mock user\"\n\ndef test_override():\n    assert app.dependency_overrides == {}\n    app.dependency_overrides[original] = replacement\n    try:\n        with TestClient(app) as client:\n            response = client.get(\"/\")\n            assert response.json()[\"user\"] == expected_user\n    finally:\n        app.dependency_overrides = {}\n\n    return response.json()\n\n# Read-only verification scaffold.\ndef override_probe(value):\n    global replacement, expected_user\n    expected_user = value\n    def replacement():\n        return value\n    observed = test_override()\n    assert app.dependency_overrides == {}\n    # Return an incorrect provider v [TRUNCATED]"
+        }
+      ],
+      "tests": [
+        {
+          "test_id": "t1",
+          "kind": "function_call",
+          "spec": {
+            "function": "override_probe",
+            "args": [
+              "mock user"
+            ],
+            "expected": {
+              "substitution": "mock user",
+              "restored": {
+                "user": "actual user"
+              },
+              "overrides": {}
+            }
+          },
+          "message_on_fail": "Compare this case with the supplied contract and complete the verification without changing fixture behavior."
+        },
+        {
+          "test_id": "t2",
+          "kind": "function_call",
+          "spec": {
+            "function": "override_probe",
+            "args": [
+              "alternate synthetic user"
+            ],
+            "expected": {
+              "substitution": "alternate synthetic user",
+              "restored": {
+                "user": "actual user"
+              },
+              "overrides": {}
+            }
+          },
+          "message_on_fail": "Compare this case with the supplied contract and complete the verification without changing fixture behavior."
+        }
+      ]
+    }
+  }
+}
+{
+  "step_id": "tile_055.s06",
+  "type": "recap",
+  "concept_ids": [
+    "fastapi.dependency_overrides"
+  ],
+  "title": "Keep these distinctions",
+  "blocks": [
+    {
+      "type": "prose",
+      "text": "Map original callable to replacement callable, send the test request and assert the replacement is observable.",
+      "role": "takeaway"
+    },
+    {
+      "type": "prose",
+      "text": "Restore the earlier override state afterward. An empty dictionary is appropriate only when the earlier state was empty.",
+      "role": "takeaway"
+    },
+    {
+      "type": "up_next",
+      "title": "Header and cookie input binding",
+      "text": "A handler needs a header and a cookie. Explicit source markers keep these metadata inputs from becoming ordinary query parameters."
+    }
+  ]
+}
+{
+  "step_id": "tile_055.r01",
+  "type": "remediation",
+  "concept_ids": [
+    "fastapi.dependency_overrides"
+  ],
+  "title": "Revisit: Follow the active provider mapping",
+  "blocks": [
+    {
+      "type": "prose",
+      "text": "In the same fixture, distinguish an active original-to-replacement mapping from the restored mapping. Follow the callable selected for the request, not the name of the test.",
+      "role": "mental_model"
+    },
+    {
+      "type": "prose",
+      "text": "app.dependency_overrides maps the original provider callable to a replacement callable; FastAPI uses the replacement to resolve that dependency.",
+      "role": "definition"
+    }
+  ]
+}
+{
+  "step_id": "tile_055.r02",
+  "type": "remediation",
+  "concept_ids": [
+    "fastapi.dependency_overrides"
+  ],
+  "title": "Revisit: Follow the restored provider mapping",
+  "blocks": [
+    {
+      "type": "prose",
+      "text": "In the same fixture, distinguish an active original-to-replacement mapping from the restored mapping. Follow the callable selected for the request, not the name of the test.",
+      "role": "mental_model"
+    },
+    {
+      "type": "prose",
+      "text": "app.dependency_overrides maps the original provider callable to a replacement callable; FastAPI uses the replacement to resolve that dependency.",
+      "role": "definition"
+    },
+    {
+      "type": "prose",
+      "text": "Restore the earlier overrides after the test to prevent leakage. Reset to an empty dictionary only if no prior overrides existed.",
+      "role": "definition"
+    }
+  ]
+}
+{
+  "step_id": "tile_055.r03",
+  "type": "remediation",
+  "concept_ids": [
+    "fastapi.dependency_overrides"
+  ],
+  "title": "Revisit: Override, request, assert, restore",
+  "blocks": [
+    {
+      "type": "prose",
+      "text": "In the same fixture, distinguish an active original-to-replacement mapping from the restored mapping. Follow the callable selected for the request, not the name of the test.",
+      "role": "mental_model"
+    },
+    {
+      "type": "prose",
+      "text": "app.dependency_overrides maps the original provider callable to a replacement callable; FastAPI uses the replacement to resolve that dependency.",
+      "role": "definition"
+    },
+    {
+      "type": "prose",
+      "text": "Assign app.dependency_overrides[original] = replacement, send the test request, and assert the replacement\u2019s observable behavior.",
+      "role": "definition"
+    },
+    {
+      "type": "prose",
+      "text": "Restore the earlier overrides after the test to prevent leakage. Reset to an empty dictionary only if no prior overrides existed.",
+      "role": "definition"
+    }
+  ]
+}

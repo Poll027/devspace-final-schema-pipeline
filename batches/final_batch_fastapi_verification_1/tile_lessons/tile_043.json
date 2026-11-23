@@ -1,0 +1,1038 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "python_fastapi_backend_developer",
+  "tile_id": "tile_043",
+  "toc_location": {
+    "region_id": "region_verification",
+    "terrain_id": "terrain_request_controls"
+  },
+  "title": "Bounded form and multipart file inputs",
+  "summary": "",
+  "concept_ids": [
+    "fastapi.bounded_multipart_inputs"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_python_fastapi_backend_developer",
+    "toc_freeze_hash": "96d245a8da4552263398bda220dd1f88774cc30045abdf029e8d40064881cb7e",
+    "glossary_bundle_hashes": {
+      "fastapi.bounded_multipart_inputs": "92998c8f651d336263e39b4255fe473449e59169c9981321daf0b73639cf275f"
+    },
+    "scenario_registry_hash": "29f9d7b7be7d9e0858e82988aea40ba028377717f8de8844e2cbe4d3f079a05b"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core"
+    ],
+    "block_types": [
+      "code_walkthrough",
+      "prose",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "code_exercise"
+    ],
+    "runtimes": [
+      "python_asgi"
+    ],
+    "asset_ids": []
+  },
+  "pacing": {
+    "estimated_minutes": 3.9
+  },
+  "steps": [
+    {
+      "step_id": "tile_043.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "fastapi.bounded_multipart_inputs"
+      ],
+      "title": "Declare the boundary: Bounded form and multipart file inputs",
+      "eyebrow": "Explainer",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.bounded_multipart_inputs"
+        ],
+        "teaching_block_ids": [
+          "fastapi.bounded_multipart_inputs#tb1",
+          "fastapi.bounded_multipart_inputs#tb2",
+          "fastapi.bounded_multipart_inputs#tb3"
+        ],
+        "fact_ids": [
+          "fastapi.bounded_multipart_inputs#f1",
+          "fastapi.bounded_multipart_inputs#f2",
+          "fastapi.bounded_multipart_inputs#f3",
+          "fastapi.bounded_multipart_inputs#f4",
+          "fastapi.bounded_multipart_inputs#f5"
+        ],
+        "anchors": [
+          "fastapi.bounded_multipart_inputs#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "In one multipart handler, declare metadata with Annotated[Type, Form()] and the file with Annotated[UploadFile, File()]. Install python-multipart for parsing.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_multipart_inputs"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_multipart_inputs#tb1",
+              "fastapi.bounded_multipart_inputs#tb2"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_multipart_inputs#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "UploadFile uses a spooled file rather than requiring the entire upload as in-memory bytes. Its read, seek and close methods are asynchronous.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_multipart_inputs"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_multipart_inputs#tb3"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_multipart_inputs#f2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Set a finite RequestBodyLimitMiddleware max_body_size. Count actual incoming bytes, including multipart overhead; exceeding that limit returns 413.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_multipart_inputs"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_multipart_inputs#tb3"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_multipart_inputs#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "request.form(max_files=..., max_fields=..., max_part_size=...) separately limits file count, field count and non-file field size. These limits do not replace the total-body limit.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_multipart_inputs"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_multipart_inputs#tb3"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_multipart_inputs#f4"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Reject disallowed content types and validate fields before processing. When finished, release the upload with await file.close().",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_multipart_inputs"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_multipart_inputs#tb3"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_multipart_inputs#f5"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "role": "mechanism",
+          "text": "For this lab, disallowed attachment types use 415 and overlong metadata uses 422; total-body overflow uses 413. These are separate rejection conditions.",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_multipart_inputs"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_multipart_inputs#tb3"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_multipart_inputs#f3",
+              "fastapi.bounded_multipart_inputs#f5"
+            ]
+          }
+        },
+        {
+          "type": "code_walkthrough",
+          "language": "python",
+          "code": "from typing import Annotated\nfrom fastapi import FastAPI, Form, File, UploadFile, HTTPException\nfrom support import (RequestBodyLimitMiddleware, BoundedMultipartRoute,\n                     budgets, permitted_content_types)\napp = FastAPI()\napp.router.route_class = BoundedMultipartRoute\napp.add_middleware(RequestBodyLimitMiddleware,\n                   max_body_size=budgets['max_body_size'])\n@app.post('/orders/attachments')\nasync def attachment(metadata: Annotated[str, Form()],\n                     file: Annotated[UploadFile, File()]):\n    try:\n        if file.content_type not in permitted_content_types:\n            raise HTTPException(status_code=415, detail='disallowed content type')\n        if len(metadata) > budgets['metadata_max_length']:\n            raise HTTPException(status_code=422, detail='invalid metadata')\n        data = await file.read(budgets['read_size'])\n        await file.seek(0)\n        return {'metadata': metadata}\n    finally:\n        await file.close()\n",
+          "reveal": "all",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_multipart_inputs"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_multipart_inputs#tb1",
+              "fastapi.bounded_multipart_inputs#tb2",
+              "fastapi.bounded_multipart_inputs#tb3"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_multipart_inputs#f1",
+              "fastapi.bounded_multipart_inputs#f2",
+              "fastapi.bounded_multipart_inputs#f3",
+              "fastapi.bounded_multipart_inputs#f4",
+              "fastapi.bounded_multipart_inputs#f5"
+            ],
+            "anchors": [
+              "fastapi.bounded_multipart_inputs#visual"
+            ]
+          },
+          "annotations": [
+            {
+              "start_line": 6,
+              "end_line": 8,
+              "text": "Total actual-body-byte boundary, including multipart overhead."
+            },
+            {
+              "start_line": 10,
+              "end_line": 11,
+              "text": "Typed form metadata and spooled file; python-multipart required."
+            },
+            {
+              "start_line": 12,
+              "end_line": 16,
+              "text": "Validate before reading."
+            },
+            {
+              "start_line": 20,
+              "end_line": 21,
+              "text": "Asynchronous cleanup on success or rejection."
+            }
+          ]
+        },
+        {
+          "type": "code_walkthrough",
+          "language": "python",
+          "code": "from fastapi.routing import APIRoute\nfrom support import budgets\nclass BoundedMultipartRoute(APIRoute):\n    def get_route_handler(self):\n        original = super().get_route_handler()\n        async def bounded(request):\n            # Parsing precedes automatic typed parameter binding.\n            form = await request.form(max_files=budgets['max_files'],\n                max_fields=budgets['max_fields'], max_part_size=budgets['max_part_size'])\n            try:\n                return await original(request)\n            finally:\n                await form.close()\n        return bounded\n",
+          "reveal": "all",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_multipart_inputs"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_multipart_inputs#tb1",
+              "fastapi.bounded_multipart_inputs#tb2",
+              "fastapi.bounded_multipart_inputs#tb3"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_multipart_inputs#f1",
+              "fastapi.bounded_multipart_inputs#f2",
+              "fastapi.bounded_multipart_inputs#f3",
+              "fastapi.bounded_multipart_inputs#f4",
+              "fastapi.bounded_multipart_inputs#f5"
+            ],
+            "anchors": [
+              "fastapi.bounded_multipart_inputs#visual"
+            ]
+          },
+          "annotations": [
+            {
+              "start_line": 6,
+              "end_line": 8,
+              "text": "Parser limits run before automatic typed parameter binding; non-file part size is separate from the total body budget."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "step_id": "tile_043.s02",
+      "type": "explainer",
+      "concept_ids": [
+        "fastapi.bounded_multipart_inputs"
+      ],
+      "title": "Trace the contract",
+      "eyebrow": "Explainer",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.bounded_multipart_inputs"
+        ],
+        "teaching_block_ids": [
+          "fastapi.bounded_multipart_inputs#tb4",
+          "fastapi.bounded_multipart_inputs#tb5"
+        ],
+        "fact_ids": [
+          "fastapi.bounded_multipart_inputs#f1",
+          "fastapi.bounded_multipart_inputs#f2",
+          "fastapi.bounded_multipart_inputs#f3",
+          "fastapi.bounded_multipart_inputs#f4",
+          "fastapi.bounded_multipart_inputs#f5"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Treat limits as separate controls. Form and File declarations need python-multipart; a spooled UploadFile offers asynchronous resource methods, not unlimited input. The finite body budget counts actual bytes including overhead and returns 413 on excess. Parser options bound file count, field count and non-file field size, but do not replace that budget. Validate fields and content type before processing, and close the file afterward.",
+          "role": "mental_model",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_multipart_inputs"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_multipart_inputs#tb4",
+              "fastapi.bounded_multipart_inputs#tb5"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_multipart_inputs#f1",
+              "fastapi.bounded_multipart_inputs#f2",
+              "fastapi.bounded_multipart_inputs#f3",
+              "fastapi.bounded_multipart_inputs#f4",
+              "fastapi.bounded_multipart_inputs#f5"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_043.s03",
+      "type": "check",
+      "concept_ids": [
+        "fastapi.bounded_multipart_inputs"
+      ],
+      "title": "Check the boundary: Bounded form and multipart file inputs",
+      "eyebrow": "Check",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.bounded_multipart_inputs"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "fastapi.bounded_multipart_inputs#f5"
+        ],
+        "anchors": [
+          "fastapi.bounded_multipart_inputs#assessment:reject_disallowed_upload_types_and_invalid_metadata"
+        ]
+      },
+      "lede": "Use the supplied order-service scenario to reason about this contract.",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_043.s03",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "fastapi.bounded_multipart_inputs",
+            "fact_ids": [
+              "f5"
+            ],
+            "capability": "reject_disallowed_upload_types_and_invalid_metadata"
+          },
+          {
+            "concept_id": "fastapi.bounded_multipart_inputs",
+            "fact_ids": [
+              "f3",
+              "f4"
+            ],
+            "capability": "distinguish_multipart_parser_limits_from_total_body_limit"
+          }
+        ],
+        "anchors": [
+          "fastapi.bounded_multipart_inputs#assessment:reject_disallowed_upload_types_and_invalid_metadata",
+          "fastapi.bounded_multipart_inputs#assessment:distinguish_multipart_parser_limits_from_total_body_limit"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Validation precedes processing and handled uploads are closed. Parser counts and non-file-part sizes do not replace the actual total-body-byte budget."
+          },
+          "incorrect": {
+            "message": "Processing before checking metadata and content types violates validation-before-processing, even if the upload is later closed. Parser file-count, field-count and non-file-part-size limits are separate from, not replacements for, the actual total-body-byte limit."
+          },
+          "hints": [
+            "Separate the stated requirement from a nearby but different boundary."
+          ],
+          "remediation_step_id": "tile_043.r01"
+        },
+        "public": {
+          "prompt": "Which policy correctly handles invalid uploads and the separate input limits?",
+          "options": [
+            {
+              "option_id": "option_1",
+              "text": "Reject invalid metadata or content types before processing and close handled uploads; parser file-count, field-count and non-file-part-size limits remain separate from the actual total-body-byte limit."
+            },
+            {
+              "option_id": "option_2",
+              "text": "Process uploads before checking metadata or content types, then close handled uploads; keep parser limits separate from the total-body-byte limit."
+            },
+            {
+              "option_id": "option_3",
+              "text": "Reject invalid metadata or content types before processing and close handled uploads; parser limits replace the total-body-byte limit."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "option_1"
+          ],
+          "option_feedback": {
+            "option_1": {
+              "message": "Validation precedes processing and handled uploads are closed. Parser counts and non-file-part sizes do not replace the actual total-body-byte budget."
+            },
+            "option_2": {
+              "message": "Processing before checking metadata and content types violates validation-before-processing, even if the upload is later closed."
+            },
+            "option_3": {
+              "message": "Parser file-count, field-count and non-file-part-size limits are separate from, not replacements for, the actual total-body-byte limit."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_043.s04",
+      "type": "hands_on",
+      "concept_ids": [
+        "fastapi.bounded_multipart_inputs"
+      ],
+      "title": "Apply the contract: Bounded form and multipart file inputs",
+      "eyebrow": "Hands On",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.bounded_multipart_inputs"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "fastapi.bounded_multipart_inputs#f1",
+          "fastapi.bounded_multipart_inputs#f2",
+          "fastapi.bounded_multipart_inputs#f3",
+          "fastapi.bounded_multipart_inputs#f4",
+          "fastapi.bounded_multipart_inputs#f5"
+        ],
+        "anchors": [
+          "fastapi.bounded_multipart_inputs#practice",
+          "fastapi.bounded_multipart_inputs#assessment:bind_form_metadata_and_uploaded_file",
+          "fastapi.bounded_multipart_inputs#assessment:handle_spooled_upload_resources_safely",
+          "fastapi.bounded_multipart_inputs#assessment:enforce_actual_multipart_body_byte_limit",
+          "fastapi.bounded_multipart_inputs#assessment:distinguish_multipart_parser_limits_from_total_body_limit",
+          "fastapi.bounded_multipart_inputs#assessment:reject_disallowed_upload_types_and_invalid_metadata"
+        ]
+      },
+      "lede": "Complete the supplied workspace within its stated contract.",
+      "interaction": {
+        "type": "code_exercise",
+        "interaction_id": "ix.tile_043.s04",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "fastapi.bounded_multipart_inputs",
+            "fact_ids": [
+              "f1"
+            ],
+            "capability": "bind_form_metadata_and_uploaded_file"
+          },
+          {
+            "concept_id": "fastapi.bounded_multipart_inputs",
+            "fact_ids": [
+              "f2",
+              "f5"
+            ],
+            "capability": "handle_spooled_upload_resources_safely"
+          },
+          {
+            "concept_id": "fastapi.bounded_multipart_inputs",
+            "fact_ids": [
+              "f3"
+            ],
+            "capability": "enforce_actual_multipart_body_byte_limit"
+          },
+          {
+            "concept_id": "fastapi.bounded_multipart_inputs",
+            "fact_ids": [
+              "f5"
+            ],
+            "capability": "reject_disallowed_upload_types_and_invalid_metadata"
+          }
+        ],
+        "anchors": [
+          "fastapi.bounded_multipart_inputs#practice",
+          "fastapi.bounded_multipart_inputs#assessment:bind_form_metadata_and_uploaded_file",
+          "fastapi.bounded_multipart_inputs#assessment:handle_spooled_upload_resources_safely",
+          "fastapi.bounded_multipart_inputs#assessment:enforce_actual_multipart_body_byte_limit",
+          "fastapi.bounded_multipart_inputs#assessment:reject_disallowed_upload_types_and_invalid_metadata"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "You applied the declared boundary and preserved its required behavior."
+          },
+          "incorrect": {
+            "message": "Recheck the stated boundary and distinguish the separate obligations rather than assuming one implies the other."
+          },
+          "hints": [
+            "Compare each declaration with its input or lifecycle boundary.",
+            "Trace what happens on the alternative input or exit, not only the successful path."
+          ]
+        },
+        "public": {
+          "prompt": "Register RequestBodyLimitMiddleware using budgets['max_body_size']. Complete attachment with metadata: Annotated[str, Form()] and file: Annotated[UploadFile, File()]. Inside try/finally, reject content types outside permitted_content_types with 415 and metadata longer than budgets['metadata_max_length'] with 422 before reading. Read at most budgets['read_size']; return {'metadata': metadata, 'size': len(content)}. Always await file.close() in finally. Keep the supplied bounded route (parser limits before binding) unchanged. The harness covers permitted input, rejection, actual-byte overflow including multipart overhead, file/field counts and non-file part size.",
+          "runtime": {
+            "kind": "python_asgi",
+            "version": "0.29.5",
+            "packages": [
+              "python-multipart"
+            ]
+          },
+          "workspace": {
+            "entry": "exercise.py",
+            "files": [
+              {
+                "path": "exercise.py",
+                "role": "editable",
+                "language": "python",
+                "content": "from fastapi.routing import APIRoute\nfrom starlette.datastructures import UploadFile\nfrom starlette.responses import Response\nbudgets = {'max_body_size': 4096, 'max_files': 1, 'max_fields': 1,\n           'max_part_size': 256, 'read_size': 1024, 'metadata_max_length': 80}\npermitted_content_types = ('text/plain',)\nclass RequestBodyLimitMiddleware:\n    def __init__(self, app, max_body_size):\n        self.app, self.limit = app, max_body_size\n    async def __call__(self, scope, receive, send):\n        if scope['type'] != 'http':\n            return await self.app(scope, receive, send)\n        messages, size = [], 0\n        while True:\n            message = await receive()\n            if message['type'] == 'http.disconnect':\n                return\n            size += len(message.get('body', b''))\n            if size > self.limit:\n                return await Response(status_code=413)(scope, receive, send)\n            messages.append(message)\n            if not message.get('more_body', False):\n                break\n        async def replay():\n            if messages:\n                return messages.pop(0)\n            return await receive()\n        await self.app(scope, replay, send)\nclass BoundedMultipartRoute(APIRoute):\n    def get_route_handler(self):\n        original = super().get_route_handler()\n        async def bounded(request):\n            # Parsing precedes automatic typed parameter binding.\n            form = await request.form(max_files=budgets['max_files'],\n                max_fields=budgets['max_fields'], max_part_size=budgets['max_part_size'])\n            try:\n                return await original(request)\n            finally:\n                await form.close()\n        return bounded\nfrom typing import Annotated\nfrom fastapi import FastAPI, Form, File, UploadFile, Request, HTTPException\napp = FastAPI()\napp.router.route_class = BoundedMultipartRoute\n# TODO: register the actual-byte middleware using the supplied budget.\n\nasync def attachment():\n    # TODO: bind only metadata and file using Form/File/UploadFile.\n    # Validate before processing, read at most budgets['read_size'],\n    # and await file.close() in finally.\n    raise NotImplementedError\nattachment = app.post('/orders/attachments')(attachment)\nimport asyncio, inspect, json, ast\nimport httpx\nfrom contextlib import contextmanager\n\ndef _drive(coro):\n    try:\n        pending = coro.send(None)\n    except StopIteration as done:\n        return done.value\n    raise RuntimeError('Harness encountered a suspending operation: ' + repr(pending))\n\nasync def _requests(application, requests):\n    async with application.router.lifespan_context(application):\n        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=application, raise_app_exceptions=False), base_url='http://testserver') as client:\n            out=[]\n            for method,path,kwargs in requests:\n                response=await client.request(method,path,**kwargs)\n                try: body=response.json()\n                except ValueError: body=response.text\n                out.append({'status':response.status_code,'body':body})\n            return out\ndef _case(which):\n    from unittest.mock import patch\n    from starlette.datastructures import UploadFile as StarletteUploadFile\n    reads=[]; closed=[]\n    old_read=StarletteUploadFile.read; old_close=StarletteUploadFile.close\n    async def read(file,size=-1):\n        reads.append(size)\n        return await old_read(file,size)\n    async def close(file):\n        await old_close(file)\n        closed.append(file.file.closed)\n    async def run():\n        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app,raise_app_exceptions=False),base_url='http://testserver') as client:\n            metadata='valid';type_='text/plain';payload=b'attachment'\n            parts=None\n            if which=='invalid_metadata': metadata='m'*(budgets['metadata_max_length']+1)\n            if which=='type': type_='application/octet-stream'\n            if which=='overflow':payload=b'x'*(budgets['max_body_size']+1)\n            parts=[('metadata',(None,metadata)),('file',('attachment.txt',payload,type_))]\n            if which=='files': parts.append(('file',('extra.txt',b'extra','text/plain')))\n            if which=='fields': parts.append(('extra',(None,'extra')))\n            if which=='part': parts[0]=('metadata',(None,'m'*(budgets['max_part_size']+1)))\n            response=await client.post('/orders/attachments',files=parts)\n            return response\n    with patch.object(StarletteUploadFile,'read',read),patch.object(StarletteUploadFile,'close',close):\n        r=_drive(run())\n    expected={'valid':200,'invalid_metadata':422,'type':415,'overflow':413,'files':400,'fields':400,'part':400}[which]\n    assert r.status_code==expected, (which,r.status_code,r.text)\n    if which=='valid':assert reads==[budgets['read_size']]\n    if which in ('invalid_metadata','type'): assert reads==[]\n    if which in ('valid','invalid_metadata','type'): assert closed and all(closed)\n    result = {'case':which,'status':r.status_code,'reads':reads}\n    if which in ('valid','invalid_metadata','type'):\n        result['handled_uploads_closed'] = bool(closed) and all(closed)\n    else:\n        result['closed'] = closed\n    return result\nimport inspect\nfrom fastapi import FastAPI, Body\nverification_app=FastAPI()\n\nasync def verify_case(payload: dict=Body(...)):\n    result=_case(payload['case'])\n    if inspect.isawaitable(result):return await result\n    return result\nverify_case = verification_app.post('/_verify')(verify_case)\n"
+              }
+            ],
+            "asset_mounts": []
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "from typing import Annotated",
+              "from fastapi import FastAPI, Form, File, UploadFile, Request, HTTPException",
+              "app = FastAPI()",
+              "@app.post(...)",
+              "async def",
+              "Annotated[str, Form()]",
+              "Annotated[UploadFile, File()]",
+              "app.add_middleware(RequestBodyLimitMiddleware, max_body_size=...)",
+              "await request.form(max_files=..., max_fields=..., max_part_size=...)",
+              "await file.read(size)",
+              "await file.seek(0)",
+              "await file.close()",
+              "file.content_type",
+              "if",
+              "not in",
+              "len(metadata)",
+              "raise HTTPException(status_code=..., detail=...)",
+              "try",
+              "finally",
+              "return",
+              "assignment",
+              "string and integer literals",
+              "tuple literals",
+              "dictionary literals",
+              "comparison operators"
+            ],
+            "blocked_syntax": [
+              "TestClient(...)",
+              "app.dependency_overrides[...]",
+              "Header(...)",
+              "Cookie(...)",
+              "@app.exception_handler(...)",
+              "CORSMiddleware(...)",
+              "TrustedHostMiddleware(...)",
+              "model_dump(exclude_unset=True)"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "exercise.py",
+              "content": "from fastapi.routing import APIRoute\nfrom starlette.datastructures import UploadFile\nfrom starlette.responses import Response\nbudgets = {'max_body_size': 4096, 'max_files': 1, 'max_fields': 1,\n           'max_part_size': 256, 'read_size': 1024, 'metadata_max_length': 80}\npermitted_content_types = ('text/plain',)\nclass RequestBodyLimitMiddleware:\n    def __init__(self, app, max_body_size):\n        self.app, self.limit = app, max_body_size\n    async def __call__(self, scope, receive, send):\n        if scope['type'] != 'http':\n            return await self.app(scope, receive, send)\n        messages, size = [], 0\n        while True:\n            message = await receive()\n            if message['type'] == 'http.disconnect':\n                return\n            size += len(message.get('body', b''))\n            if size > self.limit:\n                return await Response(status_code=413)(scope, receive, send)\n            messages.append(message)\n            if not message.get('more_body', False):\n                break\n        async def replay():\n            if messages:\n                return messages.pop(0)\n            return await receive()\n        await self.app(scope, replay, send)\nclass BoundedMultipartRoute(APIRoute):\n    def get_route_handler(self):\n        original = super().get_route_handler()\n        async def bounded(request):\n            # Parsing precedes automatic typed parameter binding.\n            form = await request.form(max_files=budgets['max_files'],\n                max_fields=budgets['max_fields'], max_part_size=budgets['max_part_size'])\n            try:\n                return await original(request)\n            finally:\n                await form.close()\n        return bounded\nfrom typing import Annotated\nfrom fastapi import FastAPI, Form, File, UploadFile, Request, HTTPException\napp = FastAPI()\napp.router.route_class = BoundedMultipartRoute\napp.add_middleware(RequestBodyLimitMiddleware, max_body_size=budgets['max_body_size'])\n\nasync def attachment(metadata: Annotated[str, Form()], file: Annotated[UploadFile, File()]):\n    try:\n        if file.content_type not in permitted_content_types:\n            raise HTTPException(status_code=415, detail='disallowed attachment')\n        if len(metadata) > budgets['metadata_max_length']:\n            raise HTTPException(status_code=422, detail='invalid metadata')\n        content = await file.read(budgets['read_size'])\n        return {'metadata': metadata, 'size': len(content)}\n    finally:\n        await file.close()\nattachment = app.post('/orders/attachments')(attachment)\nimport asyncio, inspect, json, ast\nimport httpx\nfrom contextlib import contextmanager\n\ndef _drive(coro):\n    try:\n        pending = coro.send(None)\n    except StopIteration as done:\n        return done.value\n    raise RuntimeError('Harness encountered a suspending operation: ' + repr(pending))\n\nasync def _requests(application, requests):\n    async with application.router.lifespan_context(application):\n        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=application, raise_app_exceptions=False), base_url='http://testserver') as client:\n            out=[]\n            for method,path,kwargs in requests:\n                response=await client.request(method,path,**kwargs)\n                try: body=response.json()\n                except ValueError: body=response.text\n                out.append({'status':response.status_code,'body':body})\n            return out\ndef _case(which):\n    from unittest.mock import patch\n    from starlette.datastructures import UploadFile as StarletteUploadFile\n    reads=[]; closed=[]\n    old_read=StarletteUploadFile.read; old_close=StarletteUploadFile.close\n    async def read(file,size=-1):\n        reads.append(size)\n        return await old_read(file,size)\n    async def close(file):\n        await old_close(file)\n        closed.append(file.file.closed)\n    async def run():\n        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app,raise_app_exceptions=False),base_url='http://testserver') as client:\n            metadata='valid';type_='text/plain';payload=b'attachment'\n            parts=None\n            if which=='invalid_metadata': metadata='m'*(budgets['metadata_max_length']+1)\n            if which=='type': type_='application/octet-stream'\n            if which=='overflow':payload=b'x'*(budgets['max_body_size']+1)\n            parts=[('metadata',(None,metadata)),('file',('attachment.txt',payload,type_))]\n            if which=='files': parts.append(('file',('extra.txt',b'extra','text/plain')))\n            if which=='fields': parts.append(('extra',(None,'extra')))\n            if which=='part': parts[0]=('metadata',(None,'m'*(budgets['max_part_size']+1)))\n            response=await client.post('/orders/attachments',files=parts)\n            return response\n    with patch.object(StarletteUploadFile,'read',read),patch.object(StarletteUploadFile,'close',close):\n        r=_drive(run())\n    expected={'valid':200,'invalid_metadata':422,'type':415,'overflow':413,'files':400,'fields':400,'part':400}[which]\n    assert r.status_code==expected, (which,r.status_code,r.text)\n    if which=='valid':assert reads==[budgets['read_size']]\n    if which in ('invalid_metadata','type'): assert reads==[]\n    if which in ('valid','invalid_metadata','type'): assert closed and all(closed)\n    result = {'case':which,'status':r.status_code,'reads':reads}\n    if which in ('valid','invalid_metadata','type'):\n        result['handled_uploads_closed'] = bool(closed) and all(closed)\n    else:\n        result['closed'] = closed\n    return result\nimport inspect\nfrom fastapi import FastAPI, Body\nverification_app=FastAPI()\n\nasync def verify_case(payload: dict=Body(...)):\n    result=_case(payload['case'])\n    if inspect.isawaitable(result):return await result\n    return result\nverify_case = verification_app.post('/_verify')(verify_case)\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "test_1",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/_verify",
+                    "json": {
+                      "case": "valid"
+                    }
+                  }
+                ],
+                "app": "verification_app",
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "case": "valid",
+                    "status": 200,
+                    "reads": [
+                      1024
+                    ],
+                    "handled_uploads_closed": true
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+            },
+            {
+              "test_id": "test_2",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/_verify",
+                    "json": {
+                      "case": "invalid_metadata"
+                    }
+                  }
+                ],
+                "app": "verification_app",
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "case": "invalid_metadata",
+                    "status": 422,
+                    "reads": [],
+                    "handled_uploads_closed": true
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+            },
+            {
+              "test_id": "test_3",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/_verify",
+                    "json": {
+                      "case": "type"
+                    }
+                  }
+                ],
+                "app": "verification_app",
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "case": "type",
+                    "status": 415,
+                    "reads": [],
+                    "handled_uploads_closed": true
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+            },
+            {
+              "test_id": "test_4",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/_verify",
+                    "json": {
+                      "case": "overflow"
+                    }
+                  }
+                ],
+                "app": "verification_app",
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "case": "overflow",
+                    "status": 413,
+                    "reads": [],
+                    "closed": []
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+            },
+            {
+              "test_id": "test_5",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/_verify",
+                    "json": {
+                      "case": "files"
+                    }
+                  }
+                ],
+                "app": "verification_app",
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "case": "files",
+                    "status": 400,
+                    "reads": [],
+                    "closed": []
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+            },
+            {
+              "test_id": "test_6",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/_verify",
+                    "json": {
+                      "case": "fields"
+                    }
+                  }
+                ],
+                "app": "verification_app",
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "case": "fields",
+                    "status": 400,
+                    "reads": [],
+                    "closed": []
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+            },
+            {
+              "test_id": "test_7",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "POST",
+                    "path": "/_verify",
+                    "json": {
+                      "case": "part"
+                    }
+                  }
+                ],
+                "app": "verification_app",
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "case": "part",
+                    "status": 400,
+                    "reads": [],
+                    "closed": []
+                  }
+                }
+              },
+              "visible": true,
+              "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "pyodide",
+            "runtime_version": "0.29.5",
+            "solution_sha256": "a0859454534832c0f1b8cf5a252221a905cb6704c4d928880807569e8c732f99",
+            "tests_passed": 7
+          },
+          "hidden_checks": []
+        }
+      }
+    },
+    {
+      "step_id": "tile_043.s05",
+      "type": "recap",
+      "concept_ids": [
+        "fastapi.bounded_multipart_inputs"
+      ],
+      "title": "Keep these distinctions",
+      "eyebrow": "Recap",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.bounded_multipart_inputs"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Bind Form/File inputs; use spooled asynchronous uploads; enforce total and parser limits separately; validate before processing and close files.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_multipart_inputs"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_multipart_inputs#tb1",
+              "fastapi.bounded_multipart_inputs#tb2",
+              "fastapi.bounded_multipart_inputs#tb3",
+              "fastapi.bounded_multipart_inputs#tb4",
+              "fastapi.bounded_multipart_inputs#tb5"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_multipart_inputs#f1",
+              "fastapi.bounded_multipart_inputs#f2",
+              "fastapi.bounded_multipart_inputs#f3",
+              "fastapi.bounded_multipart_inputs#f4",
+              "fastapi.bounded_multipart_inputs#f5"
+            ]
+          }
+        },
+        {
+          "type": "up_next",
+          "title": "Next: tile_044 — CORS origin and credential policy",
+          "text": "Start with CORS origin and credential policy."
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "tile_043.r01",
+      "type": "remediation",
+      "concept_ids": [
+        "fastapi.bounded_multipart_inputs"
+      ],
+      "title": "Try the contrast: Bounded form and multipart file inputs",
+      "eyebrow": "Review",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Reject disallowed content types and validate fields before processing. When finished, release the upload with await file.close().",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_multipart_inputs"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_multipart_inputs#tb3",
+              "fastapi.bounded_multipart_inputs#tb4"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_multipart_inputs#f5"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For the supplied attachment, a permitted content type does not excuse invalid metadata; both must pass before processing.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_multipart_inputs"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_multipart_inputs#tb3",
+              "fastapi.bounded_multipart_inputs#tb4"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_multipart_inputs#f5"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "request.form(max_files=..., max_fields=..., max_part_size=...) bounds file count, field count and non-file field size. These parser controls do not replace a finite total-body limit. RequestBodyLimitMiddleware counts actual incoming body bytes, including multipart overhead, and returns 413 when max_body_size is exceeded. Keep both controls.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_multipart_inputs"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_multipart_inputs#tb3",
+              "fastapi.bounded_multipart_inputs#tb4",
+              "fastapi.bounded_multipart_inputs#tb5"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_multipart_inputs#f3",
+              "fastapi.bounded_multipart_inputs#f4"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "fastapi.bounded_multipart_inputs"
+        ],
+        "teaching_block_ids": [
+          "fastapi.bounded_multipart_inputs#tb3",
+          "fastapi.bounded_multipart_inputs#tb4",
+          "fastapi.bounded_multipart_inputs#tb5"
+        ],
+        "fact_ids": [
+          "fastapi.bounded_multipart_inputs#f3",
+          "fastapi.bounded_multipart_inputs#f4",
+          "fastapi.bounded_multipart_inputs#f5"
+        ]
+      }
+    },
+    {
+      "step_id": "tile_043.r02",
+      "type": "remediation",
+      "concept_ids": [
+        "fastapi.bounded_multipart_inputs"
+      ],
+      "title": "Try the contrast: Bounded form and multipart file inputs",
+      "eyebrow": "Review",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "In one multipart handler, declare metadata with Annotated[Type, Form()] and the file with Annotated[UploadFile, File()]. Install python-multipart for parsing.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_multipart_inputs"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_multipart_inputs#tb2",
+              "fastapi.bounded_multipart_inputs#tb4"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_multipart_inputs#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "UploadFile uses a spooled file rather than requiring the entire upload as in-memory bytes. Its read, seek and close methods are asynchronous.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_multipart_inputs"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_multipart_inputs#tb3",
+              "fastapi.bounded_multipart_inputs#tb4",
+              "fastapi.bounded_multipart_inputs#tb5"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_multipart_inputs#f2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Set a finite RequestBodyLimitMiddleware max_body_size. Count actual incoming bytes, including multipart overhead; exceeding that limit returns 413.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_multipart_inputs"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_multipart_inputs#tb3",
+              "fastapi.bounded_multipart_inputs#tb4",
+              "fastapi.bounded_multipart_inputs#tb5"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_multipart_inputs#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "request.form(max_files=..., max_fields=..., max_part_size=...) separately limits file count, field count and non-file field size. These limits do not replace the total-body limit.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_multipart_inputs"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_multipart_inputs#tb3",
+              "fastapi.bounded_multipart_inputs#tb4",
+              "fastapi.bounded_multipart_inputs#tb5"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_multipart_inputs#f4"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Reject disallowed content types and validate fields before processing. When finished, release the upload with await file.close().",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_multipart_inputs"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_multipart_inputs#tb3",
+              "fastapi.bounded_multipart_inputs#tb4"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_multipart_inputs#f5"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For the supplied attachment, a permitted content type does not excuse invalid metadata; both must pass before processing.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_multipart_inputs"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_multipart_inputs#tb2",
+              "fastapi.bounded_multipart_inputs#tb3",
+              "fastapi.bounded_multipart_inputs#tb4",
+              "fastapi.bounded_multipart_inputs#tb5"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_multipart_inputs#f1",
+              "fastapi.bounded_multipart_inputs#f2",
+              "fastapi.bounded_multipart_inputs#f3",
+              "fastapi.bounded_multipart_inputs#f4",
+              "fastapi.bounded_multipart_inputs#f5"
+            ]
+          }
+        }
+      ],
+      "lineage": {
+        "concept_ids": [
+          "fastapi.bounded_multipart_inputs"
+        ],
+        "teaching_block_ids": [
+          "fastapi.bounded_multipart_inputs#tb2",
+          "fastapi.bounded_multipart_inputs#tb3",
+          "fastapi.bounded_multipart_inputs#tb4",
+          "fastapi.bounded_multipart_inputs#tb5"
+        ],
+        "fact_ids": [
+          "fastapi.bounded_multipart_inputs#f1",
+          "fastapi.bounded_multipart_inputs#f2",
+          "fastapi.bounded_multipart_inputs#f3",
+          "fastapi.bounded_multipart_inputs#f4",
+          "fastapi.bounded_multipart_inputs#f5"
+        ]
+      }
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "tile_044"
+  },
+  "content_hash": "a92a4d2466381f3604397daa0a20748c1ffe42cbc57e30c5c917681a5bde5740"
+}

@@ -1,0 +1,52 @@
+
+mle.tile.066_067.s01 Enforce prediction-service authentication on an existing platform
+Verify who the caller is, then whether that identity may predict. Neither check replaces runtime-secret handling.
+Authentication establishes the caller identity and authorization checks whether that identity may perform the prediction action; both are needed for the supplied protected service.
+Reference the protected credential through an authorized runtime secret, and give it only to the service permitted to use it rather than writing its literal value in the YAML.
+Inject the platform’s declared nonsecret authentication settings in the service configuration, keeping them separate from the credential secret.
+Make one request with the authorized supplied credential and negative requests with missing or invalid credentials; verify allowed and denied responses under the existing platform policy.
+Inspect runtime logs to verify failures are visible without displaying the credential or protected request values.
+A Compose YAML document declares services by name; use indented mappings for service fields and lists or mappings in the forms required by the Compose specification.
+VISUAL "from google.oauth2 import id_token\nfrom google.auth.transport import requests\nfrom google.auth.exceptions import GoogleAuthError\n\ndef authorize_prediction(token, expected_audience, permitted_subjects):\n    if not token:\n        raise PermissionError(\"missing credential\")\n    try:\n        claims = id_token.verify_oauth2_token(token, requests.Request(), audience=expected_audience)\n    except (ValueError, GoogleAuthError):\n        raise PermissionError(\"verification failed\") from None\n    if claims[\"sub\"] not in permitted_subjects:\n        raise PermissionError(\"unpermitted subject\")\n    return claims\n# Harness maps PermissionError to denial before prediction.\n# Log failure classes only, never the token or protected request values."
+
+mle.tile.066_067.s02 Resolve authentication runtime settings
+Set a service’s image to its immutable artifact reference, its ports to HOST:CONTAINER mappings, and its environment to the declared nonsecret key/value settings.
+Use docker compose -f CONFIG_PATH config to parse, resolve and validate the authored YAML before applying it; check its resolved fields against the intended runtime contract.
+Apply the declared local Compose deployment with docker compose -f CONFIG_PATH up -d and inspect the resulting containers.
+
+mle.tile.066_067.s03 Verify tokens and permitted subjects
+For the supplied Google ID-token verifier contract, use from google.oauth2 import id_token and from google.auth.transport import requests; implement authorize_prediction(token, expected_audience, permitted_subjects) to reject a missing token, call claims = id_token.verify_oauth2_token(token, requests.Request(), audience=expected_audience), and return the verified claims only when claims["sub"] is in the supplied permitted_subjects policy, otherwise raising PermissionError. Use the verified sub identity, not an unverified decode or a changeable email address.
+Assert the declared valid, boundary and failure predicates. In ordinary non-optimized execution, a false assertion raises AssertionError.
+With the declared PyYAML dependency, import yaml; write a mapping/list configuration with yaml.safe_dump(config, file_handle), reload it with yaml.safe_load(file_handle), and inspect the required resolved fields before submitting it to the existing runtime. Safe loading supports standard YAML tags, not arbitrary Python object constructors.
+
+mle.tile.066_067.s04 Reject unauthorized requests before prediction
+Use from google.auth.exceptions import GoogleAuthError; catch (ValueError, GoogleAuthError) from verification and raise PermissionError for the service harness’s declared denied HTTP path before calling prediction; a ValueError signals verification failure and GoogleAuthError includes invalid issuer. Missing credentials, invalid tokens and verified-but-unpermitted subjects must all be denied without executing prediction or logging the token.
+Use the supplied audience and permitted-subject policy. Reject a missing token; verify an offered token, then check verified sub membership. A verified but unpermitted subject is denied too. Convert declared verification exceptions into the denied HTTP path before prediction. Safely inspect Compose image, ports, nonsecret settings and runtime secret references. Test authorized, missing, invalid and unpermitted fixtures. Denied requests must neither execute prediction nor disclose tokens in logs.
+Authentication does not automatically grant authorization. A verified-but-unpermitted subject must be denied, and neither YAML nor logs should contain the credential's literal value.
+
+mle.tile.066_067.s07 Instrument prediction-service availability, errors and latency
+Client outcomes can differ from handler records. Reconcile external requests with handler timing, including attempts that never arrived.
+Choose client-visible request outcomes and latency as service indicators instead of inferring availability only from container or CPU state.
+Measure an attempt’s elapsed time as time.perf_counter() after completion minus its start value, retaining a consistent duration unit.
+Record enough timestamped outcome and duration evidence to distinguish successes, errors and timeouts in the measurement window.
+Compute an error fraction as error attempts divided by eligible attempts, using the same clearly declared observation window and denominator as the success indicator.
+Estimate client-visible success probability as successful eligible attempts divided by all eligible attempts in the defined measurement window, counting failed attempts in the denominator.
+Use np.mean(numeric_values) for the arithmetic mean of the selected numeric observations.
+VISUAL {"type": "data_table", "asset_ref": {"asset_id": "ds.serving_attempts"}, "caption": "Authored offline attempts: reconcile client outcomes with handler timestamps and absent handler records. These are not production measurements.", "lineage": {"concept_ids": ["mle.service_telemetry"], "teaching_block_ids": ["mle.service_telemetry#tb1", "mle.service_telemetry#tb2", "mle.service_telemetry#tb3"], "fact_ids": ["mle.service_telemetry#f1", "mle.service_telemetry#f2", "mle.service_telemetry#f3", "mle.service_telemetry#f4", "mle.service_telemetry#f5", "
+
+mle.tile.066_067.s08 Count every scheduled probe attempt
+Use np.std(numeric_values, ddof=0): divide squared deviations by N, then take the square root. Use ddof=1 only when the declared calculation requires N−1.
+Instrument the handler around JSON decoding, prediction and JSON response encoding, recording duration and status/error counts even on its handled error paths.
+For the prescribed probe, retain its half-open five-minute window [t0, t0+300 seconds), its one valid request per second and all 300 attempt outcomes.
+Count an attempt as available only for an HTTP 200 response with a valid prediction received within its two-second deadline; allow the final attempt its entire deadline before summarizing.
+Compute availability as that successful-deadline count divided by 300, including connection-refused and response-timeout attempts that never reach the handler.
+Reconcile absent handler records with the external failure record and report the probe window, numerator and denominator alongside handler latency/statistics and status counts.
+
+mle.tile.066_067.s09 Separate probe availability from handler telemetry
+For the prescribed probe, retain every scheduled attempt, including connection refusals and timeouts with no handler record. Count only valid successful predictions received by the deadline, allowing the final attempt its full deadline before summarizing. Report the window, successful-deadline numerator and full attempt denominator. Reconcile missing handler events with external failures. Handler timing covers JSON decoding, prediction and encoding, including handled error paths; its success rate alone is not client-visible availability.
+Handler success rate is not automatically client-visible availability. Excluding attempts that never reached the handler would omit part of the prescribed denominator and conceal failures.
+
+mle.tile.066_067.s12 Carry these rules forward
+Verified identity still needs permission. Never put credential values in YAML or logs.
+Handler success rate is not client availability; retain attempts that never reached the handler.
+VISUAL {"type": "up_next", "title": "Load-test a prediction endpoint against tail-latency and sustainable-throughput objectives"}

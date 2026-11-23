@@ -1,0 +1,265 @@
+{
+  "type": "code_exercise",
+  "interaction_id": "ix.mle.tile.086_089.s21",
+  "difficulty": "stretch",
+  "grading_mode": "client",
+  "standalone": false,
+  "anchors": [
+    "mle.retrained_candidate_validation#practice"
+  ],
+  "measures": [
+    {
+      "concept_id": "mle.retrained_candidate_validation",
+      "capability": "verify_matched_validation_and_protected_test_isolation",
+      "fact_ids": [
+        "f1",
+        "f7"
+      ]
+    },
+    {
+      "concept_id": "mle.retrained_candidate_validation",
+      "capability": "calculate_incumbent_relative_expected_error_cost",
+      "fact_ids": [
+        "f2",
+        "f5",
+        "f6"
+      ]
+    },
+    {
+      "concept_id": "mle.retrained_candidate_validation",
+      "capability": "enforce_all_required_acceptance_gates",
+      "fact_ids": [
+        "f3"
+      ]
+    },
+    {
+      "concept_id": "mle.retrained_candidate_validation",
+      "capability": "bind_gate_verdict_to_exact_candidate_identity",
+      "fact_ids": [
+        "f4"
+      ]
+    },
+    {
+      "concept_id": "mle.retrained_candidate_validation",
+      "capability": "assert_valid_boundary_and_failure_gate_outcomes",
+      "fact_ids": [
+        "f8"
+      ]
+    }
+  ],
+  "public": {
+    "prompt": "Bind false_positive_weight and false_negative_weight to their respective supplied policy-weighted components. Retain the supplied candidate evaluator and promotion fixtures unchanged. The record must use the requested registry identity, matched cohort, declared quality/cost boundaries, and both slice and compatibility gates; all invalid fixtures must be rejected.",
+    "runtime": {
+      "kind": "python",
+      "version": "0.29.5",
+      "packages": [
+        "numpy"
+      ]
+    },
+    "workspace": {
+      "entry": "learner.py",
+      "files": [
+        {
+          "path": "learner.py",
+          "role": "editable",
+          "language": "python",
+          "content": "import numpy as np\n\nexec(\"def rates(model):\\n    if model['FP'] + model['TN'] == 0 or model['FN'] + model['TP'] == 0:\\n        return {'FPR': None, 'FNR': None, 'cost': None}\\n    fpr = model['FP'] / (model['FP'] + model['TN'])\\n    fnr = model['FN'] / (model['FN'] + model['TP'])\\n    return {'FPR': fpr, 'FNR': fnr, 'cost': false_positive_weight * fpr + false_negative_weight * fnr}\")\n\n# Supplied infrastructure helper (retain unchanged).\nexec(\"def evaluate(incumbent, candidate, requested_identity):\\n    inc = rates(incumbent)\\n    cand = rates(candidate)\\n    quality = False\\n    if cand['cost'] != None and inc['cost'] != None:\\n        quality = cand['FPR'] <= policy['acceptance']['maximum_FPR'] and cand['FNR'] <= policy['acceptance']['maximum_FNR'] and (cand['cost'] <= inc['cost'])\\n    passed = quality and candidate['slice_pass'] and candidate['compatibility_pass'] and (candidate['cohort_id'] == incumbent['cohort_id']) and (candidate['cohort_id'] == policy['cohort']) and (candidate['registry_artifact_id'] == requested_identity)\\n    return {'registry_artifact_id': candidate['registry_artifact_id'], 'cohort_id': candidate['cohort_id'], 'FPR': cand['FPR'], 'FNR': cand['FNR'], 'expected_cost': cand['cost'], 'incumbent_rates': inc, 'quality_pass': quality, 'slice_pass': candidate['slice_pass'], 'compatibility_pass': candidate['compatibility_pass'], 'verdict': passed}\\n\")\n\nexec('import csv, json')\n\nexec('import numpy as np')\n\nexec('policy = json.loads(\\'{\"P_Y0\": 0.5, \"P_Y1\": 0.5, \"cost_FP\": 1, \"cost_FN\": 2, \"acceptance\": {\"maximum_FPR\": 0.1, \"maximum_FNR\": 0.1, \"cost_not_above_incumbent\": true, \"slice_pass_required\": true, \"compatibility_pass_required\": true}, \"empty_group\": \"undefined; reject\", \"cohort\": \"cohort.validation\", \"decision_record_fields\": [\"registry_artifact_id\", \"cohort_id\", \"FPR\", \"FNR\", \"expected_cost\", \"quality_pass\", \"slice_pass\", \"compatibility_pass\", \"verdict\"], \"protected_test\": \"not provided; never used for selection\"}\\')')\n\nexec(\"validation_counts_rows = list(csv.DictReader(open('validation_counts.csv')))\")\n\nexec('validation_counts = {}')\n\nexec(\"validation_counts['fixture'] = np.array([r['fixture'] for r in validation_counts_rows])\")\n\nexec(\"validation_counts['model_role'] = np.array([r['model_role'] for r in validation_counts_rows])\")\n\nexec(\"validation_counts['cohort_id'] = np.array([r['cohort_id'] for r in validation_counts_rows])\")\n\nexec(\"validation_counts['registry_artifact_id'] = np.array([r['registry_artifact_id'] for r in validation_counts_rows])\")\n\nexec(\"validation_counts['FP'] = np.array([float(r['FP'] or 'nan') for r in validation_counts_rows])\")\n\nexec(\"validation_counts['TN'] = np.array([float(r['TN'] or 'nan') for r in validation_counts_rows])\")\n\nexec(\"validation_counts['FN'] = np.array([float(r['FN'] or 'nan') for r in validation_counts_rows])\")\n\nexec(\"validation_counts['TP'] = np.array([float(r['TP'] or 'nan') for r in validation_counts_rows])\")\n\nexec(\"validation_counts['slice_pass'] = np.array([r['slice_pass'] == 'True' for r in validation_counts_rows])\")\n\nexec(\"validation_counts['compatibility_pass'] = np.array([r['compatibility_pass'] == 'True' for r in validation_counts_rows])\")\n\nexec('fixtures = {}')\n\nexec(\"for i in range(len(validation_counts_rows)):\\n    r = {k: v[i].item() if hasattr(v[i], 'item') else v[i] for k, v in validation_counts.items()}\\n    fixtures.setdefault(r['fixture'], {})[r['model_role']] = r\")\n\nexec(\"def test_all(evaluate):\\n    out = []\\n    for name, pair in fixtures.items():\\n        c = pair['candidate']\\n        inc = pair['incumbent']\\n        out.append({'fixture': name, 'record': evaluate(inc, c, c['registry_artifact_id'])})\\n    pair = fixtures['valid']\\n    out.append({'fixture': 'identity_mismatch', 'record': evaluate(pair['incumbent'], pair['candidate'], 'model.unrelated')})\\n    return out\")\n\nexec(\"def assert_failures(check_failure):\\n    for name, pair in fixtures.items():\\n        if name not in ['valid', 'boundary']:\\n            check_failure(pair)\")\n\n\nsupplied_false_positive_weight = policy['P_Y0'] * policy['cost_FP']\nfalse_positive_weight = None # TODO: bind supplied_false_positive_weight # TODO: policy-weighted error cost # TODO: calculate from policy\n\n\nsupplied_false_negative_weight = policy['P_Y1'] * policy['cost_FN']\nfalse_negative_weight = None # TODO: bind supplied_false_negative_weight # TODO: policy-weighted error cost # TODO: calculate from policy\n\nassert evaluate(fixtures['valid']['incumbent'], fixtures['valid']['candidate'], fixtures['valid']['candidate']['registry_artifact_id'])['verdict']\n\nassert evaluate(fixtures['boundary']['incumbent'], fixtures['boundary']['candidate'], fixtures['boundary']['candidate']['registry_artifact_id'])['verdict']\n\nassert not evaluate(fixtures['valid']['incumbent'], fixtures['valid']['candidate'], 'model.unrelated')['verdict']\n\nexec(\"def check_failure(pair):\\n    assert not evaluate(pair['incumbent'], pair['candidate'], pair['candidate']['registry_artifact_id'])['verdict']\")\n\nexec('assert_failures(check_failure)')\n\nresult = test_all(evaluate)\n"
+        }
+      ],
+      "asset_mounts": [
+        {
+          "asset_id": "ds.validation_counts",
+          "mount_path": "validation_counts.csv"
+        }
+      ]
+    },
+    "constraints": {
+      "allowed_syntax": [
+        "import statements for supplied library and client dependencies",
+        "def statements with parameters and return statements",
+        "local variable assignment",
+        "numeric, string, boolean and None literals",
+        "dictionary construction and key access",
+        "arithmetic operators +, -, *, /",
+        "comparison operators ==, !=, <, <=, >, >=",
+        "boolean operators and, or, not",
+        "if, elif and else statements",
+        "calls to supplied fixture, unit-test and promotion-record interfaces",
+        "assert predicate statements"
+      ],
+      "blocked_syntax": [
+        "calls to incident-runbook execution interfaces",
+        "calls to compute or memory utilization tracking interfaces",
+        "calls to workload expenditure attribution interfaces",
+        "calls to workload cost-guardrail configuration interfaces",
+        "calls to serving-resource deletion interfaces"
+      ]
+    }
+  },
+  "feedback": {
+    "correct": {
+      "message": "The response follows the declared evidence, calculation or authorization rule."
+    },
+    "incorrect": {
+      "message": "Recheck the declared observations, denominator, boundary and required gates; do not substitute evidence for a different claim."
+    },
+    "hints": [
+      "FP/TN and FN/TP are separate conditioning groups. Bind the decision to policy cohort and requested_identity as well as the quality and compatibility gates."
+    ]
+  }
+}
+SOLUTION
+{
+  "solution_files": [
+    {
+      "path": "learner.py",
+      "content": "import numpy as np\n\nexec(\"def rates(model):\\n    if model['FP'] + model['TN'] == 0 or model['FN'] + model['TP'] == 0:\\n        return {'FPR': None, 'FNR': None, 'cost': None}\\n    fpr = model['FP'] / (model['FP'] + model['TN'])\\n    fnr = model['FN'] / (model['FN'] + model['TP'])\\n    return {'FPR': fpr, 'FNR': fnr, 'cost': false_positive_weight * fpr + false_negative_weight * fnr}\")\n\n# Supplied infrastructure helper (retain unchanged).\nexec(\"def evaluate(incumbent, candidate, requested_identity):\\n    inc = rates(incumbent)\\n    cand = rates(candidate)\\n    quality = False\\n    if cand['cost'] != None and inc['cost'] != None:\\n        quality = cand['FPR'] <= policy['acceptance']['maximum_FPR'] and cand['FNR'] <= policy['acceptance']['maximum_FNR'] and (cand['cost'] <= inc['cost'])\\n    passed = quality and candidate['slice_pass'] and candidate['compatibility_pass'] and (candidate['cohort_id'] == incumbent['cohort_id']) and (candidate['cohort_id'] == policy['cohort']) and (candidate['registry_artifact_id'] == requested_identity)\\n    return {'registry_artifact_id': candidate['registry_artifact_id'], 'cohort_id': candidate['cohort_id'], 'FPR': cand['FPR'], 'FNR': cand['FNR'], 'expected_cost': cand['cost'], 'incumbent_rates': inc, 'quality_pass': quality, 'slice_pass': candidate['slice_pass'], 'compatibility_pass': candidate['compatibility_pass'], 'verdict': passed}\\n\")\n\nexec('import csv, json')\n\nexec('import numpy as np')\n\nexec('policy = json.loads(\\'{\"P_Y0\": 0.5, \"P_Y1\": 0.5, \"cost_FP\": 1, \"cost_FN\": 2, \"acceptance\": {\"maximum_FPR\": 0.1, \"maximum_FNR\": 0.1, \"cost_not_above_incumbent\": true, \"slice_pass_required\": true, \"compatibility_pass_required\": true}, \"empty_group\": \"undefined; reject\", \"cohort\": \"cohort.validation\", \"decision_record_fields\": [\"registry_artifact_id\", \"cohort_id\", \"FPR\", \"FNR\", \"expected_cost\", \"quality_pass\", \"slice_pass\", \"compatibility_pass\", \"verdict\"], \"protected_test\": \"not provided; never used for selection\"}\\')')\n\nexec(\"validation_counts_rows = list(csv.DictReader(open('validation_counts.csv')))\")\n\nexec('validation_counts = {}')\n\nexec(\"validation_counts['fixture'] = np.array([r['fixture'] for r in validation_counts_rows])\")\n\nexec(\"validation_counts['model_role'] = np.array([r['model_role'] for r in validation_counts_rows])\")\n\nexec(\"validation_counts['cohort_id'] = np.array([r['cohort_id'] for r in validation_counts_rows])\")\n\nexec(\"validation_counts['registry_artifact_id'] = np.array([r['registry_artifact_id'] for r in validation_counts_rows])\")\n\nexec(\"validation_counts['FP'] = np.array([float(r['FP'] or 'nan') for r in validation_counts_rows])\")\n\nexec(\"validation_counts['TN'] = np.array([float(r['TN'] or 'nan') for r in validation_counts_rows])\")\n\nexec(\"validation_counts['FN'] = np.array([float(r['FN'] or 'nan') for r in validation_counts_rows])\")\n\nexec(\"validation_counts['TP'] = np.array([float(r['TP'] or 'nan') for r in validation_counts_rows])\")\n\nexec(\"validation_counts['slice_pass'] = np.array([r['slice_pass'] == 'True' for r in validation_counts_rows])\")\n\nexec(\"validation_counts['compatibility_pass'] = np.array([r['compatibility_pass'] == 'True' for r in validation_counts_rows])\")\n\nexec('fixtures = {}')\n\nexec(\"for i in range(len(validation_counts_rows)):\\n    r = {k: v[i].item() if hasattr(v[i], 'item') else v[i] for k, v in validation_counts.items()}\\n    fixtures.setdefault(r['fixture'], {})[r['model_role']] = r\")\n\nexec(\"def test_all(evaluate):\\n    out = []\\n    for name, pair in fixtures.items():\\n        c = pair['candidate']\\n        inc = pair['incumbent']\\n        out.append({'fixture': name, 'record': evaluate(inc, c, c['registry_artifact_id'])})\\n    pair = fixtures['valid']\\n    out.append({'fixture': 'identity_mismatch', 'record': evaluate(pair['incumbent'], pair['candidate'], 'model.unrelated')})\\n    return out\")\n\nexec(\"def assert_failures(check_failure):\\n    for name, pair in fixtures.items():\\n        if name not in ['valid', 'boundary']:\\n            check_failure(pair)\")\n\n\nsupplied_false_positive_weight = policy['P_Y0'] * policy['cost_FP']\nfalse_positive_weight = supplied_false_positive_weight\n\n\nsupplied_false_negative_weight = policy['P_Y1'] * policy['cost_FN']\nfalse_negative_weight = supplied_false_negative_weight\n\nassert evaluate(fixtures['valid']['incumbent'], fixtures['valid']['candidate'], fixtures['valid']['candidate']['registry_artifact_id'])['verdict']\n\nassert evaluate(fixtures['boundary']['incumbent'], fixtures['boundary']['candidate'], fixtures['boundary']['candidate']['registry_artifact_id'])['verdict']\n\nassert not evaluate(fixtures['valid']['incumbent'], fixtures['valid']['candidate'], 'model.unrelated')['verdict']\n\nexec(\"def check_failure(pair):\\n    assert not evaluate(pair['incumbent'], pair['candidate'], pair['candidate']['registry_artifact_id'])['verdict']\")\n\nexec('assert_failures(check_failure)')\n\nresult = test_all(evaluate)\n"
+    }
+  ],
+  "tests": [
+    {
+      "test_id": "t1",
+      "kind": "value_equals",
+      "spec": {
+        "expr": "result",
+        "expected": [
+          {
+            "fixture": "valid",
+            "record": {
+              "registry_artifact_id": "model.valid",
+              "cohort_id": "cohort.validation",
+              "FPR": 0.04,
+              "FNR": 0.06,
+              "expected_cost": 0.08,
+              "incumbent_rates": {
+                "FPR": 0.2,
+                "FNR": 0.2,
+                "cost": 0.30000000000000004
+              },
+              "quality_pass": true,
+              "slice_pass": true,
+              "compatibility_pass": true,
+              "verdict": true
+            }
+          },
+          {
+            "fixture": "boundary",
+            "record": {
+              "registry_artifact_id": "model.boundary",
+              "cohort_id": "cohort.validation",
+              "FPR": 0.1,
+              "FNR": 0.1,
+              "expected_cost": 0.15000000000000002,
+              "incumbent_rates": {
+                "FPR": 0.2,
+                "FNR": 0.2,
+                "cost": 0.30000000000000004
+              },
+              "quality_pass": true,
+              "slice_pass": true,
+              "compatibility_pass": true,
+              "verdict": true
+            }
+          },
+          {
+            "fixture": "slice_fail",
+            "record": {
+              "registry_artifact_id": "model.slice_fail",
+              "cohort_id": "cohort.validation",
+              "FPR": 0.04,
+              "FNR": 0.06,
+              "expected_cost": 0.08,
+              "incumbent_rates": {
+                "FPR": 0.2,
+                "FNR": 0.2,
+                "cost": 0.30000000000000004
+              },
+              "quality_pass": true,
+              "slice_pass": false,
+              "compatibility_pass": true,
+              "verdict": false
+            }
+          },
+          {
+            "fixture": "compat_fail",
+            "record": {
+              "registry_artifact_id": "model.compat_fail",
+              "cohort_id": "cohort.validation",
+              "FPR": 0.04,
+              "FNR": 0.06,
+              "expected_cost": 0.08,
+              "incumbent_rates": {
+                "FPR": 0.2,
+                "FNR": 0.2,
+                "cost": 0.30000000000000004
+              },
+              "quality_pass": true,
+              "slice_pass": true,
+              "compatibility_pass": false,
+              "verdict": false
+            }
+          },
+          {
+            "fixture": "quality_fail",
+            "record": {
+              "registry_artifact_id": "model.quality_fail",
+              "cohort_id": "cohort.validation",
+              "FPR": 0.3,
+              "FNR": 0.3,
+              "expected_cost": 0.44999999999999996,
+              "incumbent_rates": {
+                "FPR": 0.2,
+                "FNR": 0.2,
+                "cost": 0.30000000000000004
+              },
+              "quality_pass": false,
+              "slice_pass": true,
+              "compatibility_pass": true,
+              "verdict": false
+            }
+          },
+          {
+            "fixture": "empty_negative",
+            "record": {
+              "registry_artifact_id": "model.empty_negative",
+              "cohort_id": "cohort.validation",
+              "FPR": null,
+              "FNR": null,
+              "expected_cost": null,
+              "incumbent_rates": {
+                "FPR": 0.2,
+                "FNR": 0.2,
+                "cost": 0.30000000000000004
+              },
+              "quality_pass": false,
+              "slice_pass": true,
+              "compatibility_pass": true,
+              "verdict": false
+            }
+          },
+          {
+            "fixture": "identity_mismatch",
+            "record": {
+              "registry_artifact_id": "model.valid",
+              "cohort_id": "cohort.validation",
+              "FPR": 0.04,
+              "FNR": 0.06,
+              "expected_cost": 0.08,
+              "incumbent_rates": {
+                "FPR": 0.2,
+                "FNR": 0.2,
+                "cost": 0.30000000000000004
+              },
+              "quality_pass": true,
+              "slice_pass": true,
+              "compatibility_pass": true,
+              "verdict": false
+            }
+          }
+        ]
+      },
+      "visible": true,
+      "message_on_fail": "The returned record or calculation does not match the declared fixture contract."
+    }
+  ]
+}

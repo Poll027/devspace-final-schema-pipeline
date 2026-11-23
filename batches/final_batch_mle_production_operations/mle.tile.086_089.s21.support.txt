@@ -1,0 +1,35 @@
+import csv, json, datetime
+import numpy as np
+SCHEMAS = {'validation_counts': {'fixture': 'string', 'model_role': 'string', 'cohort_id': 'string', 'registry_artifact_id': 'string', 'FP': 'integer', 'TN': 'integer', 'FN': 'integer', 'TP': 'integer', 'slice_pass': 'boolean', 'compatibility_pass': 'boolean'}}
+def load(name):
+    with open(name+'.csv') as f:
+        data=list(csv.DictReader(f))
+    for r in data:
+        for k,t in SCHEMAS[name].items():
+            v=r[k]
+            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)
+    return data
+def column(data,key):
+    return np.asarray([r[key] for r in data])
+def emit(value):
+    return value
+
+
+
+policy = {'P_Y0': 0.5, 'P_Y1': 0.5, 'cost_FP': 1, 'cost_FN': 2, 'acceptance': {'maximum_FPR': 0.1, 'maximum_FNR': 0.1, 'cost_not_above_incumbent': True, 'slice_pass_required': True, 'compatibility_pass_required': True}, 'empty_group': 'undefined; reject', 'cohort': 'cohort.validation', 'decision_record_fields': ['registry_artifact_id', 'cohort_id', 'FPR', 'FNR', 'expected_cost', 'quality_pass', 'slice_pass', 'compatibility_pass', 'verdict'], 'protected_test': 'not provided; never used for selection'}
+
+def candidate_fixtures():
+    data=load('validation_counts');cases=[]
+    for r in data:
+        if r['model_role']=='candidate':
+            incumbent=next(o for o in data if o['fixture']==r['fixture'] and o['model_role']=='incumbent')
+            cases.append((r,incumbent))
+    return cases
+def run_candidates(function):
+    results=[]
+    for candidate,incumbent in candidate_fixtures():
+        for identity in [candidate['registry_artifact_id'],candidate['registry_artifact_id']+'.different']:
+            results.append(function(candidate,incumbent,identity,policy))
+    return results
+def case_record(records,name,identity_match=True):
+    return next(r for r in records if r['fixture']==name and r['promotion_identity_matches']==identity_match)

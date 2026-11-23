@@ -1,0 +1,144 @@
+PROMPT Inspect the supplied conditional-rate and candidate-gate routines. Bind `rates` and `evaluate` to their corresponding supplied routines by editing only those two assignments. Preserve undefined rates for empty conditioning groups, the supplied cost weights, every quality/slice/compatibility gate, matched cohort and exact candidate identity. Retain the assertions and fixtures; the checker reads the FPR, FNR, expected_cost and verdict record returned by `evaluate`.
+CONSTRAINTS {'allowed_syntax': ['import statements for supplied library and client dependencies', 'def statements with parameters and return statements', 'local variable assignment', 'numeric, string, boolean and None literals', 'dictionary construction and key access', 'arithmetic operators +, -, *, /', 'comparison operators ==, !=, <, <=, >, >=', 'boolean operators and, or, not', 'if, elif and else statements', 'calls to supplied fixture, unit-test and promotion-record interfaces', 'assert predicate statements'], 'blocked_syntax': ['calls to incident-runbook execution interfaces', 'calls to compute or memory utilization tracking interfaces', 'calls to workload expenditure attribution interfaces', 'calls to workload cost-guardrail configuration interfaces', 'calls to serving-resource deletion interfaces']}
+FILE {'path': 'learner.py', 'role': 'editable', 'language': 'python'}
+import numpy as np
+
+exec("def supplied_rates(model):\n    if model['FP'] + model['TN'] == 0 or model['FN'] + model['TP'] == 0:\n        return {'FPR': None, 'FNR': None, 'cost': None}\n    fpr = model['FP'] / (model['FP'] + model['TN'])\n    fnr = model['FN'] / (model['FN'] + model['TP'])\n    return {'FPR': fpr, 'FNR': fnr, 'cost': false_positive_weight * fpr + false_negative_weight * fnr}\n")
+
+exec("def supplied_gate(incumbent, candidate, requested_identity):\n    inc = rates(incumbent)\n    cand = rates(candidate)\n    quality = False\n    if cand['cost'] != None and inc['cost'] != None:\n        quality = cand['FPR'] <= policy['acceptance']['maximum_FPR'] and cand['FNR'] <= policy['acceptance']['maximum_FNR'] and (cand['cost'] <= inc['cost'])\n    passed = quality and candidate['slice_pass'] and candidate['compatibility_pass'] and (candidate['cohort_id'] == incumbent['cohort_id']) and (candidate['cohort_id'] == policy['cohort']) and (candidate['registry_artifact_id'] == requested_identity)\n    return {'registry_artifact_id': candidate['registry_artifact_id'], 'cohort_id': candidate['cohort_id'], 'FPR': cand['FPR'], 'FNR': cand['FNR'], 'expected_cost': cand['cost'], 'incumbent_rates': inc, 'quality_pass': quality, 'slice_pass': candidate['slice_pass'], 'compatibility_pass': candidate['compatibility_pass'], 'verdict': passed}\n")
+
+
+# Bind conditional-rate and validation-gate entry points.
+rates = None
+evaluate = None
+
+
+exec('import csv, json')
+
+exec('import numpy as np')
+
+exec('policy = json.loads(\'{"P_Y0": 0.5, "P_Y1": 0.5, "cost_FP": 1, "cost_FN": 2, "acceptance": {"maximum_FPR": 0.1, "maximum_FNR": 0.1, "cost_not_above_incumbent": true, "slice_pass_required": true, "compatibility_pass_required": true}, "empty_group": "undefined; reject", "cohort": "cohort.validation", "decision_record_fields": ["registry_artifact_id", "cohort_id", "FPR", "FNR", "expected_cost", "quality_pass", "slice_pass", "compatibility_pass", "verdict"], "protected_test": "not provided; never used for selection"}\')')
+
+exec("validation_counts_rows = list(csv.DictReader(open('validation_counts.csv')))")
+
+exec('validation_counts = {}')
+
+exec("validation_counts['fixture'] = np.array([r['fixture'] for r in validation_counts_rows])")
+
+exec("validation_counts['model_role'] = np.array([r['model_role'] for r in validation_counts_rows])")
+
+exec("validation_counts['cohort_id'] = np.array([r['cohort_id'] for r in validation_counts_rows])")
+
+exec("validation_counts['registry_artifact_id'] = np.array([r['registry_artifact_id'] for r in validation_counts_rows])")
+
+exec("validation_counts['FP'] = np.array([float(r['FP'] or 'nan') for r in validation_counts_rows])")
+
+exec("validation_counts['TN'] = np.array([float(r['TN'] or 'nan') for r in validation_counts_rows])")
+
+exec("validation_counts['FN'] = np.array([float(r['FN'] or 'nan') for r in validation_counts_rows])")
+
+exec("validation_counts['TP'] = np.array([float(r['TP'] or 'nan') for r in validation_counts_rows])")
+
+exec("validation_counts['slice_pass'] = np.array([r['slice_pass'] == 'True' for r in validation_counts_rows])")
+
+exec("validation_counts['compatibility_pass'] = np.array([r['compatibility_pass'] == 'True' for r in validation_counts_rows])")
+
+exec('fixtures = {}')
+
+exec("for i in range(len(validation_counts_rows)):\n    r = {k: v[i].item() if hasattr(v[i], 'item') else v[i] for k, v in validation_counts.items()}\n    fixtures.setdefault(r['fixture'], {})[r['model_role']] = r")
+
+exec("def test_all(evaluate):\n    out = []\n    for name, pair in fixtures.items():\n        c = pair['candidate']\n        inc = pair['incumbent']\n        out.append({'fixture': name, 'record': evaluate(inc, c, c['registry_artifact_id'])})\n    pair = fixtures['valid']\n    out.append({'fixture': 'identity_mismatch', 'record': evaluate(pair['incumbent'], pair['candidate'], 'model.unrelated')})\n    return out")
+
+exec("def assert_failures(check_failure):\n    for name, pair in fixtures.items():\n        if name not in ['valid', 'boundary']:\n            check_failure(pair)")
+
+
+supplied_false_positive_weight = policy['P_Y0'] * policy['cost_FP']
+false_positive_weight = supplied_false_positive_weight
+
+
+supplied_false_negative_weight = policy['P_Y1'] * policy['cost_FN']
+false_negative_weight = supplied_false_negative_weight
+
+assert evaluate(fixtures['valid']['incumbent'], fixtures['valid']['candidate'], fixtures['valid']['candidate']['registry_artifact_id'])['verdict']
+
+assert evaluate(fixtures['boundary']['incumbent'], fixtures['boundary']['candidate'], fixtures['boundary']['candidate']['registry_artifact_id'])['verdict']
+
+assert not evaluate(fixtures['valid']['incumbent'], fixtures['valid']['candidate'], 'model.unrelated')['verdict']
+
+exec("def check_failure(pair):\n    assert not evaluate(pair['incumbent'], pair['candidate'], pair['candidate']['registry_artifact_id'])['verdict']")
+
+exec('assert_failures(check_failure)')
+
+result = test_all(evaluate)
+
+SOLUTION learner.py
+import numpy as np
+
+exec("def supplied_rates(model):\n    if model['FP'] + model['TN'] == 0 or model['FN'] + model['TP'] == 0:\n        return {'FPR': None, 'FNR': None, 'cost': None}\n    fpr = model['FP'] / (model['FP'] + model['TN'])\n    fnr = model['FN'] / (model['FN'] + model['TP'])\n    return {'FPR': fpr, 'FNR': fnr, 'cost': false_positive_weight * fpr + false_negative_weight * fnr}\n")
+
+exec("def supplied_gate(incumbent, candidate, requested_identity):\n    inc = rates(incumbent)\n    cand = rates(candidate)\n    quality = False\n    if cand['cost'] != None and inc['cost'] != None:\n        quality = cand['FPR'] <= policy['acceptance']['maximum_FPR'] and cand['FNR'] <= policy['acceptance']['maximum_FNR'] and (cand['cost'] <= inc['cost'])\n    passed = quality and candidate['slice_pass'] and candidate['compatibility_pass'] and (candidate['cohort_id'] == incumbent['cohort_id']) and (candidate['cohort_id'] == policy['cohort']) and (candidate['registry_artifact_id'] == requested_identity)\n    return {'registry_artifact_id': candidate['registry_artifact_id'], 'cohort_id': candidate['cohort_id'], 'FPR': cand['FPR'], 'FNR': cand['FNR'], 'expected_cost': cand['cost'], 'incumbent_rates': inc, 'quality_pass': quality, 'slice_pass': candidate['slice_pass'], 'compatibility_pass': candidate['compatibility_pass'], 'verdict': passed}\n")
+
+
+# Bind conditional-rate and validation-gate entry points.
+rates = supplied_rates
+evaluate = supplied_gate
+
+
+exec('import csv, json')
+
+exec('import numpy as np')
+
+exec('policy = json.loads(\'{"P_Y0": 0.5, "P_Y1": 0.5, "cost_FP": 1, "cost_FN": 2, "acceptance": {"maximum_FPR": 0.1, "maximum_FNR": 0.1, "cost_not_above_incumbent": true, "slice_pass_required": true, "compatibility_pass_required": true}, "empty_group": "undefined; reject", "cohort": "cohort.validation", "decision_record_fields": ["registry_artifact_id", "cohort_id", "FPR", "FNR", "expected_cost", "quality_pass", "slice_pass", "compatibility_pass", "verdict"], "protected_test": "not provided; never used for selection"}\')')
+
+exec("validation_counts_rows = list(csv.DictReader(open('validation_counts.csv')))")
+
+exec('validation_counts = {}')
+
+exec("validation_counts['fixture'] = np.array([r['fixture'] for r in validation_counts_rows])")
+
+exec("validation_counts['model_role'] = np.array([r['model_role'] for r in validation_counts_rows])")
+
+exec("validation_counts['cohort_id'] = np.array([r['cohort_id'] for r in validation_counts_rows])")
+
+exec("validation_counts['registry_artifact_id'] = np.array([r['registry_artifact_id'] for r in validation_counts_rows])")
+
+exec("validation_counts['FP'] = np.array([float(r['FP'] or 'nan') for r in validation_counts_rows])")
+
+exec("validation_counts['TN'] = np.array([float(r['TN'] or 'nan') for r in validation_counts_rows])")
+
+exec("validation_counts['FN'] = np.array([float(r['FN'] or 'nan') for r in validation_counts_rows])")
+
+exec("validation_counts['TP'] = np.array([float(r['TP'] or 'nan') for r in validation_counts_rows])")
+
+exec("validation_counts['slice_pass'] = np.array([r['slice_pass'] == 'True' for r in validation_counts_rows])")
+
+exec("validation_counts['compatibility_pass'] = np.array([r['compatibility_pass'] == 'True' for r in validation_counts_rows])")
+
+exec('fixtures = {}')
+
+exec("for i in range(len(validation_counts_rows)):\n    r = {k: v[i].item() if hasattr(v[i], 'item') else v[i] for k, v in validation_counts.items()}\n    fixtures.setdefault(r['fixture'], {})[r['model_role']] = r")
+
+exec("def test_all(evaluate):\n    out = []\n    for name, pair in fixtures.items():\n        c = pair['candidate']\n        inc = pair['incumbent']\n        out.append({'fixture': name, 'record': evaluate(inc, c, c['registry_artifact_id'])})\n    pair = fixtures['valid']\n    out.append({'fixture': 'identity_mismatch', 'record': evaluate(pair['incumbent'], pair['candidate'], 'model.unrelated')})\n    return out")
+
+exec("def assert_failures(check_failure):\n    for name, pair in fixtures.items():\n        if name not in ['valid', 'boundary']:\n            check_failure(pair)")
+
+
+supplied_false_positive_weight = policy['P_Y0'] * policy['cost_FP']
+false_positive_weight = supplied_false_positive_weight
+
+
+supplied_false_negative_weight = policy['P_Y1'] * policy['cost_FN']
+false_negative_weight = supplied_false_negative_weight
+
+assert evaluate(fixtures['valid']['incumbent'], fixtures['valid']['candidate'], fixtures['valid']['candidate']['registry_artifact_id'])['verdict']
+
+assert evaluate(fixtures['boundary']['incumbent'], fixtures['boundary']['candidate'], fixtures['boundary']['candidate']['registry_artifact_id'])['verdict']
+
+assert not evaluate(fixtures['valid']['incumbent'], fixtures['valid']['candidate'], 'model.unrelated')['verdict']
+
+exec("def check_failure(pair):\n    assert not evaluate(pair['incumbent'], pair['candidate'], pair['candidate']['registry_artifact_id'])['verdict']")
+
+exec('assert_failures(check_failure)')
+
+result = test_all(evaluate)
+

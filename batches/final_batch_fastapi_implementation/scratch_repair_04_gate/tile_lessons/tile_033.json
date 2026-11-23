@@ -1,0 +1,986 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "python_fastapi_backend_developer",
+  "tile_id": "tile_033",
+  "toc_location": {
+    "region_id": "region_implementation",
+    "terrain_id": "terrain_dependencies_runtime"
+  },
+  "title": "Outbound timeouts",
+  "summary": "",
+  "concept_ids": [
+    "integration.outbound_timeouts"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_python_fastapi_backend_developer",
+    "toc_freeze_hash": "96d245a8da4552263398bda220dd1f88774cc30045abdf029e8d40064881cb7e",
+    "glossary_bundle_hashes": {
+      "integration.outbound_timeouts": "be13a8fbd849f70cad0e0933c352d4bae6e27757bb11c9f8f0d5753bf43045ff"
+    },
+    "scenario_registry_hash": "c048f8767b9a4f4400fec50ac35af6f24f1dc7516758255eb20c51074d3b52f4"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core"
+    ],
+    "block_types": [
+      "diagram",
+      "prose",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "code_exercise"
+    ],
+    "runtimes": [
+      "python_asgi"
+    ],
+    "asset_ids": []
+  },
+  "pacing": {
+    "estimated_minutes": 4.4
+  },
+  "steps": [
+    {
+      "step_id": "tile_033.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "integration.outbound_timeouts"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "integration.outbound_timeouts"
+        ],
+        "teaching_block_ids": [
+          "integration.outbound_timeouts#tb1",
+          "integration.outbound_timeouts#tb2",
+          "integration.outbound_timeouts#tb3"
+        ],
+        "fact_ids": [
+          "integration.outbound_timeouts#f1",
+          "integration.outbound_timeouts#f2",
+          "integration.outbound_timeouts#f3",
+          "integration.outbound_timeouts#f4"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "integration.outbound_timeouts#visual"
+        ]
+      },
+      "title": "Distinguish wait limits from elapsed time",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "HTTPX has connect, read, write and pool timeouts. Read and write limits bound waits for individual chunks, not whole-request elapsed time. Configure a finite timeout with httpx.AsyncClient(timeout=seconds) or a request’s timeout= argument. Setting timeout=None disables timeout enforcement.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.outbound_timeouts"
+            ],
+            "fact_ids": [
+              "integration.outbound_timeouts#f1",
+              "integration.outbound_timeouts#f2"
+            ],
+            "teaching_block_ids": [
+              "integration.outbound_timeouts#tb2",
+              "integration.outbound_timeouts#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Exceeded waits raise corresponding HTTPX exceptions: ConnectTimeout, ReadTimeout, WriteTimeout or PoolTimeout.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.outbound_timeouts"
+            ],
+            "fact_ids": [
+              "integration.outbound_timeouts#f3"
+            ],
+            "teaching_block_ids": [
+              "integration.outbound_timeouts#tb3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For a required total elapsed budget, use async with asyncio.timeout(seconds). Its cancellation becomes TimeoutError outside the context.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.outbound_timeouts"
+            ],
+            "fact_ids": [
+              "integration.outbound_timeouts#f4"
+            ],
+            "teaching_block_ids": [
+              "integration.outbound_timeouts#tb3"
+            ]
+          }
+        },
+        {
+          "type": "diagram",
+          "nodes": [
+            {
+              "id": "total",
+              "label": "asyncio.timeout — total elapsed-work boundary"
+            },
+            {
+              "id": "pool",
+              "label": "Pool wait → PoolTimeout"
+            },
+            {
+              "id": "connect",
+              "label": "Connection wait → ConnectTimeout"
+            },
+            {
+              "id": "read",
+              "label": "Wait for each response chunk → ReadTimeout"
+            },
+            {
+              "id": "write",
+              "label": "Wait for each sent chunk → WriteTimeout"
+            },
+            {
+              "id": "chunks",
+              "label": "Successive chunks within read limit can exceed that limit in total elapsed time"
+            },
+            {
+              "id": "io",
+              "label": "Finite HTTPX client/request timeout; None disables enforcement"
+            },
+            {
+              "id": "outside",
+              "label": "Outside asyncio.timeout: TimeoutError"
+            }
+          ],
+          "edges": [
+            {
+              "from": "io",
+              "to": "pool",
+              "label": "Wait limit"
+            },
+            {
+              "from": "io",
+              "to": "connect",
+              "label": "Wait limit"
+            },
+            {
+              "from": "io",
+              "to": "read",
+              "label": "Per-chunk wait limit"
+            },
+            {
+              "from": "io",
+              "to": "write",
+              "label": "Per-chunk wait limit"
+            },
+            {
+              "from": "read",
+              "to": "chunks",
+              "label": "Not a total deadline"
+            },
+            {
+              "from": "total",
+              "to": "io",
+              "label": "Separate total-work boundary"
+            },
+            {
+              "from": "total",
+              "to": "outside",
+              "label": "Cancellation converted outside context"
+            }
+          ],
+          "alt_text": "A finite HTTPX timeout limits pool, connection and per-chunk read/write waits. A separate asyncio.timeout bounds total elapsed work and raises TimeoutError outside its context.",
+          "diagram_kind": "container",
+          "lineage": {
+            "concept_ids": [
+              "integration.outbound_timeouts"
+            ],
+            "teaching_block_ids": [
+              "integration.outbound_timeouts#tb1",
+              "integration.outbound_timeouts#tb2",
+              "integration.outbound_timeouts#tb3"
+            ],
+            "fact_ids": [
+              "integration.outbound_timeouts#f1",
+              "integration.outbound_timeouts#f2",
+              "integration.outbound_timeouts#f3",
+              "integration.outbound_timeouts#f4"
+            ],
+            "segment_ids": [],
+            "anchors": [
+              "integration.outbound_timeouts#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_033.s02",
+      "type": "explainer",
+      "concept_ids": [
+        "integration.outbound_timeouts"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "integration.outbound_timeouts"
+        ],
+        "teaching_block_ids": [
+          "integration.outbound_timeouts#tb4",
+          "integration.outbound_timeouts#tb5"
+        ],
+        "fact_ids": [
+          "integration.outbound_timeouts#f1",
+          "integration.outbound_timeouts#f2",
+          "integration.outbound_timeouts#f3",
+          "integration.outbound_timeouts#f4"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "title": "Identify which boundary expired",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "A finite HTTPX timeout bounds specific I/O waits. Successive response chunks may each arrive within the read limit while total elapsed time exceeds that limit; the read timeout is not a whole-request deadline. timeout=None disables enforcement.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.outbound_timeouts"
+            ],
+            "fact_ids": [
+              "integration.outbound_timeouts#f1",
+              "integration.outbound_timeouts#f2"
+            ],
+            "teaching_block_ids": [
+              "integration.outbound_timeouts#tb4",
+              "integration.outbound_timeouts#tb5"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "When the contract requires a total asynchronous-work budget, wrap the operation in asyncio.timeout. Catch its TimeoutError outside the context. Distinguish that total-budget boundary from HTTPX’s connect, read, write and pool timeout exceptions.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.outbound_timeouts"
+            ],
+            "fact_ids": [
+              "integration.outbound_timeouts#f1",
+              "integration.outbound_timeouts#f3",
+              "integration.outbound_timeouts#f4"
+            ],
+            "teaching_block_ids": [
+              "integration.outbound_timeouts#tb4",
+              "integration.outbound_timeouts#tb5"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_033.s03",
+      "type": "check",
+      "concept_ids": [
+        "integration.outbound_timeouts"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "integration.outbound_timeouts"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "integration.outbound_timeouts#f1",
+          "integration.outbound_timeouts#f2"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "integration.outbound_timeouts#assessment:distinguish_finite_io_limits_from_total_elapsed_budget"
+        ]
+      },
+      "title": "Check: Outbound timeouts",
+      "eyebrow": "Check your understanding",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_033.s03",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "integration.outbound_timeouts",
+            "capability": "distinguish_finite_io_limits_from_total_elapsed_budget",
+            "fact_ids": [
+              "f1",
+              "f2"
+            ]
+          }
+        ],
+        "anchors": [
+          "integration.outbound_timeouts#assessment:distinguish_finite_io_limits_from_total_elapsed_budget"
+        ],
+        "public": {
+          "prompt": "Does httpx.AsyncClient(timeout=5) by itself establish a five-second total elapsed budget across all asynchronous work?",
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "No: HTTPX wait limits are distinct from a total elapsed-time budget."
+            },
+            {
+              "option_id": "o2",
+              "text": "No, because timeout=5 disables all HTTPX timeouts."
+            },
+            {
+              "option_id": "o3",
+              "text": "Yes: read timeout measures the entire operation from beginning to end."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "HTTPX distinguishes connect, read, write and pool timeouts; read and write limits bound waiting for individual chunks rather than a whole request's elapsed duration. Configure a finite timeout with httpx.AsyncClient(timeout=seconds) or a request's timeout= argument; timeout=None disables timeout enforcement."
+            },
+            "o2": {
+              "message": "A finite timeout enables wait limits; timeout=None disables enforcement."
+            },
+            "o3": {
+              "message": "Read and write limits bound waits for individual chunks, not the whole elapsed operation."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "HTTPX distinguishes connect, read, write and pool timeouts; read and write limits bound waiting for individual chunks rather than a whole request's elapsed duration. Configure a finite timeout with httpx.AsyncClient(timeout=seconds) or a request's timeout= argument; timeout=None disables timeout enforcement."
+          },
+          "incorrect": {
+            "message": "Review the distinction and try again. HTTPX distinguishes connect, read, write and pool timeouts; read and write limits bound waiting for individual chunks rather than a whole request's elapsed duration. Configure a finite timeout with httpx.AsyncClient(timeout=seconds) or a request's timeout= argument; timeout=None disables timeout enforcement."
+          },
+          "hints": [
+            "Separate chunk waits from total elapsed work."
+          ],
+          "remediation_step_id": "tile_033.r01"
+        }
+      }
+    },
+    {
+      "step_id": "tile_033.s04",
+      "type": "check",
+      "concept_ids": [
+        "integration.outbound_timeouts"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "integration.outbound_timeouts"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "integration.outbound_timeouts#f4"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "integration.outbound_timeouts#assessment:identify_total_budget_timeout_outside_async_context"
+        ]
+      },
+      "title": "Check: Outbound timeouts",
+      "eyebrow": "Check your understanding",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_033.s04",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "integration.outbound_timeouts",
+            "capability": "identify_total_budget_timeout_outside_async_context",
+            "fact_ids": [
+              "f4"
+            ]
+          }
+        ],
+        "anchors": [
+          "integration.outbound_timeouts#assessment:identify_total_budget_timeout_outside_async_context"
+        ],
+        "public": {
+          "prompt": "Work is wrapped in async with asyncio.timeout(seconds) for a total elapsed budget. Where is its cancellation converted to TimeoutError for handling?",
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Only inside the timeout context before it exits."
+            },
+            {
+              "option_id": "o2",
+              "text": "Outside the timeout context."
+            },
+            {
+              "option_id": "o3",
+              "text": "It becomes an HTTPX PoolTimeout regardless of which work was running."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o2"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "The context converts cancellation to TimeoutError on exit, so handle it outside."
+            },
+            "o2": {
+              "message": "When the contract requires a total elapsed-time budget across asynchronous work, wrap the operation in async with asyncio.timeout(seconds); its cancellation is converted to TimeoutError outside the context."
+            },
+            "o3": {
+              "message": "An asyncio total-budget timeout is not automatically an HTTPX pool-wait exception."
+            }
+          }
+        },
+        "feedback": {
+          "correct": {
+            "message": "When the contract requires a total elapsed-time budget across asynchronous work, wrap the operation in async with asyncio.timeout(seconds); its cancellation is converted to TimeoutError outside the context."
+          },
+          "incorrect": {
+            "message": "Review the distinction and try again. When the contract requires a total elapsed-time budget across asynchronous work, wrap the operation in async with asyncio.timeout(seconds); its cancellation is converted to TimeoutError outside the context."
+          },
+          "hints": [
+            "Follow the context exit before selecting the exception handler."
+          ]
+        }
+      }
+    },
+    {
+      "step_id": "tile_033.s05",
+      "type": "hands_on",
+      "concept_ids": [
+        "integration.outbound_timeouts"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "integration.outbound_timeouts"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "integration.outbound_timeouts#f1",
+          "integration.outbound_timeouts#f3"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "integration.outbound_timeouts#practice",
+          "integration.outbound_timeouts#assessment:determine_httpx_timeout_outcome_for_exceeded_wait"
+        ]
+      },
+      "title": "Practice: Outbound timeouts",
+      "eyebrow": "Apply the contract",
+      "interaction": {
+        "type": "code_exercise",
+        "interaction_id": "ix.tile_033.s05",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "integration.outbound_timeouts",
+            "capability": "determine_httpx_timeout_outcome_for_exceeded_wait",
+            "fact_ids": [
+              "f1",
+              "f3"
+            ]
+          }
+        ],
+        "anchors": [
+          "integration.outbound_timeouts#practice",
+          "integration.outbound_timeouts#assessment:determine_httpx_timeout_outcome_for_exceeded_wait"
+        ],
+        "public": {
+          "prompt": "Configure an effective five-second HTTPX timeout, either on AsyncClient or on client.get. Complete shipping_lookup with an awaited GET of shipping_url. Return \"shipping-ok\" after success; handle ConnectTimeout, ReadTimeout, WriteTimeout and PoolTimeout separately, returning \"connect-timeout\", \"read-timeout\", \"write-timeout\" and \"pool-timeout\" respectively. The supplied fixture simulates upstream waits and compares them with the effective HTTPX limits; verify that an exceeded read wait returns read-timeout. The read case simulates a six-second read wait and the success case a four-second read wait. Keep the supplied no-network fixture unchanged. These are wait limits, not a total elapsed budget.",
+          "runtime": {
+            "kind": "python_asgi",
+            "version": "0.29.5"
+          },
+          "workspace": {
+            "entry": "main.py",
+            "files": [
+              {
+                "path": "main.py",
+                "role": "editable",
+                "language": "python",
+                "content": "import httpx\nshipping_url = \"http://127.0.0.1:8765/shipping\"\n\n# Supplied no-network timeout fixture and async test adapter; leave unchanged.\nfrom fastapi import FastAPI\napp = FastAPI()\nmode = \"read\"\nclients = []\n_OriginalClient = httpx.AsyncClient\nclass FixtureClient(_OriginalClient):\n    def __init__(self, *args, **kwargs):\n        self.effective_timeouts = []\n        clients.append(self)\n        def respond(request):\n            phase = mode if mode in (\"read\", \"connect\", \"write\", \"pool\") else \"read\"\n            simulated_wait = 4.0 if mode == \"success\" else 6.0\n            limit = request.extensions[\"timeout\"][phase]\n            self.effective_timeouts.append(limit)\n            if limit is not None and simulated_wait > limit:\n                exc = {\"read\": httpx.ReadTimeout, \"connect\": httpx.ConnectTimeout, \"write\": httpx.WriteTimeout, \"pool\": httpx.PoolTimeout}[phase]\n                raise exc(\"supplied wait exceeded effective limit\", request=request)\n            return httpx.Response(200, text=\"shipping-ok\")\n        super().__init__(*args, transport=httpx.MockTransport(respond), **kwargs)\nfrom types import SimpleNamespace\nhttpx = SimpleNamespace(**{**vars(httpx), \"AsyncClient\": FixtureClient})\n@app.get(\"/probe\")\nasync def probe(case: str):\n    global mode\n    mode = case\n    clients.clear()\n    result = await shipping_lookup()\n    return {\"result\": result, \"timeouts\": [limit for c in clients for limit in c.effective_timeouts], \"closed\": all(c.is_closed for c in clients)}\n\nasync def shipping_lookup():\n    # TODO: finite HTTPX timeout and distinct timeout outcome.\n    pass\n"
+              }
+            ],
+            "asset_mounts": []
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "import httpx",
+              "async def",
+              "async with httpx.AsyncClient(timeout=seconds) as client",
+              "await client.get(shipping_url)",
+              "await client.get(shipping_url, timeout=seconds)",
+              "try",
+              "except httpx.ConnectTimeout",
+              "except httpx.ReadTimeout",
+              "except httpx.WriteTimeout",
+              "except httpx.PoolTimeout",
+              "return",
+              "variable assignment",
+              "numeric literals",
+              "string literals"
+            ],
+            "blocked_syntax": [
+              "fastapi.testclient.TestClient",
+              "httpx.ASGITransport",
+              "app.dependency_overrides",
+              "@app.exception_handler",
+              "BackgroundTasks",
+              "app.add_middleware"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "main.py",
+              "content": "import httpx\nshipping_url = \"http://127.0.0.1:8765/shipping\"\n\n# Supplied no-network timeout fixture and async test adapter; leave unchanged.\nfrom fastapi import FastAPI\napp = FastAPI()\nmode = \"read\"\nclients = []\n_OriginalClient = httpx.AsyncClient\nclass FixtureClient(_OriginalClient):\n    def __init__(self, *args, **kwargs):\n        self.effective_timeouts = []\n        clients.append(self)\n        def respond(request):\n            phase = mode if mode in (\"read\", \"connect\", \"write\", \"pool\") else \"read\"\n            simulated_wait = 4.0 if mode == \"success\" else 6.0\n            limit = request.extensions[\"timeout\"][phase]\n            self.effective_timeouts.append(limit)\n            if limit is not None and simulated_wait > limit:\n                exc = {\"read\": httpx.ReadTimeout, \"connect\": httpx.ConnectTimeout, \"write\": httpx.WriteTimeout, \"pool\": httpx.PoolTimeout}[phase]\n                raise exc(\"supplied wait exceeded effective limit\", request=request)\n            return httpx.Response(200, text=\"shipping-ok\")\n        super().__init__(*args, transport=httpx.MockTransport(respond), **kwargs)\nfrom types import SimpleNamespace\nhttpx = SimpleNamespace(**{**vars(httpx), \"AsyncClient\": FixtureClient})\n@app.get(\"/probe\")\nasync def probe(case: str):\n    global mode\n    mode = case\n    clients.clear()\n    result = await shipping_lookup()\n    return {\"result\": result, \"timeouts\": [limit for c in clients for limit in c.effective_timeouts], \"closed\": all(c.is_closed for c in clients)}\n\nasync def shipping_lookup():\n    try:\n        async with httpx.AsyncClient(timeout=5) as client:\n            response = await client.get(shipping_url)\n            return \"shipping-ok\"\n    except httpx.ConnectTimeout:\n        return \"connect-timeout\"\n    except httpx.ReadTimeout:\n        return \"read-timeout\"\n    except httpx.WriteTimeout:\n        return \"write-timeout\"\n    except httpx.PoolTimeout:\n        return \"pool-timeout\"\n"
+            }
+          ],
+          "tests": [
+            {
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "GET",
+                    "path": "/probe",
+                    "params": {
+                      "case": "read"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "result": "read-timeout",
+                    "timeouts": [
+                      5
+                    ],
+                    "closed": true
+                  }
+                }
+              },
+              "test_id": "test.tile_033.s05.1",
+              "visible": true,
+              "message_on_fail": "Check the exact output and the required declaration in the prompt."
+            },
+            {
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "GET",
+                    "path": "/probe",
+                    "params": {
+                      "case": "connect"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "result": "connect-timeout",
+                    "timeouts": [
+                      5
+                    ],
+                    "closed": true
+                  }
+                }
+              },
+              "test_id": "test.tile_033.s05.2",
+              "visible": true,
+              "message_on_fail": "Check the exact output and the required declaration in the prompt."
+            },
+            {
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "GET",
+                    "path": "/probe",
+                    "params": {
+                      "case": "write"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "result": "write-timeout",
+                    "timeouts": [
+                      5
+                    ],
+                    "closed": true
+                  }
+                }
+              },
+              "test_id": "test.tile_033.s05.3",
+              "visible": true,
+              "message_on_fail": "Check the exact output and the required declaration in the prompt."
+            },
+            {
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "GET",
+                    "path": "/probe",
+                    "params": {
+                      "case": "pool"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "result": "pool-timeout",
+                    "timeouts": [
+                      5
+                    ],
+                    "closed": true
+                  }
+                }
+              },
+              "test_id": "test.tile_033.s05.4",
+              "visible": true,
+              "message_on_fail": "Check the exact output and the required declaration in the prompt."
+            },
+            {
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "GET",
+                    "path": "/probe",
+                    "params": {
+                      "case": "success"
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "result": "shipping-ok",
+                    "timeouts": [
+                      5
+                    ],
+                    "closed": true
+                  }
+                }
+              },
+              "test_id": "test.tile_033.s05.5",
+              "visible": true,
+              "message_on_fail": "Check the exact output and the required declaration in the prompt."
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "pyodide",
+            "runtime_version": "0.29.5",
+            "solution_sha256": "827080209b03212700386a67b9408a589f1808901ac9e036845470e030ffed94",
+            "tests_passed": 5
+          },
+          "hidden_checks": []
+        },
+        "feedback": {
+          "correct": {
+            "message": "HTTPX distinguishes connect, read, write and pool timeouts; read and write limits bound waiting for individual chunks rather than a whole request's elapsed duration. HTTPX raises timeout exceptions such as ConnectTimeout, ReadTimeout, WriteTimeout and PoolTimeout when the corresponding wait exceeds its limit."
+          },
+          "incorrect": {
+            "message": "Review the distinction and try again. HTTPX distinguishes connect, read, write and pool timeouts; read and write limits bound waiting for individual chunks rather than a whole request's elapsed duration. HTTPX raises timeout exceptions such as ConnectTimeout, ReadTimeout, WriteTimeout and PoolTimeout when the corresponding wait exceeds its limit."
+          },
+          "hints": [
+            "Identify the owning scope or declared boundary before filling the edit slots.",
+            "Compare each required result with the practice contract."
+          ]
+        }
+      }
+    },
+    {
+      "step_id": "tile_033.s06",
+      "type": "recap",
+      "concept_ids": [
+        "integration.outbound_timeouts"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "integration.outbound_timeouts"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "title": "Keep these distinctions",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "An external operation consumes a finite local time budget.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "integration.outbound_timeouts"
+            ],
+            "teaching_block_ids": [
+              "integration.outbound_timeouts#tb2",
+              "integration.outbound_timeouts#tb3",
+              "integration.outbound_timeouts#tb4",
+              "integration.outbound_timeouts#tb5"
+            ],
+            "fact_ids": [
+              "integration.outbound_timeouts#f1"
+            ]
+          }
+        },
+        {
+          "type": "up_next",
+          "title": "Up next: tile_034",
+          "text": "Next: Layers isolate reasons to change rather than just files."
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "tile_033.r01",
+      "type": "remediation",
+      "concept_ids": [
+        "integration.outbound_timeouts"
+      ],
+      "title": "Revisit: Outbound timeouts",
+      "lede": "Use the same orders-service exercise to separate these cases.",
+      "lineage": {
+        "concept_ids": [
+          "integration.outbound_timeouts"
+        ],
+        "fact_ids": [
+          "integration.outbound_timeouts#f1",
+          "integration.outbound_timeouts#f2"
+        ],
+        "teaching_block_ids": [
+          "integration.outbound_timeouts#tb2",
+          "integration.outbound_timeouts#tb3",
+          "integration.outbound_timeouts#tb4",
+          "integration.outbound_timeouts#tb5"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "HTTPX distinguishes connect, read, write and pool timeouts; read and write limits bound waiting for individual chunks rather than a whole request's elapsed duration.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.outbound_timeouts"
+            ],
+            "fact_ids": [
+              "integration.outbound_timeouts#f1"
+            ],
+            "teaching_block_ids": [
+              "integration.outbound_timeouts#tb2",
+              "integration.outbound_timeouts#tb4",
+              "integration.outbound_timeouts#tb5"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Configure a finite timeout with httpx.AsyncClient(timeout=seconds) or a request's timeout= argument; timeout=None disables timeout enforcement.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.outbound_timeouts"
+            ],
+            "fact_ids": [
+              "integration.outbound_timeouts#f2"
+            ],
+            "teaching_block_ids": [
+              "integration.outbound_timeouts#tb3",
+              "integration.outbound_timeouts#tb4",
+              "integration.outbound_timeouts#tb5"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "role": "misconception",
+          "text": "A finite shipping timeout enables enforcement; timeout=None disables it.",
+          "lineage": {
+            "concept_ids": [
+              "integration.outbound_timeouts"
+            ],
+            "fact_ids": [
+              "integration.outbound_timeouts#f2"
+            ],
+            "teaching_block_ids": [
+              "integration.outbound_timeouts#tb3",
+              "integration.outbound_timeouts#tb4",
+              "integration.outbound_timeouts#tb5"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_033.r02",
+      "type": "remediation",
+      "concept_ids": [
+        "integration.outbound_timeouts"
+      ],
+      "title": "Revisit: Outbound timeouts",
+      "lede": "Use the same orders-service exercise to separate these cases.",
+      "lineage": {
+        "concept_ids": [
+          "integration.outbound_timeouts"
+        ],
+        "fact_ids": [
+          "integration.outbound_timeouts#f4"
+        ],
+        "teaching_block_ids": [
+          "integration.outbound_timeouts#tb3",
+          "integration.outbound_timeouts#tb4"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "When the contract requires a total elapsed-time budget across asynchronous work, wrap the operation in async with asyncio.timeout(seconds); its cancellation is converted to TimeoutError outside the context.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.outbound_timeouts"
+            ],
+            "fact_ids": [
+              "integration.outbound_timeouts#f4"
+            ],
+            "teaching_block_ids": [
+              "integration.outbound_timeouts#tb3",
+              "integration.outbound_timeouts#tb4"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "role": "misconception",
+          "text": "The total-budget TimeoutError is raised outside asyncio.timeout, rather than being an HTTPX per-wait exception.",
+          "lineage": {
+            "concept_ids": [
+              "integration.outbound_timeouts"
+            ],
+            "fact_ids": [
+              "integration.outbound_timeouts#f4"
+            ],
+            "teaching_block_ids": [
+              "integration.outbound_timeouts#tb3",
+              "integration.outbound_timeouts#tb4"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_033.r03",
+      "type": "remediation",
+      "concept_ids": [
+        "integration.outbound_timeouts"
+      ],
+      "title": "Revisit: Outbound timeouts",
+      "lede": "Use the same orders-service exercise to separate these cases.",
+      "lineage": {
+        "concept_ids": [
+          "integration.outbound_timeouts"
+        ],
+        "fact_ids": [
+          "integration.outbound_timeouts#f1",
+          "integration.outbound_timeouts#f3"
+        ],
+        "teaching_block_ids": [
+          "integration.outbound_timeouts#tb2",
+          "integration.outbound_timeouts#tb3",
+          "integration.outbound_timeouts#tb4",
+          "integration.outbound_timeouts#tb5"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "HTTPX distinguishes connect, read, write and pool timeouts; read and write limits bound waiting for individual chunks rather than a whole request's elapsed duration.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.outbound_timeouts"
+            ],
+            "fact_ids": [
+              "integration.outbound_timeouts#f1"
+            ],
+            "teaching_block_ids": [
+              "integration.outbound_timeouts#tb2",
+              "integration.outbound_timeouts#tb4",
+              "integration.outbound_timeouts#tb5"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "HTTPX raises timeout exceptions such as ConnectTimeout, ReadTimeout, WriteTimeout and PoolTimeout when the corresponding wait exceeds its limit.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "integration.outbound_timeouts"
+            ],
+            "fact_ids": [
+              "integration.outbound_timeouts#f3"
+            ],
+            "teaching_block_ids": [
+              "integration.outbound_timeouts#tb3",
+              "integration.outbound_timeouts#tb4"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "role": "misconception",
+          "text": "Identify whether the exceeded wait is connect, read, write or pool; each has its corresponding HTTPX exception.",
+          "lineage": {
+            "concept_ids": [
+              "integration.outbound_timeouts"
+            ],
+            "fact_ids": [
+              "integration.outbound_timeouts#f3"
+            ],
+            "teaching_block_ids": [
+              "integration.outbound_timeouts#tb3",
+              "integration.outbound_timeouts#tb4"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "tile_034"
+  },
+  "content_hash": "77eef05c53848d3e9936f25e02013f7cb4166e911e871ab9702c67007be3e56f"
+}

@@ -1,0 +1,176 @@
+PROMPT Sandbox note: this exercise uses a supplied bounded NumPy fixture simulator, not a running scikit-learn implementation. It reproduces only the declared fixture behavior for training-fitted state and transformation assertions. In the supplied workflow, replace only `learner_operation = None` with a binding of `learner_operation` to `supplied_operation` (without calling it). The helper implements `FixtureImputer(strategy=FIXTURES['declared_strategy'])`. Leave the inputs, helper and verification scaffolding unchanged. This is a scaffolded operation-binding task; the remaining implementation is supplied. The completed workflow must meet the following output contract: Implement impute(training, validation), using supplied mean strategy and np.nan for JSON missing values (the harness converts them). Fit only training, transform validation and the supplied one-missing boundary. Assert unchanged statistics_ after both transforms. Return {statistics, validation, boundary, observed_mean, observed_std}, summarizing only observed training values with axis=0 and ddof=0. Assert replacement and unchanged observed validation values using the independent supplied mean calculation, and verify the deliberately wrong replacement assertion fails via the harness.
+SOLUTION
+# Supplied inputs and operation; do not edit.
+if True:
+    FIXTURES = {'X_train': [[2], [6], [None]], 'numeric_values': [[2], [6]], 'X_validation': [[100], [None]], 'boundary_missing': [[None]], 'declared_strategy': 'mean', 'incorrect_replacement': 2}
+if True:
+
+    def supplied_operation(FIXTURES, FixtureImputer):
+        return FixtureImputer(strategy=FIXTURES['declared_strategy'])
+
+learner_operation = supplied_operation
+
+# Stop before loading the workflow while the learner hook is incomplete.
+if learner_operation is None:
+    raise NotImplementedError("Complete learner_operation before running the workflow")
+
+# Supplied workflow and verification scaffolding; do not edit.
+if True:
+    import numpy as np
+    if True:
+
+        def supplied_array(rows):
+            return np.array([[np.nan if value is None else value for value in row] for row in rows])
+    if True:
+
+        def supplied_observed(rows):
+            return np.array([row for row in rows if row[0] is not None])
+    if True:
+
+        def supplied_replacement_checks(transformed, original, mean):
+            assert np.allclose(transformed[~np.isnan(original)], original[~np.isnan(original)])
+            assert np.allclose(transformed[np.isnan(original)], mean[0])
+            return True
+    if True:
+
+        def supplied_wrong_assertion(boundary, wrong):
+            try:
+                assert boundary[0, 0] == wrong
+            except AssertionError:
+                return True
+            return False
+    import numpy as np
+    # Bounded NumPy fixture simulator, not the scikit-learn implementation.
+    class FixtureImputer:
+        def __init__(self, strategy):
+            if strategy != 'mean':
+                raise ValueError('This supplied simulator supports only mean replacement')
+        def fit(self, training):
+            self.statistics_ = np.nanmean(training, axis=0)
+            return self
+        def transform(self, values):
+            return np.where(np.isnan(values), self.statistics_, values)
+
+    def impute(training, validation):
+        X_train = supplied_array(training)
+        X_validation = supplied_array(validation)
+        imputer = learner_operation(FIXTURES, FixtureImputer)
+        imputer.fit(X_train)
+        statistics = imputer.statistics_.copy()
+        transformed = imputer.transform(X_validation)
+        assert np.array_equal(statistics, imputer.statistics_)
+        boundary = imputer.transform(np.array([[np.nan]]))
+        assert np.array_equal(statistics, imputer.statistics_)
+        observed = supplied_observed(training)
+        mean = np.mean(observed, axis=0)
+        std = np.std(observed, axis=0, ddof=0)
+        assert np.allclose(boundary[0], mean)
+        assert supplied_replacement_checks(transformed, X_validation, mean)
+        assert supplied_wrong_assertion(boundary, FIXTURES['incorrect_replacement'])
+        return {'statistics': statistics, 'validation': transformed, 'boundary': boundary, 'observed_mean': mean, 'observed_std': std}
+
+TESTS
+[
+  {
+    "test_id": "case_1",
+    "kind": "function_call",
+    "spec": {
+      "function": "impute",
+      "args": [
+        [
+          [
+            2
+          ],
+          [
+            6
+          ],
+          [
+            null
+          ]
+        ],
+        [
+          [
+            100
+          ],
+          [
+            null
+          ]
+        ]
+      ],
+      "expected": {
+        "statistics": [
+          4
+        ],
+        "validation": [
+          [
+            100
+          ],
+          [
+            4
+          ]
+        ],
+        "boundary": [
+          [
+            4
+          ]
+        ],
+        "observed_mean": [
+          4
+        ],
+        "observed_std": [
+          2
+        ]
+      }
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  },
+  {
+    "test_id": "case_2",
+    "kind": "function_call",
+    "spec": {
+      "function": "impute",
+      "args": [
+        [
+          [
+            2
+          ],
+          [
+            6
+          ],
+          [
+            null
+          ]
+        ],
+        [
+          [
+            null
+          ]
+        ]
+      ],
+      "expected": {
+        "statistics": [
+          4
+        ],
+        "validation": [
+          [
+            4
+          ]
+        ],
+        "boundary": [
+          [
+            4
+          ]
+        ],
+        "observed_mean": [
+          4
+        ],
+        "observed_std": [
+          2
+        ]
+      }
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  }
+]
+CONSTRAINTS
+{"allowed_syntax": ["import numpy as np", "from sklearn.impute import SimpleImputer", "def", "return", "variable assignment", "function parameters and calls", "numeric and string literals", "list literals", "array indexing and slicing", "np.array", "np.nan", "np.mean(numeric_values, axis=0)", "np.std(numeric_values, axis=0, ddof=0)", "np.std(numeric_values, axis=0, ddof=1)", "np.allclose", "np.array_equal", "array.copy()", "SimpleImputer(strategy=declared_strategy)", "imputer.fit(X_train)", "imputer.transform(X_validation)", "imputer.statistics_", "assert predicate", "comparison operators", "Boolean operators"], "blocked_syntax": ["StandardScaler", "MinMaxScaler", "OneHotEncoder", "OrdinalEncoder", "Pipeline", "ColumnTransformer", "estimator.predict", "GridSearchCV", "RandomizedSearchCV", "mlflow", "torch"]}

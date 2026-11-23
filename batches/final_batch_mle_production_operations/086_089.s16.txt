@@ -1,0 +1,92 @@
+Complete only dump_operation=safe_dump_method and load_operation=safe_load_method, the supplied yaml.safe_dump/yaml.safe_load references. The visible supplied workflow adapter writes and inspects build.yaml using your bound safe serialization functions; unsafe object constructors are forbidden. Do not change the adapter. This narrows learner work to supported syntax; wider replay/admission behavior is supplied, not independently implemented by the learner.  Supplied workflow specification (context only, not additional learner edits): Implement admit(event,coordinator,executor). Call atomic_admit(run_key,pipeline): busy defers with no launch; accepted launches with the persisted job ID as token; duplicate attaches to that same ID, except confirmed terminal releases the slot and retains the completed key without relaunch. Return status/job_id, and release evidence for completed keys. Wire function_test waitFor admission and execute waitFor function_test in the existing config, safely write/reload build.yaml and assert both dependencies. Supplied fixture driver independently tests concurrent-delivery/restart/unknown-response/completion traces and persisted IDs; this adapter verifies admission decisions against fixture state, not a live concurrency platform. No local dictionary may be substituted for the coordinator.
+
+if True:
+    import csv, json
+    from datetime import datetime, timedelta
+
+    def load(path):
+        with open(path) as f:
+            data = list(csv.DictReader(f))
+        for r in data:
+            for k,v in r.items():
+                if v == 'True': r[k] = True
+                elif v == 'False': r[k] = False
+        return data
+
+    def number(v):
+        return float(v)
+    import yaml
+    policy = {'event': {'run_key': 'K', 'pipeline': 'order-retrain-lab'}, 'busy_policy': 'defer', 'coordinator_contract': {'atomic_admit(run_key,pipeline)': 'Atomically reserve unique run key AND pipeline slot and persist job_id. Return accepted, duplicate or busy plus persisted identity; durable coordinator is external to learner process.', 'inspect(run_key)': 'Read durable record; completed records retained.', 'confirm_terminal_and_release(run_key,job_id)': 'Release active slot only after executor confirms terminal; retain completed key.'}, 'executor_contract': {'launch(job_id)': 'Idempotent executor token; at most one logical job per job_id. Unknown response must be reconciled with same token.', 'attach(job_id)': 'Resume or reconcile existing identity.', 'status(job_id)': 'Return running or confirmed terminal.'}, 'test_scenarios': ['concurrent_same_key', 'concurrent_different_key', 'restart_after_reservation', 'restart_after_launch', 'unknown_launch_response', 'completed_duplicate'], 'fatal_dependencies': ['admission', 'function_test', 'execute']}
+    traces=load('idempotency_traces.csv')
+    class Coordinator:
+        def __init__(self,row):self.row=row
+        def atomic_admit(self,run_key,pipeline):
+            return {'status':self.row['admission_status'],'job_id':self.row['job_id'],'terminal':self.row['terminal_confirmed']}
+        def confirm_terminal_and_release(self,run_key,job_id):
+            if not self.row['terminal_confirmed']:raise ValueError('terminal state not confirmed')
+            return {'key_retained':run_key,'released':True,'job_id':job_id}
+    class Executor:
+        def __init__(self,row):self.row=row;self.calls=[]
+        def launch(self,job_id):
+            if job_id!=self.row['job_id']:raise ValueError('persisted job identity changed')
+            self.calls.append(['launch',job_id]);return job_id
+        def attach(self,job_id):
+            if job_id!=self.row['job_id']:raise ValueError('persisted job identity changed')
+            self.calls.append(['attach',job_id]);return job_id
+        def status(self,job_id):return 'terminal' if self.row['terminal_confirmed'] else 'running'
+    config_skeleton={'steps':[{'id':'admission','name':'python:3.11','args':['python3','learner.py']},{'id':'function_test','name':'python:3.11','args':['python3','tests.py']},{'id':'execute','name':'python:3.11','args':['python3','execution_fixture.py']}]}
+
+    import yaml
+    safe_dump_method=yaml.safe_dump
+    safe_load_method=yaml.safe_load
+
+dump_operation = safe_dump_method
+load_operation = safe_load_method
+
+if True:
+
+    def admit(event, coordinator, executor):
+        reservation = coordinator.atomic_admit(event['run_key'],event['pipeline'])
+        if reservation['status'] == 'busy':
+            return {'status':'defer','job_id':reservation['job_id']}
+        elif reservation['status'] == 'accepted':
+            job_id = executor.launch(reservation['job_id'])
+            return {'status':'accepted','job_id':job_id}
+        else:
+            if executor.status(reservation['job_id']) == 'terminal':
+                released = coordinator.confirm_terminal_and_release(event['run_key'],reservation['job_id'])
+                return {'status':'completed','job_id':reservation['job_id'],'release':released}
+            else:
+                job_id = executor.attach(reservation['job_id'])
+                return {'status':'duplicate','job_id':job_id}
+    config = config_skeleton
+    config['steps'][1]['waitFor'] = ['admission']
+    config['steps'][2]['waitFor'] = ['function_test']
+    with open('build.yaml','w') as file_handle:
+        dump_operation(config,file_handle)
+    with open('build.yaml') as file_handle:
+        resolved = load_operation(file_handle)
+    assert resolved['steps'][1]['waitFor'] == ['admission']
+    assert resolved['steps'][2]['waitFor'] == ['function_test']
+
+    # Supplied independent trace/restart driver: coordinator authority is external to
+    # learner function, not reconstructed from a learner-local dictionary.
+    report={'config':resolved,'fixtures':[]}
+    for r in traces:
+        coordinator=Coordinator(r);executor=Executor(r)
+        event={'run_key':r['run_key'],'pipeline':r['pipeline']}
+        result=admit(event,coordinator,executor)
+        if r['admission_status']=='busy':assert not executor.calls
+        elif r['terminal_confirmed']:assert not executor.calls and result['release']['released']
+        else:assert result['job_id']==r['job_id']
+        report['fixtures'].append({'fixture':r['fixture'],'step':int(r['step']),'result':result,'calls':executor.calls,'persisted_job_id':r['job_id'],'logical_job_count':int(r['logical_job_count']),'active_slot_owner':r['active_slot_owner'],'event':r['event']})
+
+    def plain(v):
+        if isinstance(v,dict):return {k:plain(x) for k,x in v.items()}
+        if isinstance(v,list):return [plain(x) for x in v]
+        if hasattr(v,'tolist'):return v.tolist()
+        return v
+    report=plain(report)
+
+CONSTRAINTS
+{'allowed_syntax': ['import statements for supplied clients and yaml', 'function definitions, parameters and return statements', 'variable assignment', 'dictionary and list literals', 'dictionary key access for declared event and configuration fields', 'string literals for declared statuses, run keys and job identities', 'if, elif and else branches', 'comparisons and Boolean expressions', 'calls to supplied atomic admission, executor reconciliation, job-state and terminal-release methods', 'calls to supplied concurrency and restart fixture helpers', 'assert statements', 'with open(...) as file_handle', 'yaml.safe_dump(config, file_handle)', 'yaml.safe_load(file_handle)', 'raise SystemExit(...) for an unsuccessful rejected gate'], 'blocked_syntax': []}

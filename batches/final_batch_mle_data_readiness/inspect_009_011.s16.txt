@@ -1,0 +1,251 @@
+PROMPT In the supplied workflow, replace only `learner_operation = None` with a binding of `learner_operation` to `supplied_operation` (without calling it). The helper implements `row['observation_timestamp'] < FIXTURES['cutoff']`. Leave the inputs, helper and verification scaffolding unchanged. This is a scaffolded operation-binding task; the remaining implementation is supplied. The completed workflow must meet the following output contract: Implement split(records, scenario). For "group", use supplied training_groups and validation_groups, keeping group sets disjoint; for "time", training timestamps are < cutoff and evaluation is cutoff <= timestamp < evaluation_end. Return {training, validation, training_proportion, validation_proportion}; partitions retain input order and proportions are target counts / partition totals (None for empty). Assert group disjointness and all time inequalities, including equality at cutoff. The supplied false-assertion harness must confirm that a shared-group violation fails.
+SOLUTION
+# Supplied inputs and operation; do not edit.
+FIXTURES = {'group_records': [{'order_key': 'A', 'customer_group': 'G1', 'target': 1}, {'order_key': 'B', 'customer_group': 'G1', 'target': 0}, {'order_key': 'C', 'customer_group': 'G2', 'target': 1}], 'training_groups': ['G1'], 'validation_groups': ['G2'], 'invalid_training_keys': ['A'], 'invalid_validation_keys': ['B', 'C'], 'time_records': [{'order_key': 'T1', 'observation_timestamp': '2024-12-29T09:00:00', 'target': 0}, {'order_key': 'T2', 'observation_timestamp': '2024-12-30T09:00:00', 'target': 0}, {'order_key': 'T3', 'observation_timestamp': '2024-12-31T09:00:00', 'target': 0}, {'order_key': 'T4', 'observation_timestamp': '2025-01-01T09:00:00', 'target': 1}, {'order_key': 'T5', 'observation_timestamp': '2025-01-02T09:00:00', 'target': 1}, {'order_key': 'T6', 'observation_timestamp': '2025-01-03T09:00:00', 'target': 1}, {'order_key': 'T7', 'observation_timestamp': '2025-01-04T09:00:00', 'target': 1}, {'order_key': 'T8', 'observation_timestamp': '2025-01-05T09:00:00', 'target': 0}, {'order_key': 'T9', 'observation_timestamp': '2025-01-06T09:00:00', 'target': 0}, {'order_key': 'T10', 'observation_timestamp': '2025-01-07T09:00:00', 'target': 0}, {'order_key': 'T11', 'observation_timestamp': '2025-01-08T09:00:00', 'target': 0}, {'order_key': 'T12', 'observation_timestamp': '2025-01-09T09:00:00', 'target': 0}, {'order_key': 'T13', 'observation_timestamp': '2025-01-10T09:00:00', 'target': 0}], 'cutoff': '2025-01-01T09:00:00', 'evaluation_end': '2025-01-11T09:00:00', 'time_policy': 'training < cutoff; cutoff <= evaluation < evaluation_end'}
+if True:
+
+    def supplied_operation(FIXTURES, row):
+        return row['observation_timestamp'] < FIXTURES['cutoff']
+
+learner_operation = supplied_operation
+
+# Supplied workflow and verification scaffolding; do not edit.
+if True:
+    if True:
+
+        def supplied_false_assertion():
+            try:
+                assert not {'G1'} & {'G1', 'G2'}
+            except AssertionError:
+                return True
+
+    def split(records, scenario):
+        if scenario == 'group':
+            training = [row for row in records if row['customer_group'] in FIXTURES['training_groups']]
+            validation = [row for row in records if row['customer_group'] in FIXTURES['validation_groups']]
+            train_groups = {row['customer_group'] for row in training}
+            validation_groups = {row['customer_group'] for row in validation}
+            assert not train_groups & validation_groups
+        else:
+            training = [row for row in records if learner_operation(FIXTURES, row)]
+            validation = [row for row in records if FIXTURES['cutoff'] <= row['observation_timestamp'] and row['observation_timestamp'] < FIXTURES['evaluation_end']]
+            for row in training:
+                assert row['observation_timestamp'] < FIXTURES['cutoff']
+            for row in validation:
+                assert FIXTURES['cutoff'] <= row['observation_timestamp'] and row['observation_timestamp'] < FIXTURES['evaluation_end']
+        training_proportion = None
+        validation_proportion = None
+        if training:
+            training_proportion = sum([row['target'] for row in training]) / len(training)
+        if validation:
+            validation_proportion = sum([row['target'] for row in validation]) / len(validation)
+        return {'training': training, 'validation': validation, 'training_proportion': training_proportion, 'validation_proportion': validation_proportion}
+    assert supplied_false_assertion()
+
+TESTS
+[
+  {
+    "test_id": "case_1",
+    "kind": "function_call",
+    "spec": {
+      "function": "split",
+      "args": [
+        [
+          {
+            "order_key": "A",
+            "customer_group": "G1",
+            "target": 1
+          },
+          {
+            "order_key": "B",
+            "customer_group": "G1",
+            "target": 0
+          },
+          {
+            "order_key": "C",
+            "customer_group": "G2",
+            "target": 1
+          }
+        ],
+        "group"
+      ],
+      "expected": {
+        "training": [
+          {
+            "order_key": "A",
+            "customer_group": "G1",
+            "target": 1
+          },
+          {
+            "order_key": "B",
+            "customer_group": "G1",
+            "target": 0
+          }
+        ],
+        "validation": [
+          {
+            "order_key": "C",
+            "customer_group": "G2",
+            "target": 1
+          }
+        ],
+        "training_proportion": 0.5,
+        "validation_proportion": 1
+      }
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  },
+  {
+    "test_id": "case_2",
+    "kind": "function_call",
+    "spec": {
+      "function": "split",
+      "args": [
+        [
+          {
+            "order_key": "T1",
+            "observation_timestamp": "2024-12-29T09:00:00",
+            "target": 0
+          },
+          {
+            "order_key": "T2",
+            "observation_timestamp": "2024-12-30T09:00:00",
+            "target": 0
+          },
+          {
+            "order_key": "T3",
+            "observation_timestamp": "2024-12-31T09:00:00",
+            "target": 0
+          },
+          {
+            "order_key": "T4",
+            "observation_timestamp": "2025-01-01T09:00:00",
+            "target": 1
+          },
+          {
+            "order_key": "T5",
+            "observation_timestamp": "2025-01-02T09:00:00",
+            "target": 1
+          },
+          {
+            "order_key": "T6",
+            "observation_timestamp": "2025-01-03T09:00:00",
+            "target": 1
+          },
+          {
+            "order_key": "T7",
+            "observation_timestamp": "2025-01-04T09:00:00",
+            "target": 1
+          },
+          {
+            "order_key": "T8",
+            "observation_timestamp": "2025-01-05T09:00:00",
+            "target": 0
+          },
+          {
+            "order_key": "T9",
+            "observation_timestamp": "2025-01-06T09:00:00",
+            "target": 0
+          },
+          {
+            "order_key": "T10",
+            "observation_timestamp": "2025-01-07T09:00:00",
+            "target": 0
+          },
+          {
+            "order_key": "T11",
+            "observation_timestamp": "2025-01-08T09:00:00",
+            "target": 0
+          },
+          {
+            "order_key": "T12",
+            "observation_timestamp": "2025-01-09T09:00:00",
+            "target": 0
+          },
+          {
+            "order_key": "T13",
+            "observation_timestamp": "2025-01-10T09:00:00",
+            "target": 0
+          }
+        ],
+        "time"
+      ],
+      "expected": {
+        "training": [
+          {
+            "order_key": "T1",
+            "observation_timestamp": "2024-12-29T09:00:00",
+            "target": 0
+          },
+          {
+            "order_key": "T2",
+            "observation_timestamp": "2024-12-30T09:00:00",
+            "target": 0
+          },
+          {
+            "order_key": "T3",
+            "observation_timestamp": "2024-12-31T09:00:00",
+            "target": 0
+          }
+        ],
+        "validation": [
+          {
+            "order_key": "T4",
+            "observation_timestamp": "2025-01-01T09:00:00",
+            "target": 1
+          },
+          {
+            "order_key": "T5",
+            "observation_timestamp": "2025-01-02T09:00:00",
+            "target": 1
+          },
+          {
+            "order_key": "T6",
+            "observation_timestamp": "2025-01-03T09:00:00",
+            "target": 1
+          },
+          {
+            "order_key": "T7",
+            "observation_timestamp": "2025-01-04T09:00:00",
+            "target": 1
+          },
+          {
+            "order_key": "T8",
+            "observation_timestamp": "2025-01-05T09:00:00",
+            "target": 0
+          },
+          {
+            "order_key": "T9",
+            "observation_timestamp": "2025-01-06T09:00:00",
+            "target": 0
+          },
+          {
+            "order_key": "T10",
+            "observation_timestamp": "2025-01-07T09:00:00",
+            "target": 0
+          },
+          {
+            "order_key": "T11",
+            "observation_timestamp": "2025-01-08T09:00:00",
+            "target": 0
+          },
+          {
+            "order_key": "T12",
+            "observation_timestamp": "2025-01-09T09:00:00",
+            "target": 0
+          },
+          {
+            "order_key": "T13",
+            "observation_timestamp": "2025-01-10T09:00:00",
+            "target": 0
+          }
+        ],
+        "training_proportion": 0,
+        "validation_proportion": 0.4
+      }
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  }
+]
+CONSTRAINTS
+{"allowed_syntax": ["def and return", "import and from ... import for required supplied fixture dependencies", "variable assignment", "list literals and list comprehensions", "set literals, set comprehensions, and set()", "dictionary literals and supplied observation field access", "for loops", "if, elif, and else", "membership tests with in and not in", "set intersection with & or intersection()", "comparison operators <, <=, >, >=, ==, and !=", "Boolean operators and, or, and not", "len(), sum(), min(), and max()", "integer, floating-point, string, and Boolean literals", "arithmetic operators + and /", "assert predicate", "calls to the supplied fixture and unit-test interfaces"], "blocked_syntax": ["model.fit(...)", "model.predict(...)", "transformer.fit_transform(...)", "transformer.transform(...)", "Pipeline(...)", "GridSearchCV(...)", "RandomizedSearchCV(...)", "mlflow.start_run(...)", "torch.tensor(...)", "torch.nn.Module", "loss.backward()", "optimizer.step()"]}

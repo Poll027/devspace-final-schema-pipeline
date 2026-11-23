@@ -1,0 +1,68 @@
+This is a fixture-only runbook adapter, not live cloud access. Bind step1..step8 to the supplied command/check objects in the required order: describe the approved target, reproduce fault, test hypothesis, stop and await completion, start and await completion, reconnect, check readiness and bounded prediction, describe after. The prepared driver supplies authorization and runtime credentials without exposing values, rejects other sequences or targets and records pre-action fault/hypothesis evidence and post-action same-instance behavior. Change only those eight assignments. The Python adapter is necessary because the planned runtime is Python while the practice teaches gcloud commands.
+
+if True:
+    import csv, json
+    from datetime import datetime, timedelta
+
+    def load(path):
+        with open(path) as f:
+            data = list(csv.DictReader(f))
+        for r in data:
+            for k,v in r.items():
+                if v == 'True': r[k] = True
+                elif v == 'False': r[k] = False
+        return data
+
+    def number(v):
+        return float(v)
+    policy = {'INSTANCE': 'serving-lab', 'ZONE': 'lab-zone-a', 'authorized_identity': 'lab.operator', 'allowed_actions': ['inspect', 'reproduce_fault', 'test_hypothesis', 'stop', 'wait_stopped', 'start', 'wait_running', 'reconnect', 'readiness', 'bounded_prediction'], 'prediction_contract': {'request': {'distance_category': 'long_distance', 'numeric_values': 5}, 'response': {'predicted_class': 'late'}}, 'credentials': 'runtime-injected only'}
+    evidence=load('incident_evidence.csv')
+    # Supplied command objects, nonproduction simulator and prepared runbook checks.
+    describe_before='describe_before'
+    reproduce_fault='reproduce_fault'
+    test_hypothesis='test_hypothesis'
+    stop_and_wait='stop_and_wait'
+    start_and_wait='start_and_wait'
+    reconnect='reconnect'
+    readiness_and_prediction='readiness_and_prediction'
+    describe_after='describe_after'
+    unselected=None
+    step1=unselected
+    step2=unselected
+    step3=unselected
+    step4=unselected
+    step5=unselected
+    step6=unselected
+    step7=unselected
+    step8=unselected
+    def execute_runbook(sequence):
+        required=[describe_before,reproduce_fault,test_hypothesis,stop_and_wait,start_and_wait,reconnect,readiness_and_prediction,describe_after]
+        if sequence!=required:raise ValueError('runbook sequence incomplete or out of order')
+        before=next(r for r in evidence if r['phase']=='before')
+        after=next(r for r in evidence if r['phase']=='after')
+        if before['INSTANCE']!=policy['INSTANCE'] or before['ZONE']!=policy['ZONE']:raise ValueError('target mismatch')
+        if not after['readiness'] or not after['prediction_contract_pass'] or not after['credential_review_pass']:raise ValueError('post-action check failed')
+        return {'authorized_identity':policy['authorized_identity'],'target':policy['INSTANCE'],'ZONE':policy['ZONE'],'sequence':sequence,'before':before,'after':after,'prediction_contract':policy['prediction_contract'],'mode':'nonproduction fixture simulation; no live cloud action'}
+
+step1 = describe_before
+step2 = reproduce_fault
+step3 = test_hypothesis
+step4 = stop_and_wait
+step5 = start_and_wait
+step6 = reconnect
+step7 = readiness_and_prediction
+step8 = describe_after
+
+if True:
+    # Supplied driver invokes the selected commands/checks and captures simulator evidence.
+    report=execute_runbook([step1,step2,step3,step4,step5,step6,step7,step8])
+
+    def plain(v):
+        if isinstance(v,dict):return {k:plain(x) for k,x in v.items()}
+        if isinstance(v,list):return [plain(x) for x in v]
+        if hasattr(v,'tolist'):return v.tolist()
+        return v
+    report=plain(report)
+
+CONSTRAINTS
+{'allowed_syntax': ['gcloud compute instances describe INSTANCE --zone=ZONE', 'gcloud compute instances stop INSTANCE --zone=ZONE', 'gcloud compute instances start INSTANCE --zone=ZONE', 'gcloud compute ssh INSTANCE --zone=ZONE'], 'blocked_syntax': ['gcloud compute instances delete', 'gcloud compute disks delete', 'gcloud compute addresses delete']}

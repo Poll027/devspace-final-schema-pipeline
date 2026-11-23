@@ -1,0 +1,507 @@
+{
+  "type": "code_exercise",
+  "public": {
+    "prompt": "Complete `admission_operation` by reusing the supplied atomic-admission interface, then complete the safe YAML operation bindings marked TODO. The supplied handler and fixtures exercise duplicate delivery, busy admission, restart/reconciliation and terminal release. Safely write `config` to the supplied `file_handle`, then reload into `loaded` using the reopened handle. Retain the admission \u2192 required function-test \u2192 execution dependency chain and fatal required-stage failures. The supplied assertions and report verify those results. Bind `dump_operation` and `load_operation` to the supplied safe-dump and safe-load operations; the supplied calls pass the configuration and open handles. The graded output remains `report`, with the supplied structure and ordering.",
+    "runtime": {
+      "kind": "python",
+      "version": "0.29.5",
+      "packages": [
+        "numpy",
+        "pyyaml"
+      ]
+    },
+    "workspace": {
+      "entry": "main.py",
+      "files": [
+        {
+          "path": "main.py",
+          "role": "editable",
+          "language": "python",
+          "content": "# Complete only the TODO operation/calculation/serialization lines described in the prompt.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'idempotency_traces': {'fixture': 'string', 'step': 'integer', 'run_key': 'string', 'pipeline': 'string', 'admission_status': 'string', 'job_id': 'string', 'active_slot_owner': 'string', 'terminal_confirmed': 'boolean', 'logical_job_count': 'integer', 'event': 'string'}, 'trigger_events': {'event_id': 'string', 'event_type': 'string', 'identity': 'string', 'authorized': 'boolean', 'investigated': 'boolean', 'dataset_ref': 'string', 'evidence': 'string', 'entry_stage': 'string', 'data_quality_pass': 'boolean', 'promotion_approved': 'boolean'}, 'pipeline_stages': {'stage_id': 'string', 'purpose': 'string', 'required_artifacts': 'string', 'dependencies': 'string', 'separate_authorization_required': 'boolean'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\nclass Coordinator:\\n    def __init__(self): self.records={}; self.slot=None\\n    def atomic_admit(self,key,pipeline):\\n        if key in self.records: return {'status':'duplicate',**self.records[key]}\\n        if self.slot is not None: return {'status':'busy','job_id':None}\\n        record={'run_key':key,'pipeline':pipeline,'job_id':'job.'+key,'terminal':False}\\n        self.records[key]=record; self.slot=key\\n        return {'status':'accepted',**record}\\n    def inspect(self,key): return dict(self.records[key])\\n    def confirm_terminal_and_release(self,key,job_id):\\n        record=self.records[key]\\n        if record['job_id']!=job_id: raise ValueError('identity mismatch')\\n        record['terminal']=True; self.slot=None\\nclass Executor:\\n    def __init__(self): self.jobs={}; self.tokens=[]\\n    def launch(self,job_id): self.tokens.append(job_id); self.jobs.setdefault(job_id,'running')\\n    def attach(self,job_id): self.tokens.append(job_id); self.jobs.setdefault(job_id,'running')\\n    def status(self,job_id): return self.jobs.get(job_id,'absent')\\ndef fixture(handler,case):\\n    c=Coordinator();e=Executor(); event=policy['event'];key=event['run_key'];pipe=event['pipeline']\\n    if case=='concurrent_delivery':\\n        # Supplied atomic interface linearizes the competing delivery attempts.\\n        first=handler(event,c,e); duplicate=handler(event,c,e)\\n        busy=handler({'run_key':key+'2','pipeline':pipe},c,e)\\n        return {'first':first,'duplicate':duplicate,'busy':busy,'logical_jobs':len(e.jobs),'active_slot':c.slot,'tokens':e.tokens}\\n    if case=='restart_after_reservation':\\n        record=c.atomic_admit(key,pipe)\\n        resumed=handler(event,c,e)\\n        return {'persisted_job_id':record['job_id'],'result':resumed,'logical_jobs':len(e.jobs),'tokens':e.tokens}\\n    if case=='restart_after_launch':\\n        record=c.atomic_admit(key,pipe);e.launch(record['job_id'])\\n        resumed=handler(event,c,e)\\n        return {'persisted_job_id':record['job_id'],'result':resumed,'logical_jobs':len(e.jobs),'tokens':e.tokens}\\n    if case=='unknown_launch_response':\\n        record=c.atomic_admit(key,pipe);e.launch(record['job_id'])\\n        resumed=handler(event,c,e)\\n        return {'persisted_job_id':record['job_id'],'result':resumed,'logical_jobs':len(e.jobs),'tokens':e.tokens,'active_slot':c.slot}\\n    if case=='completed_duplicate':\\n        record=c.atomic_admit(key,pipe);e.launch(record['job_id']);e.jobs[record['job_id']]='terminal'\\n        terminal=handler(event,c,e); duplicate=handler(event,c,e)\\n        return {'result':terminal,'duplicate':duplicate,'logical_jobs':len(e.jobs),'active_slot':c.slot,'completed':c.inspect(key)['terminal']}\\ndef trigger_replay():\\n    outputs=[]\\n    for event in load('trigger_events'):\\n        accepted=event['authorized'] and event['investigated'] and event['entry_stage']=='entry'\\n        quality=accepted and event['data_quality_pass']\\n        outputs.append({'event':event['event_id'],'entry':'accepted' if accepted else 'rejected','resolved_input':event['dataset_ref'] if accepted else None,'data_quality':'pass' if quality else 'blocked','train':quality,'evaluate':quality,'promote':quality and event['promotion_approved'],'credential_reference':'runtime references only; no credential values'})\\n    return outputs\\ndef build_entry(step_id):\\n    if step_id=='admission': return load('idempotency_traces')\\n    if step_id=='function_test': return fixture(handle_event,'concurrent_delivery')\\n    if step_id=='execute': return trigger_replay()\\n    raise SystemExit('unknown step')\\ndef execute_build_steps(config):\\n    return {s['id']:build_entry(s['args'][-1]) for s in config['steps']}\\npolicy = {'event': {'run_key': 'K', 'pipeline': 'order-retrain-lab'}, 'busy_policy': 'defer', 'coordinator_contract': {'atomic_admit(run_key,pipeline)': 'Atomically reserve unique run key AND pipeline slot and persist job_id. Return accepted, duplicate or busy plus persisted identity; durable coordinator is external to learner process.', 'inspect(run_key)': 'Read durable record; completed records retained.', 'confirm_terminal_and_release(run_key,job_id)': 'Release active slot only after executor confirms terminal; retain completed key.'}, 'executor_contract': {'launch(job_id)': 'Idempotent executor token; at most one logical job per job_id. Unknown response must be reconciled with same token.', 'attach(job_id)': 'Resume or reconcile existing identity.', 'status(job_id)': 'Return running or confirmed terminal.'}, 'test_scenarios': ['concurrent_same_key', 'concurrent_different_key', 'restart_after_reservation', 'restart_after_launch', 'unknown_launch_response', 'completed_duplicate'], 'fatal_dependencies': ['admission', 'function_test', 'execute']}\\n\\n\\n# Supplied orchestration; operations are selected by the learner.\\nimport yaml\\nsupplied_safe_dump = yaml.safe_dump\\nsupplied_safe_load = yaml.safe_load\\ndef supplied_atomic_admission(event, coordinator):\\n    return coordinator.atomic_admit(event['run_key'], event['pipeline'])\\n\\ndef handle_event(event, coordinator, executor):\\n    admission = admission_operation(event, coordinator)\\n    if admission['status'] == 'busy':\\n        return {'status': 'busy', 'job_id': None, 'released': False}\\n    job_id = admission['job_id']\\n    record = coordinator.inspect(event['run_key'])\\n    if admission['status'] == 'accepted':\\n        executor.launch(job_id)\\n    elif admission['status'] == 'duplicate' and (not record['terminal']):\\n        executor.attach(job_id)\\n    released = False\\n    if executor.status(job_id) == 'terminal' and (not record['terminal']):\\n        coordinator.confirm_terminal_and_release(event['run_key'], job_id)\\n        released = True\\n    return {'status': admission['status'], 'job_id': job_id, 'released': released}\\n\"\nexec(_fixture_support)\nadmission_operation = None  # TODO: complete this binding or calculation\ndump_operation = None  # TODO: complete this binding or calculation\nload_operation = None  # TODO: complete this binding or calculation\nimport yaml\nsupplied_safe_dump = yaml.safe_dump\nsupplied_safe_load = yaml.safe_load\ndump_operation = None  # TODO: complete this binding or calculation\nload_operation = None  # TODO: complete this binding or calculation\nconcurrent = fixture(handle_event, 'concurrent_delivery')\nreserved_restart = fixture(handle_event, 'restart_after_reservation')\nlaunch_restart = fixture(handle_event, 'restart_after_launch')\nunknown = fixture(handle_event, 'unknown_launch_response')\ncompleted = fixture(handle_event, 'completed_duplicate')\nassert concurrent['first']['status'] == 'accepted' and concurrent['duplicate']['status'] == 'duplicate' and (concurrent['busy']['status'] == 'busy')\nassert concurrent['first']['job_id'] == concurrent['duplicate']['job_id'] and concurrent['logical_jobs'] == 1\nassert reserved_restart['result']['job_id'] == reserved_restart['persisted_job_id'] and reserved_restart['logical_jobs'] == 1\nassert launch_restart['result']['job_id'] == launch_restart['persisted_job_id'] and launch_restart['logical_jobs'] == 1\nassert unknown['result']['job_id'] == unknown['persisted_job_id'] and unknown['logical_jobs'] == 1 and (unknown['active_slot'] == policy['event']['run_key'])\nassert completed['result']['released'] and completed['completed'] and (completed['active_slot'] == None) and (completed['logical_jobs'] == 1)\nassert completed['duplicate']['status'] == 'duplicate' and (not completed['duplicate']['released'])\nimport yaml\nconfiguration_a = {'steps': [{'id': 'admission', 'waitFor': ['-'], 'allowFailure': False, 'name': 'python:3.11', 'args': ['python', 'main.py', 'admission']}, {'id': 'function_test', 'waitFor': ['admission'], 'allowFailure': False, 'name': 'python:3.11', 'args': ['python', 'main.py', 'function_test']}, {'id': 'execute', 'waitFor': ['function_test'], 'allowFailure': False, 'name': 'python:3.11', 'args': ['python', 'main.py', 'execute']}], 'stage_inventory': load('pipeline_stages'), 'trigger_policy': {'entry': 'authorization, investigation and intended immutable snapshot', 'required_failure': 'fatal', 'separate_promotion_approval': True, 'credential_reference': 'runtime references only; no credential values'}}\nconfig = configuration_a\nfile_handle = open('build.yaml', 'w')\ndump_operation(config, file_handle)\nfile_handle.close()\nfile_handle = open('build.yaml')\nloaded = load_operation(file_handle)\nfile_handle.close()\nassert loaded == config\nassert loaded['steps'][0]['waitFor'] == ['-'] and loaded['steps'][1]['waitFor'] == ['admission'] and (loaded['steps'][2]['waitFor'] == ['function_test'])\nassert loaded['steps'][0]['name'] == 'python:3.11' and loaded['steps'][1]['name'] == 'python:3.11' and (loaded['steps'][2]['name'] == 'python:3.11')\nassert loaded['steps'][0]['args'] == ['python', 'main.py', 'admission'] and loaded['steps'][1]['args'] == ['python', 'main.py', 'function_test'] and (loaded['steps'][2]['args'] == ['python', 'main.py', 'execute'])\nassert not loaded['steps'][0]['allowFailure'] and (not loaded['steps'][1]['allowFailure']) and (not loaded['steps'][2]['allowFailure'])\nbuild_results = execute_build_steps(loaded)\nreport = {'policy': policy, 'durable_assertions': [concurrent, reserved_restart, launch_restart, unknown, completed], 'build': loaded, 'source_traces': load('idempotency_traces'), 'trigger_results': build_results['execute'], 'scope': 'simulated atomic linearization and fresh-worker reconciliation; no live pipeline launch'}\nimport sys\nif len(sys.argv) > 1 and sys.argv[1] in ['admission', 'function_test', 'execute']:\n    print(json.dumps(build_entry(sys.argv[1])))\n"
+        }
+      ],
+      "asset_mounts": [
+        {
+          "asset_id": "ds.idempotency_traces",
+          "mount_path": "idempotency_traces.csv"
+        },
+        {
+          "asset_id": "ds.trigger_events",
+          "mount_path": "trigger_events.csv"
+        },
+        {
+          "asset_id": "ds.pipeline_stages",
+          "mount_path": "pipeline_stages.csv"
+        }
+      ]
+    },
+    "constraints": {
+      "allowed_syntax": [
+        "import statements for supplied clients and yaml",
+        "function definitions, parameters and return statements",
+        "variable assignment",
+        "dictionary and list literals",
+        "dictionary key access for declared event and configuration fields",
+        "string literals for declared statuses, run keys and job identities",
+        "if, elif and else branches",
+        "comparisons and Boolean expressions",
+        "calls to supplied atomic admission, executor reconciliation, job-state and terminal-release methods",
+        "calls to supplied concurrency and restart fixture helpers",
+        "assert statements",
+        "with open(...) as file_handle",
+        "yaml.safe_dump(config, file_handle)",
+        "yaml.safe_load(file_handle)",
+        "raise SystemExit(...) for an unsuccessful rejected gate"
+      ],
+      "blocked_syntax": []
+    }
+  },
+  "grading": {
+    "solution_files": [
+      {
+        "path": "main.py",
+        "content": "_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'idempotency_traces': {'fixture': 'string', 'step': 'integer', 'run_key': 'string', 'pipeline': 'string', 'admission_status': 'string', 'job_id': 'string', 'active_slot_owner': 'string', 'terminal_confirmed': 'boolean', 'logical_job_count': 'integer', 'event': 'string'}, 'trigger_events': {'event_id': 'string', 'event_type': 'string', 'identity': 'string', 'authorized': 'boolean', 'investigated': 'boolean', 'dataset_ref': 'string', 'evidence': 'string', 'entry_stage': 'string', 'data_quality_pass': 'boolean', 'promotion_approved': 'boolean'}, 'pipeline_stages': {'stage_id': 'string', 'purpose': 'string', 'required_artifacts': 'string', 'dependencies': 'string', 'separate_authorization_required': 'boolean'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\nclass Coordinator:\\n    def __init__(self): self.records={}; self.slot=None\\n    def atomic_admit(self,key,pipeline):\\n        if key in self.records: return {'status':'duplicate',**self.records[key]}\\n        if self.slot is not None: return {'status':'busy','job_id':None}\\n        record={'run_key':key,'pipeline':pipeline,'job_id':'job.'+key,'terminal':False}\\n        self.records[key]=record; self.slot=key\\n        return {'status':'accepted',**record}\\n    def inspect(self,key): return dict(self.records[key])\\n    def confirm_terminal_and_release(self,key,job_id):\\n        record=self.records[key]\\n        if record['job_id']!=job_id: raise ValueError('identity mismatch')\\n        record['terminal']=True; self.slot=None\\nclass Executor:\\n    def __init__(self): self.jobs={}; self.tokens=[]\\n    def launch(self,job_id): self.tokens.append(job_id); self.jobs.setdefault(job_id,'running')\\n    def attach(self,job_id): self.tokens.append(job_id); self.jobs.setdefault(job_id,'running')\\n    def status(self,job_id): return self.jobs.get(job_id,'absent')\\ndef fixture(handler,case):\\n    c=Coordinator();e=Executor(); event=policy['event'];key=event['run_key'];pipe=event['pipeline']\\n    if case=='concurrent_delivery':\\n        # Supplied atomic interface linearizes the competing delivery attempts.\\n        first=handler(event,c,e); duplicate=handler(event,c,e)\\n        busy=handler({'run_key':key+'2','pipeline':pipe},c,e)\\n        return {'first':first,'duplicate':duplicate,'busy':busy,'logical_jobs':len(e.jobs),'active_slot':c.slot,'tokens':e.tokens}\\n    if case=='restart_after_reservation':\\n        record=c.atomic_admit(key,pipe)\\n        resumed=handler(event,c,e)\\n        return {'persisted_job_id':record['job_id'],'result':resumed,'logical_jobs':len(e.jobs),'tokens':e.tokens}\\n    if case=='restart_after_launch':\\n        record=c.atomic_admit(key,pipe);e.launch(record['job_id'])\\n        resumed=handler(event,c,e)\\n        return {'persisted_job_id':record['job_id'],'result':resumed,'logical_jobs':len(e.jobs),'tokens':e.tokens}\\n    if case=='unknown_launch_response':\\n        record=c.atomic_admit(key,pipe);e.launch(record['job_id'])\\n        resumed=handler(event,c,e)\\n        return {'persisted_job_id':record['job_id'],'result':resumed,'logical_jobs':len(e.jobs),'tokens':e.tokens,'active_slot':c.slot}\\n    if case=='completed_duplicate':\\n        record=c.atomic_admit(key,pipe);e.launch(record['job_id']);e.jobs[record['job_id']]='terminal'\\n        terminal=handler(event,c,e); duplicate=handler(event,c,e)\\n        return {'result':terminal,'duplicate':duplicate,'logical_jobs':len(e.jobs),'active_slot':c.slot,'completed':c.inspect(key)['terminal']}\\ndef trigger_replay():\\n    outputs=[]\\n    for event in load('trigger_events'):\\n        accepted=event['authorized'] and event['investigated'] and event['entry_stage']=='entry'\\n        quality=accepted and event['data_quality_pass']\\n        outputs.append({'event':event['event_id'],'entry':'accepted' if accepted else 'rejected','resolved_input':event['dataset_ref'] if accepted else None,'data_quality':'pass' if quality else 'blocked','train':quality,'evaluate':quality,'promote':quality and event['promotion_approved'],'credential_reference':'runtime references only; no credential values'})\\n    return outputs\\ndef build_entry(step_id):\\n    if step_id=='admission': return load('idempotency_traces')\\n    if step_id=='function_test': return fixture(handle_event,'concurrent_delivery')\\n    if step_id=='execute': return trigger_replay()\\n    raise SystemExit('unknown step')\\ndef execute_build_steps(config):\\n    return {s['id']:build_entry(s['args'][-1]) for s in config['steps']}\\npolicy = {'event': {'run_key': 'K', 'pipeline': 'order-retrain-lab'}, 'busy_policy': 'defer', 'coordinator_contract': {'atomic_admit(run_key,pipeline)': 'Atomically reserve unique run key AND pipeline slot and persist job_id. Return accepted, duplicate or busy plus persisted identity; durable coordinator is external to learner process.', 'inspect(run_key)': 'Read durable record; completed records retained.', 'confirm_terminal_and_release(run_key,job_id)': 'Release active slot only after executor confirms terminal; retain completed key.'}, 'executor_contract': {'launch(job_id)': 'Idempotent executor token; at most one logical job per job_id. Unknown response must be reconciled with same token.', 'attach(job_id)': 'Resume or reconcile existing identity.', 'status(job_id)': 'Return running or confirmed terminal.'}, 'test_scenarios': ['concurrent_same_key', 'concurrent_different_key', 'restart_after_reservation', 'restart_after_launch', 'unknown_launch_response', 'completed_duplicate'], 'fatal_dependencies': ['admission', 'function_test', 'execute']}\\n\\n\\n# Supplied orchestration; operations are selected by the learner.\\nimport yaml\\nsupplied_safe_dump = yaml.safe_dump\\nsupplied_safe_load = yaml.safe_load\\ndef supplied_atomic_admission(event, coordinator):\\n    return coordinator.atomic_admit(event['run_key'], event['pipeline'])\\n\\ndef handle_event(event, coordinator, executor):\\n    admission = admission_operation(event, coordinator)\\n    if admission['status'] == 'busy':\\n        return {'status': 'busy', 'job_id': None, 'released': False}\\n    job_id = admission['job_id']\\n    record = coordinator.inspect(event['run_key'])\\n    if admission['status'] == 'accepted':\\n        executor.launch(job_id)\\n    elif admission['status'] == 'duplicate' and (not record['terminal']):\\n        executor.attach(job_id)\\n    released = False\\n    if executor.status(job_id) == 'terminal' and (not record['terminal']):\\n        coordinator.confirm_terminal_and_release(event['run_key'], job_id)\\n        released = True\\n    return {'status': admission['status'], 'job_id': job_id, 'released': released}\\n\"\nexec(_fixture_support)\nadmission_operation = supplied_atomic_admission\ndump_operation = supplied_safe_dump\nload_operation = supplied_safe_load\nimport yaml\nsupplied_safe_dump = yaml.safe_dump\nsupplied_safe_load = yaml.safe_load\ndump_operation = supplied_safe_dump\nload_operation = supplied_safe_load\nconcurrent = fixture(handle_event, 'concurrent_delivery')\nreserved_restart = fixture(handle_event, 'restart_after_reservation')\nlaunch_restart = fixture(handle_event, 'restart_after_launch')\nunknown = fixture(handle_event, 'unknown_launch_response')\ncompleted = fixture(handle_event, 'completed_duplicate')\nassert concurrent['first']['status'] == 'accepted' and concurrent['duplicate']['status'] == 'duplicate' and (concurrent['busy']['status'] == 'busy')\nassert concurrent['first']['job_id'] == concurrent['duplicate']['job_id'] and concurrent['logical_jobs'] == 1\nassert reserved_restart['result']['job_id'] == reserved_restart['persisted_job_id'] and reserved_restart['logical_jobs'] == 1\nassert launch_restart['result']['job_id'] == launch_restart['persisted_job_id'] and launch_restart['logical_jobs'] == 1\nassert unknown['result']['job_id'] == unknown['persisted_job_id'] and unknown['logical_jobs'] == 1 and (unknown['active_slot'] == policy['event']['run_key'])\nassert completed['result']['released'] and completed['completed'] and (completed['active_slot'] == None) and (completed['logical_jobs'] == 1)\nassert completed['duplicate']['status'] == 'duplicate' and (not completed['duplicate']['released'])\nimport yaml\nconfiguration_a = {'steps': [{'id': 'admission', 'waitFor': ['-'], 'allowFailure': False, 'name': 'python:3.11', 'args': ['python', 'main.py', 'admission']}, {'id': 'function_test', 'waitFor': ['admission'], 'allowFailure': False, 'name': 'python:3.11', 'args': ['python', 'main.py', 'function_test']}, {'id': 'execute', 'waitFor': ['function_test'], 'allowFailure': False, 'name': 'python:3.11', 'args': ['python', 'main.py', 'execute']}], 'stage_inventory': load('pipeline_stages'), 'trigger_policy': {'entry': 'authorization, investigation and intended immutable snapshot', 'required_failure': 'fatal', 'separate_promotion_approval': True, 'credential_reference': 'runtime references only; no credential values'}}\nconfig = configuration_a\nfile_handle = open('build.yaml', 'w')\ndump_operation(config, file_handle)\nfile_handle.close()\nfile_handle = open('build.yaml')\nloaded = load_operation(file_handle)\nfile_handle.close()\nassert loaded == config\nassert loaded['steps'][0]['waitFor'] == ['-'] and loaded['steps'][1]['waitFor'] == ['admission'] and (loaded['steps'][2]['waitFor'] == ['function_test'])\nassert loaded['steps'][0]['name'] == 'python:3.11' and loaded['steps'][1]['name'] == 'python:3.11' and (loaded['steps'][2]['name'] == 'python:3.11')\nassert loaded['steps'][0]['args'] == ['python', 'main.py', 'admission'] and loaded['steps'][1]['args'] == ['python', 'main.py', 'function_test'] and (loaded['steps'][2]['args'] == ['python', 'main.py', 'execute'])\nassert not loaded['steps'][0]['allowFailure'] and (not loaded['steps'][1]['allowFailure']) and (not loaded['steps'][2]['allowFailure'])\nbuild_results = execute_build_steps(loaded)\nreport = {'policy': policy, 'durable_assertions': [concurrent, reserved_restart, launch_restart, unknown, completed], 'build': loaded, 'source_traces': load('idempotency_traces'), 'trigger_results': build_results['execute'], 'scope': 'simulated atomic linearization and fresh-worker reconciliation; no live pipeline launch'}\nimport sys\nif len(sys.argv) > 1 and sys.argv[1] in ['admission', 'function_test', 'execute']:\n    print(json.dumps(build_entry(sys.argv[1])))\n"
+      }
+    ],
+    "tests": [
+      {
+        "test_id": "report",
+        "kind": "value_equals",
+        "spec": {
+          "expr": "report",
+          "expected": {
+            "policy": {
+              "event": {
+                "run_key": "K",
+                "pipeline": "order-retrain-lab"
+              },
+              "busy_policy": "defer",
+              "coordinator_contract": {
+                "atomic_admit(run_key,pipeline)": "Atomically reserve unique run key AND pipeline slot and persist job_id. Return accepted, duplicate or busy plus persisted identity; durable coordinator is external to learner process.",
+                "inspect(run_key)": "Read durable record; completed records retained.",
+                "confirm_terminal_and_release(run_key,job_id)": "Release active slot only after executor confirms terminal; retain completed key."
+              },
+              "executor_contract": {
+                "launch(job_id)": "Idempotent executor token; at most one logical job per job_id. Unknown response must be reconciled with same token.",
+                "attach(job_id)": "Resume or reconcile existing identity.",
+                "status(job_id)": "Return running or confirmed terminal."
+              },
+              "test_scenarios": [
+                "concurrent_same_key",
+                "concurrent_different_key",
+                "restart_after_reservation",
+                "restart_after_launch",
+                "unknown_launch_response",
+                "completed_duplicate"
+              ],
+              "fatal_dependencies": [
+                "admission",
+                "function_test",
+                "execute"
+              ]
+            },
+            "durable_assertions": [
+              {
+                "first": {
+                  "status": "accepted",
+                  "job_id": "job.K",
+                  "released": false
+                },
+                "duplicate": {
+                  "status": "duplicate",
+                  "job_id": "job.K",
+                  "released": false
+                },
+                "busy": {
+                  "status": "busy",
+                  "job_id": null,
+                  "released": false
+                },
+                "logical_jobs": 1,
+                "active_slot": "K",
+                "tokens": [
+                  "job.K",
+                  "job.K"
+                ]
+              },
+              {
+                "persisted_job_id": "job.K",
+                "result": {
+                  "status": "duplicate",
+                  "job_id": "job.K",
+                  "released": false
+                },
+                "logical_jobs": 1,
+                "tokens": [
+                  "job.K"
+                ]
+              },
+              {
+                "persisted_job_id": "job.K",
+                "result": {
+                  "status": "duplicate",
+                  "job_id": "job.K",
+                  "released": false
+                },
+                "logical_jobs": 1,
+                "tokens": [
+                  "job.K",
+                  "job.K"
+                ]
+              },
+              {
+                "persisted_job_id": "job.K",
+                "result": {
+                  "status": "duplicate",
+                  "job_id": "job.K",
+                  "released": false
+                },
+                "logical_jobs": 1,
+                "tokens": [
+                  "job.K",
+                  "job.K"
+                ],
+                "active_slot": "K"
+              },
+              {
+                "result": {
+                  "status": "duplicate",
+                  "job_id": "job.K",
+                  "released": true
+                },
+                "duplicate": {
+                  "status": "duplicate",
+                  "job_id": "job.K",
+                  "released": false
+                },
+                "logical_jobs": 1,
+                "active_slot": null,
+                "completed": true
+              }
+            ],
+            "build": {
+              "stage_inventory": [
+                {
+                  "dependencies": null,
+                  "purpose": "validate identity, investigation and intended dataset",
+                  "required_artifacts": "event evidence; snapshot reference",
+                  "separate_authorization_required": false,
+                  "stage_id": "entry"
+                },
+                {
+                  "dependencies": "entry",
+                  "purpose": "validate approved intended data",
+                  "required_artifacts": "approved snapshot",
+                  "separate_authorization_required": false,
+                  "stage_id": "data_quality_test"
+                },
+                {
+                  "dependencies": "data_quality_test",
+                  "purpose": "train on quality-approved snapshot",
+                  "required_artifacts": "quality-passed snapshot",
+                  "separate_authorization_required": false,
+                  "stage_id": "train"
+                },
+                {
+                  "dependencies": "train",
+                  "purpose": "evaluate exact candidate",
+                  "required_artifacts": "candidate artifact; declared validation cohort",
+                  "separate_authorization_required": false,
+                  "stage_id": "evaluate"
+                },
+                {
+                  "dependencies": "evaluate; promotion_approval",
+                  "purpose": "controlled deployment after approval",
+                  "required_artifacts": "identity-bound validation record; promotion approval",
+                  "separate_authorization_required": true,
+                  "stage_id": "promote"
+                }
+              ],
+              "steps": [
+                {
+                  "allowFailure": false,
+                  "args": [
+                    "python",
+                    "main.py",
+                    "admission"
+                  ],
+                  "id": "admission",
+                  "name": "python:3.11",
+                  "waitFor": [
+                    "-"
+                  ]
+                },
+                {
+                  "allowFailure": false,
+                  "args": [
+                    "python",
+                    "main.py",
+                    "function_test"
+                  ],
+                  "id": "function_test",
+                  "name": "python:3.11",
+                  "waitFor": [
+                    "admission"
+                  ]
+                },
+                {
+                  "allowFailure": false,
+                  "args": [
+                    "python",
+                    "main.py",
+                    "execute"
+                  ],
+                  "id": "execute",
+                  "name": "python:3.11",
+                  "waitFor": [
+                    "function_test"
+                  ]
+                }
+              ],
+              "trigger_policy": {
+                "credential_reference": "runtime references only; no credential values",
+                "entry": "authorization, investigation and intended immutable snapshot",
+                "required_failure": "fatal",
+                "separate_promotion_approval": true
+              }
+            },
+            "source_traces": [
+              {
+                "fixture": "same_key",
+                "step": 1,
+                "run_key": "K",
+                "pipeline": "order-retrain-lab",
+                "admission_status": "accepted",
+                "job_id": "J",
+                "active_slot_owner": "K",
+                "terminal_confirmed": false,
+                "logical_job_count": 0,
+                "event": "atomic reservation by worker one"
+              },
+              {
+                "fixture": "same_key",
+                "step": 2,
+                "run_key": "K",
+                "pipeline": "order-retrain-lab",
+                "admission_status": "duplicate",
+                "job_id": "J",
+                "active_slot_owner": "K",
+                "terminal_confirmed": false,
+                "logical_job_count": 1,
+                "event": "worker two attaches; one launch"
+              },
+              {
+                "fixture": "different_key",
+                "step": 1,
+                "run_key": "K2",
+                "pipeline": "order-retrain-lab",
+                "admission_status": "busy",
+                "job_id": null,
+                "active_slot_owner": "K",
+                "terminal_confirmed": false,
+                "logical_job_count": 1,
+                "event": "different key deferred"
+              },
+              {
+                "fixture": "restart_reservation",
+                "step": 1,
+                "run_key": "K",
+                "pipeline": "order-retrain-lab",
+                "admission_status": "duplicate",
+                "job_id": "J",
+                "active_slot_owner": "K",
+                "terminal_confirmed": false,
+                "logical_job_count": 0,
+                "event": "fresh worker resumes reservation"
+              },
+              {
+                "fixture": "restart_launch",
+                "step": 1,
+                "run_key": "K",
+                "pipeline": "order-retrain-lab",
+                "admission_status": "duplicate",
+                "job_id": "J",
+                "active_slot_owner": "K",
+                "terminal_confirmed": false,
+                "logical_job_count": 1,
+                "event": "fresh worker attaches to launch"
+              },
+              {
+                "fixture": "unknown_response",
+                "step": 1,
+                "run_key": "K",
+                "pipeline": "order-retrain-lab",
+                "admission_status": "duplicate",
+                "job_id": "J",
+                "active_slot_owner": "K",
+                "terminal_confirmed": false,
+                "logical_job_count": 1,
+                "event": "reconcile same token J"
+              },
+              {
+                "fixture": "completion",
+                "step": 1,
+                "run_key": "K",
+                "pipeline": "order-retrain-lab",
+                "admission_status": "duplicate",
+                "job_id": "J",
+                "active_slot_owner": null,
+                "terminal_confirmed": true,
+                "logical_job_count": 1,
+                "event": "completed key retained; slot released"
+              }
+            ],
+            "trigger_results": [
+              {
+                "event": "e.schedule",
+                "entry": "accepted",
+                "resolved_input": "snapshot.g1",
+                "data_quality": "pass",
+                "train": true,
+                "evaluate": true,
+                "promote": false,
+                "credential_reference": "runtime references only; no credential values"
+              },
+              {
+                "event": "e.data",
+                "entry": "accepted",
+                "resolved_input": "snapshot.g2",
+                "data_quality": "pass",
+                "train": true,
+                "evaluate": true,
+                "promote": false,
+                "credential_reference": "runtime references only; no credential values"
+              },
+              {
+                "event": "e.quality",
+                "entry": "accepted",
+                "resolved_input": "snapshot.g1",
+                "data_quality": "pass",
+                "train": true,
+                "evaluate": true,
+                "promote": false,
+                "credential_reference": "runtime references only; no credential values"
+              },
+              {
+                "event": "e.drift",
+                "entry": "accepted",
+                "resolved_input": "snapshot.g1",
+                "data_quality": "pass",
+                "train": true,
+                "evaluate": true,
+                "promote": false,
+                "credential_reference": "runtime references only; no credential values"
+              },
+              {
+                "event": "e.unauthorized",
+                "entry": "rejected",
+                "resolved_input": null,
+                "data_quality": "blocked",
+                "train": false,
+                "evaluate": false,
+                "promote": false,
+                "credential_reference": "runtime references only; no credential values"
+              },
+              {
+                "event": "e.alarm",
+                "entry": "rejected",
+                "resolved_input": null,
+                "data_quality": "blocked",
+                "train": false,
+                "evaluate": false,
+                "promote": false,
+                "credential_reference": "runtime references only; no credential values"
+              },
+              {
+                "event": "e.failed",
+                "entry": "accepted",
+                "resolved_input": "snapshot.g2",
+                "data_quality": "blocked",
+                "train": false,
+                "evaluate": false,
+                "promote": false,
+                "credential_reference": "runtime references only; no credential values"
+              }
+            ],
+            "scope": "simulated atomic linearization and fresh-worker reconciliation; no live pipeline launch"
+          }
+        },
+        "message_on_fail": "The report differs from the declared fixture contract. Recheck execution order, scope, definitions and required evidence."
+      }
+    ]
+  },
+  "interaction_id": "ix.mle.tile.086_089.s16",
+  "difficulty": "stretch",
+  "grading_mode": "client",
+  "standalone": true,
+  "measures": [
+    {
+      "concept_id": "mle.retraining_run_idempotency",
+      "capability": "enforce_atomic_retraining_admission",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f6"
+      ]
+    },
+    {
+      "concept_id": "mle.retraining_run_idempotency",
+      "capability": "preserve_job_identity_across_retries_and_restarts",
+      "fact_ids": [
+        "f4",
+        "f5"
+      ]
+    },
+    {
+      "concept_id": "mle.retraining_run_idempotency",
+      "capability": "release_terminal_slots_without_relaunching_completed_keys",
+      "fact_ids": [
+        "f7"
+      ]
+    },
+    {
+      "concept_id": "mle.retraining_run_idempotency",
+      "capability": "verify_durable_concurrency_and_restart_invariants",
+      "fact_ids": [
+        "f2",
+        "f4",
+        "f5",
+        "f6",
+        "f7",
+        "f8"
+      ]
+    },
+    {
+      "concept_id": "mle.retraining_run_idempotency",
+      "capability": "integrate_and_verify_fatal_pipeline_admission_gates",
+      "fact_ids": [
+        "f9",
+        "f10",
+        "f11",
+        "f12",
+        "f13"
+      ]
+    }
+  ],
+  "anchors": [
+    "mle.retraining_run_idempotency#practice",
+    "mle.retraining_run_idempotency#assessment:enforce_atomic_retraining_admission",
+    "mle.retraining_run_idempotency#assessment:preserve_job_identity_across_retries_and_restarts",
+    "mle.retraining_run_idempotency#assessment:release_terminal_slots_without_relaunching_completed_keys",
+    "mle.retraining_run_idempotency#assessment:verify_durable_concurrency_and_restart_invariants",
+    "mle.retraining_run_idempotency#assessment:integrate_and_verify_fatal_pipeline_admission_gates"
+  ],
+  "feedback": {
+    "correct": {
+      "message": "The handler preserves one logical job and retains completed-key history."
+    },
+    "incorrect": {
+      "message": "Recheck atomic accepted/duplicate/busy branches, same-token reconciliation and terminal-only release."
+    },
+    "hints": [
+      "Reconcile using the persisted job token.",
+      "A busy slot is not duplicate admission; release requires confirmed terminal state."
+    ]
+  }
+}

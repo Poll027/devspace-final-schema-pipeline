@@ -1,0 +1,75 @@
+Complete the operation slots at the end of main.py using assignments to supplied callable names, without calling them on those lines. The supplied evaluation functions handle fitting, alignment, iteration, guarded rates and returned records; do not edit that scaffolding.
+- count_events: bind the NumPy reduction that counts true entries in each supplied Boolean mask.
+- loss_mean: bind the NumPy numeric mean operation for selected losses.
+- loss_spread: bind the NumPy standard-deviation operation (the supplied calls fix ddof=0).
+Run the completed program and inspect the resulting validation evidence. The supplied evaluation must retain this output contract: Required result schemas: eligible_count, error_count, error_proportion, loss_mean, loss_std, reference_eligible_count, reference_error_count, reference_error_proportion, reference_loss_mean, reference_loss_std, finding; model, reference, limitation; error_count, eligible_count, loss_mean, loss_std. finding is a dictionary with model and reference evidence dictionaries (error_count, eligible_count, loss_mean, loss_std) and the supplied noncausal limitation.
+
+import pandas as pd
+observations = pd.read_csv('slice_observations.csv')
+eligible = observations['eligible'].to_numpy()
+long_distance = observations['long_distance'].to_numpy()
+errors = observations['error'].to_numpy()
+losses = observations['loss'].to_numpy()
+reference_errors = observations['reference_error'].to_numpy()
+reference_losses = observations['reference_loss'].to_numpy()
+import numpy as np
+if True:
+    def evaluate(eligible, long_distance, errors, losses, reference_errors, reference_losses):
+        group = (eligible == True) & (long_distance == True)
+        n = count_events(group)
+        error_count = count_events(errors[group])
+        reference_count = count_events(reference_errors[group])
+        return {'eligible_count': n, 'error_count': error_count, 'error_proportion': error_count / n, 'loss_mean': loss_mean(losses[group]), 'loss_std': loss_spread(losses[group], ddof=0), 'reference_eligible_count': n, 'reference_error_count': reference_count, 'reference_error_proportion': reference_count / n, 'reference_loss_mean': loss_mean(reference_losses[group]), 'reference_loss_std': loss_spread(reference_losses[group], ddof=0), 'finding': {'model': {'error_count': error_count, 'eligible_count': n, 'loss_mean': loss_mean(losses[group]), 'loss_std': loss_spread(losses[group], ddof=0)}, 'reference': {'error_count': reference_count, 'eligible_count': n, 'loss_mean': loss_mean(reference_losses[group]), 'loss_std': loss_spread(reference_losses[group], ddof=0)}, 'limitation': 'Observed eligible long-distance validation comparison only; no cause is established.'}}
+
+count_events = np.count_nonzero
+loss_mean = np.mean
+loss_spread = np.std
+
+
+[
+  {
+    "test_id": "t1",
+    "kind": "value_equals",
+    "spec": {
+      "expr": "{k: v for k, v in (evaluate(eligible, long_distance, errors, losses, reference_errors, reference_losses)).items() if k != \"finding\"}",
+      "expected": {
+        "eligible_count": 20,
+        "error_count": 8,
+        "error_proportion": 0.4,
+        "loss_mean": 0.4,
+        "loss_std": 0.48989794855663565,
+        "reference_eligible_count": 20,
+        "reference_error_count": 10,
+        "reference_error_proportion": 0.5,
+        "reference_loss_mean": 0.5,
+        "reference_loss_std": 0.5
+      }
+    },
+    "visible": true,
+    "message_on_fail": "Check the named result fields, fixed assumptions, and empty-group behavior."
+  },
+  {
+    "test_id": "finding_evidence",
+    "kind": "value_equals",
+    "spec": {
+      "expr": "({k: v for k, v in (evaluate(eligible, long_distance, errors, losses, reference_errors, reference_losses)).items() if k != \"finding\"}, (lambda r: all(r['finding'][side][key] == r[prefix + key] for side, prefix in [('model',''),('reference','reference_')] for key in ['error_count','eligible_count','loss_mean','loss_std']) and bool(r['finding']['limitation']))(evaluate(eligible, long_distance, errors, losses, reference_errors, reference_losses)))",
+      "expected": [
+        {
+          "eligible_count": 20,
+          "error_count": 8,
+          "error_proportion": 0.4,
+          "loss_mean": 0.4,
+          "loss_std": 0.48989794855663565,
+          "reference_eligible_count": 20,
+          "reference_error_count": 10,
+          "reference_error_proportion": 0.5,
+          "reference_loss_mean": 0.5,
+          "reference_loss_std": 0.5
+        },
+        true
+      ]
+    },
+    "visible": true,
+    "message_on_fail": "The finding must cite both measured error counts, denominators and loss summaries, with a noncausal limitation."
+  }
+]

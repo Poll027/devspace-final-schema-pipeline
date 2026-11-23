@@ -1,0 +1,442 @@
+
+FILE README.md
+# Fictional lifecycle fixture runtime
+All rows, limits, identities, bucket/project names and events here are authored examples, not production claims. This is a bounded local simulator of an existing configured pipeline; no cloud requests or policy changes are authorized. A hosted exercise must replace the simulator adapter with its existing authorized runtime before describing results as actual Cloud Build results.
+
+Python 3, numpy and PyYAML are declared dependencies. Files under fixtures/ are inputs and contracts, not answer implementations. learner.py deliberately contains no imports, assertions or gate implementation. Keep protected-test observations out of fitting and tuning. Do not introduce hard-coded fixture verdicts.
+
+Existing build configuration uses the declared step IDs, execution images and entry points. Learners wire the assigned entry point, waitFor edges and fatal gate handling, then safe_dump/safe_load and inspect resolved fields. Existing triggers.json supplies bounded repository-commit and Pub/Sub bindings/filters: do not create triggers or alter filters. Accepted/rejected events are inputs, never captured run output. runtime_sim.py executes Python entry points and captures statuses, resolved args and output; results must be produced by running it, not invented. Required stages cannot use allowFailure or allowed failing exit codes.
+
+Object storage is explicitly simulated by storage_sim.py. It supports exists/reload/generation/download_as_bytes(if_generation_match=...) and upload_from_filename(if_generation_match=0), raises PreconditionFailed with status 412, and records uploads. Injected 412 is a race that creates an output before the failing call returns; recovery must reload and verify. Required validation is supplied per artifact in fixture records; a hash match does not imply a validation pass. No credential values are stored here.
+
+
+FILE requirements.txt
+numpy
+PyYAML
+
+
+FILE learner.py
+"""Assignment: Encode and verify immutable artifact dependencies between pipeline stages."""
+# Write the required imports, implementation, assertions and fatal CLI entry point.
+raise NotImplementedError("Learner entry point is intentionally unwritten")
+
+
+FILE cloudbuild.yaml
+{
+  "steps": [
+    {
+      "id": "data_validation",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "learner.py",
+        "${_CASE}"
+      ],
+      "waitFor": [
+        "-"
+      ]
+    },
+    {
+      "id": "training",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "downstream_entry.py",
+        "${_ARTIFACT}"
+      ],
+      "waitFor": []
+    },
+    {
+      "id": "model_validation",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "learner.py",
+        "${_CASE}",
+        "B"
+      ],
+      "waitFor": []
+    }
+  ],
+  "substitutions": {
+    "_SNAPSHOT": "valid",
+    "_CASE": "valid",
+    "_ARTIFACT": "A"
+  },
+  "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com"
+}
+
+
+FILE triggers.json
+{
+  "repository_commit": {
+    "id": "fixture-commit-trigger",
+    "repository": "local_repo",
+    "branch_filter": "^main$",
+    "bindings": {
+      "_SNAPSHOT": "snapshot_id"
+    },
+    "fixtures": [
+      {
+        "branch": "main",
+        "snapshot_id": "valid"
+      },
+      {
+        "branch": "main",
+        "snapshot_id": "missing_required_feature"
+      },
+      {
+        "branch": "other",
+        "snapshot_id": "valid"
+      }
+    ]
+  },
+  "pubsub": {
+    "id": "fixture-artifact-trigger",
+    "topic": "projects/fixture-project/topics/artifacts",
+    "bindings": {
+      "_CASE": "case_id",
+      "_ARTIFACT": "artifact_id"
+    },
+    "filters": {
+      "event_type": "artifact_ready"
+    },
+    "fixtures": [
+      {
+        "event_type": "artifact_ready",
+        "case_id": "valid",
+        "artifact_id": "A"
+      },
+      {
+        "event_type": "artifact_ready",
+        "case_id": "mismatch",
+        "artifact_id": "B"
+      },
+      {
+        "event_type": "unrelated",
+        "case_id": "valid",
+        "artifact_id": "A"
+      }
+    ]
+  }
+}
+
+
+FILE runtime_sim.py
+"""Offline execution adapter. Statuses are generated, never fixture answers."""
+import json
+import subprocess
+import sys
+import yaml
+from pathlib import Path
+
+def run_build(config_path, trigger_kind, event):
+    config = yaml.safe_load(Path(config_path).read_text())
+    triggers = json.loads(Path("triggers.json").read_text())
+    trigger = triggers[trigger_kind]
+    if trigger_kind == "repository_commit":
+        import re
+        if re.fullmatch(trigger["branch_filter"], event.get("branch", "")) is None:
+            return {"triggered": False, "steps": []}
+    elif any(event.get(k) != v for k, v in trigger["filters"].items()):
+        return {"triggered": False, "steps": []}
+    bindings = dict(config.get("substitutions", {}))
+    bindings.update({k: event[field] for k, field in trigger["bindings"].items()})
+    results, by_id = [], {}
+    pending = list(config["steps"])
+    while pending:
+        progress = False
+        for step in list(pending):
+            i = config["steps"].index(step)
+            dependencies = step.get("waitFor") or [s["id"] for s in config["steps"][:i]]
+            dependencies = [d for d in dependencies if d != "-"]
+            if any(d not in by_id for d in dependencies):
+                continue
+            args = [str(a) for a in step.get("args", [])]
+            for j, arg in enumerate(args):
+                for key, value in bindings.items():
+                    arg = arg.replace("${" + key + "}", str(value)).replace(key, str(value))
+                args[j] = arg
+            record = {"id": step["id"], "name": step["name"], "resolved_args": args, "waitFor": dependencies}
+            if any(by_id[d]["status"] != "SUCCESS" for d in dependencies):
+                record.update(status="NOT_STARTED", exit_code=None, output="")
+            else:
+                if step.get("allowFailure") or any(x != 0 for x in step.get("allowExitCodes", [])):
+                    raise ValueError("required gate failures must be fatal")
+                if not args or args[0] != "python":
+                    raise ValueError("bounded adapter only supports declared Python entry points")
+                p = subprocess.run([sys.executable] + args[1:], text=True, capture_output=True)
+                record.update(status="SUCCESS" if p.returncode == 0 else "FAILURE", exit_code=p.returncode, output=p.stdout+p.stderr)
+            results.append(record); by_id[step["id"]] = record
+            pending.remove(step); progress = True
+        if not progress:
+            raise ValueError("missing dependency or cycle")
+    return {"triggered": True, "resolved_inputs": bindings, "steps": results}
+
+
+FILE storage_sim.py
+"""Bounded local Cloud Storage interface, never a real cloud client."""
+from pathlib import Path
+class PreconditionFailed(Exception):
+    status_code = 412
+class RecoverableFailure(Exception):
+    pass
+class StorageClient:
+    def __init__(self, initial=None, race=None):
+        self.objects = dict(initial or {})
+        self.race = dict(race or {})
+        self.uploads = []
+        self.requests = []
+    def blob(self, name):
+        return Blob(self, name)
+class Blob:
+    def __init__(self, client, name):
+        self.client, self.name = client, name
+        self.generation = None
+    def exists(self):
+        return self.name in self.client.objects
+    def reload(self):
+        self.generation = self.client.objects[self.name]["generation"]
+    def download_as_bytes(self, if_generation_match):
+        self.client.requests.append((self.name, if_generation_match))
+        obj = self.client.objects[self.name]
+        if obj["generation"] != if_generation_match:
+            raise PreconditionFailed("generation mismatch")
+        return obj["data"]
+    def upload_from_filename(self, path, if_generation_match):
+        if if_generation_match != 0:
+            raise ValueError("fixture contract permits create-only upload")
+        if self.name in self.client.race:
+            self.client.objects[self.name] = self.client.race.pop(self.name)
+            raise PreconditionFailed("412 concurrent creation")
+        if self.exists():
+            raise PreconditionFailed("412 already exists")
+        self.client.objects[self.name] = {"generation": 1, "data": Path(path).read_bytes()}
+        self.client.uploads.append(self.name)
+        self.reload()
+
+
+FILE fixtures/anchor_contract.json
+{
+  "type": "live_code",
+  "objective": "Edit the supplied Cloud Build YAML configuration and dependency-map checks to connect data validation, training and model validation through immutable artifact references. Preserve required fatal gates, serialize and reload the configuration, then exercise the existing configured Pub/Sub trigger with bounded accepted and rejected fixtures and inspect resolved stage inputs.",
+  "success": "The reloaded configuration has the required execution images, entry points, step IDs, waitFor edges and immutable consumer references. Predicate checks distinguish the declared valid, boundary and failure cases, including training output A incorrectly referenced as B. Accepted fixture results confirm the actual producer-consumer identities; rejected fixture results show unsuccessful required gates and no execution of their dependent stages.",
+  "live_code": {
+    "required_skill": "Edit a supplied pipeline configuration and Python dependency dictionary, assert artifact-identity and validation predicates, and verify configured edges against bounded runtime results.",
+    "allowed_syntax": [
+      "Python dictionary and list literals",
+      "String, numeric and Boolean literals",
+      "Variable assignment",
+      "Dictionary and list indexing",
+      "Equality comparisons and Boolean predicates",
+      "assert predicate",
+      "Existing function and test entry-point calls",
+      "import yaml",
+      "with open(...) as file_handle",
+      "yaml.safe_dump(config, file_handle)",
+      "yaml.safe_load(file_handle)",
+      "YAML mappings and sequences",
+      "Cloud Build steps, name, args and script fields",
+      "Cloud Build id and waitFor fields",
+      "Existing Cloud Build substitutions and immutable artifact references"
+    ],
+    "blocked_syntax": [],
+    "starter_state_intent": "Supply the existing authorized pipeline, configured event bindings and filters, declared PyYAML dependency, and valid, boundary and failure fixtures. Include a dependency dictionary and a consumer reference to B where training produces A, so the learner must repair the identity mismatch as well as configure explicit execution dependencies.",
+    "observable_success": "Saved and reloaded fields match the declared contract; assertions detect the A-to-B mismatch before repair and accept the corrected edge. Bounded accepted and rejected runs expose resolved artifact inputs and stage outcomes demonstrating both correct identity binding and fatal required validation gates."
+  }
+}
+
+
+FILE fixtures/visual_intent.json
+{
+  "type": "code",
+  "purpose": "Make the dependency dictionary and supplied YAML configuration visible alongside resolved stage inputs and gate outcomes, distinguishing successful predecessor completion from agreement between training output A and the model-validation input."
+}
+
+
+FILE training_entry.py
+"""Existing training entry point, kept unchanged by dataset-gate exercises."""
+import json
+import sys
+from pathlib import Path
+if __name__ == "__main__":
+    snapshot_id = sys.argv[1]
+    Path("training_invocation.json").write_text(json.dumps({"snapshot_id": snapshot_id, "started": True}))
+
+
+FILE downstream_entry.py
+"""Supplied downstream execution marker; no gate bypass."""
+import json
+import sys
+from pathlib import Path
+if __name__ == "__main__":
+    Path("downstream_invocation.json").write_text(json.dumps({"artifact_id": sys.argv[1], "started": True}))
+
+
+FILE outputs/A.txt
+fictional fitted package A
+preprocess: divide feature by 5
+threshold: 0.4
+
+
+FILE outputs/B.txt
+fictional fitted package B
+preprocess: divide feature by 5
+threshold: 0.5
+
+
+FILE fixtures/artifacts.json
+{
+  "A": {
+    "artifact_id": "A",
+    "uri": "gs://fixture-artifacts/A.txt",
+    "generation": 1,
+    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+    "validation_ok": true
+  },
+  "B": {
+    "artifact_id": "B",
+    "uri": "gs://fixture-artifacts/B.txt",
+    "generation": 1,
+    "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+    "validation_ok": true
+  }
+}
+
+
+FILE fixtures/dependency_cases.json
+{
+  "valid": {
+    "data_validation": {
+      "consumed": "snapshot.A",
+      "parameters": {
+        "contract": "dataset_contract"
+      },
+      "produced": "validated.snapshot.A",
+      "validation_ok": true
+    },
+    "training": {
+      "consumed": "validated.snapshot.A",
+      "parameters": {
+        "feature_scale": 5.0,
+        "threshold": 0.4,
+        "package": "A"
+      },
+      "produced": "A"
+    },
+    "model_validation": {
+      "consumed": "A",
+      "parameters": {
+        "rtol": 1e-07,
+        "atol": 1e-08
+      },
+      "produced": "validated.A",
+      "validation_ok": true
+    }
+  },
+  "mismatch": {
+    "data_validation": {
+      "consumed": "snapshot.A",
+      "parameters": {
+        "contract": "dataset_contract"
+      },
+      "produced": "validated.snapshot.A",
+      "validation_ok": true
+    },
+    "training": {
+      "consumed": "validated.snapshot.A",
+      "parameters": {
+        "feature_scale": 5.0,
+        "threshold": 0.4,
+        "package": "A"
+      },
+      "produced": "A"
+    },
+    "model_validation": {
+      "consumed": "B",
+      "parameters": {
+        "rtol": 1e-07,
+        "atol": 1e-08
+      },
+      "produced": "validated.A",
+      "validation_ok": true
+    }
+  },
+  "rejected_data": {
+    "data_validation": {
+      "consumed": "snapshot.A",
+      "parameters": {
+        "contract": "dataset_contract"
+      },
+      "produced": "validated.snapshot.A",
+      "validation_ok": false
+    },
+    "training": {
+      "consumed": "validated.snapshot.A",
+      "parameters": {
+        "feature_scale": 5.0,
+        "threshold": 0.4,
+        "package": "A"
+      },
+      "produced": "A"
+    },
+    "model_validation": {
+      "consumed": "A",
+      "parameters": {
+        "rtol": 1e-07,
+        "atol": 1e-08
+      },
+      "produced": "validated.A",
+      "validation_ok": true
+    }
+  },
+  "boundary": {
+    "data_validation": {
+      "consumed": "snapshot.A",
+      "parameters": {
+        "contract": "dataset_contract"
+      },
+      "produced": "validated.snapshot.A",
+      "validation_ok": true
+    },
+    "training": {
+      "consumed": "validated.snapshot.A",
+      "parameters": {
+        "feature_scale": 5.0,
+        "threshold": 0.4,
+        "package": "A"
+      },
+      "produced": "A"
+    },
+    "model_validation": {
+      "consumed": "A",
+      "parameters": {
+        "rtol": 1e-07,
+        "atol": 1e-08
+      },
+      "produced": "validated.A",
+      "validation_ok": true
+    }
+  }
+}
+
+
+FILE fixtures/dependency_contract.json
+{
+  "required_edges": [
+    [
+      "data_validation",
+      "training"
+    ],
+    [
+      "training",
+      "model_validation"
+    ]
+  ],
+  "checks": [
+    "producer immutable identity equals consumer reference",
+    "validation result before dependent execution",
+    "resolved run args agree with dependency dictionary"
+  ],
+  "assignment": "repair training A / model-validation B mismatch and configure explicit waitFor edges"
+}

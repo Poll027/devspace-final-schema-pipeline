@@ -1,0 +1,922 @@
+PROMPT
+Complete the missing workload statistics in the supplied scaffold, then inspect its retained identities, windows and evidence.
+
+Complete training_mean, training_std, inference_mean and inference_std from training_values and inference_values using np.mean and np.std with ddof=0. Retain the supplied resource mapping, per-window shared allocation, unmatched-cost reconciliation and lifecycle evidence unchanged. Do not mix the two workload series.
+CONSTRAINTS
+{'allowed_syntax': ['gcloud compute instances describe INSTANCE --zone=ZONE', 'gcloud compute instances start INSTANCE --zone=ZONE', 'gcloud compute ssh INSTANCE --zone=ZONE', 'gcloud compute instances stop INSTANCE --zone=ZONE', 'import numpy as np', 'Variable assignment', 'Numeric and string literals', 'Lists and dictionaries', 'Indexing', 'For loops and conditional comparisons', 'Arithmetic operators', 'sum(numeric_values)', 'np.array(numeric_values)', 'np.mean(numeric_values)', 'np.std(numeric_values, ddof=0)', 'np.std(numeric_values, ddof=1) only when the supplied calculation requires the N−1 divisor'], 'blocked_syntax': ['gcloud compute instances delete', 'gcloud compute disks delete', 'gcloud billing budgets create', 'gcloud billing budgets update']}
+STARTER
+exec('import csv, json')
+
+exec('import numpy as np')
+
+exec('policy = json.loads(\'{"authorized_identity": "lab.operator", "resource_mapping": {"training-lab": "training", "inference-lab": "inference", "training-disk": "training"}, "shared_rule": {"training": 0.5, "inference": 0.5}, "unmatched_rule": "explicitly unallocated", "unusual_rule": "per-workload per-window allocation >10", "unit": "fictional credits", "reporting_windows": {"w1": ["2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z"], "w2": ["2026-01-03T00:00:00Z", "2026-01-04T00:00:00Z"]}, "direct_interval_rule": "direct_compute rows correspond to the named resource lifecycle/work interval; persistent_disk spans reporting window even after stop", "numeric_values": "Select per-window attributed costs for each workload; do not mix workload series", "ddof": 0}\')')
+
+exec("billing_export_rows = list(csv.DictReader(open('billing_export.csv')))")
+
+exec('billing_export = {}')
+
+exec("billing_export['charge_id'] = np.array([r['charge_id'] for r in billing_export_rows])")
+
+exec("billing_export['reporting_window'] = np.array([r['reporting_window'] for r in billing_export_rows])")
+
+exec("billing_export['resource_id'] = np.array([r['resource_id'] for r in billing_export_rows])")
+
+exec("billing_export['charge_category'] = np.array([r['charge_category'] for r in billing_export_rows])")
+
+exec("billing_export['amount'] = np.array([float(r['amount'] or 'nan') for r in billing_export_rows])")
+
+exec("lifecycle_rows = list(csv.DictReader(open('lifecycle.csv')))")
+
+exec('lifecycle = {}')
+
+exec("lifecycle['INSTANCE'] = np.array([r['INSTANCE'] for r in lifecycle_rows])")
+
+exec("lifecycle['ZONE'] = np.array([r['ZONE'] for r in lifecycle_rows])")
+
+exec("lifecycle['workload'] = np.array([r['workload'] for r in lifecycle_rows])")
+
+exec("lifecycle['reporting_window'] = np.array([r['reporting_window'] for r in lifecycle_rows])")
+
+exec("lifecycle['start'] = np.array([r['start'] for r in lifecycle_rows])")
+
+exec("lifecycle['stop'] = np.array([r['stop'] for r in lifecycle_rows])")
+
+exec("lifecycle['before_state'] = np.array([r['before_state'] for r in lifecycle_rows])")
+
+exec("lifecycle['after_state'] = np.array([r['after_state'] for r in lifecycle_rows])")
+
+exec("lifecycle['completed_work'] = np.array([float(r['completed_work'] or 'nan') for r in lifecycle_rows])")
+
+exec("charges = [{k: v[i].item() if hasattr(v[i], 'item') else v[i] for k, v in billing_export.items()} for i in range(len(billing_export_rows))]")
+
+exec("class LifecycleSimulator:\n    def __init__(self, rows):\n        self.rows = rows\n        self.actions = []\n        self.records = []\n        self.sessions = {}\n    def act(self, row, action):\n        key = (row['INSTANCE'], row['ZONE'], row['reporting_window'])\n        session = self.sessions.setdefault(key, {'state': row['before_state'], 'sequence': [], 'completed_work': '0'})\n        allowed = ['describe', 'start', 'ssh', 'workload', 'stop', 'describe']\n        position = len(session['sequence'])\n        if position >= len(allowed) or action != allowed[position]:\n            return False\n        session['sequence'].append(action)\n        self.actions.append({'INSTANCE': row['INSTANCE'], 'ZONE': row['ZONE'], 'reporting_window': row['reporting_window'], 'action': action})\n        if action == 'start':\n            session['state'] = 'RUNNING'\n        elif action == 'workload' and session['state'] == 'RUNNING':\n            session['completed_work'] = row['completed_work']\n        elif action == 'stop':\n            session['state'] = 'TERMINATED'\n        if len(session['sequence']) == len(allowed):\n            record = dict(row)\n            record['completed_work'] = session['completed_work']\n            record['after_state'] = session['state']\n            self.records.append(record)\n        return True\n    def evidence(self):\n        verified = len(self.rows) > 0 and len(self.records) == len(self.rows) and all(s['state'] == 'TERMINATED' and s['sequence'] == ['describe', 'start', 'ssh', 'workload', 'stop', 'describe'] for s in self.sessions.values())\n        return {'identity': policy['authorized_identity'], 'actions': self.actions, 'records': self.records, 'verified_stopped': verified}\n\ndef simulate_sequences(sequences):\n    sim = LifecycleSimulator(lifecycle_rows)\n    for row in lifecycle_rows:\n        for action in sequences[row['workload']]:\n            sim.act(row, action)\n    return sim.evidence()")
+
+sequences = {'training': ['describe', 'start', 'ssh', 'workload', 'stop', 'describe'], 'inference': ['describe', 'start', 'ssh', 'workload', 'stop', 'describe']}
+
+exec('lifecycle_record = simulate_sequences(sequences)')
+
+allocated = {'training': {'w1': 0, 'w2': 0}, 'inference': {'w1': 0, 'w2': 0}}
+
+unallocated = 0
+
+export_total = 0
+
+unmatched = []
+
+for row in charges:
+    window = row['reporting_window']
+    amount = row['amount']
+    export_total = export_total + amount
+    if row['charge_category'] == 'shared':
+        allocated['training'][window] = allocated['training'][window] + amount * policy['shared_rule']['training']
+        allocated['inference'][window] = allocated['inference'][window] + amount * policy['shared_rule']['inference']
+    elif row['resource_id'] in policy['resource_mapping']:
+        workload = policy['resource_mapping'][row['resource_id']]
+        allocated[workload][window] = allocated[workload][window] + amount
+    else:
+        unallocated = unallocated + amount
+        unmatched = unmatched + [row['charge_id']]
+
+training_values = np.array([allocated['training']['w1'], allocated['training']['w2']])
+
+inference_values = np.array([allocated['inference']['w1'], allocated['inference']['w2']])
+
+training_mean = None
+
+training_std = None
+
+inference_mean = None
+
+inference_std = None
+
+summary = {}
+
+for workload in ['training', 'inference']:
+    values = np.array([allocated[workload]['w1'], allocated[workload]['w2']])
+    summary[workload] = {'windows': allocated[workload], 'mean': training_mean if workload == 'training' else inference_mean, 'std': training_std if workload == 'training' else inference_std, 'unusual_w1': allocated[workload]['w1'] > 10, 'unusual_w2': allocated[workload]['w2'] > 10}
+
+allocated_total = sum([allocated['training']['w1'], allocated['training']['w2'], allocated['inference']['w1'], allocated['inference']['w2']])
+
+reconciled = allocated_total + unallocated == export_total
+
+exec("result = {'lifecycle': lifecycle_record, 'summary': summary, 'unmatched_charge_ids': unmatched, 'unallocated': unallocated, 'allocated_total': allocated_total, 'export_total': export_total, 'unit': policy['unit'], 'reporting_windows': policy['reporting_windows'], 'ddof': policy['ddof']}")
+
+SOLUTION
+exec('import csv, json')
+
+exec('import numpy as np')
+
+exec('policy = json.loads(\'{"authorized_identity": "lab.operator", "resource_mapping": {"training-lab": "training", "inference-lab": "inference", "training-disk": "training"}, "shared_rule": {"training": 0.5, "inference": 0.5}, "unmatched_rule": "explicitly unallocated", "unusual_rule": "per-workload per-window allocation >10", "unit": "fictional credits", "reporting_windows": {"w1": ["2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z"], "w2": ["2026-01-03T00:00:00Z", "2026-01-04T00:00:00Z"]}, "direct_interval_rule": "direct_compute rows correspond to the named resource lifecycle/work interval; persistent_disk spans reporting window even after stop", "numeric_values": "Select per-window attributed costs for each workload; do not mix workload series", "ddof": 0}\')')
+
+exec("billing_export_rows = list(csv.DictReader(open('billing_export.csv')))")
+
+exec('billing_export = {}')
+
+exec("billing_export['charge_id'] = np.array([r['charge_id'] for r in billing_export_rows])")
+
+exec("billing_export['reporting_window'] = np.array([r['reporting_window'] for r in billing_export_rows])")
+
+exec("billing_export['resource_id'] = np.array([r['resource_id'] for r in billing_export_rows])")
+
+exec("billing_export['charge_category'] = np.array([r['charge_category'] for r in billing_export_rows])")
+
+exec("billing_export['amount'] = np.array([float(r['amount'] or 'nan') for r in billing_export_rows])")
+
+exec("lifecycle_rows = list(csv.DictReader(open('lifecycle.csv')))")
+
+exec('lifecycle = {}')
+
+exec("lifecycle['INSTANCE'] = np.array([r['INSTANCE'] for r in lifecycle_rows])")
+
+exec("lifecycle['ZONE'] = np.array([r['ZONE'] for r in lifecycle_rows])")
+
+exec("lifecycle['workload'] = np.array([r['workload'] for r in lifecycle_rows])")
+
+exec("lifecycle['reporting_window'] = np.array([r['reporting_window'] for r in lifecycle_rows])")
+
+exec("lifecycle['start'] = np.array([r['start'] for r in lifecycle_rows])")
+
+exec("lifecycle['stop'] = np.array([r['stop'] for r in lifecycle_rows])")
+
+exec("lifecycle['before_state'] = np.array([r['before_state'] for r in lifecycle_rows])")
+
+exec("lifecycle['after_state'] = np.array([r['after_state'] for r in lifecycle_rows])")
+
+exec("lifecycle['completed_work'] = np.array([float(r['completed_work'] or 'nan') for r in lifecycle_rows])")
+
+exec("charges = [{k: v[i].item() if hasattr(v[i], 'item') else v[i] for k, v in billing_export.items()} for i in range(len(billing_export_rows))]")
+
+exec("class LifecycleSimulator:\n    def __init__(self, rows):\n        self.rows = rows\n        self.actions = []\n        self.records = []\n        self.sessions = {}\n    def act(self, row, action):\n        key = (row['INSTANCE'], row['ZONE'], row['reporting_window'])\n        session = self.sessions.setdefault(key, {'state': row['before_state'], 'sequence': [], 'completed_work': '0'})\n        allowed = ['describe', 'start', 'ssh', 'workload', 'stop', 'describe']\n        position = len(session['sequence'])\n        if position >= len(allowed) or action != allowed[position]:\n            return False\n        session['sequence'].append(action)\n        self.actions.append({'INSTANCE': row['INSTANCE'], 'ZONE': row['ZONE'], 'reporting_window': row['reporting_window'], 'action': action})\n        if action == 'start':\n            session['state'] = 'RUNNING'\n        elif action == 'workload' and session['state'] == 'RUNNING':\n            session['completed_work'] = row['completed_work']\n        elif action == 'stop':\n            session['state'] = 'TERMINATED'\n        if len(session['sequence']) == len(allowed):\n            record = dict(row)\n            record['completed_work'] = session['completed_work']\n            record['after_state'] = session['state']\n            self.records.append(record)\n        return True\n    def evidence(self):\n        verified = len(self.rows) > 0 and len(self.records) == len(self.rows) and all(s['state'] == 'TERMINATED' and s['sequence'] == ['describe', 'start', 'ssh', 'workload', 'stop', 'describe'] for s in self.sessions.values())\n        return {'identity': policy['authorized_identity'], 'actions': self.actions, 'records': self.records, 'verified_stopped': verified}\n\ndef simulate_sequences(sequences):\n    sim = LifecycleSimulator(lifecycle_rows)\n    for row in lifecycle_rows:\n        for action in sequences[row['workload']]:\n            sim.act(row, action)\n    return sim.evidence()")
+
+sequences = {'training': ['describe', 'start', 'ssh', 'workload', 'stop', 'describe'], 'inference': ['describe', 'start', 'ssh', 'workload', 'stop', 'describe']}
+
+exec('lifecycle_record = simulate_sequences(sequences)')
+
+allocated = {'training': {'w1': 0, 'w2': 0}, 'inference': {'w1': 0, 'w2': 0}}
+
+unallocated = 0
+
+export_total = 0
+
+unmatched = []
+
+for row in charges:
+    window = row['reporting_window']
+    amount = row['amount']
+    export_total = export_total + amount
+    if row['charge_category'] == 'shared':
+        allocated['training'][window] = allocated['training'][window] + amount * policy['shared_rule']['training']
+        allocated['inference'][window] = allocated['inference'][window] + amount * policy['shared_rule']['inference']
+    elif row['resource_id'] in policy['resource_mapping']:
+        workload = policy['resource_mapping'][row['resource_id']]
+        allocated[workload][window] = allocated[workload][window] + amount
+    else:
+        unallocated = unallocated + amount
+        unmatched = unmatched + [row['charge_id']]
+
+training_values = np.array([allocated['training']['w1'], allocated['training']['w2']])
+
+inference_values = np.array([allocated['inference']['w1'], allocated['inference']['w2']])
+
+training_mean = np.mean(training_values)
+
+training_std = np.std(training_values, ddof=0)
+
+inference_mean = np.mean(inference_values)
+
+inference_std = np.std(inference_values, ddof=0)
+
+summary = {}
+
+for workload in ['training', 'inference']:
+    values = np.array([allocated[workload]['w1'], allocated[workload]['w2']])
+    summary[workload] = {'windows': allocated[workload], 'mean': training_mean if workload == 'training' else inference_mean, 'std': training_std if workload == 'training' else inference_std, 'unusual_w1': allocated[workload]['w1'] > 10, 'unusual_w2': allocated[workload]['w2'] > 10}
+
+allocated_total = sum([allocated['training']['w1'], allocated['training']['w2'], allocated['inference']['w1'], allocated['inference']['w2']])
+
+reconciled = allocated_total + unallocated == export_total
+
+exec("result = {'lifecycle': lifecycle_record, 'summary': summary, 'unmatched_charge_ids': unmatched, 'unallocated': unallocated, 'allocated_total': allocated_total, 'export_total': export_total, 'unit': policy['unit'], 'reporting_windows': policy['reporting_windows'], 'ddof': policy['ddof']}")
+
+TESTS
+[
+  {
+    "test_id": "t1",
+    "kind": "value_equals",
+    "spec": {
+      "expr": "result",
+      "expected": {
+        "lifecycle": {
+          "identity": "lab.operator",
+          "actions": [
+            {
+              "INSTANCE": "training-lab",
+              "ZONE": "lab-zone-a",
+              "reporting_window": "w1",
+              "action": "describe"
+            },
+            {
+              "INSTANCE": "training-lab",
+              "ZONE": "lab-zone-a",
+              "reporting_window": "w1",
+              "action": "start"
+            },
+            {
+              "INSTANCE": "training-lab",
+              "ZONE": "lab-zone-a",
+              "reporting_window": "w1",
+              "action": "ssh"
+            },
+            {
+              "INSTANCE": "training-lab",
+              "ZONE": "lab-zone-a",
+              "reporting_window": "w1",
+              "action": "workload"
+            },
+            {
+              "INSTANCE": "training-lab",
+              "ZONE": "lab-zone-a",
+              "reporting_window": "w1",
+              "action": "stop"
+            },
+            {
+              "INSTANCE": "training-lab",
+              "ZONE": "lab-zone-a",
+              "reporting_window": "w1",
+              "action": "describe"
+            },
+            {
+              "INSTANCE": "inference-lab",
+              "ZONE": "lab-zone-a",
+              "reporting_window": "w1",
+              "action": "describe"
+            },
+            {
+              "INSTANCE": "inference-lab",
+              "ZONE": "lab-zone-a",
+              "reporting_window": "w1",
+              "action": "start"
+            },
+            {
+              "INSTANCE": "inference-lab",
+              "ZONE": "lab-zone-a",
+              "reporting_window": "w1",
+              "action": "ssh"
+            },
+            {
+              "INSTANCE": "inference-lab",
+              "ZONE": "lab-zone-a",
+              "reporting_window": "w1",
+              "action": "workload"
+            },
+            {
+              "INSTANCE": "inference-lab",
+              "ZONE": "lab-zone-a",
+              "reporting_window": "w1",
+              "action": "stop"
+            },
+            {
+              "INSTANCE": "inference-lab",
+              "ZONE": "lab-zone-a",
+              "reporting_window": "w1",
+              "action": "describe"
+            },
+            {
+              "INSTANCE": "training-lab",
+              "ZONE": "lab-zone-a",
+              "reporting_window": "w2",
+              "action": "describe"
+            },
+            {
+              "INSTANCE": "training-lab",
+              "ZONE": "lab-zone-a",
+              "reporting_window": "w2",
+              "action": "start"
+            },
+            {
+              "INSTANCE": "training-lab",
+              "ZONE": "lab-zone-a",
+              "reporting_window": "w2",
+              "action": "ssh"
+            },
+            {
+              "INSTANCE": "training-lab",
+              "ZONE": "lab-zone-a",
+              "reporting_window": "w2",
+              "action": "workload"
+            },
+            {
+              "INSTANCE": "training-lab",
+              "ZONE": "lab-zone-a",
+              "reporting_window": "w2",
+              "action": "stop"
+            },
+            {
+              "INSTANCE": "training-lab",
+              "ZONE": "lab-zone-a",
+              "reporting_window": "w2",
+              "action": "describe"
+            },
+            {
+              "INSTANCE": "inference-lab",
+              "ZONE": "lab-zone-a",
+              "reporting_window": "w2",
+              "action": "describe"
+            },
+            {
+              "INSTANCE": "inference-lab",
+              "ZONE": "lab-zone-a",
+              "reporting_window": "w2",
+              "action": "start"
+            },
+            {
+              "INSTANCE": "inference-lab",
+              "ZONE": "lab-zone-a",
+              "reporting_window": "w2",
+              "action": "ssh"
+            },
+            {
+              "INSTANCE": "inference-lab",
+              "ZONE": "lab-zone-a",
+              "reporting_window": "w2",
+              "action": "workload"
+            },
+            {
+              "INSTANCE": "inference-lab",
+              "ZONE": "lab-zone-a",
+              "reporting_window": "w2",
+              "action": "stop"
+            },
+            {
+              "INSTANCE": "inference-lab",
+              "ZONE": "lab-zone-a",
+              "reporting_window": "w2",
+              "action": "describe"
+            }
+          ],
+          "records": [
+            {
+              "INSTANCE": "training-lab",
+              "ZONE": "lab-zone-a",
+              "workload": "training",
+              "reporting_window": "w1",
+              "start": "2026-01-02T10:00:00Z",
+              "stop": "2026-01-02T10:10:00Z",
+              "before_state": "TERMINATED",
+              "after_state": "TERMINATED",
+              "completed_work": "1"
+            },
+            {
+              "INSTANCE": "inference-lab",
+              "ZONE": "lab-zone-a",
+              "workload": "inference",
+              "reporting_window": "w1",
+              "start": "2026-01-02T10:02:00Z",
+              "stop": "2026-01-02T10:08:00Z",
+              "before_state": "TERMINATED",
+              "after_state": "TERMINATED",
+              "completed_work": "100"
+            },
+            {
+              "INSTANCE": "training-lab",
+              "ZONE": "lab-zone-a",
+              "workload": "training",
+              "reporting_window": "w2",
+              "start": "2026-01-03T10:00:00Z",
+              "stop": "2026-01-03T10:10:00Z",
+              "before_state": "TERMINATED",
+              "after_state": "TERMINATED",
+              "completed_work": "1"
+            },
+            {
+              "INSTANCE": "inference-lab",
+              "ZONE": "lab-zone-a",
+              "workload": "inference",
+              "reporting_window": "w2",
+              "start": "2026-01-03T10:02:00Z",
+              "stop": "2026-01-03T10:08:00Z",
+              "before_state": "TERMINATED",
+              "after_state": "TERMINATED",
+              "completed_work": "120"
+            }
+          ],
+          "verified_stopped": true
+        },
+        "summary": {
+          "training": {
+            "windows": {
+              "w1": 7,
+              "w2": 11
+            },
+            "mean": 9,
+            "std": 2,
+            "unusual_w1": false,
+            "unusual_w2": true
+          },
+          "inference": {
+            "windows": {
+              "w1": 5,
+              "w2": 8
+            },
+            "mean": 6.5,
+            "std": 1.5,
+            "unusual_w1": false,
+            "unusual_w2": false
+          }
+        },
+        "unmatched_charge_ids": [
+          "w1.unmapped-lab",
+          "w2.unmapped-lab"
+        ],
+        "unallocated": 3,
+        "allocated_total": 31,
+        "export_total": 34,
+        "unit": "fictional credits",
+        "reporting_windows": {
+          "w1": [
+            "2026-01-02T00:00:00Z",
+            "2026-01-03T00:00:00Z"
+          ],
+          "w2": [
+            "2026-01-03T00:00:00Z",
+            "2026-01-04T00:00:00Z"
+          ]
+        },
+        "ddof": 0
+      }
+    },
+    "visible": true,
+    "message_on_fail": "The returned record or calculation does not match the declared fixture contract."
+  },
+  {
+    "test_id": "reconciliation",
+    "kind": "value_equals",
+    "spec": {
+      "expr": "result['allocated_total']+result['unallocated'] == result['export_total'] and reconciled",
+      "expected": true
+    },
+    "visible": true,
+    "message_on_fail": "The returned record or calculation does not match the declared fixture contract."
+  },
+  {
+    "test_id": "no_workload",
+    "kind": "function_call",
+    "spec": {
+      "function": "simulate_sequences",
+      "args": [
+        {
+          "training": [
+            "describe",
+            "start",
+            "ssh",
+            "stop",
+            "describe"
+          ],
+          "inference": [
+            "describe",
+            "start",
+            "ssh",
+            "stop",
+            "describe"
+          ]
+        }
+      ],
+      "expected": {
+        "identity": "lab.operator",
+        "actions": [
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "describe"
+          },
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "start"
+          },
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "ssh"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "describe"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "start"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "ssh"
+          },
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "describe"
+          },
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "start"
+          },
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "ssh"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "describe"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "start"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "ssh"
+          }
+        ],
+        "records": [],
+        "verified_stopped": false
+      }
+    },
+    "visible": true,
+    "message_on_fail": "Incomplete lifecycle execution must not be verified as stopped."
+  },
+  {
+    "test_id": "no_stop",
+    "kind": "function_call",
+    "spec": {
+      "function": "simulate_sequences",
+      "args": [
+        {
+          "training": [
+            "describe",
+            "start",
+            "ssh",
+            "workload",
+            "describe"
+          ],
+          "inference": [
+            "describe",
+            "start",
+            "ssh",
+            "workload",
+            "describe"
+          ]
+        }
+      ],
+      "expected": {
+        "identity": "lab.operator",
+        "actions": [
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "describe"
+          },
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "start"
+          },
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "ssh"
+          },
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "workload"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "describe"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "start"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "ssh"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "workload"
+          },
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "describe"
+          },
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "start"
+          },
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "ssh"
+          },
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "workload"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "describe"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "start"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "ssh"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "workload"
+          }
+        ],
+        "records": [],
+        "verified_stopped": false
+      }
+    },
+    "visible": true,
+    "message_on_fail": "Incomplete lifecycle execution must not be verified as stopped."
+  },
+  {
+    "test_id": "complete_lifecycle",
+    "kind": "function_call",
+    "spec": {
+      "function": "simulate_sequences",
+      "args": [
+        {
+          "training": [
+            "describe",
+            "start",
+            "ssh",
+            "workload",
+            "stop",
+            "describe"
+          ],
+          "inference": [
+            "describe",
+            "start",
+            "ssh",
+            "workload",
+            "stop",
+            "describe"
+          ]
+        }
+      ],
+      "expected": {
+        "identity": "lab.operator",
+        "actions": [
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "describe"
+          },
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "start"
+          },
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "ssh"
+          },
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "workload"
+          },
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "stop"
+          },
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "describe"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "describe"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "start"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "ssh"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "workload"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "stop"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w1",
+            "action": "describe"
+          },
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "describe"
+          },
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "start"
+          },
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "ssh"
+          },
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "workload"
+          },
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "stop"
+          },
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "describe"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "describe"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "start"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "ssh"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "workload"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "stop"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "reporting_window": "w2",
+            "action": "describe"
+          }
+        ],
+        "records": [
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "workload": "training",
+            "reporting_window": "w1",
+            "start": "2026-01-02T10:00:00Z",
+            "stop": "2026-01-02T10:10:00Z",
+            "before_state": "TERMINATED",
+            "after_state": "TERMINATED",
+            "completed_work": "1"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "workload": "inference",
+            "reporting_window": "w1",
+            "start": "2026-01-02T10:02:00Z",
+            "stop": "2026-01-02T10:08:00Z",
+            "before_state": "TERMINATED",
+            "after_state": "TERMINATED",
+            "completed_work": "100"
+          },
+          {
+            "INSTANCE": "training-lab",
+            "ZONE": "lab-zone-a",
+            "workload": "training",
+            "reporting_window": "w2",
+            "start": "2026-01-03T10:00:00Z",
+            "stop": "2026-01-03T10:10:00Z",
+            "before_state": "TERMINATED",
+            "after_state": "TERMINATED",
+            "completed_work": "1"
+          },
+          {
+            "INSTANCE": "inference-lab",
+            "ZONE": "lab-zone-a",
+            "workload": "inference",
+            "reporting_window": "w2",
+            "start": "2026-01-03T10:02:00Z",
+            "stop": "2026-01-03T10:08:00Z",
+            "before_state": "TERMINATED",
+            "after_state": "TERMINATED",
+            "completed_work": "120"
+          }
+        ],
+        "verified_stopped": true
+      }
+    },
+    "visible": true,
+    "message_on_fail": "Only complete approved sequences may verify stopped workloads."
+  }
+]

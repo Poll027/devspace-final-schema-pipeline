@@ -1,0 +1,57 @@
+import csv
+import json
+def supplied_rows(path):
+    with open(path) as f:
+        raw = list(csv.DictReader(f))
+    def convert(v):
+        if v == '': return None
+        if v.lower() == 'true': return True
+        if v.lower() == 'false': return False
+        try: return float(v) if '.' in v or 'e' in v.lower() else int(v)
+        except ValueError: return v
+    return [{k: convert(v) for k,v in r.items()} for r in raw]
+regularization_records = supplied_rows('regularization_records.csv')
+p0 = 0.8
+p1 = 0.2
+cfp = 1
+cfn = 5
+bound = 0.3
+def supplied_result(setting):
+    return setting
+from sklearn.linear_model import LogisticRegression
+penalty_strength = regularization_records[1]["parameter_value"]
+import numpy as np
+def regularization(settings, p0, p1, cfp, cfn, bound):
+    records = []
+    selected = None
+    best = None
+    for setting in settings:
+        r = supplied_result(setting)
+        TP = r['TP']
+        FP = r['FP']
+        FN = r['FN']
+        TN = r['TN']
+        if FP + TN == 0:
+            FPR = None
+        else:
+            FPR = FP/(FP+TN)
+        if FN + TP == 0:
+            FNR = None
+        else:
+            FNR = FN/(FN+TP)
+        if FPR == None or FNR == None:
+            cost = None
+        else:
+            cost = p0*FPR*cfp+p1*FNR*cfn
+        eligible = cost != None and cost <= bound and r['operating_requirements_met']
+        record = {'configuration_id': r['configuration_id'], 'C': r['parameter_value'], 'training_expected_error_cost': r['training_expected_error_cost'], 'validation_expected_error_cost': cost, 'FPR': FPR, 'FNR': FNR, 'eligible': eligible}
+        records = records + [record]
+        if eligible:
+            if best == None or cost < best:
+                best = cost
+                selected = r['configuration_id']
+    return {'records': records, 'selected': selected, 'declared_C': declared_estimator.C, 'parameter_direction': 'LogisticRegression C is inverse regularization strength; larger Ridge alpha increases penalty', 'boundary': 'Fixed training-fitted preprocessing and validation assumptions; no protected-test access'}
+
+
+result = regularization(regularization_records,p0,p1,cfp,cfn,bound)
+

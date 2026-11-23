@@ -1,0 +1,283 @@
+
+mle.tile.056_057.s01 explainer Verify before registering
+A registry version must point to the verified originating run artifact. Resolve its exact stored generation and check the bytes against the run’s expected hash first.
+Retrieve the run’s artifact record, expected hash and immutable object version. Download with bucket.blob(key, generation=recorded_generation).download_to_filename(path), not the current object at key. Hash downloaded bytes with SHA-256 and reject a mismatch before registration.
+Require the supplied model name to exist; create_registered_model(name) supports the declared new-name path. Call create_model_version(name=name, source=version_qualified_source, run_id=run_id) and retain its returned numeric version. Save exact object version and hash with set_model_version_tag. Retrieve the version with get_model_version(name, version) and its linked originating run; verify their recorded identities.
+import hashlib
+from mlflow import MlflowClient
+import json
+from pathlib import Path
+from google.cloud import storage
+with open('run_artifact_record.json', encoding='utf-8') as handle:
+    record = json.load(handle)
+bucket = storage.Client().bucket(record['bucket_name'])
+model_name = record['model_name']
+version_qualified_source = record['version_qualified_source']
+artifact_path = record['local_path']
+Path(artifact_path).parent.mkdir(parents=True, exist_ok=True)
+selected = bucket.blob(record['key'], generation=record['generation'])
+selected.download_to_filename(artifact_path)
+with open(artifact_path, 'rb') as handle:
+    observed_hash = hashlib.sha256(handle.read()).hexdigest()
+if observed_hash != record['expected_hash']:
+    raise ValueError('Artifact mismatch: do not create a version')
+client = MlflowClient()
+# Require the registered name; only the declared new-name path creates it.
+version = client.create_model_version(name=model_name,
+    source=version_qualified_source, run_id=record['run_id'])
+client.set_model_version_tag(model_name, version.version, 'generation',
+                             str(record['generation']))
+client.set_model_version_tag(model_name, version.version, 'sha256', observed_hash)
+retrieved = client.get_model_version(model_name, version.version)
+originating_run = client.get_run(retrieved.run_id)
+# Compare retrieved source, tags and run link with the verified record.
+# After authorized latest overwrite, re-download selected and verify hash again.
+
+mle.tile.056_057.s02 explainer Verify after mutable latest changes
+Import MlflowClient from mlflow and construct the client for version creation, retrieval and tags. In the authorized test bucket, overwrite only latest, then retrieve the registered generation again and verify its registered hash. Return one keyed registration verdict. An overwrite is not a newly approved registry version.
+The run record and mutable latest may identify different generations. Retrieve the recorded one and verify its hash before creating a registry version. Use the supplied model name, creating it only on the declared new-name path. Retain numeric version, version-qualified source, run link, generation and hash tags. Retrieve the version and linked run to compare identities. After the authorized latest overwrite, retrieve and verify the registered generation again. Return a keyed verdict binding these identities, not a verdict that approves the overwrite.
+A numeric registry version does not verify a mutable source. Check exact generation and hash; an object overwrite is not an approved version creation.
+
+mle.tile.056_057.s03 check Check: verified artifact registration
+{
+  "prompt": "After authorized overwrite of a mutable artifact key, what establishes that an existing registered model version still identifies its original content?",
+  "selection": "single",
+  "shuffle": true,
+  "options": [
+    {
+      "option_id": "o1",
+      "text": "Retrieve its version-qualified original generation and verify the downloaded bytes against the registered hash."
+    },
+    {
+      "option_id": "o2",
+      "text": "Retrieve the latest artifact and silently attach it to the existing approved version."
+    },
+    {
+      "option_id": "o3",
+      "text": "Accept the artifact because its mutable object key is unchanged."
+    }
+  ]
+}
+KEY {
+  "correct_option_ids": [
+    "o1"
+  ],
+  "option_feedback": {
+    "o1": {
+      "message": "The immutable reference and observed content hash preserve the registered version identity."
+    },
+    "o2": {
+      "message": "A mutable overwrite is not a new approved version and does not preserve original content identity."
+    },
+    "o3": {
+      "message": "The same key may resolve to changed bytes after overwrite."
+    }
+  }
+}
+FEEDBACK {"correct": {"message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."}, "incorrect": {"message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."}, "hints": ["An approved version needs more than an unchanged mutable name."], "remediation_step_id": "mle.tile.056_057.r01"}
+
+mle.tile.056_057.s04 hands_on Practice: verified artifact registration
+{
+  "prompt": "Inspect registry-version review excerpts. The originating run record is:\n```\n{\n  \"run_id\": \"run.order.B\",\n  \"bucket_name\": \"authorized-fixture\",\n  \"key\": \"models/B/latest.json\",\n  \"generation\": 1,\n  \"expected_hash\": \"cb182766714027c89ef572c9cf1c437b88b0cea465e51eeeec10a184cf8ae8c2\",\n  \"version_qualified_source\": \"gs://authorized-fixture/models/B/latest.json#1\",\n  \"model_name\": \"B\",\n  \"new_name_model\": \"baseline\",\n  \"local_path\": \"downloads/B.json\"\n}\n```\nclient is MlflowClient(); bucket is the authorized artifact bucket. Each item judges its stated stage.\nClassify every excerpt as meeting or violating the named check. A fragment need not demonstrate unrelated stages. Assume only the supplied inputs and explicitly stated checks; do not infer missing verification.",
+  "buckets": [
+    {
+      "bucket_id": "meets",
+      "label": "Meets the named check"
+    },
+    {
+      "bucket_id": "violates",
+      "label": "Violates the named check"
+    }
+  ],
+  "items": [
+    {
+      "item_id": "i1",
+      "text": "Pre-registration identity: ```\n# record is the supplied artifact dictionary already resolved from the originating tracked run.\nbucket.blob(record[\"key\"], generation=record[\"generation\"]).download_to_filename(path)\nwith open(path, \"rb\") as handle:\n    observed_hash = hashlib.sha256(handle.read()).hexdigest()\nif observed_hash != record[\"expected_hash\"]:\n    raise ValueError(\"Artifact mismatch\")\n# only after this branch may create_model_version be called\n```"
+    },
+    {
+      "item_id": "i2",
+      "text": "Version creation and metadata: ```\n# require registered model name to exist; create_registered_model for a supplied new name\nversion = client.create_model_version(name=record[\"model_name\"], source=record[\"version_qualified_source\"], run_id=record[\"run_id\"])\nclient.set_model_version_tag(record[\"model_name\"], version.version, \"generation\", str(record[\"generation\"]))\nclient.set_model_version_tag(record[\"model_name\"], version.version, \"sha256\", observed_hash)\n```"
+    },
+    {
+      "item_id": "i3",
+      "text": "Registry retrieval: ```\nsaved = client.get_model_version(record[\"model_name\"], version.version)\norigin = client.get_run(saved.run_id)\n# verify saved source, generation/hash tags, and originating run identities against record\n```"
+    },
+    {
+      "item_id": "i4",
+      "text": "Overwrite stability: ```\n# overwrite latest only in the authorized test bucket\n# resolve saved source and generation, not latest\nbucket.blob(record[\"key\"], generation=record[\"generation\"]).download_to_filename(path)\nwith open(path, \"rb\") as handle:\n    after_hash = hashlib.sha256(handle.read()).hexdigest()\nreturn {\"registration_verified\": after_hash == saved.tags[\"sha256\"]}\n```"
+    },
+    {
+      "item_id": "i5",
+      "text": "Mismatch handling: ```\nversion = client.create_model_version(name=name, source=source, run_id=run_id)\nif observed_hash != expected_hash:\n    raise ValueError(\"Artifact mismatch\")\n```"
+    }
+  ]
+}
+KEY {
+  "assignments": {
+    "i1": "meets",
+    "i2": "meets",
+    "i3": "meets",
+    "i4": "meets",
+    "i5": "violates"
+  },
+  "item_feedback": {
+    "i1": {
+      "message": "The run artifact is resolved and its actual bytes verified before any version creation."
+    },
+    "i2": {
+      "message": "The version uses the qualified source, linked run, returned numeric version and exact generation/hash tags."
+    },
+    "i3": {
+      "message": "Retrieving both saved version and linked run permits verification of the originating identities."
+    },
+    "i4": {
+      "message": "The keyed verdict checks original content after overwrite without approving the overwritten latest."
+    },
+    "i5": {
+      "message": "The mismatch is detected too late: the required rejection must precede all registry-version creation."
+    }
+  }
+}
+FEEDBACK {"correct": {"message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."}, "incorrect": {"message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."}, "hints": ["Follow the order of verification and version creation, then the identity used after overwrite."], "remediation_step_id": "mle.tile.056_057.r02"}
+
+mle.tile.056_057.s05 explainer Carry fitted state together
+Package the fitted model with its fitted preprocessor. Loading only weights or refitting preprocessing can run successfully while changing the intended prediction representation.
+{"type": "side_by_side", "left": {"type": "code_walkthrough", "language": "python", "code": "import pickle\n# Supplied fitted objects; package_path is the recorded version-tied path.\nwith open(package_path, 'wb') as handle:\n    pickle.dump({'model': model, 'preprocessor': preprocessor},\n                handle, protocol=5)\n# Only load a trusted, verified artifact in the compatible pinned environment.\nwith open(package_path, 'rb') as handle:\n    reloaded = pickle.load(handle)\npredictions = reloaded['model'].predict(\n    reloaded['preprocessor'].transform(fixed_inputs))\n# Compare with pre-save predictions under declared tolerances.\n# Separately check preserved fitted preprocessing parameters.", "reveal": "all", "lineage": {"concept_ids": ["mle.model_preprocessing_package"], "teaching_block_ids": ["mle.model_preprocessing_package#tb1"], "fact_ids": [], "anchors": ["mle.model_preprocessing_package#visual"]}}, "right": {"type": "code_walkthrough", "language": "bash", "code": "cat > Dockerfile <<'DOCKERFILE'\nFROM python:3.12-slim\nWORKDIR /app\nCOPY requirements.txt ./\nRUN pip install --no-cache-dir -r requirements.txt\nCOPY package/ ./package/\nCOPY serve_fixture.py ./\nCOPY fixture_workflow.py package_contract.json ./\nCMD [\"python\", \"serve_fixture.py\"]\nDOCKERFILE\ndocker build -t order-fixture:version-1 .\ndocker run -d --name order-fixture -p 8080:8080 --env FIXTURE_MODE=fixed-orders order-fixture:version-1\ndocker container inspect order-fixture\ndocker container logs order-fixture", "reveal": "all", "lineage": {"concept_ids": ["mle.model_preprocessing_package"], "teaching_block_ids": ["mle.model_preprocessing_package#tb1"], "fact_ids": [], "anchors": ["mle.model_preprocessing_package#visual"]}}, "left_label": "Trusted fitted pair", "right_label": "Declared serving image", "takeaway": "Preserve fitted state; verify the reloaded image.", "lineage": {"concept_ids": ["mle.model_preprocessing_package"], "teaching_block_ids": ["mle.model_preprocessing_package#tb1"], "fact_ids": [], "anchors": ["mle.model_preprocessing_package#visual"]}}
+
+mle.tile.056_057.s06 explainer Persist trusted fitted state and build inputs
+Import pickle. In the recorded version-tied path, use a binary "wb" handle and pickle.dump({"model": model, "preprocessor": preprocessor}, handle, protocol=5). Reload only trusted, verified artifacts in the compatible pinned environment: use "rb", pickle.load(handle) and the corresponding dictionary keys. Untrusted pickle loading can execute arbitrary code.
+Use Dockerfile FROM for the compatible Python image, WORKDIR /app, COPY requirements.txt ./ and RUN pip install --no-cache-dir -r requirements.txt. COPY the declared package and serving source from the build context to their /app paths. Set CMD to the supplied serving command and argument as a JSON array; replace placeholders with the declared package, dependencies and entry point.
+
+mle.tile.056_057.s07 explainer Build the intended context and run the image
+Build with docker build -t IMAGE:TAG CONTEXT. Include the Dockerfile (or select it with -f) and every COPY source; check .dockerignore exclusions. Retain immutable image identity as well as its tag. Predictions must apply fitted training preprocessing before the model, without refitting. Start with docker run --name NAME -p HOST_PORT:CONTAINER_PORT --env KEY=VALUE IMAGE using declared ports and nonsecret settings.
+Use docker container inspect NAME to check image identity and State. Inspect captured output and errors with docker container logs NAME for initialization or execution failures. Never put secrets in Dockerfile ARG or ENV: they persist in the image or metadata.
+
+mle.tile.056_057.s08 explainer Dependencies are files; secrets are runtime inputs
+Supply sensitive values through the runtime secret mechanism, not literal Compose values. Save/reload model and preprocessor through binary handles, and write/read the pinned dependency manifest through text handles. Record inference pins in the package requirements manifest and install it in the serving image.
+Assert pre-save and container-reloaded predictions agree on the same fixed inputs under declared tolerances. Separately verify fitted preprocessing parameters. Write assert predicates for declared valid, boundary and failure cases; a false predicate raises AssertionError in ordinary non-optimized execution.
+
+mle.tile.056_057.s09 explainer Trace the package through the container
+Save the fitted pair in the trusted version-tied package using binary handles; retain inference pins in the text manifest. Build the context with package, requirements and serving source, and record immutable image identity. Start the declared image with its port and nonsecret settings; inspect identity, state and logs. Compare pre-save and container-reloaded predictions on fixed orders under declared tolerances, and check preprocessing parameters separately. Reject untrusted pickle despite familiar filenames. Keep credentials in the runtime mechanism, outside Dockerfile and Compose literals.
+Do not refit preprocessing or embed credentials. A matching tag alone does not verify image identity. Pickle packages need trusted, verified provenance and a compatible pinned environment.
+
+mle.tile.056_057.s10 check Check: trusted fitted-state packaging
+{
+  "prompt": "Which configuration obeys the taught secret boundary for the serving package?",
+  "selection": "single",
+  "shuffle": true,
+  "options": [
+    {
+      "option_id": "o1",
+      "text": "Use the authorized runtime secret mechanism, with no literal credential in Dockerfile ARG/ENV or Compose."
+    },
+    {
+      "option_id": "o2",
+      "text": "Put the credential in Dockerfile ARG because ARG is not ENV."
+    },
+    {
+      "option_id": "o3",
+      "text": "Put the literal credential in Compose instead of the Dockerfile."
+    }
+  ]
+}
+KEY {
+  "correct_option_ids": [
+    "o1"
+  ],
+  "option_feedback": {
+    "o1": {
+      "message": "Sensitive values belong in the runtime secret mechanism, not persistent image or configuration literals."
+    },
+    "o2": {
+      "message": "Both ARG and ENV can persist secret values in the final image or its metadata."
+    },
+    "o3": {
+      "message": "Moving a literal secret to Compose does not satisfy the required runtime-secret boundary."
+    }
+  }
+}
+FEEDBACK {"correct": {"message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."}, "incorrect": {"message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."}, "hints": ["Trace where a literal value persists, not just its instruction name."], "remediation_step_id": "mle.tile.056_057.r03"}
+
+mle.tile.056_057.s11 hands_on Practice: trusted fitted-state packaging
+{
+  "prompt": "Review independent packaging excerpts for the supplied fitted B model. Contract:\n```\n{\"model_identity\": \"B\", \"registry_version\": 1, \"package_path\": \"package/B/version_1.pkl\", \"manifest_path\": \"requirements.txt\", \"serving_source\": \"serve_fixture.py\", \"serving_command\": [\"python\", \"serve_fixture.py\"], \"compatible_python_image\": \"python:3.12-slim\", \"image_tag\": \"order-fixture:version-1\", \"container_name\": \"order-fixture\", \"host_port\": 8080, \"container_port\": 8080, \"nonsecret_settings\": {\"FIXTURE_MODE\": \"fixed-orders\"}, \"secret_policy\": \"Use authorized runtime secret mounts only; no literal credentials in Dockerfile or Compose.\", \"fixed_inputs\": [[5.0], [40.0], [80.0]], \"pre_save_predictions\": [0, 1, 1], \"expected_preprocessor_mean\": 42.5, \"rtol\": 1e-07, \"atol\": 1e-09, \"failure_cases\": [\"changed preprocessing mean\", \"flipped prediction\", \"untrusted artifact: reject before pickle.load\", \"deliberately false predicate raises AssertionError without -O\"]}\n```\nThese are authored inspect-and-judge examples, not claims of an actual Docker build. Judge the check named in each item; pinned_versions_text is independently collected from the compatible environment.\nClassify every excerpt as meeting or violating the named check. A fragment need not demonstrate unrelated stages. Assume only the supplied inputs and explicitly stated checks; do not infer missing verification.",
+  "buckets": [
+    {
+      "bucket_id": "meets",
+      "label": "Meets the named check"
+    },
+    {
+      "bucket_id": "violates",
+      "label": "Violates the named check"
+    }
+  ],
+  "items": [
+    {
+      "item_id": "i1",
+      "text": "Trusted binary package and text manifest: ```\nwith open(package_path, \"wb\") as handle:\n    pickle.dump({\"model\": model, \"preprocessor\": preprocessor}, handle, protocol=5)\n# verify trust and package identity before loading\nwith open(package_path, \"rb\") as handle:\n    reloaded = pickle.load(handle)\nwith open(manifest_path, \"w\", encoding=\"utf-8\") as handle:\n    handle.write(pinned_versions_text)\nwith open(manifest_path, \"r\", encoding=\"utf-8\") as handle:\n    restored_pins = handle.read()\nassert restored_pins == pinned_versions_text\n```"
+    },
+    {
+      "item_id": "i2",
+      "text": "Image dependencies and default entry point: ```\nFROM python:3.12-slim\nWORKDIR /app\nCOPY requirements.txt ./\nRUN pip install --no-cache-dir -r requirements.txt\nCOPY package/B/version_1.pkl /app/package/B/version_1.pkl\nCOPY serve_fixture.py /app/serve_fixture.py\nCOPY fixture_workflow.py package_contract.json /app/\nCMD [\"python\", \"serve_fixture.py\"]\n```\nBuild context contains all COPY sources and excludes none via .dockerignore."
+    },
+    {
+      "item_id": "i3",
+      "text": "Image execution and evidence inspection: ```\ndocker build -t order-fixture:version-1 .\n# retain the resulting immutable image identity as well as the tag\ndocker run --name order-fixture -p 8080:8080 --env FIXTURE_MODE=fixed-orders order-fixture:version-1\ndocker container inspect order-fixture\n# compare Image to retained identity and inspect expected State fields\ndocker container logs order-fixture\n# inspect captured output and errors for initialization/execution failures\n```"
+    },
+    {
+      "item_id": "i4",
+      "text": "Serving fitted state: ```\ntransformed = reloaded[\"preprocessor\"].transform(fixed_inputs)\npredictions = reloaded[\"model\"].predict(transformed)\nassert np.allclose(pre_save_predictions, predictions, rtol=rtol, atol=atol)\nassert np.allclose(reloaded[\"preprocessor\"].mean_, original_mean, rtol=rtol, atol=atol)\n```"
+    },
+    {
+      "item_id": "i5",
+      "text": "Assertion and final verdict: ```\n# ordinary non-optimized execution; valid and boundary predicates are checked\ntry:\n    assert deliberately_false_predicate\nexcept AssertionError:\n    failure_case_rejected = True\n# all_passed requires every declared package, manifest, image, state, logs, prediction and failure-case check\nreturn {\"reproducible\": all_passed}\n```"
+    },
+    {
+      "item_id": "i6",
+      "text": "Serving fitted state: ```\nreloaded[\"preprocessor\"].fit(incoming_requests)\npredictions = reloaded[\"model\"].predict(reloaded[\"preprocessor\"].transform(incoming_requests))\n```"
+    },
+    {
+      "item_id": "i7",
+      "text": "Artifact trust: ```\n# artifact provenance is unknown\nwith open(package_path, \"rb\") as handle:\n    reloaded = pickle.load(handle)\n```"
+    }
+  ]
+}
+KEY {
+  "assignments": {
+    "i1": "meets",
+    "i2": "meets",
+    "i3": "meets",
+    "i4": "meets",
+    "i5": "meets",
+    "i6": "violates",
+    "i7": "violates"
+  },
+  "item_feedback": {
+    "i1": {
+      "message": "The fitted pair uses explicit binary handles; the pinned manifest round-trips through text handles, and loading is restricted to the trusted verified package."
+    },
+    "i2": {
+      "message": "The compatible image installs the pinned manifest and supplies the declared package and default serving entry point."
+    },
+    "i3": {
+      "message": "The referenced image is built and run; inspection verifies immutable identity and State, and logs are checked rather than assuming successful startup."
+    },
+    "i4": {
+      "message": "The reloaded fitted preprocessing precedes prediction; fixed-input predictions and fitted parameters receive separate tolerance checks."
+    },
+    "i5": {
+      "message": "False predicates must raise in ordinary execution; one verdict covers all declared checks rather than only prediction agreement."
+    },
+    "i6": {
+      "message": "Refitting at inference replaces the fitted training preprocessing and violates preserved state."
+    },
+    "i7": {
+      "message": "An untrusted pickle must not be loaded; loading can execute arbitrary code."
+    }
+  }
+}
+FEEDBACK {"correct": {"message": "You distinguished the required verification from the tempting shortcut. Inspect the per-item explanation for the evidence."}, "incorrect": {"message": "Recheck which identity or behavior the excerpt actually verifies. A label or successful intermediate step cannot replace the named check."}, "hints": ["Keep artifact trust, fitted-state preservation and container evidence as separate checks."], "remediation_step_id": "mle.tile.056_057.r04"}
+
+mle.tile.056_057.s12 recap Keep the identities and boundaries clear
+Verify exact run artifact generation and hash before creating a linked numeric registry version. Retrieve the version and run to check identities; mutable overwrite is not approval. Package trusted fitted model and preprocessing together with pinned dependencies. Verify immutable image identity, state, logs, fixed-input predictions and preserved preprocessing. Keep secrets in the runtime mechanism.
+{"type": "up_next", "title": "Up next", "text": "Next: freeze candidate, fitted preprocessing and threshold before protected testing."}

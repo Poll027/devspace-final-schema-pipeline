@@ -1,0 +1,25 @@
+import csv, json, datetime
+import numpy as np
+SCHEMAS = {'lifecycle': {'INSTANCE': 'string', 'ZONE': 'string', 'workload': 'string', 'reporting_window': 'string', 'start': 'datetime', 'stop': 'datetime', 'before_state': 'string', 'after_state': 'string', 'completed_work': 'integer'}, 'billing_export': {'charge_id': 'string', 'reporting_window': 'string', 'resource_id': 'string', 'charge_category': 'string', 'amount': 'number'}}
+def load(name):
+    with open(name+'.csv') as f:
+        data=list(csv.DictReader(f))
+    for r in data:
+        for k,t in SCHEMAS[name].items():
+            v=r[k]
+            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)
+    return data
+def column(data,key):
+    return np.asarray([r[key] for r in data])
+def emit(value):
+    return value
+
+def verified_lifecycles(data):
+    records=[]
+    for r in data:
+        if r['before_state']!='TERMINATED' or r['after_state']!='TERMINATED':raise ValueError('lifecycle not stopped')
+        records.append({'identity':r['INSTANCE'],'ZONE':r['ZONE'],'window':r['reporting_window'],'start':r['start'],'stop':r['stop'],'work':r['completed_work'],'trace':['describe before','start and wait running','ssh and bounded workload','stop and wait stopped','describe after']})
+    return records
+
+
+policy = {'authorized_identity': 'lab.operator', 'resource_mapping': {'training-lab': 'training', 'inference-lab': 'inference', 'training-disk': 'training'}, 'shared_rule': {'training': 0.5, 'inference': 0.5}, 'unmatched_rule': 'explicitly unallocated', 'unusual_rule': 'per-workload per-window allocation >10', 'unit': 'fictional credits', 'reporting_windows': {'w1': ['2026-01-02T00:00:00Z', '2026-01-03T00:00:00Z'], 'w2': ['2026-01-03T00:00:00Z', '2026-01-04T00:00:00Z']}, 'direct_interval_rule': 'direct_compute rows correspond to the named resource lifecycle/work interval; persistent_disk spans reporting window even after stop', 'numeric_values': 'Select per-window attributed costs for each workload; do not mix workload series', 'ddof': 0}

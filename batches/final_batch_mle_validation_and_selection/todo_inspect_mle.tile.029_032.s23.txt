@@ -1,0 +1,77 @@
+Configure the supplied evaluation scaffold by replacing None in the final interface assignments (trial_interface, cost_rule) with the appropriate operations. Assign callable objects, not call results. Read how each interface is used in the scaffold to choose its operation. Keep loading, evaluation logic and returned field names unchanged; the tests evaluate those returned records on the supplied validation inputs. The scaffold supplies the logic for budget resolution, permitted-prefix trial execution and minimum-cost eligible selection. Preserve the supplied trial helper, loading, record fields, default budget and explicit keyword override. Use only the first resolved-budget configurations, the fixed bound and operating requirement, and validation evidence; leave no-selection results unchanged.
+# Supplied input loading and dependencies.
+import pandas as pd
+
+contract = pd.read_csv('acceptance_contract.csv').iloc[0]
+
+p_negative = contract['deployment_negative_probability']
+
+p_positive = contract['deployment_positive_probability']
+
+cost_FP = contract['cost_FP']
+
+cost_FN = contract['cost_FN']
+
+bound = contract['expected_cost_bound']
+
+import json
+
+trials = pd.read_csv('search_trials.csv').to_dict('records')
+
+configurations = [json.loads(row['configuration_json']) for row in trials]
+
+CALLS = []
+
+# Supplied evaluation scaffolding. Configure its interfaces below; keep this block unchanged.
+if __name__:
+    def run_trial(configuration):
+        for row in trials:
+            if json.loads(row['configuration_json']) == configuration:
+                CALLS.append(configuration.copy())
+                return row
+        raise ValueError('configuration outside declared search space')
+
+    def deployment_weighted_cost(p_negative, FPR, cost_FP, p_positive, FNR, cost_FN):
+        return p_negative * FPR * cost_FP + p_positive * FNR * cost_FN
+
+    def search(configurations, p_negative, p_positive, cost_FP, cost_FN, bound, budget=3):
+        if budget < 0:
+            budget = 0
+        if budget > len(configurations):
+            budget = len(configurations)
+        records = []
+        selected = None
+        best_cost = None
+        for configuration in configurations[:budget]:
+            trial = trial_interface(configuration)
+            FP = trial['FP']
+            TN = trial['TN']
+            FN = trial['FN']
+            TP = trial['TP']
+            FPR = None
+            FNR = None
+            expected_cost = None
+            if FP + TN > 0:
+                FPR = FP / (FP + TN)
+            if FN + TP > 0:
+                FNR = FN / (FN + TP)
+            if FP + TN > 0:
+                if FN + TP > 0:
+                    expected_cost = cost_rule(p_negative, FPR, cost_FP, p_positive, FNR, cost_FN)
+            eligible = False
+            if expected_cost is not None:
+                if expected_cost <= bound:
+                    if trial['operating_requirements_met']:
+                        eligible = True
+                        if best_cost is None:
+                            best_cost = expected_cost
+                            selected = configuration
+                        elif expected_cost < best_cost:
+                            best_cost = expected_cost
+                            selected = configuration
+            records.append({'configuration': configuration, 'cohort_id': trial['cohort_id'], 'FP': FP, 'TN': TN, 'FN': FN, 'TP': TP, 'actual_negative_count': FP + TN, 'actual_positive_count': FN + TP, 'FPR': FPR, 'FNR': FNR, 'expected_cost': expected_cost, 'eligible': eligible})
+        return {'resolved_budget': budget, 'completed_trials': len(records), 'records': records, 'selected_configuration': selected}
+
+# TODO: replace None with the appropriate operation; assign it without calling it.
+trial_interface = None
+cost_rule = None

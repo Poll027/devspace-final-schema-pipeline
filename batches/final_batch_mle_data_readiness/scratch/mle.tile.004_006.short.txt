@@ -1,0 +1,132 @@
+
+mle.tile.004_006.s01 explainer
+Before accepting a delivery-fixture result, state the contract and the checks this rule requires.
+An authorized Google Cloud Storage client lists existing prefix-matching objects with client.list_blobs(bucket_name, prefix=prefix). Select the intended name, then download with bucket.blob(object_name).download_to_filename(local_path). Read CSV with pd.read_csv(local_path, dtype=declared_types). Verify columns, row count and value representations against the expected dataset.
+CSV is delimited text. Parquet is columnar and its reader can select columns; use the supplied format that fits the required access pattern. For a local text identity record, use with open(path, mode, encoding="utf-8") as f and read or write inside that block. Import from google.cloud import storage and construct storage.Client() with the existing authorized runtime identity.
+{"type": "data_table", "asset_ref": {"asset_id": "ds.orders"}, "caption": "orders-b.csv"}
+from google.cloud import storage
+import pandas as pd
+
+def ingest(contract):
+    client = storage.Client()  # existing authorized runtime identity
+    names = [blob.name for blob in client.list_blobs(contract["bucket"], prefix=contract["prefix"])]
+    print("listed:", names)
+    name = contract["intended_object"]
+    if name not in names:
+        raise ValueError("intended object absent")
+    bucket = client.bucket(contract["bucket"])
+    bucket.blob(name).download_to_filename(contract["local_path"])
+    table = pd.read_csv(contract["local_path"], dtype=contract["declared_types"])
+    for column, dtype in contract["declared_types"].items():
+        table[column] = table[column].astype(dtype)
+    assert list(table.columns) == contract["expected_columns"]
+    assert len(table) == contract["expected_row_count"]
+    assert table["order_key"].iloc[0] == contract["expected_order_key"]
+    identity = f"{name} -> {contract['local_path']}; rows={len(table)}"
+    with open(contract["identity_record_path"], "w", encoding="utf-8") as f:
+        f.write(identity)
+    print(table.dtypes, table["order_key"].tolist(), identity)
+    return table
+
+# Review this authorized-runtime ingestion path; no access grant is created here.
+# ingest(fixture)
+
+mle.tile.004_006.s02 explainer
+Import pandas as pd. Apply explicit per-column conversions for declared types and inspect converted values; inference is not a type guarantee.
+
+mle.tile.004_006.s03 explainer
+The approved object listing contains alternatives, but the task names one object. Select that name, download to the declared local path, load with declared types and verify identity, columns and row count. Inspect the converted order key rather than relying on inference. Keep the identity-record write inside its file context. For a separately specified selected-column task, relate Parquet to that access pattern; do not change formats arbitrarily.
+
+mle.tile.004_006.s04 explainer
+A downloaded file can still be the wrong named object or have the wrong converted key representation.
+
+mle.tile.004_006.s05 check
+{"prompt": "Which snippet correctly writes a local text identity record with an explicit UTF-8 handle?", "selection": "single", "shuffle": true, "options": [{"option_id": "0", "text": "with open(path, \"w\", encoding=\"utf-8\") as f: f.write(text)"}, {"option_id": "1", "text": "with open(path, \"r\", encoding=\"utf-8\") as f: f.write(text)"}, {"option_id": "2", "text": "with open(path, \"w\", encoding=\"utf-8\") as f: text = f.read()"}]}
+FEEDBACK {"correct": {"message": "You applied the declared boundary and its required checks."}, "incorrect": {"message": "Recheck the declared contract and the evidence for each decision."}, "hints": ["Check the handle mode and explicit text encoding in each snippet."], "remediation_step_id": "mle.tile.004_006.r01"}
+KEY {"correct_option_ids": ["0"], "option_feedback": {"0": {"message": "Correct. Reading mode is not the declared writing operation; reading from a write-only handle does not write the record."}, "1": {"message": "Reading mode is not the declared writing operation; reading from a write-only handle does not write the record."}, "2": {"message": "Reading mode is not the declared writing operation; reading from a write-only handle does not write the record."}}}
+
+mle.tile.004_006.s06 hands_on
+{"prompt": "Read each supplied ingestion excerpt and decide whether it meets the named retrieval, loaded-observation, identity-record or format criterion. The runtime identity is already authorized; judge the excerpt, do not run or write ingestion code.", "buckets": [{"bucket_id": "meets", "label": "Meets declared criterion"}, {"bucket_id": "violates", "label": "Violates declared criterion"}], "items": [{"item_id": "j0", "text": "from google.cloud import storage\nimport pandas as pd\ndef ingest(bucket_name, prefix, object_name, local_path, identity_path, declared_types):\n    client = storage.Client()  # supplied authorized runtime identity\n    names = [blob.name for blob in client.list_blobs(bucket_name, prefix=prefix)]\n    bucket = client.bucket(bucket_name)\n    bucket.blob(object_name).download_to_filename(local_path)\n    table = pd.read_csv(local_path, dtype=declared_types)\n    columns_ok = list(table.columns) == ['order_key', 'distance', 'zone', 'eventual_arrival']\n    rows_ok = len(table) == 6\n    key_ok = table['order_key'].iloc[0] == '0012'\n    inspected = table.dtypes\n    with open(identity_path, 'w', encoding='utf-8') as f:\n        f.write(object_name + '\\n' + local_path)\n    return local_path, table, columns_ok, rows_ok, key_ok, inspected\n# Supplied call selects 'approved/orders-b.csv', path 'orders-b.csv', declared_types={'order_key': 'string', 'distance': 'float64', 'zone': 'string', 'eventual_arrival': 'string'}\n# Format judgement: complete named CSV fits this full-file delimited-text read;\n# a separately declared selected-column task would suit columnar Parquet."}, {"item_id": "j1", "text": "# Intended object: 'approved/orders-b.csv'\nobject_name = 'approved/orders-a.csv'\nbucket.blob(object_name).download_to_filename(local_path)"}, {"item_id": "j2", "text": "table = pd.read_csv(local_path)\n# No dtype or value comparisons: inference is treated as a type guarantee."}, {"item_id": "j3", "text": "with open(identity_path, 'r', encoding='utf-8') as f:\n    f.write(object_name + '\\n' + local_path)"}, {"item_id": "j4", "text": "# Full named CSV is the supplied format and access pattern.\n# Change its suffix to .parquet without converting or changing the supplied format."}]}
+FEEDBACK {"correct": {"message": "You judged each supplied implementation against its named criterion."}, "incorrect": {"message": "Find the exact operation or field that meets or violates the declared criterion."}, "hints": ["Distinguish retrieving bytes, loading observations and recording file identity."], "remediation_step_id": "mle.tile.004_006.r02"}
+KEY {"assignments": {"j0": "meets", "j1": "violates", "j2": "violates", "j3": "violates", "j4": "violates"}, "item_feedback": {"j0": {"message": "The exact supplied object is selected, explicit types and loaded comparisons are checked, and the identity record is written inside UTF-8 context. The format statement distinguishes complete CSV access from selected-column Parquet."}, "j1": {"message": "Selecting the other prefix object does not retrieve the named dataset."}, "j2": {"message": "Explicit declared types and inspection of loaded representations are required; inference is not a guarantee."}, "j3": {"message": "The text record must be written through a writing-mode handle inside the UTF-8 block."}, "j4": {"message": "The format must match the supplied file and access pattern; changing a suffix is not selected-column Parquet access."}}}
+
+mle.tile.004_006.s07 explainer
+Before accepting a delivery-fixture result, state the contract and the checks this rule requires.
+Iterate pd.read_csv(file_handle, chunksize=row_limit, dtype=declared_types) with a for loop, processing bounded chunks instead of retaining the whole dataset. A homogeneous fixed-width matrix with R rows, F columns and W bytes per element needs R * F * W element bytes. Choose chunksize within the stated array budget and verify every materialized matrix. This estimate does not bound total reader or process memory.
+Keep the dataset stream open with with open(...) throughout chunk iteration.
+{"type": "data_table", "asset_ref": {"asset_id": "ds.chunked_orders"}, "caption": "Twenty eight-byte feature columns"}
+import pandas as pd
+row_limit = fixture["array_budget"] // (fixture["feature_count"] * fixture["element_width"])
+maximum = 0
+with open(fixture["path"], "r", encoding="utf-8") as stream:
+    for chunk in pd.read_csv(stream, chunksize=row_limit, dtype=fixture["declared_types"]):
+        matrix = chunk.to_numpy()
+        calculated = matrix.shape[0] * matrix.shape[1] * matrix.itemsize
+        assert calculated == matrix.nbytes
+        assert matrix.nbytes <= fixture["array_budget"]
+        maximum = max(maximum, matrix.nbytes)
+        print("rows, features, element width, calculated, observed:", *matrix.shape,
+              matrix.itemsize, calculated, matrix.nbytes)
+        # Process this chunk here; do not append it to a retained collection.
+print("maximum working-matrix bytes:", maximum)
+
+mle.tile.004_006.s08 explainer
+Choose a row limit from the supplied feature count, element width and array budget. Keep the file context around the loop and verify each materialized matrix, including the smaller final chunk. Process rather than collect the chunks. The element-byte calculation concerns this homogeneous matrix, not parsing buffers or total process memory.
+
+mle.tile.004_006.s09 explainer
+One bounded working matrix is not the whole process; collecting every chunk defeats the working-chunk approach.
+
+mle.tile.004_006.s10 check
+{"prompt": "Which approach supports the declared single-chunk numerical-array budget?", "selection": "single", "shuffle": true, "options": [{"option_id": "0", "text": "Iterate chunks while the file is open, check each matrix and release prior matrices"}, {"option_id": "1", "text": "Read once, then retain every materialized chunk in a list"}, {"option_id": "2", "text": "Use a row-limit estimate and skip all actual nbytes checks"}]}
+FEEDBACK {"correct": {"message": "You applied the declared boundary and its required checks."}, "incorrect": {"message": "Recheck the declared contract and the evidence for each decision."}, "hints": ["Relate the chunk row limit to feature count, element width and the array budget."], "remediation_step_id": "mle.tile.004_006.r03"}
+KEY {"correct_option_ids": ["0"], "option_feedback": {"0": {"message": "Correct. Retaining chunks defeats bounded working matrices, and an estimate does not replace checking each allocation."}, "1": {"message": "Retaining chunks defeats bounded working matrices, and an estimate does not replace checking each allocation."}, "2": {"message": "Retaining chunks defeats bounded working matrices, and an estimate does not replace checking each allocation."}}}
+
+mle.tile.004_006.s11 hands_on
+{"prompt": "Write the pandas import and inspect_chunks(path, declared_types, array_budget, feature_count, element_width). Calculate row_limit by floor division. Keep the file open while iterating read_csv chunks. For each matrix, including the final short chunk, verify shape-derived element bytes equal nbytes and fit the budget, release it, and retain only the maximum. Assign result to that maximum, not total reader or process memory."}
+FEEDBACK {"correct": {"message": "You applied the declared boundary and its required checks."}, "incorrect": {"message": "Recheck the declared contract and the evidence for each decision."}, "hints": ["Check each chunk, including the final short one, before retaining the maximum byte count."], "remediation_step_id": "mle.tile.004_006.r04"}
+KEY {}
+
+mle.tile.004_006.s12 explainer
+Before accepting a delivery-fixture result, state the contract and the checks this rule requires.
+Inspect loaded columns, dtypes and descriptive summaries before declaring model-input readiness. Report matrix shape and dtype with each axis meaning, not just total element count. Use array.nbytes for matrix element memory, distinguishing it from total process memory.
+Return named readiness fields in a dictionary from a parameterized inspection function so callers can check consistent fields. Use np.mean(numeric_values, axis=0) to average each selected numeric feature over rows. Use np.std(numeric_values, axis=0, ddof=0) to divide squared deviations by N before taking the square root. Use ddof=1 only when the stated calculation requires N-1.
+{"type": "data_table", "asset_ref": {"asset_id": "ds.order_features"}, "caption": "Three observations with two numerical features"}
+import numpy as np
+import pandas as pd
+
+def inspect(table, feature_columns, ddof):
+    matrix = table[feature_columns].to_numpy()
+    return {"columns": list(table.columns), "dtypes": table.dtypes.astype(str).to_dict(),
+            "descriptive": table.describe().to_dict(), "observation_count": matrix.shape[0],
+            "feature_count": matrix.shape[1], "shape": matrix.shape, "dtype": str(matrix.dtype),
+            "element_bytes": matrix.nbytes, "mean": np.mean(matrix, axis=0),
+            "std": np.std(matrix, axis=0, ddof=ddof), "ddof": ddof}
+
+for name in ("fixture", "boundary"):
+    spec = fixture[name]
+    table = pd.DataFrame(spec["rows"], columns=spec["columns"])
+    readiness = inspect(table, fixture["feature_columns"], fixture["ddof"])
+    assert readiness["feature_count"] == len(fixture["feature_columns"])
+    print(name, readiness)
+
+mle.tile.004_006.s13 explainer
+Inspect the supplied order-feature table and return a named dictionary. Keep observation and feature axis meanings beside shape and dtype. Compute feature-wise mean and population standard deviation over rows, retaining the specified divisor. Report observed nbytes as element storage, not total process memory. A parameterized function lets another caller inspect the same named fields for a different fixture.
+
+mle.tile.004_006.s14 explainer
+Total element count omits axis meanings; nbytes omits other process memory.
+
+mle.tile.004_006.s15 check
+{"prompt": "Which readiness evidence retains the structure needed to interpret model input?", "selection": "single", "shuffle": true, "options": [{"option_id": "0", "text": "Column names and dtypes plus shape with observation/feature axis meanings"}, {"option_id": "1", "text": "Only the total element count"}, {"option_id": "2", "text": "Only the matrix nbytes"}]}
+FEEDBACK {"correct": {"message": "You applied the declared boundary and its required checks."}, "incorrect": {"message": "Recheck the declared contract and the evidence for each decision."}, "hints": ["Separate input structure and category roles from numerical summaries."], "remediation_step_id": "mle.tile.004_006.r05"}
+KEY {"correct_option_ids": ["0"], "option_feedback": {"0": {"message": "Correct. Neither element count nor element bytes identifies columns and axis meanings."}, "1": {"message": "Neither element count nor element bytes identifies columns and axis meanings."}, "2": {"message": "Neither element count nor element bytes identifies columns and axis meanings."}}}
+
+mle.tile.004_006.s16 hands_on
+{"prompt": "Implement inspect(columns, rows, ddof=0) with a NumPy import. Return these named readiness fields: columns, column_dtypes (both selected numerical columns), means, stds (columnwise), shape, axes [observations, features], dtype, element_bytes and memory_scope. Assign result for the supplied inputs. Describe memory_scope as array elements only, not total process memory. Accept the same columns with a one-row fixture too. Construct the matrix with np.array(rows), without selecting or casting its dtype. Return column_dtypes as a two-item list of NumPy dtype objects and dtype as the matrix’s NumPy dtype object. Use the exact memory_scope string 'array elements only, not total process memory'."}
+FEEDBACK {"correct": {"message": "You applied the declared boundary and its required checks."}, "incorrect": {"message": "Recheck the declared contract and the evidence for each decision."}, "hints": ["Inspect the selected columns before constructing the matrix; compute summaries columnwise."], "remediation_step_id": "mle.tile.004_006.r06"}
+KEY {}
+
+mle.tile.004_006.s17 recap
+A downloaded file can still be the wrong named object or have the wrong converted key representation.
+One bounded working matrix is not the whole process; collecting every chunk defeats the working-chunk approach.
+Total element count omits axis meanings; nbytes omits other process memory.
+{"type": "up_next", "title": "Validate dataset schema constraints before training", "text": "Next: Validate dataset schema constraints before training."}

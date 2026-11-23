@@ -1,0 +1,66 @@
+import csv
+import json
+def supplied_rows(path):
+    with open(path) as f:
+        raw = list(csv.DictReader(f))
+    def convert(v):
+        if v == '': return None
+        if v.lower() == 'true': return True
+        if v.lower() == 'false': return False
+        try: return float(v) if '.' in v or 'e' in v.lower() else int(v)
+        except ValueError: return v
+    return [{k: convert(v) for k,v in r.items()} for r in raw]
+validation_scores = supplied_rows('validation_scores.csv')
+thresholds = supplied_rows('thresholds.csv')
+p0 = 0.8
+p1 = 0.2
+cfp = 1
+cfn = 5
+bound = 0.3
+def supplied_eligible(cost, FPR, FNR):
+    return cost is not None and cost <= bound
+def supplied_retain(threshold, representation, records):
+    return {'threshold': threshold, 'score_representation': representation, 'validation_records': records}
+import numpy as np
+def thresholds_evaluate(scores, y, candidates, p0, p1, cfp, cfn):
+    scores = np.asarray(scores)
+    y = np.asarray(y)
+    records = []
+    selected = None
+    best = None
+    for threshold in candidates:
+        pred = scores >= threshold
+        TP = tally((y == 1) & (pred == 1))
+        FP = tally((y == 0) & (pred == 1))
+        FN = tally((y == 1) & (pred == 0))
+        TN = tally((y == 0) & (pred == 0))
+        if FP + TN == 0:
+            FPR = None
+        else:
+            FPR = FP / (FP + TN)
+        if FN + TP == 0:
+            FNR = None
+        else:
+            FNR = FN / (FN + TP)
+        if FPR == None or FNR == None:
+            cost = None
+        else:
+            cost = p0 * FPR * cfp + p1 * FNR * cfn
+        eligible = supplied_eligible(cost, FPR, FNR)
+        record = {'threshold': threshold, 'TP': TP, 'FP': FP, 'FN': FN, 'TN': TN, 'FPR': FPR, 'FNR': FNR, 'expected_cost': cost, 'eligible': eligible}
+        records = records + [record]
+        if eligible:
+            if best == None or cost < best:
+                best = cost
+                selected = threshold
+    return supplied_retain(selected, 'probability_score; predicted positive when score >= threshold', records)
+
+
+import numpy as np
+tally = np.count_nonzero
+scores = [r['score'] for r in validation_scores]
+y = [r['actual_label'] for r in validation_scores]
+candidates = [r['threshold'] for r in thresholds]
+result = thresholds_evaluate(scores,y,candidates,p0,p1,cfp,cfn)
+empty = thresholds_evaluate(scores[:2],[1,1],candidates,p0,p1,cfp,cfn)
+

@@ -1,0 +1,130 @@
+import csv, json
+
+import numpy as np
+
+policy = json.loads('{"INSTANCE": "serving-lab", "ZONE": "lab-zone-a", "authorized_identity": "lab.operator", "prediction_contract": {"request": {"distance_category": "long_distance", "numeric_values": 5}, "response": {"predicted_class": "late"}}, "credentials": "runtime-injected only"}')
+
+incident_evidence_rows = list(csv.DictReader(open('incident_evidence.csv')))
+
+incident_evidence = {}
+
+incident_evidence['phase'] = np.array([r['phase'] for r in incident_evidence_rows])
+
+incident_evidence['INSTANCE'] = np.array([r['INSTANCE'] for r in incident_evidence_rows])
+
+incident_evidence['ZONE'] = np.array([r['ZONE'] for r in incident_evidence_rows])
+
+incident_evidence['authorized_identity'] = np.array([r['authorized_identity'] for r in incident_evidence_rows])
+
+incident_evidence['instance_state'] = np.array([r['instance_state'] for r in incident_evidence_rows])
+
+incident_evidence['process_state'] = np.array([r['process_state'] for r in incident_evidence_rows])
+
+incident_evidence['readiness'] = np.array([r['readiness'] == 'True' for r in incident_evidence_rows])
+
+incident_evidence['prediction_contract_pass'] = np.array([r['prediction_contract_pass'] == 'True' for r in incident_evidence_rows])
+
+incident_evidence['fault_evidence'] = np.array([r['fault_evidence'] for r in incident_evidence_rows])
+
+incident_evidence['hypothesis_result'] = np.array([r['hypothesis_result'] for r in incident_evidence_rows])
+
+incident_evidence['credential_review_pass'] = np.array([r['credential_review_pass'] == 'True' for r in incident_evidence_rows])
+
+hypothesis_command = 'test_hypothesis'
+
+inspect_command = 'inspect'
+
+prediction_command = 'bounded_prediction'
+
+readiness_command = 'readiness'
+
+reconnect_command = 'reconnect'
+
+reproduce_command = 'reproduce_fault'
+
+start_command = 'start'
+
+stop_command = 'stop'
+
+wait_running_command = 'wait_running'
+
+wait_stopped_command = 'wait_stopped'
+
+SUCCESSFUL_HYPOTHESIS = 'runbook-approved service fault reproduced'
+
+def recover(actions=None, evidence_rows=None, stop_complete=True):
+    expected_sequence = ['inspect', 'reproduce_fault', 'test_hypothesis', 'stop', 'wait_stopped', 'start', 'wait_running', 'reconnect', 'readiness', 'bounded_prediction']
+    if actions is None: actions = expected_sequence
+    rows=incident_evidence_rows if evidence_rows is None else evidence_rows
+    before=rows[0]; after=rows[1]
+    state={'instance_state':before['instance_state'],'process_state':before['process_state']}
+    successful_hypothesis=False; stopped=False; reconnected=False; ready=False; prediction_pass=False
+    def fail(check): return {'status':'failure','failed_check':check,'state':dict(state)}
+    def truth(value): return value is True or value == 'True'
+    for row in [before,after]:
+        if row['INSTANCE']!=policy['INSTANCE'] or row['ZONE']!=policy['ZONE'] or row['authorized_identity']!=policy['authorized_identity']:
+            return fail('authorized_same_target')
+        if not truth(row['credential_review_pass']): return fail('credential_review')
+    if actions != expected_sequence: return {'status':'invalid_sequence','actions':actions}
+    for action in actions:
+        if action=='inspect':
+            if state['instance_state']!='RUNNING': return fail('initial_state')
+        elif action=='reproduce_fault':
+            if not before['fault_evidence'] or state['process_state']!='failed': return fail('fault_reproduction')
+        elif action=='test_hypothesis':
+            successful_hypothesis = before['hypothesis_result'] == SUCCESSFUL_HYPOTHESIS
+            if not successful_hypothesis: return fail('hypothesis')
+        elif action=='stop':
+            if not successful_hypothesis: return fail('hypothesis')
+            state['instance_state']='STOPPING'
+        elif action=='wait_stopped':
+            if not stop_complete: return fail('stop_completion')
+            state['instance_state']='TERMINATED'; stopped=True
+        elif action=='start':
+            if not stopped or state['instance_state']!='TERMINATED': return fail('stop_completion')
+            state['instance_state']='STARTING'
+        elif action=='wait_running':
+            if after['instance_state']!='RUNNING': return fail('running_poststate')
+            state['instance_state']='RUNNING'
+        elif action=='reconnect':
+            if state['instance_state']!='RUNNING' or after['process_state']!='running': return fail('restored_process')
+            state['process_state']=after['process_state']; reconnected=True
+        elif action=='readiness':
+            ready=reconnected and truth(after['readiness'])
+            if not ready: return fail('readiness')
+        elif action=='bounded_prediction':
+            prediction_pass=ready and truth(after['prediction_contract_pass'])
+            if not prediction_pass: return fail('bounded_prediction')
+    if not (stopped and reconnected and ready and prediction_pass): return fail('incomplete_recovery')
+    return {'target':policy['INSTANCE'],'zone':policy['ZONE'],'identity':policy['authorized_identity'],'before':before,'fault_evidence':before['fault_evidence'],'hypothesis_test':before['hypothesis_result'],'actions':actions,'after':after,'contract':policy['prediction_contract'],'credentials':'runtime-injected only; captured evidence reviewed'}
+
+
+action0 = None
+
+action1 = None
+
+action2 = None
+
+action3 = None
+
+action4 = None
+
+action5 = None
+
+action6 = None
+
+action7 = None
+
+action8 = None
+
+action9 = None
+
+result = recover([action0,action1,action2,action3,action4,action5,action6,action7,action8,action9])
+
+failed_hypothesis_rows=[dict(incident_evidence_rows[0],hypothesis_result='failed'),dict(incident_evidence_rows[1])]
+
+failed_service_rows=[dict(incident_evidence_rows[0]),dict(incident_evidence_rows[1],prediction_contract_pass=False)]
+
+failed_readiness_rows=[dict(incident_evidence_rows[0]),dict(incident_evidence_rows[1],readiness=False)]
+
+failure_records=[recover(None,failed_hypothesis_rows),recover(None,stop_complete=False),recover(None,failed_service_rows),recover(None,failed_readiness_rows)]

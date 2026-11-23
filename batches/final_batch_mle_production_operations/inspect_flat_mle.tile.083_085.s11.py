@@ -1,0 +1,59 @@
+import csv, json
+
+import numpy as np
+
+policy = json.loads('{"indicator": "window_mean", "baseline_window": "baseline", "window_rule": "mean(window)>mean(baseline)+4", "ddof": 0, "owner": "order_oncall", "response": "investigate_window", "expected_replays": {"normal": false, "boundary": false, "breached": true}}')
+
+alert_observations_rows = list(csv.DictReader(open('alert_observations.csv')))
+
+alert_observations = {}
+
+alert_observations['window_id'] = np.array([r['window_id'] for r in alert_observations_rows])
+
+alert_observations['numeric_values'] = np.array([float(r['numeric_values'] or 'nan') for r in alert_observations_rows])
+
+import yaml
+
+baseline = alert_observations['numeric_values'][alert_observations['window_id'] == 'baseline']
+
+windows = {w: alert_observations['numeric_values'][alert_observations['window_id'] == w] for w in ['normal', 'boundary', 'breached']}
+
+def replay(config):
+    results = []
+    for w, values in windows.items():
+        crossed = np.mean(values) > config['threshold']
+        results.append({'window': w, 'mean': np.mean(values), 'std': np.std(values, ddof=config['ddof']), 'records': [{'owner': config['owner'], 'action': config['response']}] if crossed else []})
+    return results
+
+def serializable(config):
+    config = dict(config)
+    config['threshold'] = float(config['threshold'])
+    return config
+
+baseline_mean = None
+
+baseline_std = None
+
+config = {'indicator': policy['indicator'], 'baseline_window': policy['baseline_window'], 'threshold': baseline_mean + 4, 'ddof': policy['ddof'], 'owner': policy['owner'], 'response': policy['response']}
+
+serializable_config = serializable(config)
+
+serialized_config = yaml.safe_dump(serializable_config)
+
+with open('alert.yaml', 'w') as h:
+    h.write(serialized_config)
+
+with open('alert.yaml') as h:
+    config_text = h.read()
+
+resolved = yaml.safe_load(config_text)
+
+assert resolved == config
+
+result = replay(resolved)
+
+assert result[0]['records'] == []
+
+assert result[1]['records'] == []
+
+assert result[2]['records'] == [{'owner': resolved['owner'], 'action': resolved['response']}]

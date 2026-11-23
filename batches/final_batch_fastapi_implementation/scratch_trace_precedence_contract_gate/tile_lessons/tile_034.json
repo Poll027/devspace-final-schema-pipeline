@@ -1,0 +1,1778 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "python_fastapi_backend_developer",
+  "tile_id": "tile_034",
+  "toc_location": {
+    "region_id": "region_implementation",
+    "terrain_id": "terrain_dependencies_runtime"
+  },
+  "title": "Separating transport, testable business logic and persistence responsibilities · Bounded in-process background work and nondurable delivery limits · Composing request dependency graphs",
+  "summary": "",
+  "concept_ids": [
+    "design.backend_separation_of_concerns",
+    "fastapi.bounded_background_tasks",
+    "fastapi.dependency_composition"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_python_fastapi_backend_developer",
+    "toc_freeze_hash": "96d245a8da4552263398bda220dd1f88774cc30045abdf029e8d40064881cb7e",
+    "glossary_bundle_hashes": {
+      "design.backend_separation_of_concerns": "e736d0fed8c2edf147654dc68db3c7912f08fd726e8c4d0ba8de36631e3818bc",
+      "fastapi.bounded_background_tasks": "caca350353a85f333b5e8defd657a8340a0115f6fcddc772d41b2d106bfb90e3",
+      "fastapi.dependency_composition": "dfb32dd65aafc7b14f8bf67e95ec9856e24b6eea56f62ada74b8ddefee67a49b"
+    },
+    "scenario_registry_hash": "c048f8767b9a4f4400fec50ac35af6f24f1dc7516758255eb20c51074d3b52f4"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core"
+    ],
+    "block_types": [
+      "diagram",
+      "media_group",
+      "prose",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "code_exercise"
+    ],
+    "runtimes": [
+      "python_asgi"
+    ],
+    "asset_ids": []
+  },
+  "pacing": {
+    "estimated_minutes": 11.4
+  },
+  "steps": [
+    {
+      "step_id": "tile_034.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "design.backend_separation_of_concerns"
+      ],
+      "title": "The rule: Separating transport, testable business logic and persistence responsibilities",
+      "lineage": {
+        "concept_ids": [
+          "design.backend_separation_of_concerns"
+        ],
+        "teaching_block_ids": [
+          "design.backend_separation_of_concerns#tb1",
+          "design.backend_separation_of_concerns#tb2",
+          "design.backend_separation_of_concerns#tb3"
+        ],
+        "fact_ids": [
+          "design.backend_separation_of_concerns#f1",
+          "design.backend_separation_of_concerns#f2",
+          "design.backend_separation_of_concerns#f3"
+        ],
+        "anchors": [
+          "design.backend_separation_of_concerns#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "A dependency can extract reusable input-provision logic from individual operation handlers and expose the supplied value as a declared handler parameter.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "design.backend_separation_of_concerns"
+            ],
+            "teaching_block_ids": [
+              "design.backend_separation_of_concerns#tb2"
+            ],
+            "fact_ids": [
+              "design.backend_separation_of_concerns#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Transport handlers adapt HTTP inputs and outputs, business callables enforce application rules, and persistence adapters access stored state; separate these responsibilities so each can change without embedding the other responsibilities. Move a business decision from a handler into a plain callable with explicit inputs, keep the HTTP adaptation in the handler, and call a separate persistence adapter for stored state rather than treating separate files alone as a responsibility boundary.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "design.backend_separation_of_concerns"
+            ],
+            "teaching_block_ids": [
+              "design.backend_separation_of_concerns#tb3"
+            ],
+            "fact_ids": [
+              "design.backend_separation_of_concerns#f2",
+              "design.backend_separation_of_concerns#f3"
+            ]
+          }
+        },
+        {
+          "type": "diagram",
+          "diagram_kind": "sequence",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "HTTP adaptation: handler"
+            },
+            {
+              "id": "n1",
+              "label": "Business rule: plain callable"
+            },
+            {
+              "id": "n2",
+              "label": "Stored state: persistence adapter"
+            },
+            {
+              "id": "n3",
+              "label": "Reusable input provisioning: dependency"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n3",
+              "to": "n0",
+              "label": "declared handler parameter",
+              "directed": true
+            },
+            {
+              "from": "n0",
+              "to": "n1",
+              "label": "explicit decision inputs",
+              "directed": true
+            },
+            {
+              "from": "n0",
+              "to": "n2",
+              "label": "stored-state access; not embedded in handler",
+              "directed": true
+            }
+          ],
+          "alt_text": "Make the order flow visible across three responsibility boundaries: HTTP adaptation in the handler, the order decision in a plain business callable, and stored-state access in a persistence adapter. Show reusable input provisioning entering through a declared handler parameter, and distinguish responsibility boundaries from file boundaries.",
+          "lineage": {
+            "concept_ids": [
+              "design.backend_separation_of_concerns"
+            ],
+            "teaching_block_ids": [
+              "design.backend_separation_of_concerns#tb1",
+              "design.backend_separation_of_concerns#tb2",
+              "design.backend_separation_of_concerns#tb3"
+            ],
+            "fact_ids": [
+              "design.backend_separation_of_concerns#f1",
+              "design.backend_separation_of_concerns#f2",
+              "design.backend_separation_of_concerns#f3"
+            ],
+            "anchors": [
+              "design.backend_separation_of_concerns#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_034.s02",
+      "type": "explainer",
+      "concept_ids": [
+        "design.backend_separation_of_concerns"
+      ],
+      "title": "Trace the boundary: Separating transport, testable business logic and persistence responsibilities",
+      "lineage": {
+        "concept_ids": [
+          "design.backend_separation_of_concerns"
+        ],
+        "teaching_block_ids": [
+          "design.backend_separation_of_concerns#tb4",
+          "design.backend_separation_of_concerns#tb5"
+        ],
+        "fact_ids": [
+          "design.backend_separation_of_concerns#f1",
+          "design.backend_separation_of_concerns#f2",
+          "design.backend_separation_of_concerns#f3"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Keep HTTP adaptation in the handler, the order decision in a plain callable with explicit inputs, and stored-state access in a persistence adapter. A dependency can supply reusable input provisioning through a declared handler parameter. Separate responsibilities, not just files: moving the same mixture into several modules does not establish those boundaries.",
+          "role": "walkthrough",
+          "lineage": {
+            "concept_ids": [
+              "design.backend_separation_of_concerns"
+            ],
+            "teaching_block_ids": [
+              "design.backend_separation_of_concerns#tb4",
+              "design.backend_separation_of_concerns#tb5"
+            ],
+            "fact_ids": [
+              "design.backend_separation_of_concerns#f1",
+              "design.backend_separation_of_concerns#f2",
+              "design.backend_separation_of_concerns#f3"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_034.s03",
+      "type": "check",
+      "concept_ids": [
+        "design.backend_separation_of_concerns"
+      ],
+      "title": "Choose the distinction: Separating transport, testable business logic and persistence responsibilities",
+      "lineage": {
+        "concept_ids": [
+          "design.backend_separation_of_concerns"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "design.backend_separation_of_concerns#f2",
+          "design.backend_separation_of_concerns#f3"
+        ],
+        "anchors": [
+          "design.backend_separation_of_concerns#assessment:identify_protocol_coupling_and_responsibility_boundaries"
+        ]
+      },
+      "eyebrow": "Check your understanding",
+      "lede": "Use the declared contract to distinguish the outcomes.",
+      "interaction": {
+        "interaction_id": "ix.tile_034.s03",
+        "type": "choice",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "design.backend_separation_of_concerns",
+            "capability": "identify_protocol_coupling_and_responsibility_boundaries",
+            "fact_ids": [
+              "f2",
+              "f3"
+            ]
+          }
+        ],
+        "anchors": [
+          "design.backend_separation_of_concerns#assessment:identify_protocol_coupling_and_responsibility_boundaries"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Correct. Transport handlers adapt HTTP inputs and outputs, business callables enforce application rules, and persistence adapters access stored state; separate these responsibilities so each can change without embedding the other responsibilities."
+          },
+          "incorrect": {
+            "message": "Recheck the distinction: Transport handlers adapt HTTP inputs and outputs, business callables enforce application rules, and persistence adapters access stored state; separate these responsibilities so each can change without embedding the other responsibilities."
+          },
+          "hints": [
+            "Locate HTTP adaptation, the decision rule and stored-state access separately."
+          ],
+          "remediation_step_id": "tile_034.r01"
+        },
+        "public": {
+          "prompt": "A reusable business decision takes a FastAPI request object and builds an HTTP response. What boundary should a refactor restore?",
+          "options": [
+            {
+              "option_id": "a",
+              "text": "Use ordinary values for the business decision; keep HTTP adaptation in the handler."
+            },
+            {
+              "option_id": "b",
+              "text": "Move HTTP response construction into the persistence adapter."
+            },
+            {
+              "option_id": "c",
+              "text": "Make every business caller construct a FastAPI request."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "a"
+          ],
+          "option_feedback": {
+            "a": {
+              "message": "Correct. Transport handlers adapt HTTP inputs and outputs, business callables enforce application rules, and persistence adapters access stored state; separate these responsibilities so each can change without embedding the other responsibilities."
+            },
+            "b": {
+              "message": "Stored-state access and HTTP adaptation are different responsibilities."
+            },
+            "c": {
+              "message": "That preserves protocol coupling instead of removing it."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_034.s04",
+      "type": "hands_on",
+      "concept_ids": [
+        "design.backend_separation_of_concerns"
+      ],
+      "title": "Practice: Separating transport, testable business logic and persistence responsibilities",
+      "lineage": {
+        "concept_ids": [
+          "design.backend_separation_of_concerns"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "design.backend_separation_of_concerns#f1",
+          "design.backend_separation_of_concerns#f2"
+        ],
+        "anchors": [
+          "design.backend_separation_of_concerns#practice",
+          "design.backend_separation_of_concerns#assessment:identify_reusable_input_provisioning",
+          "design.backend_separation_of_concerns#assessment:identify_misplaced_transport_business_and_persistence_logic"
+        ]
+      },
+      "eyebrow": "Apply the contract",
+      "lede": "Work in the supplied orders-service exercise snapshot.",
+      "interaction": {
+        "interaction_id": "ix.tile_034.s04",
+        "type": "code_exercise",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "design.backend_separation_of_concerns",
+            "capability": "identify_reusable_input_provisioning",
+            "fact_ids": [
+              "f1"
+            ]
+          },
+          {
+            "concept_id": "design.backend_separation_of_concerns",
+            "capability": "identify_misplaced_transport_business_and_persistence_logic",
+            "fact_ids": [
+              "f2"
+            ]
+          }
+        ],
+        "anchors": [
+          "design.backend_separation_of_concerns#practice",
+          "design.backend_separation_of_concerns#assessment:identify_reusable_input_provisioning",
+          "design.backend_separation_of_concerns#assessment:identify_misplaced_transport_business_and_persistence_logic"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Correct. A dependency can extract reusable input-provision logic from individual operation handlers and expose the supplied value as a declared handler parameter."
+          },
+          "incorrect": {
+            "message": "Recheck the distinction: A dependency can extract reusable input-provision logic from individual operation handlers and expose the supplied value as a declared handler parameter."
+          },
+          "hints": [
+            "Locate HTTP adaptation, the decision rule and stored-state access separately."
+          ]
+        },
+        "public": {
+          "prompt": "Refactor without changing the supplied quantity rule: define plain can_accept(requested: int, stored: int) -> bool using requested <= stored. Keep stored-state access solely in the supplied adapter. The endpoint receives quantity via Depends(requested_quantity), obtains stored quantity from adapter.quantity(order_id), calls can_accept, and returns its bool. Direct business calls and requests must preserve the rule.",
+          "runtime": {
+            "kind": "python_asgi",
+            "version": "0.29.5",
+            "packages": [
+              "fastapi"
+            ]
+          },
+          "workspace": {
+            "entry": "main.py",
+            "files": [
+              {
+                "path": "main.py",
+                "role": "editable",
+                "content": "from fastapi import FastAPI, Depends\napp = FastAPI()\norder_state = {42: {'order_id': 42, 'quantity': 5}, 43: {'order_id': 43, 'quantity': 0}, 44: {'order_id': 44, 'quantity': 3}, 45: {'order_id': 45, 'quantity': 10}, 46: {'order_id': 46, 'quantity': 1}, 7: {'order_id': 7, 'quantity': 2}}\nclass OrderStateAdapter:\n    def quantity(self, order_id: int) -> int:\n        return order_state[order_id][\"quantity\"]\nadapter = OrderStateAdapter()\ndef requested_quantity(quantity: int) -> int: return quantity\n@app.get(\"/orders/{order_id}\")\ndef decide_order(order_id: int, quantity: int):\n    return quantity <= order_state[order_id][\"quantity\"]\n"
+              }
+            ],
+            "asset_mounts": []
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "def function_name(...):",
+              "int and bool parameter and return annotations",
+              "return statements",
+              "ordinary function calls with explicit arguments",
+              "local variable assignment",
+              "integer literals and comparison operators used by the supplied order rule",
+              "dictionary literals and indexing used by the supplied order-state fixture",
+              "@app.get(...)",
+              "typed path and query parameters",
+              "Depends(provider) as a declared handler parameter"
+            ],
+            "blocked_syntax": [
+              "Body(...)",
+              "yield in dependency providers",
+              "Depends(...) inside dependency providers",
+              "TestClient(...)",
+              "app.dependency_overrides[...]",
+              "Session.get(...)",
+              "Session.execute(...)",
+              "Session.commit(...)",
+              "Session.rollback(...)",
+              "BackgroundTasks"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "main.py",
+              "content": "from fastapi import FastAPI, Depends\napp = FastAPI()\norder_state = {42: {'order_id': 42, 'quantity': 5}, 43: {'order_id': 43, 'quantity': 0}, 44: {'order_id': 44, 'quantity': 3}, 45: {'order_id': 45, 'quantity': 10}, 46: {'order_id': 46, 'quantity': 1}, 7: {'order_id': 7, 'quantity': 2}}\nclass OrderStateAdapter:\n    def quantity(self, order_id: int) -> int:\n        return order_state[order_id][\"quantity\"]\nadapter = OrderStateAdapter()\ndef requested_quantity(quantity: int) -> int: return quantity\ndef can_accept(requested: int, stored: int) -> bool:\n    return requested <= stored\n@app.get(\"/orders/{order_id}\")\ndef decide_order(order_id: int, quantity: int = Depends(requested_quantity)):\n    stored = adapter.quantity(order_id)\n    return can_accept(quantity, stored)\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "t1",
+              "kind": "function_call",
+              "spec": {
+                "function": "can_accept",
+                "args": [
+                  2,
+                  5
+                ],
+                "expected": true
+              },
+              "message_on_fail": "The completed implementation does not meet this observable contract.",
+              "visible": true
+            },
+            {
+              "test_id": "t2",
+              "kind": "function_call",
+              "spec": {
+                "function": "can_accept",
+                "args": [
+                  6,
+                  5
+                ],
+                "expected": false
+              },
+              "message_on_fail": "The completed implementation does not meet this observable contract.",
+              "visible": true
+            },
+            {
+              "test_id": "t3",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "GET",
+                    "path": "/orders/42",
+                    "params": {
+                      "quantity": 2
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": true
+                }
+              },
+              "message_on_fail": "The completed implementation does not meet this observable contract.",
+              "visible": true
+            },
+            {
+              "test_id": "t4",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "GET",
+                    "path": "/orders/42",
+                    "params": {
+                      "quantity": 6
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": false
+                }
+              },
+              "message_on_fail": "The completed implementation does not meet this observable contract.",
+              "visible": true
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "pyodide",
+            "runtime_version": "0.29.5",
+            "solution_sha256": "543901360c62d6c6d9f71056f47de4177ef1f02bb613a4b94a6dab12078d3202",
+            "tests_passed": 4
+          },
+          "hidden_checks": []
+        }
+      }
+    },
+    {
+      "step_id": "tile_034.s05",
+      "type": "explainer",
+      "concept_ids": [
+        "fastapi.bounded_background_tasks"
+      ],
+      "title": "The rule: Bounded in-process background work and nondurable delivery limits",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.bounded_background_tasks"
+        ],
+        "teaching_block_ids": [
+          "fastapi.bounded_background_tasks#tb1",
+          "fastapi.bounded_background_tasks#tb2",
+          "fastapi.bounded_background_tasks#tb3"
+        ],
+        "fact_ids": [
+          "fastapi.bounded_background_tasks#f1",
+          "fastapi.bounded_background_tasks#f2",
+          "fastapi.bounded_background_tasks#f3"
+        ],
+        "anchors": [
+          "fastapi.bounded_background_tasks#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Declare a BackgroundTasks handler parameter and call background_tasks.add_task(callable, *args, **kwargs) to schedule work after sending the response.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_background_tasks"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_background_tasks#tb2"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_background_tasks#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A background task callable can be a normal def or async def function; FastAPI handles either form. BackgroundTasks work runs in the application process and cannot guarantee survival or delivery when that process fails.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_background_tasks"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_background_tasks#tb3"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_background_tasks#f2",
+              "fastapi.bounded_background_tasks#f3"
+            ]
+          }
+        },
+        {
+          "type": "diagram",
+          "diagram_kind": "sequence",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "Handler registers add_task"
+            },
+            {
+              "id": "n1",
+              "label": "Response sent"
+            },
+            {
+              "id": "n2",
+              "label": "Follow-up task: def or async def"
+            },
+            {
+              "id": "n3",
+              "label": "Application process boundary"
+            },
+            {
+              "id": "n4",
+              "label": "Process failure after response"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1",
+              "label": "register callable and arguments",
+              "directed": true
+            },
+            {
+              "from": "n1",
+              "to": "n2",
+              "label": "task runs after response",
+              "directed": true
+            },
+            {
+              "from": "n3",
+              "to": "n2",
+              "label": "in-process work",
+              "directed": true
+            },
+            {
+              "from": "n4",
+              "to": "n2",
+              "label": "pending work can be lost; no guaranteed survival or delivery",
+              "directed": true
+            }
+          ],
+          "alt_text": "Show an order handler registering follow-up work, sending its response, and then running the task inside the application-process boundary. Mark a process failure after the response as a point where pending work can be lost, separating response delivery from follow-up completion.",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_background_tasks"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_background_tasks#tb1",
+              "fastapi.bounded_background_tasks#tb2",
+              "fastapi.bounded_background_tasks#tb3"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_background_tasks#f1",
+              "fastapi.bounded_background_tasks#f2",
+              "fastapi.bounded_background_tasks#f3"
+            ],
+            "anchors": [
+              "fastapi.bounded_background_tasks#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_034.s06",
+      "type": "explainer",
+      "concept_ids": [
+        "fastapi.bounded_background_tasks"
+      ],
+      "title": "Trace the boundary: Bounded in-process background work and nondurable delivery limits",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.bounded_background_tasks"
+        ],
+        "teaching_block_ids": [
+          "fastapi.bounded_background_tasks#tb4",
+          "fastapi.bounded_background_tasks#tb5"
+        ],
+        "fact_ids": [
+          "fastapi.bounded_background_tasks#f1",
+          "fastapi.bounded_background_tasks#f2",
+          "fastapi.bounded_background_tasks#f3"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Declare BackgroundTasks and register a callable with background_tasks.add_task(callable, *args, **kwargs). The response is sent before follow-up work runs in the application process. The callable may use def or async def. If the process fails, survival or delivery cannot be guaranteed. Scheduling therefore does not prove durable completion.",
+          "role": "walkthrough",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_background_tasks"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_background_tasks#tb4",
+              "fastapi.bounded_background_tasks#tb5"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_background_tasks#f1",
+              "fastapi.bounded_background_tasks#f2",
+              "fastapi.bounded_background_tasks#f3"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_034.s07",
+      "type": "video",
+      "concept_ids": [
+        "fastapi.bounded_background_tasks"
+      ],
+      "title": "Bounded in-process background work and nondurable delivery limits",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.bounded_background_tasks"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "fastapi.bounded_background_tasks#f3"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "media_group",
+          "segment_ids": [
+            "seg_fastapi.bounded_background_tasks_4HxjBvZMAg8_1514_1562"
+          ],
+          "segments": [
+            {
+              "segment_id": "seg_fastapi.bounded_background_tasks_4HxjBvZMAg8_1514_1562",
+              "video_id": "4HxjBvZMAg8",
+              "youtube_url": "https://www.youtube.com/watch?v=4HxjBvZMAg8",
+              "review_url": "https://www.youtube.com/watch?v=4HxjBvZMAg8&t=1514s",
+              "start_seconds": 1514,
+              "end_seconds": 1562,
+              "label": "Deferred email work and the risk of losing pending tasks",
+              "summary": "Sending email can delay a response while the application communicates with an email server. FastAPI background tasks let the response go first and the email work run afterward. Pending tasks are lost if the server crashes. Work requiring guaranteed delivery needs a different execution arrangement. The example treats a password-reset email as acceptable to defer because the user can request another.",
+              "fact_ids": [
+                "f3"
+              ],
+              "transcript_ref": "4HxjBvZMAg8:1514-1562"
+            }
+          ],
+          "group_title": "Response-first work and the process-failure boundary",
+          "bridge": {
+            "before": "Watch for the response-first sequence and the loss of pending work on a server crash. The clip's email example assumes requesting another email is acceptable; suitability depends on the operation's required outcome.",
+            "after": "The clip explains the delivery limitation but omits the handler parameter, add_task syntax, and supported callable forms. The text supplies those details and makes the application-process boundary explicit."
+          },
+          "default_mode": "video"
+        }
+      ]
+    },
+    {
+      "step_id": "tile_034.s08",
+      "type": "check",
+      "concept_ids": [
+        "fastapi.bounded_background_tasks"
+      ],
+      "title": "Choose the distinction: Bounded in-process background work and nondurable delivery limits",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.bounded_background_tasks"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "fastapi.bounded_background_tasks#f3"
+        ],
+        "anchors": [
+          "fastapi.bounded_background_tasks#assessment:distinguish_bounded_in_process_work_from_durable_execution_needs"
+        ]
+      },
+      "eyebrow": "Check your understanding",
+      "lede": "Use the declared contract to distinguish the outcomes.",
+      "interaction": {
+        "interaction_id": "ix.tile_034.s08",
+        "type": "choice",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "fastapi.bounded_background_tasks",
+            "capability": "distinguish_bounded_in_process_work_from_durable_execution_needs",
+            "fact_ids": [
+              "f3"
+            ]
+          }
+        ],
+        "anchors": [
+          "fastapi.bounded_background_tasks#assessment:distinguish_bounded_in_process_work_from_durable_execution_needs"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Correct. BackgroundTasks work runs in the application process and cannot guarantee survival or delivery when that process fails."
+          },
+          "incorrect": {
+            "message": "Recheck the distinction: BackgroundTasks work runs in the application process and cannot guarantee survival or delivery when that process fails."
+          },
+          "hints": [
+            "Distinguish registering a callable from invoking it; consider the process-failure boundary."
+          ],
+          "remediation_step_id": "tile_034.r03"
+        },
+        "public": {
+          "prompt": "Which task fits optional in-process BackgroundTasks rather than a durable execution guarantee?",
+          "options": [
+            {
+              "option_id": "a",
+              "text": "A small optional follow-up whose loss on process failure is acceptable."
+            },
+            {
+              "option_id": "b",
+              "text": "A required job that must finish despite process failure."
+            },
+            {
+              "option_id": "c",
+              "text": "A long critical job whose completion must survive restart."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "a"
+          ],
+          "option_feedback": {
+            "a": {
+              "message": "Correct. BackgroundTasks work runs in the application process and cannot guarantee survival or delivery when that process fails."
+            },
+            "b": {
+              "message": "Process-local deferred work does not provide that guarantee."
+            },
+            "c": {
+              "message": "Critical durable completion needs are not satisfied by this placement."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_034.s09",
+      "type": "hands_on",
+      "concept_ids": [
+        "fastapi.bounded_background_tasks"
+      ],
+      "title": "Practice: Bounded in-process background work and nondurable delivery limits",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.bounded_background_tasks"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [],
+        "anchors": [
+          "fastapi.bounded_background_tasks#practice"
+        ]
+      },
+      "eyebrow": "Apply the contract",
+      "lede": "Work in the supplied orders-service exercise snapshot.",
+      "interaction": {
+        "interaction_id": "ix.tile_034.s09",
+        "type": "code_exercise",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "fastapi.bounded_background_tasks",
+            "capability": "distinguish_bounded_in_process_work_from_durable_execution_needs",
+            "fact_ids": [
+              "f3"
+            ]
+          }
+        ],
+        "anchors": [
+          "fastapi.bounded_background_tasks#practice"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Correct. The handler registers the supplied follow-up callable without calling it immediately, returns the order response, and the learner identifies that this placement would not satisfy a guaranteed-completion requirement."
+          },
+          "incorrect": {
+            "message": "Recheck the distinction: The handler registers the supplied follow-up callable without calling it immediately, returns the order response, and the learner identifies that this placement would not satisfy a guaranteed-completion requirement."
+          },
+          "hints": [
+            "Distinguish registering a callable from invoking it; consider the process-failure boundary."
+          ]
+        },
+        "public": {
+          "prompt": "Register the supplied optional order_follow_up callable with background_tasks.add_task(order_follow_up, order_id), not an immediate call, before returning {\"order_id\": order_id}. Declare background_tasks: BackgroundTasks. Add the exact docstring \"Optional process-local follow-up; this is not guaranteed completion.\" The inspector checks registration before response sending with identifiers 42 and 7; this task may be lost on process failure.",
+          "runtime": {
+            "kind": "python_asgi",
+            "version": "0.29.5",
+            "packages": [
+              "fastapi"
+            ]
+          },
+          "workspace": {
+            "entry": "main.py",
+            "files": [
+              {
+                "path": "main.py",
+                "role": "editable",
+                "content": "from fastapi import FastAPI, BackgroundTasks\napp = FastAPI()\norder_id = \"42\"\nfollow_ups = []\ndef order_follow_up(order_id: str): follow_ups.append(order_id)\n@app.post(\"/orders\")\ndef create_order(background_tasks: BackgroundTasks):\n    return {\"order_id\": order_id}\n\n# Supplied deferred-registration inspector; it calls the handler, not a server.\ndef inspect_follow_up(identifier):\n    global order_id\n    order_id = identifier\n    follow_ups.clear()\n    tasks = BackgroundTasks()\n    response = create_order(tasks)\n    return {\"response\": response, \"called_immediately\": list(follow_ups), \"registered\": [[t.func.__name__, list(t.args)] for t in tasks.tasks]}\n"
+              }
+            ],
+            "asset_mounts": []
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "from fastapi import FastAPI, BackgroundTasks",
+              "FastAPI()",
+              "@app.post(...)",
+              "def",
+              "async def",
+              "function parameter annotations",
+              "str",
+              "string literals",
+              "return",
+              "function calls",
+              "background_tasks.add_task(callable, *args, **kwargs)"
+            ],
+            "blocked_syntax": [
+              "Body(...)",
+              "Form(...)",
+              "File(...)",
+              "UploadFile",
+              "Header(...)",
+              "Cookie(...)",
+              "yield",
+              "TestClient(...)",
+              "app.add_middleware(...)",
+              "app.dependency_overrides[...]"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "main.py",
+              "content": "from fastapi import FastAPI, BackgroundTasks\napp = FastAPI()\norder_id = \"42\"\nfollow_ups = []\ndef order_follow_up(order_id: str): follow_ups.append(order_id)\n@app.post(\"/orders\")\ndef create_order(background_tasks: BackgroundTasks):\n    \"\"\"Optional process-local follow-up; this is not guaranteed completion.\"\"\"\n    background_tasks.add_task(order_follow_up, order_id)\n    return {\"order_id\": order_id}\n\n# Supplied deferred-registration inspector; it calls the handler, not a server.\ndef inspect_follow_up(identifier):\n    global order_id\n    order_id = identifier\n    follow_ups.clear()\n    tasks = BackgroundTasks()\n    response = create_order(tasks)\n    return {\"response\": response, \"called_immediately\": list(follow_ups), \"registered\": [[t.func.__name__, list(t.args)] for t in tasks.tasks]}\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "t1",
+              "kind": "function_call",
+              "spec": {
+                "function": "inspect_follow_up",
+                "args": [
+                  "42"
+                ],
+                "expected": {
+                  "response": {
+                    "order_id": "42"
+                  },
+                  "called_immediately": [],
+                  "registered": [
+                    [
+                      "order_follow_up",
+                      [
+                        "42"
+                      ]
+                    ]
+                  ]
+                }
+              },
+              "message_on_fail": "The completed implementation does not meet this observable contract.",
+              "visible": true
+            },
+            {
+              "test_id": "t2",
+              "kind": "function_call",
+              "spec": {
+                "function": "inspect_follow_up",
+                "args": [
+                  "7"
+                ],
+                "expected": {
+                  "response": {
+                    "order_id": "7"
+                  },
+                  "called_immediately": [],
+                  "registered": [
+                    [
+                      "order_follow_up",
+                      [
+                        "7"
+                      ]
+                    ]
+                  ]
+                }
+              },
+              "message_on_fail": "The completed implementation does not meet this observable contract.",
+              "visible": true
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "pyodide",
+            "runtime_version": "0.29.5",
+            "solution_sha256": "b7f2dc3018f375ceeefa631ad0ee380c48d31913ca5581a8e3470ecc19909a63",
+            "tests_passed": 2
+          },
+          "hidden_checks": []
+        }
+      }
+    },
+    {
+      "step_id": "tile_034.s10",
+      "type": "explainer",
+      "concept_ids": [
+        "fastapi.dependency_composition"
+      ],
+      "title": "The rule: Composing request dependency graphs",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.dependency_composition"
+        ],
+        "teaching_block_ids": [
+          "fastapi.dependency_composition#tb1",
+          "fastapi.dependency_composition#tb2",
+          "fastapi.dependency_composition#tb3"
+        ],
+        "fact_ids": [
+          "fastapi.dependency_composition#f1",
+          "fastapi.dependency_composition#f2",
+          "fastapi.dependency_composition#f3"
+        ],
+        "anchors": [
+          "fastapi.dependency_composition#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "A provider can declare its own Annotated[Type, Depends(other_provider)] parameter, forming a dependency graph.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.dependency_composition"
+            ],
+            "teaching_block_ids": [
+              "fastapi.dependency_composition#tb2"
+            ],
+            "fact_ids": [
+              "fastapi.dependency_composition#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "FastAPI resolves a provider's prerequisite inputs before calling that provider and supplies its result to the consuming operation. A sub-dependency can declare typed query inputs of its own; those inputs are extracted from the request before its returned value is supplied to the dependent provider.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.dependency_composition"
+            ],
+            "teaching_block_ids": [
+              "fastapi.dependency_composition#tb3"
+            ],
+            "fact_ids": [
+              "fastapi.dependency_composition#f2",
+              "fastapi.dependency_composition#f3"
+            ]
+          }
+        },
+        {
+          "type": "diagram",
+          "diagram_kind": "sequence",
+          "nodes": [
+            {
+              "id": "n0",
+              "label": "Typed page and page_size query inputs"
+            },
+            {
+              "id": "n1",
+              "label": "Pagination provider"
+            },
+            {
+              "id": "n2",
+              "label": "Order-options provider"
+            },
+            {
+              "id": "n3",
+              "label": "Consuming operation"
+            }
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1",
+              "label": "extract and convert request inputs",
+              "directed": true
+            },
+            {
+              "from": "n1",
+              "to": "n2",
+              "label": "resolve prerequisite and supply its result",
+              "directed": true
+            },
+            {
+              "from": "n2",
+              "to": "n3",
+              "label": "supply provider result",
+              "directed": true
+            }
+          ],
+          "alt_text": "Make the dependency direction and execution order visible: typed page and page_size request inputs → pagination provider → order-options provider → consuming operation.",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.dependency_composition"
+            ],
+            "teaching_block_ids": [
+              "fastapi.dependency_composition#tb1",
+              "fastapi.dependency_composition#tb2",
+              "fastapi.dependency_composition#tb3"
+            ],
+            "fact_ids": [
+              "fastapi.dependency_composition#f1",
+              "fastapi.dependency_composition#f2",
+              "fastapi.dependency_composition#f3"
+            ],
+            "anchors": [
+              "fastapi.dependency_composition#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_034.s11",
+      "type": "explainer",
+      "concept_ids": [
+        "fastapi.dependency_composition"
+      ],
+      "title": "Trace the boundary: Composing request dependency graphs",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.dependency_composition"
+        ],
+        "teaching_block_ids": [
+          "fastapi.dependency_composition#tb4",
+          "fastapi.dependency_composition#tb5"
+        ],
+        "fact_ids": [
+          "fastapi.dependency_composition#f1",
+          "fastapi.dependency_composition#f2",
+          "fastapi.dependency_composition#f3"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "The pagination provider declares typed page and page_size query inputs. FastAPI extracts those inputs and resolves pagination before supplying its result to order-options; the consuming operation then receives the order-options result. A provider declares a prerequisite with Annotated[Type, Depends(other_provider)]. Trace from prerequisites toward consumers, not the reverse.",
+          "role": "walkthrough",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.dependency_composition"
+            ],
+            "teaching_block_ids": [
+              "fastapi.dependency_composition#tb4",
+              "fastapi.dependency_composition#tb5"
+            ],
+            "fact_ids": [
+              "fastapi.dependency_composition#f1",
+              "fastapi.dependency_composition#f2",
+              "fastapi.dependency_composition#f3"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_034.s12",
+      "type": "check",
+      "concept_ids": [
+        "fastapi.dependency_composition"
+      ],
+      "title": "Choose the distinction: Composing request dependency graphs",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.dependency_composition"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "fastapi.dependency_composition#f1",
+          "fastapi.dependency_composition#f2",
+          "fastapi.dependency_composition#f3"
+        ],
+        "anchors": [
+          "fastapi.dependency_composition#assessment:determine_provider_execution_order"
+        ]
+      },
+      "eyebrow": "Check your understanding",
+      "lede": "Use the declared contract to distinguish the outcomes.",
+      "interaction": {
+        "interaction_id": "ix.tile_034.s12",
+        "type": "choice",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "fastapi.dependency_composition",
+            "capability": "determine_provider_execution_order",
+            "fact_ids": [
+              "f1",
+              "f2",
+              "f3"
+            ]
+          }
+        ],
+        "anchors": [
+          "fastapi.dependency_composition#assessment:determine_provider_execution_order"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Correct. A provider can declare its own Annotated[Type, Depends(other_provider)] parameter, forming a dependency graph."
+          },
+          "incorrect": {
+            "message": "Recheck the distinction: A provider can declare its own Annotated[Type, Depends(other_provider)] parameter, forming a dependency graph."
+          },
+          "hints": [
+            "Draw each provider-to-consumer dependency before tracing request inputs."
+          ],
+          "remediation_step_id": "tile_034.r05"
+        },
+        "public": {
+          "prompt": "The operation depends on order_options, which depends on pagination. What prerequisite-first execution order follows?",
+          "options": [
+            {
+              "option_id": "a",
+              "text": "pagination → order_options → operation."
+            },
+            {
+              "option_id": "b",
+              "text": "operation → order_options → pagination."
+            },
+            {
+              "option_id": "c",
+              "text": "order_options → pagination → operation."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "a"
+          ],
+          "option_feedback": {
+            "a": {
+              "message": "Correct. A provider can declare its own Annotated[Type, Depends(other_provider)] parameter, forming a dependency graph."
+            },
+            "b": {
+              "message": "A consumer needs its prerequisites resolved first."
+            },
+            "c": {
+              "message": "order_options consumes pagination, so pagination must be resolved first."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_034.s13",
+      "type": "hands_on",
+      "concept_ids": [
+        "fastapi.dependency_composition"
+      ],
+      "title": "Practice: Composing request dependency graphs",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.dependency_composition"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [],
+        "anchors": [
+          "fastapi.dependency_composition#practice"
+        ]
+      },
+      "eyebrow": "Apply the contract",
+      "lede": "Work in the supplied orders-service exercise snapshot.",
+      "interaction": {
+        "interaction_id": "ix.tile_034.s13",
+        "type": "code_exercise",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "fastapi.dependency_composition",
+            "capability": "determine_provider_execution_order",
+            "fact_ids": [
+              "f1",
+              "f2",
+              "f3"
+            ]
+          }
+        ],
+        "anchors": [
+          "fastapi.dependency_composition#practice"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Correct. The pagination provider receives typed query inputs and returns a value consumed by order-options. The path operation receives the order-options result, with prerequisites resolved before their consumers."
+          },
+          "incorrect": {
+            "message": "Recheck the distinction: The pagination provider receives typed query inputs and returns a value consumed by order-options. The path operation receives the order-options result, with prerequisites resolved before their consumers."
+          },
+          "hints": [
+            "Draw each provider-to-consumer dependency before tracing request inputs."
+          ]
+        },
+        "public": {
+          "prompt": "Complete pagination(page: int, page_size: int) to return those two keys. Make order_options receive that dictionary through Annotated[..., Depends(pagination)] and return it. Make orders receive order_options through a declared dependency and return it. /orders?page=2&page_size=10 and page=3&page_size=5 must return exactly the typed query values; prerequisites resolve before consumers.",
+          "runtime": {
+            "kind": "python_asgi",
+            "version": "0.29.5",
+            "packages": [
+              "fastapi"
+            ]
+          },
+          "workspace": {
+            "entry": "main.py",
+            "files": [
+              {
+                "path": "main.py",
+                "role": "editable",
+                "content": "from typing import Annotated\nfrom fastapi import FastAPI, Depends\napp = FastAPI()\ndef pagination(): return {}\ndef order_options(): return {}\n@app.get(\"/orders\")\ndef orders(): return {}\n"
+              }
+            ],
+            "asset_mounts": []
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "from typing import Annotated",
+              "from fastapi import FastAPI, Depends",
+              "FastAPI()",
+              "@app.get(...)",
+              "def",
+              "typed parameters and return annotations",
+              "Annotated[Type, Depends(provider)]",
+              "int and str query parameters",
+              "dict[str, int]",
+              "dictionary literals and key access",
+              "return"
+            ],
+            "blocked_syntax": [
+              "yield in dependency providers",
+              "Depends(..., use_cache=...)",
+              "Body(...)",
+              "Form(...)",
+              "File(...)",
+              "Header(...)",
+              "Cookie(...)",
+              "app.dependency_overrides",
+              "TestClient(...)",
+              "@app.middleware(...)",
+              "app.add_middleware(...)"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "main.py",
+              "content": "from typing import Annotated\nfrom fastapi import FastAPI, Depends\napp = FastAPI()\ndef pagination(page: int, page_size: int) -> dict[str, int]:\n    return {\"page\": page, \"page_size\": page_size}\ndef order_options(pagination: Annotated[dict[str, int], Depends(pagination)]) -> dict[str, int]:\n    return pagination\n@app.get(\"/orders\")\ndef orders(options: Annotated[dict[str, int], Depends(order_options)]):\n    return options\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "t1",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "GET",
+                    "path": "/orders",
+                    "params": {
+                      "page": 2,
+                      "page_size": 10
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "page": 2,
+                    "page_size": 10
+                  }
+                }
+              },
+              "message_on_fail": "The completed implementation does not meet this observable contract.",
+              "visible": true
+            },
+            {
+              "test_id": "t2",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "GET",
+                    "path": "/orders",
+                    "params": {
+                      "page": 3,
+                      "page_size": 5
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "page": 3,
+                    "page_size": 5
+                  }
+                }
+              },
+              "message_on_fail": "The completed implementation does not meet this observable contract.",
+              "visible": true
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "pyodide",
+            "runtime_version": "0.29.5",
+            "solution_sha256": "ce8d537909c62b6fceb91ae2593f8959175c2b516301c0d228089528ac80f92f",
+            "tests_passed": 2
+          },
+          "hidden_checks": []
+        }
+      }
+    },
+    {
+      "step_id": "tile_034.s14",
+      "type": "recap",
+      "concept_ids": [
+        "design.backend_separation_of_concerns",
+        "fastapi.bounded_background_tasks",
+        "fastapi.dependency_composition"
+      ],
+      "title": "Keep these boundaries",
+      "lineage": {
+        "concept_ids": [
+          "design.backend_separation_of_concerns",
+          "fastapi.bounded_background_tasks",
+          "fastapi.dependency_composition"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Separate files alone are not separate concerns. Responsibilities must be separated so one can change without embedding the others.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "design.backend_separation_of_concerns"
+            ],
+            "teaching_block_ids": [
+              "design.backend_separation_of_concerns#tb5"
+            ],
+            "fact_ids": [
+              "design.backend_separation_of_concerns#f2",
+              "design.backend_separation_of_concerns#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Adding a background task does not prove that it survives process failure or delivers its effect. In-process scheduling is not durable completion.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_background_tasks"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_background_tasks#tb5"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_background_tasks#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "A provider does not run before its unresolved prerequisite inputs are available. Resolve the graph from prerequisites to consumers.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.dependency_composition"
+            ],
+            "teaching_block_ids": [
+              "fastapi.dependency_composition#tb5"
+            ],
+            "fact_ids": [
+              "fastapi.dependency_composition#f2"
+            ]
+          }
+        },
+        {
+          "type": "up_next",
+          "title": "Configuring existing middleware in the request/response stack",
+          "text": "Next: Configuring existing middleware in the request/response stack."
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "tile_034.r01",
+      "type": "remediation",
+      "concept_ids": [
+        "design.backend_separation_of_concerns"
+      ],
+      "title": "Try the contrast again: Separating transport, testable business logic and persistence responsibilities",
+      "lineage": {
+        "concept_ids": [
+          "design.backend_separation_of_concerns"
+        ],
+        "teaching_block_ids": [
+          "design.backend_separation_of_concerns#tb3",
+          "design.backend_separation_of_concerns#tb4",
+          "design.backend_separation_of_concerns#tb5"
+        ],
+        "fact_ids": [
+          "design.backend_separation_of_concerns#f2",
+          "design.backend_separation_of_concerns#f3"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Transport handlers adapt HTTP inputs and outputs, business callables enforce application rules, and persistence adapters access stored state; separate these responsibilities so each can change without embedding the other responsibilities. Move a business decision from a handler into a plain callable with explicit inputs, keep the HTTP adaptation in the handler, and call a separate persistence adapter for stored state rather than treating separate files alone as a responsibility boundary.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "design.backend_separation_of_concerns"
+            ],
+            "teaching_block_ids": [
+              "design.backend_separation_of_concerns#tb3",
+              "design.backend_separation_of_concerns#tb4",
+              "design.backend_separation_of_concerns#tb5"
+            ],
+            "fact_ids": [
+              "design.backend_separation_of_concerns#f2",
+              "design.backend_separation_of_concerns#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "The handler adapts HTTP, the plain callable decides the order rule, and the adapter accesses stored state. Three files containing the same mixture are not three responsibility boundaries.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "design.backend_separation_of_concerns"
+            ],
+            "teaching_block_ids": [
+              "design.backend_separation_of_concerns#tb3",
+              "design.backend_separation_of_concerns#tb4",
+              "design.backend_separation_of_concerns#tb5"
+            ],
+            "fact_ids": [
+              "design.backend_separation_of_concerns#f2",
+              "design.backend_separation_of_concerns#f3"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_034.r02",
+      "type": "remediation",
+      "concept_ids": [
+        "design.backend_separation_of_concerns"
+      ],
+      "title": "Try the contrast again: Separating transport, testable business logic and persistence responsibilities",
+      "lineage": {
+        "concept_ids": [
+          "design.backend_separation_of_concerns"
+        ],
+        "teaching_block_ids": [
+          "design.backend_separation_of_concerns#tb2",
+          "design.backend_separation_of_concerns#tb3",
+          "design.backend_separation_of_concerns#tb4",
+          "design.backend_separation_of_concerns#tb5"
+        ],
+        "fact_ids": [
+          "design.backend_separation_of_concerns#f1",
+          "design.backend_separation_of_concerns#f2"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "A dependency can extract reusable input-provision logic from individual operation handlers and expose the supplied value as a declared handler parameter. Transport handlers adapt HTTP inputs and outputs, business callables enforce application rules, and persistence adapters access stored state; separate these responsibilities so each can change without embedding the other responsibilities.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "design.backend_separation_of_concerns"
+            ],
+            "teaching_block_ids": [
+              "design.backend_separation_of_concerns#tb2",
+              "design.backend_separation_of_concerns#tb3",
+              "design.backend_separation_of_concerns#tb4",
+              "design.backend_separation_of_concerns#tb5"
+            ],
+            "fact_ids": [
+              "design.backend_separation_of_concerns#f1",
+              "design.backend_separation_of_concerns#f2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Declare reusable quantity provisioning as a handler parameter, rather than repeating that input logic inside each operation. The handler adapts HTTP, the plain callable decides the order rule, and the adapter accesses stored state.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "design.backend_separation_of_concerns"
+            ],
+            "teaching_block_ids": [
+              "design.backend_separation_of_concerns#tb2",
+              "design.backend_separation_of_concerns#tb3",
+              "design.backend_separation_of_concerns#tb4",
+              "design.backend_separation_of_concerns#tb5"
+            ],
+            "fact_ids": [
+              "design.backend_separation_of_concerns#f1",
+              "design.backend_separation_of_concerns#f2"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_034.r03",
+      "type": "remediation",
+      "concept_ids": [
+        "fastapi.bounded_background_tasks"
+      ],
+      "title": "Try the contrast again: Bounded in-process background work and nondurable delivery limits",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.bounded_background_tasks"
+        ],
+        "teaching_block_ids": [
+          "fastapi.bounded_background_tasks#tb3",
+          "fastapi.bounded_background_tasks#tb4",
+          "fastapi.bounded_background_tasks#tb5"
+        ],
+        "fact_ids": [
+          "fastapi.bounded_background_tasks#f3"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "BackgroundTasks work runs in the application process and cannot guarantee survival or delivery when that process fails.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_background_tasks"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_background_tasks#tb3",
+              "fastapi.bounded_background_tasks#tb4",
+              "fastapi.bounded_background_tasks#tb5"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_background_tasks#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "An order response can be sent before a process failure loses pending follow-up work: scheduling is not guaranteed delivery.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.bounded_background_tasks"
+            ],
+            "teaching_block_ids": [
+              "fastapi.bounded_background_tasks#tb3",
+              "fastapi.bounded_background_tasks#tb4",
+              "fastapi.bounded_background_tasks#tb5"
+            ],
+            "fact_ids": [
+              "fastapi.bounded_background_tasks#f3"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_034.r04",
+      "type": "remediation",
+      "concept_ids": [
+        "fastapi.bounded_background_tasks"
+      ],
+      "title": "Try the contrast again: Bounded in-process background work and nondurable delivery limits",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.bounded_background_tasks"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": []
+      },
+      "blocks": []
+    },
+    {
+      "step_id": "tile_034.r05",
+      "type": "remediation",
+      "concept_ids": [
+        "fastapi.dependency_composition"
+      ],
+      "title": "Try the contrast again: Composing request dependency graphs",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.dependency_composition"
+        ],
+        "teaching_block_ids": [
+          "fastapi.dependency_composition#tb2",
+          "fastapi.dependency_composition#tb3",
+          "fastapi.dependency_composition#tb4",
+          "fastapi.dependency_composition#tb5"
+        ],
+        "fact_ids": [
+          "fastapi.dependency_composition#f1",
+          "fastapi.dependency_composition#f2",
+          "fastapi.dependency_composition#f3"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "A provider can declare its own Annotated[Type, Depends(other_provider)] parameter, forming a dependency graph. FastAPI resolves a provider's prerequisite inputs before calling that provider and supplies its result to the consuming operation. A sub-dependency can declare typed query inputs of its own; those inputs are extracted from the request before its returned value is supplied to the dependent provider.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.dependency_composition"
+            ],
+            "teaching_block_ids": [
+              "fastapi.dependency_composition#tb2",
+              "fastapi.dependency_composition#tb3",
+              "fastapi.dependency_composition#tb4",
+              "fastapi.dependency_composition#tb5"
+            ],
+            "fact_ids": [
+              "fastapi.dependency_composition#f1",
+              "fastapi.dependency_composition#f2",
+              "fastapi.dependency_composition#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Order-options declares pagination as a prerequisite, not a hidden global value. Resolve pagination before order-options, not after calling its consumer. The typed query inputs are extracted before pagination supplies its result to order-options.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.dependency_composition"
+            ],
+            "teaching_block_ids": [
+              "fastapi.dependency_composition#tb2",
+              "fastapi.dependency_composition#tb3",
+              "fastapi.dependency_composition#tb4",
+              "fastapi.dependency_composition#tb5"
+            ],
+            "fact_ids": [
+              "fastapi.dependency_composition#f1",
+              "fastapi.dependency_composition#f2",
+              "fastapi.dependency_composition#f3"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_034.r06",
+      "type": "remediation",
+      "concept_ids": [
+        "fastapi.dependency_composition"
+      ],
+      "title": "Try the contrast again: Composing request dependency graphs",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.dependency_composition"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": []
+      },
+      "blocks": []
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "tile_037"
+  },
+  "content_hash": "654d91450df28c74966928d4a8a39315f33547fafbbc09a8583fce200939fa0a"
+}

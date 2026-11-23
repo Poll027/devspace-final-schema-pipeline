@@ -1,0 +1,295 @@
+{
+  "type": "live_code",
+  "objective": "Write a Python recovery function and its required imports for the supplied event-triggered pipeline. Inject the declared recoverable failure after output A uploads but before B, record and isolate the failure, reconcile declared outputs, and resume from a verified artifact boundary. Wire the function/test entry point into the assigned Cloud Build stage, round-trip its configuration through PyYAML, and exercise accepted and rejected fixtures through the configured Pub/Sub trigger without changing its bindings or filters.",
+  "success": "Recovery preserves A's generation and hash, creates only missing B, and verifies an existing output after a 412 response instead of overwriting it. Conflicting content, invalid artifacts, unrelated exceptions and rejected gates remain failures. Actual results show the retried stage and subsequent required gates executed. A second recovery invocation creates no additional uploads or generations while required validation remains enforced.",
+  "live_code": {
+    "required_skill": "Implement bounded exception handling, generation-aware artifact reconciliation, configuration verification and execution assertions within the supplied recovery contract.",
+    "allowed_syntax": [
+      "Learner-written imports for yaml, hashlib, the declared Cloud Storage client and the supplied fixture dependencies",
+      "def, function parameters, return and calls to supplied fixture helpers",
+      "Local assignments, string and numeric literals, dictionaries and lists",
+      "if/elif/else and for loops over declared outputs",
+      "try/except for the declared recoverable exception and declared client precondition exception",
+      "raise to preserve unrelated failures, content conflicts and validation failures",
+      "assert for fixture acceptance checks",
+      "with open(...) as file_handle",
+      "yaml.safe_dump(config, file_handle)",
+      "yaml.safe_load(file_handle)",
+      "Dictionary access and inspection of steps, name, args or script, id and waitFor",
+      "blob.exists(), blob.reload() and blob.generation",
+      "blob.download_as_bytes(if_generation_match=recorded_generation)",
+      "hashlib.sha256(data).hexdigest()",
+      "blob.upload_from_filename(path, if_generation_match=0)",
+      "Calls to supplied failure-recording, recovery-action, artifact-validation, trigger and execution-inspection helpers",
+      "A nonzero Python process exit for a rejected required gate"
+    ],
+    "blocked_syntax": [],
+    "starter_state_intent": "Supply the existing authorized pipeline configuration, configured Pub/Sub trigger, declared dependencies and helper interfaces, retained stage/artifact records, and local files for named outputs A and B with expected hashes and validation requirements. Include accepted, rejected and invalid-existing-output fixtures plus an injection point after A uploads. Provide no completed recovery function or imports; the learner writes them.",
+    "observable_success": "Assertions compare A's generation/hash before and after recovery, verify B's content and validation, and inspect actual stage statuses and resolved inputs. Tests establish safe reconciliation after a 412 response, fatal rejection of invalid existing output and unrelated failures, successful execution of the retried stage and later gates for the accepted fixture, and fatal gate failure for the rejected fixture. Configuration checks confirm explicit dependencies and no gate-failure allowances. Repeating recovery on the completed fixture leaves upload counts and generations unchanged without bypassing validation."
+  }
+}
+[
+  {
+    "fact_ids": [
+      "f1",
+      "f4"
+    ],
+    "capability": "identify_verified_recovery_boundary"
+  },
+  {
+    "fact_ids": [
+      "f2",
+      "f9"
+    ],
+    "capability": "handle_only_declared_recoverable_failure"
+  },
+  {
+    "fact_ids": [
+      "f3",
+      "f6",
+      "f7"
+    ],
+    "capability": "preserve_required_gate_execution_and_failure"
+  },
+  {
+    "fact_ids": [
+      "f5",
+      "f10"
+    ],
+    "capability": "wire_and_verify_recovery_stage_configuration"
+  },
+  {
+    "fact_ids": [
+      "f8",
+      "f9"
+    ],
+    "capability": "verify_triggered_stage_execution_and_resolved_inputs"
+  },
+  {
+    "fact_ids": [
+      "f11",
+      "f12"
+    ],
+    "capability": "reconcile_partial_uploads_without_duplicate_effects"
+  }
+]
+
+FILE cloudbuild.yaml
+{
+  "steps": [
+    {
+      "id": "recovery",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "learner.py",
+        "${_CASE}"
+      ],
+      "waitFor": [
+        "-"
+      ]
+    },
+    {
+      "id": "required_validation",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "learner.py",
+        "${_CASE}"
+      ],
+      "waitFor": []
+    },
+    {
+      "id": "promotion",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "downstream_entry.py",
+        "${_ARTIFACT}"
+      ],
+      "waitFor": []
+    }
+  ],
+  "substitutions": {
+    "_SNAPSHOT": "valid",
+    "_CASE": "accepted",
+    "_ARTIFACT": "A"
+  },
+  "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com"
+}
+
+FILE storage_sim.py
+"""Bounded local Cloud Storage interface, never a real cloud client."""
+from pathlib import Path
+class PreconditionFailed(Exception):
+    status_code = 412
+class RecoverableFailure(Exception):
+    pass
+class StorageClient:
+    def __init__(self, initial=None, race=None):
+        self.objects = dict(initial or {})
+        self.race = dict(race or {})
+        self.uploads = []
+        self.requests = []
+    def blob(self, name):
+        return Blob(self, name)
+class Blob:
+    def __init__(self, client, name):
+        self.client, self.name = client, name
+        self.generation = None
+    def exists(self):
+        return self.name in self.client.objects
+    def reload(self):
+        self.generation = self.client.objects[self.name]["generation"]
+    def download_as_bytes(self, if_generation_match):
+        self.client.requests.append((self.name, if_generation_match))
+        obj = self.client.objects[self.name]
+        if obj["generation"] != if_generation_match:
+            raise PreconditionFailed("generation mismatch")
+        return obj["data"]
+    def upload_from_filename(self, path, if_generation_match):
+        if if_generation_match != 0:
+            raise ValueError("fixture contract permits create-only upload")
+        if self.name in self.client.race:
+            self.client.objects[self.name] = self.client.race.pop(self.name)
+            raise PreconditionFailed("412 concurrent creation")
+        if self.exists():
+            raise PreconditionFailed("412 already exists")
+        self.client.objects[self.name] = {"generation": 1, "data": Path(path).read_bytes()}
+        self.client.uploads.append(self.name)
+        self.reload()
+
+FILE fixtures/artifacts.json
+{
+  "A": {
+    "artifact_id": "A",
+    "uri": "gs://fixture-artifacts/A.txt",
+    "generation": 1,
+    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+    "validation_ok": true
+  },
+  "B": {
+    "artifact_id": "B",
+    "uri": "gs://fixture-artifacts/B.txt",
+    "generation": 1,
+    "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+    "validation_ok": true
+  }
+}
+
+FILE fixtures/recovery_cases.json
+{
+  "accepted": {
+    "initial_outputs": [
+      "A"
+    ],
+    "race_outputs": [],
+    "invalid_outputs": [],
+    "gate_ok": true,
+    "exception": "RecoverableFailure"
+  },
+  "boundary_completed": {
+    "initial_outputs": [
+      "A",
+      "B"
+    ],
+    "race_outputs": [],
+    "invalid_outputs": [],
+    "gate_ok": true,
+    "exception": null
+  },
+  "race_412": {
+    "initial_outputs": [
+      "A"
+    ],
+    "race_outputs": [
+      "B"
+    ],
+    "invalid_outputs": [],
+    "gate_ok": true,
+    "exception": "RecoverableFailure"
+  },
+  "invalid_existing": {
+    "initial_outputs": [
+      "A"
+    ],
+    "race_outputs": [],
+    "invalid_outputs": [
+      "A"
+    ],
+    "gate_ok": true,
+    "exception": "RecoverableFailure"
+  },
+  "conflicting_content": {
+    "initial_outputs": [
+      "A"
+    ],
+    "race_outputs": [],
+    "invalid_outputs": [],
+    "conflicting_outputs": [
+      "A"
+    ],
+    "gate_ok": true,
+    "exception": "RecoverableFailure"
+  },
+  "rejected_gate": {
+    "initial_outputs": [
+      "A"
+    ],
+    "race_outputs": [],
+    "invalid_outputs": [],
+    "gate_ok": false,
+    "exception": "RecoverableFailure"
+  },
+  "unrelated_failure": {
+    "initial_outputs": [
+      "A"
+    ],
+    "race_outputs": [],
+    "invalid_outputs": [],
+    "gate_ok": true,
+    "exception": "ValueError"
+  }
+}
+
+FILE fixtures/recovery_contract.json
+{
+  "injection_point": "after A upload before B",
+  "recoverable_exception": "storage_sim.RecoverableFailure",
+  "precondition_exception": "storage_sim.PreconditionFailed",
+  "outputs": {
+    "A": {
+      "artifact_id": "A",
+      "uri": "gs://fixture-artifacts/A.txt",
+      "generation": 1,
+      "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+      "validation_ok": true
+    },
+    "B": {
+      "artifact_id": "B",
+      "uri": "gs://fixture-artifacts/B.txt",
+      "generation": 1,
+      "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+      "validation_ok": true
+    }
+  },
+  "requirements": [
+    "record and isolate failure",
+    "verify exact existing generation bytes/hash and validation",
+    "skip only verified completed upload",
+    "create missing output with if_generation_match=0",
+    "on 412 reload and verify, never overwrite",
+    "unrelated exceptions remain fatal",
+    "run retried stage and downstream required gates",
+    "second call preserves generations and upload counts but revalidates"
+  ],
+  "evidence_fields": [
+    "initial_and_final_generations",
+    "hashes",
+    "validation_results",
+    "upload_counts",
+    "retry_status",
+    "downstream_status",
+    "resolved_inputs"
+  ]
+}

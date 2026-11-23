@@ -1,0 +1,26 @@
+import csv, json, datetime
+import numpy as np
+SCHEMAS = {'budget_replay': {'fixture': 'string', 'workload_scope': 'string', 'budget_amount': 'number', 'period': 'string', 'threshold_ratio': 'number', 'observed_spend': 'number', 'INSTANCE': 'string', 'ZONE': 'string', 'notification_expected': 'boolean', 'response_expected': 'boolean', 'expected_after_state': 'string'}}
+def load(name):
+    with open(name+'.csv') as f:
+        data=list(csv.DictReader(f))
+    for r in data:
+        for k,t in SCHEMAS[name].items():
+            v=r[k]
+            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)
+    return data
+def column(data,key):
+    return np.asarray([r[key] for r in data])
+def emit(value):
+    return value
+
+def budget_replay(config,data):
+    outputs=[]
+    for row in data:
+        notification={'notified':row['notification_expected'],'topic':config['notification_topic'] if row['notification_expected'] else None}
+        response={'executed':('gcloud compute instances stop '+row['INSTANCE']+' --zone='+row['ZONE']) if row['response_expected'] else None,'before':{'INSTANCE':row['INSTANCE'],'ZONE':row['ZONE'],'state':'RUNNING'},'after':{'INSTANCE':row['INSTANCE'],'ZONE':row['ZONE'],'state':row['expected_after_state']},'acted_targets':[{'INSTANCE':row['INSTANCE'],'ZONE':row['ZONE']}] if row['response_expected'] else [],'captured_output':'stop completed on fixed target' if row['response_expected'] else 'no stop response', 'credential_values':[]}
+        outputs.append({'fixture':row['fixture'],'observed_spend':row['observed_spend'],**notification,**response,'credentials':None})
+    return outputs
+
+
+policy = {'workload_scope': 'order-lab', 'budget_amount': 100, 'period': 'monthly', 'threshold_ratio': 0.8, 'predicate': 'observed_spend>=budget_amount*threshold_ratio', 'notification_topic': 'lab-budget-events', 'response_pipeline': 'lab-safe-stop', 'INSTANCE': 'inference-lab', 'ZONE': 'lab-zone-a', 'authorized_identity': 'lab.operator', 'secret_version_reference': 'projects/order-lab/secrets/budget-client/versions/1', 'residual_limitation': 'Notifications can lag usage and do not enforce a hard spending cap.'}

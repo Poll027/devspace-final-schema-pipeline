@@ -1,0 +1,71 @@
+# Supplied implementation, fixtures and verification harness; complete only the marked assignments and assertions.
+exec('class TracePreprocessor:\n    def __init__(self):\n        self.fit_rows = []\n        self.transform_rows = []\n    def fit(self, rows):\n        self.fit_rows = [dict(r) for r in rows]\n        return self\n    def transform(self, rows):\n        self.transform_rows.append([dict(r) for r in rows])\n        return rows\nclass TracePredictor:\n    def __init__(self):\n        self.input_rows = []\n    def predict(self, rows):\n        self.input_rows.append([dict(r) for r in rows])\n        return [0 for _ in rows]\n')
+
+training = [{'order_key': '0012', 'distance': 2, 'zone': 'north', 'eventual_arrival': '2025-01-01T09:45:00'}, {'order_key': '0013', 'distance': 4, 'zone': 'south', 'eventual_arrival': '2025-01-01T10:20:00'}, {'order_key': '0014', 'distance': 6, 'zone': 'north', 'eventual_arrival': '2025-01-01T11:31:00'}]
+
+held_out = [{'order_key': '0015', 'distance': 0, 'zone': 'south', 'eventual_arrival': '2025-01-01T12:30:00'}, {'order_key': '0016', 'distance': 100, 'zone': 'north', 'eventual_arrival': '2025-01-01T13:50:00'}, {'order_key': '0017', 'distance': 4, 'zone': 'south', 'eventual_arrival': '2025-01-01T14:10:00'}]
+
+permitted_features = ['distance', 'zone']
+
+failure_fit_rows = [{'order_key': '0012', 'distance': 2, 'zone': 'north', 'eventual_arrival': '2025-01-01T09:45:00'}, {'order_key': '0013', 'distance': 4, 'zone': 'south', 'eventual_arrival': '2025-01-01T10:20:00'}, {'order_key': '0014', 'distance': 6, 'zone': 'north', 'eventual_arrival': '2025-01-01T11:31:00'}, {'order_key': '0015', 'distance': 0, 'zone': 'south', 'eventual_arrival': '2025-01-01T12:30:00'}, {'order_key': '0016', 'distance': 100, 'zone': 'north', 'eventual_arrival': '2025-01-01T13:50:00'}, {'order_key': '0017', 'distance': 4, 'zone': 'south', 'eventual_arrival': '2025-01-01T14:10:00'}]
+
+failure_features = ['distance', 'zone', 'eventual_arrival']
+
+select = lambda rows, columns: [{k: r[k] for k in columns} for r in rows]
+
+if True:
+
+    def supplied_correct(training, held_out, permitted_features):
+        preprocessor = TracePreprocessor()
+        predictor = TracePredictor()
+        train_inputs = select(training, permitted_features)
+        held_inputs = select(held_out, permitted_features)
+        preprocessor.fit(train_inputs)
+        transformed = preprocessor.transform(held_inputs)
+        predictor.predict(transformed)
+        assert preprocessor.fit_rows == select(training, permitted_features)
+        assert preprocessor.transform_rows == [held_inputs]
+        assert predictor.input_rows == [held_inputs]
+        return {'fit_rows': preprocessor.fit_rows, 'transform_rows': preprocessor.transform_rows, 'prediction_rows': predictor.input_rows}
+
+# TODO: complete the required correct assignment.
+correct = None
+
+result = correct(training, held_out, permitted_features)
+
+if True:
+
+    def supplied_check_invariants(traces):
+        assert traces['fit_rows'] == select(training, permitted_features)
+        assert traces['transform_rows'] == [select(held_out, permitted_features)]
+        assert traces['prediction_rows'] == [select(held_out, permitted_features)]
+
+# TODO: complete the required check_invariants assignment.
+check_invariants = None
+
+check_invariants(result)
+
+leaked_traces = {'fit_rows': select(failure_fit_rows, failure_features), 'transform_rows': [select(held_out, failure_features)], 'prediction_rows': [select(held_out, failure_features)]}
+
+try:
+    check_invariants(leaked_traces)
+except AssertionError:
+    leaked_fit_caught = True
+
+leaked_inputs_caught = True
+
+for field in ['transform_rows', 'prediction_rows']:
+    traces = dict(result)
+    traces[field] = leaked_traces[field]
+    caught = False
+    try:
+        check_invariants(traces)
+    except AssertionError:
+        caught = True
+    leaked_inputs_caught = leaked_inputs_caught and caught
+
+# TODO: assert the supplied check outcome.
+
+# TODO: assert the supplied check outcome.
+
+exec('def probe_contract(training,held_out,columns):\n    return correct(training,held_out,columns)\n')

@@ -1,0 +1,220 @@
+PRACTICE {
+  "type": "live_code",
+  "objective": "Test one protected order endpoint through real HTTP requests with absent, malformed, invalid-signature, expired, wrong-context, insufficient-permission and fully authorized credentials. Include a separately tested request for another caller's order.",
+  "success": "Each credential rejection, missing-permission denial and cross-object denial has its own test asserting the declared status and safe body without protected output. The fully authorized request returns the expected public projection, with authentication and verification active throughout.",
+  "live_code": {
+    "required_skill": "Write endpoint integration tests that isolate authentication, operation authorization and object authorization while checking complete response contracts.",
+    "allowed_syntax": [
+      "def test functions",
+      "with TestClient(app) as client",
+      "client.get()",
+      "headers dictionaries with Authorization bearer values",
+      "string literals and formatted resource paths",
+      "local variable assignment",
+      "assert statements",
+      "equality and membership comparisons",
+      "response.status_code",
+      "response.json()",
+      "dictionary and list literals"
+    ],
+    "blocked_syntax": [],
+    "starter_state_intent": "Provide a protected order endpoint, isolated orders belonging to two callers, the declared denial contracts and expected public order projection. Supply controlled bearer fixtures for invalid signature, expiry, wrong issuer or audience, missing operation permission and sufficient permission. Keep extraction, verification and both authorization gates active; leave the request cases and assertions for the learner.",
+    "observable_success": "Tests send requests to the protected order endpoint rather than calling security helpers directly. Separate cases demonstrate credential rejection, permission denial, cross-object denial and authorized success, asserting exact declared statuses and safe denial bodies or the expected public order result."
+  }
+}
+SOLUTION
+#!/usr/bin/env bash
+set -euo pipefail
+# Requires the supplied native workspace dependencies and any provisioned service.
+cat > 'starter.py' <<'DEVSPACE_FILE_0'
+import json
+from pathlib import Path
+import pytest
+from fastapi.testclient import TestClient
+from application import app, fixtures
+@pytest.mark.parametrize('case',fixtures['cases'],ids=lambda c:c['credential_condition'])
+def test_order_gate(case):
+    bearer_fixtures=json.loads(Path('bearer_fixtures.json').read_text())
+    with TestClient(app) as client:
+        response = client.get(f"/orders/{case['requested_order_id']}", headers=bearer_fixtures[case['credential_condition']])
+        assert response.status_code == case['declared_status']
+        assert response.json() == json.loads(case['safe_body_or_public_result'])
+DEVSPACE_FILE_0
+python prepare_credentials.py
+python -m pytest -q starter.py
+
+
+FILE starter.py
+import json
+from pathlib import Path
+import pytest
+from fastapi.testclient import TestClient
+from application import app, fixtures
+@pytest.mark.parametrize('case',fixtures['cases'],ids=lambda c:c['credential_condition'])
+def test_order_gate(case):
+    bearer_fixtures=json.loads(Path('bearer_fixtures.json').read_text())
+    with TestClient(app) as client:
+        # TODO: send bearer_fixtures[case['credential_condition']] as headers
+        # to GET /orders/{requested_order_id}; assert exact declared_status and
+        # json.loads(case['safe_body_or_public_result']). No dependency overrides.
+        pass
+
+FILE fixtures.json
+{
+  "cases": [
+    {
+      "credential_condition": "absent",
+      "trusted_owner_id": "caller_a",
+      "operation_permission": false,
+      "requested_order_id": 101,
+      "rejection_gate_or_result": "authentication",
+      "declared_status": 401,
+      "safe_body_or_public_result": "{\"detail\": \"Not authenticated\"}"
+    },
+    {
+      "credential_condition": "malformed",
+      "trusted_owner_id": "caller_a",
+      "operation_permission": false,
+      "requested_order_id": 101,
+      "rejection_gate_or_result": "authentication",
+      "declared_status": 401,
+      "safe_body_or_public_result": "{\"detail\": \"Not authenticated\"}"
+    },
+    {
+      "credential_condition": "invalid_signature",
+      "trusted_owner_id": "caller_a",
+      "operation_permission": true,
+      "requested_order_id": 101,
+      "rejection_gate_or_result": "authentication",
+      "declared_status": 401,
+      "safe_body_or_public_result": "{\"detail\": \"Not authenticated\"}"
+    },
+    {
+      "credential_condition": "expired",
+      "trusted_owner_id": "caller_a",
+      "operation_permission": true,
+      "requested_order_id": 101,
+      "rejection_gate_or_result": "authentication",
+      "declared_status": 401,
+      "safe_body_or_public_result": "{\"detail\": \"Not authenticated\"}"
+    },
+    {
+      "credential_condition": "wrong_issuer",
+      "trusted_owner_id": "caller_a",
+      "operation_permission": true,
+      "requested_order_id": 101,
+      "rejection_gate_or_result": "authentication",
+      "declared_status": 401,
+      "safe_body_or_public_result": "{\"detail\": \"Not authenticated\"}"
+    },
+    {
+      "credential_condition": "wrong_audience",
+      "trusted_owner_id": "caller_a",
+      "operation_permission": true,
+      "requested_order_id": 101,
+      "rejection_gate_or_result": "authentication",
+      "declared_status": 401,
+      "safe_body_or_public_result": "{\"detail\": \"Not authenticated\"}"
+    },
+    {
+      "credential_condition": "valid_without_permission",
+      "trusted_owner_id": "caller_a",
+      "operation_permission": false,
+      "requested_order_id": 101,
+      "rejection_gate_or_result": "operation_authorization",
+      "declared_status": 403,
+      "safe_body_or_public_result": "{\"detail\": \"Forbidden\"}"
+    },
+    {
+      "credential_condition": "valid_other_owner",
+      "trusted_owner_id": "caller_a",
+      "operation_permission": true,
+      "requested_order_id": 202,
+      "rejection_gate_or_result": "object_authorization",
+      "declared_status": 403,
+      "safe_body_or_public_result": "{\"detail\": \"Forbidden\"}"
+    },
+    {
+      "credential_condition": "valid_authorized",
+      "trusted_owner_id": "caller_a",
+      "operation_permission": true,
+      "requested_order_id": 101,
+      "rejection_gate_or_result": "public_result",
+      "declared_status": 200,
+      "safe_body_or_public_result": "{\"id\": 101, \"status\": \"pending\"}"
+    }
+  ],
+  "note": "Controlled signed tokens and the real protected endpoint are required; row labels are not bearer credentials.",
+  "orders": [
+    {
+      "id": 101,
+      "owner_id": "caller_a",
+      "status": "pending"
+    },
+    {
+      "id": 202,
+      "owner_id": "caller_b",
+      "status": "pending"
+    }
+  ]
+}
+
+FILE security.py
+import json
+from pathlib import Path
+import jwt
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPBearer
+config=json.loads(Path('test_trust.json').read_text())
+bearer=HTTPBearer(auto_error=False)
+def verified_token_context(credentials=Depends(bearer)):
+    if credentials is None or credentials.scheme.lower()!='bearer':
+        raise HTTPException(401,'Not authenticated')
+    try:
+        claims=jwt.decode(credentials.credentials,config['test_key'],algorithms=['HS256'],
+                          issuer=config['issuer'],audience=config['audience'],
+                          options={'require':['exp','iss','aud','sub']})
+        return {'owner_id':claims['sub'],'scopes':claims.get('scope','').split()}
+    except jwt.InvalidTokenError:
+        raise HTTPException(401,'Not authenticated')
+
+FILE application.py
+import json
+from pathlib import Path
+from fastapi import FastAPI, Depends, HTTPException
+from security import verified_token_context
+fixtures=json.loads(Path('fixtures.json').read_text())
+orders={row['id']:row for row in fixtures['orders']}
+app=FastAPI()
+def operation_permission(context=Depends(verified_token_context)):
+    if 'orders:read' not in context['scopes']:
+        raise HTTPException(403,'Forbidden')
+    return context
+@app.get('/orders/{order_id}')
+def order(order_id:int, context=Depends(operation_permission)):
+    row=orders.get(order_id)
+    if row is None or row['owner_id']!=context['owner_id']:
+        raise HTTPException(403,'Forbidden')
+    return {'id':row['id'],'status':row['status']}
+
+FILE prepare_credentials.py
+import json,time
+from pathlib import Path
+import jwt
+config=json.loads(Path('test_trust.json').read_text())
+cases=json.loads(Path('fixtures.json').read_text())['cases']
+now=int(time.time())
+headers={}
+for case in cases:
+    condition=case['credential_condition']
+    if condition=='absent': headers[condition]={}; continue
+    if condition=='malformed': headers[condition]={'Authorization':'Bearer not.a.jwt'}; continue
+    claims={'iss':config['issuer'],'aud':config['audience'],'sub':case['trusted_owner_id'],
+            'exp':now+3600,'scope':'orders:read' if case['operation_permission'] else ''}
+    if condition=='expired': claims['exp']=now-3600
+    if condition=='wrong_issuer': claims['iss']='wrong-controlled-issuer'
+    if condition=='wrong_audience': claims['aud']='wrong-controlled-audience'
+    key=config['test_key'] if condition!='invalid_signature' else config['test_key']+'wrong'
+    token=jwt.encode(claims,key,algorithm='HS256')
+    headers[condition]={'Authorization':'Bearer '+token}
+Path('bearer_fixtures.json').write_text(json.dumps(headers,indent=2)+'\n')

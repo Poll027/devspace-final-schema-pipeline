@@ -1,0 +1,239 @@
+PROMPT Write the required JSON imports. Complete predict_chunk, encode_record and decode_record in learner.py. Return frozen fitted_package predictions for the supplied feature values without refitting, serialize each keyed record with json.dumps, and decode each persisted JSON line with json.loads. Do not edit the supplied bounded read/write and assertion harness. It preserves order_id, prediction and version, writes each chunk before reading the next, and checks count, exact schema, complete unique keys and keyed predictions using valid-reordered and five invalid fixtures. batch_report must pass all checks, including the final partial chunk.
+
+STARTER learner.py
+# TODO: write the required imports.
+exec('import pandas as pd
+import json
+FEATURE_NAMES = ("feature_1", "feature_2")
+class FrozenPreprocessor:
+    def transform(self, values):
+        return [[float(x) for x in row] for row in values]
+class FrozenModel:
+    def predict(self, values):
+        return [row[0] + 2.0 * row[1] for row in values]
+preprocessing_pipeline = FrozenPreprocessor()
+model = FrozenModel()
+
+class FittedPackage:
+    def predict(self, values):
+        return model.predict(preprocessing_pipeline.transform(values.values.tolist()))
+fitted_package = FittedPackage()
+input_path = \'orders.csv\'
+output_path = \'learner_results.jsonl\'
+declared_rows = 2
+feature_names = [\'feature_1\', \'feature_2\']
+result_keys = [\'order_id\', \'prediction\', \'version\']
+version = \'A\'
+
+def supplied_fixtures(decoded):
+    fixtures = [decoded[::-1], decoded[:-1], decoded + decoded[:1], [{**r, "order_id": "unknown"} if i == 0 else r for i, r in enumerate(decoded)], [{"order_id": r["order_id"]} for r in decoded], [{**r, "prediction": r["prediction"] + 1} if i == 0 else r for i, r in enumerate(decoded)]]
+    return fixtures
+')
+# Supplied bounded persistence, key-validation and failure-fixture harness.
+exec('def validate_keyed_records(records, expected_records):
+    assert len(records) == len(expected_records)
+    keys = []
+    expected_keys = []
+    expected = {}
+    for record in expected_records:
+        expected_keys.append(record["order_id"])
+        expected[record["order_id"]] = record
+    for record in records:
+        assert set(record) == set(result_keys)
+        keys.append(record["order_id"])
+    assert len(set(keys)) == len(keys)
+    assert set(keys) == set(expected_keys)
+    for record in records:
+        assert record == expected[record["order_id"]]
+    return True
+
+def batch_predict():
+    decoded = []
+    expected = []
+    chunk_lengths = []
+    events = []
+    with open(input_path) as inp, open(output_path, "w") as out:
+        for chunk in pd.read_csv(inp, chunksize=declared_rows):
+            events.append("read")
+            chunk_lengths.append(len(chunk))
+            predictions = predict_chunk(chunk[feature_names])
+            for key, prediction in zip(chunk["order_id"], predictions):
+                record = {"order_id": key, "prediction": prediction, "version": version}
+                expected.append(record)
+                out.write(encode_record(record) + "\
+")
+            events.append("write")
+    with open(output_path) as inp:
+        for line in inp:
+            decoded.append(decode_record(line))
+    checks = []
+    for fixture in supplied_fixtures(decoded):
+        try:
+            checks.append(validate_keyed_records(fixture, expected))
+        except AssertionError:
+            checks.append(False)
+    return {"records": decoded, "chunk_lengths": chunk_lengths, "events": events, "validation_results": checks}
+
+')
+def predict_chunk(values):
+    # TODO: complete the fitted inference / JSON operation.
+    return None
+
+def encode_record(record):
+    # TODO: complete the fitted inference / JSON operation.
+    return None
+
+def decode_record(line):
+    # TODO: complete the fitted inference / JSON operation.
+    return None
+
+batch_report = batch_predict()
+
+
+SOLUTION learner.py
+exec('import pandas as pd
+import json
+FEATURE_NAMES = ("feature_1", "feature_2")
+class FrozenPreprocessor:
+    def transform(self, values):
+        return [[float(x) for x in row] for row in values]
+class FrozenModel:
+    def predict(self, values):
+        return [row[0] + 2.0 * row[1] for row in values]
+preprocessing_pipeline = FrozenPreprocessor()
+model = FrozenModel()
+
+class FittedPackage:
+    def predict(self, values):
+        return model.predict(preprocessing_pipeline.transform(values.values.tolist()))
+fitted_package = FittedPackage()
+input_path = \'orders.csv\'
+output_path = \'learner_results.jsonl\'
+declared_rows = 2
+feature_names = [\'feature_1\', \'feature_2\']
+result_keys = [\'order_id\', \'prediction\', \'version\']
+version = \'A\'
+
+def supplied_fixtures(decoded):
+    fixtures = [decoded[::-1], decoded[:-1], decoded + decoded[:1], [{**r, "order_id": "unknown"} if i == 0 else r for i, r in enumerate(decoded)], [{"order_id": r["order_id"]} for r in decoded], [{**r, "prediction": r["prediction"] + 1} if i == 0 else r for i, r in enumerate(decoded)]]
+    return fixtures
+')
+# Supplied bounded persistence, key-validation and failure-fixture harness.
+exec('def validate_keyed_records(records, expected_records):
+    assert len(records) == len(expected_records)
+    keys = []
+    expected_keys = []
+    expected = {}
+    for record in expected_records:
+        expected_keys.append(record["order_id"])
+        expected[record["order_id"]] = record
+    for record in records:
+        assert set(record) == set(result_keys)
+        keys.append(record["order_id"])
+    assert len(set(keys)) == len(keys)
+    assert set(keys) == set(expected_keys)
+    for record in records:
+        assert record == expected[record["order_id"]]
+    return True
+
+def batch_predict():
+    decoded = []
+    expected = []
+    chunk_lengths = []
+    events = []
+    with open(input_path) as inp, open(output_path, "w") as out:
+        for chunk in pd.read_csv(inp, chunksize=declared_rows):
+            events.append("read")
+            chunk_lengths.append(len(chunk))
+            predictions = predict_chunk(chunk[feature_names])
+            for key, prediction in zip(chunk["order_id"], predictions):
+                record = {"order_id": key, "prediction": prediction, "version": version}
+                expected.append(record)
+                out.write(encode_record(record) + "\
+")
+            events.append("write")
+    with open(output_path) as inp:
+        for line in inp:
+            decoded.append(decode_record(line))
+    checks = []
+    for fixture in supplied_fixtures(decoded):
+        try:
+            checks.append(validate_keyed_records(fixture, expected))
+        except AssertionError:
+            checks.append(False)
+    return {"records": decoded, "chunk_lengths": chunk_lengths, "events": events, "validation_results": checks}
+
+')
+import json
+def predict_chunk(values):
+    return fitted_package.predict(values)
+
+def encode_record(record):
+    return json.dumps(record)
+
+def decode_record(line):
+    return json.loads(line)
+
+batch_report = batch_predict()
+
+TESTS [
+  {
+    "test_id": "t1",
+    "kind": "value_equals",
+    "message_on_fail": "Compare the computed report with every requested field, population, and fixture predicate.",
+    "spec": {
+      "expr": "batch_report",
+      "expected": {
+        "records": [
+          {
+            "order_id": "A",
+            "prediction": 5,
+            "version": "A"
+          },
+          {
+            "order_id": "B",
+            "prediction": 8,
+            "version": "A"
+          },
+          {
+            "order_id": "C",
+            "prediction": 11,
+            "version": "A"
+          },
+          {
+            "order_id": "D",
+            "prediction": 14,
+            "version": "A"
+          },
+          {
+            "order_id": "E",
+            "prediction": 17,
+            "version": "A"
+          }
+        ],
+        "chunk_lengths": [
+          2,
+          2,
+          1
+        ],
+        "events": [
+          "read",
+          "write",
+          "read",
+          "write",
+          "read",
+          "write"
+        ],
+        "validation_results": [
+          true,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      "tolerance": 1e-08
+    }
+  }
+]

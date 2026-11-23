@@ -1,0 +1,74 @@
+Configure the supplied evaluation scaffold by assigning `paired_trial` to `supplied_run_pair`; `trial_mean` to `supplied_np_mean`; `trial_std` to `supplied_np_std`. Assign the callable names without calling them. These interfaces control the Control random seeds for reproducible training comparisons computation. Keep input loading, the complete evaluation functions, guards and returned fields unchanged; only replace the marked interface assignments.
+# Supplied input loading and dependencies.
+import pandas as pd
+
+trials = pd.read_csv('paired_trials.csv').to_dict('records')
+
+declared_seed_list = pd.read_csv('paired_trials.csv')['seed'].tolist()
+
+call_trace = []
+
+import numpy as np
+
+# Supplied evaluation scaffolding. Configure its interfaces below; keep this block unchanged.
+if __name__:
+    def run_pair(seed, split_random_state, baseline_random_state, candidate_random_state):
+        assert split_random_state == seed
+        assert baseline_random_state == seed
+        assert candidate_random_state == seed
+        for row in trials:
+            if row['seed'] == seed:
+                call_trace.append({'seed': seed, 'split_random_state': split_random_state, 'baseline_random_state': baseline_random_state, 'candidate_random_state': candidate_random_state})
+                return row
+        raise ValueError('undeclared seed')
+
+    def supplied_numeric_pair_present(pair):
+        if not isinstance(pair, dict):
+            return False
+        for name in ('baseline_result', 'candidate_result'):
+            value = pair.get(name)
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                return False
+            if value != value or value in (float('inf'), -float('inf')):
+                return False
+        return True
+
+    def evaluate(declared_seed_list):
+        pairs = []
+        baseline_results = []
+        candidate_results = []
+        wins = 0
+        for seed in declared_seed_list:
+            pair = paired_trial(seed, split_random_state=seed, baseline_random_state=seed, candidate_random_state=seed)
+            if supplied_numeric_pair_present(pair):
+                pairs.append(pair)
+                baseline_results.append(pair['baseline_result'])
+                candidate_results.append(pair['candidate_result'])
+                if pair['candidate_result'] < pair['baseline_result']:
+                    wins = wins + 1
+        n = len(pairs)
+        win_probability = None
+        baseline_mean = None
+        baseline_std = None
+        candidate_mean = None
+        candidate_std = None
+        if n > 0:
+            win_probability = wins / n
+            baseline_mean = trial_mean(baseline_results)
+            baseline_std = trial_std(baseline_results, ddof=0)
+            candidate_mean = trial_mean(candidate_results)
+            candidate_std = trial_std(candidate_results, ddof=0)
+        return {'pairs': pairs, 'completed_pair_count': n, 'win_count': wins, 'win_probability': win_probability, 'baseline_mean': baseline_mean, 'baseline_std': baseline_std, 'candidate_mean': candidate_mean, 'candidate_std': candidate_std, 'limitation': 'Declared split and estimator random sources are controlled; identical computation in every environment is not guaranteed.'}
+
+# Supplied callable operations; keep these assignments unchanged.
+supplied_run_pair = run_pair
+supplied_np_mean = np.mean
+supplied_np_std = np.std
+# TODO: configure each interface using the matching supplied callable, without calling it.
+paired_trial = None  # TODO: select the supplied callable
+trial_mean = None  # TODO: select the supplied callable
+trial_std = None  # TODO: select the supplied callable
+SYNTAX
+{'allowed_syntax': ['import numpy as np', 'from supplied dependency modules import required names', 'def with parameters and return', 'variable assignment', 'integer and floating-point literals', 'lists and dictionaries', 'for seed in declared_seed_list', 'if statements', 'list.append', 'dictionary and list indexing', 'len', 'numeric comparisons and arithmetic', 'calls to supplied preparation and evaluation helpers', 'scikit-learn split and estimator calls with random_state', 'fit and predict', 'None', 'np.random.RandomState', 'np.mean(numeric_values)', 'np.std(numeric_values, ddof=0)', 'np.std(numeric_values, ddof=1) when explicitly required by the calculation'], 'blocked_syntax': ['GridSearchCV', 'RandomizedSearchCV', 'torch imports and API calls', 'DataLoader', 'loss.backward()', 'optimizer.step()', 'torch.save', 'torch.load', "if __name__ == '__main__':"]}
+TESTS
+[{'test_id': 't1', 'kind': 'value_equals', 'spec': {'expr': 'evaluate(declared_seed_list)', 'expected': {'pairs': [{'seed': 0, 'baseline_result': 0.32, 'candidate_result': 0.31}, {'seed': 1, 'baseline_result': 0.33, 'candidate_result': 0.32}, {'seed': 2, 'baseline_result': 0.34, 'candidate_result': 0.33}, {'seed': 3, 'baseline_result': 0.35, 'candidate_result': 0.36}, {'seed': 4, 'baseline_result': 0.36, 'candidate_result': 0.37}], 'completed_pair_count': 5, 'win_count': 3, 'win_probability': 0.6, 'baseline_mean': 0.33999999999999997, 'baseline_std': 0.01414213562373094, 'candidate_mean': 0.33799999999999997, 'candidate_std': 0.023151673805580447, 'limitation': 'Declared split and estimator random sources are controlled; identical computation in every environment is not guaranteed.'}}, 'visible': True, 'message_on_fail': 'Check the named result fields, fixed assumptions, and empty-group behavior.'}, {'test_id': 't2', 'kind': 'value_equals', 'spec': {'expr': '(evaluate(declared_seed_list), call_trace[-len(declared_seed_list):])', 'expected': [{'pairs': [{'seed': 0, 'baseline_result': 0.32, 'candidate_result': 0.31}, {'seed': 1, 'baseline_result': 0.33, 'candidate_result': 0.32}, {'seed': 2, 'baseline_result': 0.34, 'candidate_result': 0.33}, {'seed': 3, 'baseline_result': 0.35, 'candidate_result': 0.36}, {'seed': 4, 'baseline_result': 0.36, 'candidate_result': 0.37}], 'completed_pair_count': 5, 'win_count': 3, 'win_probability': 0.6, 'baseline_mean': 0.33999999999999997, 'baseline_std': 0.01414213562373094, 'candidate_mean': 0.33799999999999997, 'candidate_std': 0.023151673805580447, 'limitation': 'Declared split and estimator random sources are controlled; identical computation in every environment is not guaranteed.'}, [{'seed': 0, 'split_random_state': 0, 'baseline_random_state': 0, 'candidate_random_state': 0}, {'seed': 1, 'split_random_state': 1, 'baseline_random_state': 1, 'candidate_random_state': 1}, {'seed': 2, 'split_random_state': 2, 'baseline_random_state': 2, 'candidate_random_state': 2}, {'seed': 3, 'split_random_state': 3, 'baseline_random_state': 3, 'candidate_random_state': 3}, {'seed': 4, 'split_random_state': 4, 'baseline_random_state': 4, 'candidate_random_state': 4}]]}, 'visible': False, 'message_on_fail': 'Check the named result fields, fixed assumptions, and empty-group behavior.'}, {'test_id': 'incomplete_pairs', 'kind': 'value_equals', 'spec': {'expr': "(lambda saved: (trials.__setitem__(slice(None), [dict(row, candidate_result=None) if j == 0 else dict(row, baseline_result='missing') if j == 1 else dict(row, candidate_result=row['baseline_result']) if j == 2 else row for j, row in enumerate(saved)]), evaluate(declared_seed_list), trials.__setitem__(slice(None), saved))[1])(trials.copy())", 'expected': {'pairs': [{'seed': 2, 'baseline_result': 0.34, 'candidate_result': 0.34}, {'seed': 3, 'baseline_result': 0.35, 'candidate_result': 0.36}, {'seed': 4, 'baseline_result': 0.36, 'candidate_result': 0.37}], 'completed_pair_count': 3, 'win_count': 0, 'win_probability': 0, 'baseline_mean': 0.3499999999999999, 'baseline_std': 0.008164965809277244, 'candidate_mean': 0.35666666666666663, 'candidate_std': 0.012472191289246459, 'limitation': 'Declared split and estimator random sources are controlled; identical computation in every environment is not guaranteed.'}}, 'visible': False, 'message_on_fail': 'Only complete numeric pairs count; ties are not wins.'}]

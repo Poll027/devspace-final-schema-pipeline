@@ -1,0 +1,12 @@
+# Supplied infrastructure glue; do not edit this block.
+exec('import json\nimport numpy as np\nimport csv\nwith open("batching_trace.csv") as handle:\n    raw_rows = list(csv.DictReader(handle))\ntrace = [{"request_id": r["request_id"], "batching_setting": r["batching_setting"], "request_start_seconds": float(r["request_start_seconds"]) if r["request_start_seconds"] else None, "response_complete_seconds": float(r["response_complete_seconds"]) if r["response_complete_seconds"] else None, "success": r["success"].lower() == "true", "response_json": r["response_json"]} for r in raw_rows]\nsettings = [\'limit_1\', \'limit_2\']\ndeclared_percentile = 99\npercentile_method = \'linear\'\nlatency_objective = 0.5\nunits = \'seconds\'\ndivisor = 0\n\ndef keep_success(candidate):\n    return candidate["success"]\ndef keep_matched_success(candidate):\n    return candidate["success"] and candidate["request_start_seconds"] is not None and candidate["response_complete_seconds"] is not None and candidate["decoded_response"]["request_id"] == candidate["request_id"] and candidate["decoded_response"]["batching_setting"] == candidate["batching_setting"]\ndef report_from_trace(decode, encode, eligible, mean_stat, std_stat, tail_stat):\n    decoded_trace = decode(encode(trace))\n    report = {}\n    selected = []\n    for setting in settings:\n        latencies = []\n        for row in decoded_trace:\n            if row["batching_setting"] == setting:\n                row["decoded_response"] = decode(row["response_json"]) if row["response_json"] else {}\n                if eligible(row):\n                    latencies.append(row["response_complete_seconds"] - row["request_start_seconds"])\n        values = np.array(latencies)\n        tail = tail_stat(values, declared_percentile, method=percentile_method)\n        report[setting] = {"count": len(latencies), "mean": mean_stat(values), "std": std_stat(values), "p99": tail, "units": units, "ddof": divisor, "percentile_method": percentile_method}\n        if tail <= latency_objective:\n            selected.append(setting)\n    return report, selected\n')
+import numpy as np
+from json import loads, dumps
+# Complete numerical callback and eligibility wiring.
+mean_stat = np.median
+std_stat = np.var
+tail_stat = np.percentile
+decode = loads
+encode = dumps
+eligible = keep_success
+report, selected = report_from_trace(decode, encode, eligible, mean_stat, std_stat, tail_stat)

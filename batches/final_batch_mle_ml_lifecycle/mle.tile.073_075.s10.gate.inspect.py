@@ -1,0 +1,42 @@
+def behavior_test(case, regression=None):
+    try:
+        actual = FittedPackage(regression).predict(case['inputs'])
+        if 'expected_exception' in case:
+            raise AssertionError('expected_exception')
+        assert len(actual['sample_ids']) == len(case['inputs']), 'count'
+        assert actual['sample_ids'] == case['expected_sample_ids'], 'alignment'
+        assert list(actual['values'].shape) == case['expected_shape'], 'shape'
+        np.testing.assert_allclose(actual['values'], np.array(case['expected_values']).reshape(case['expected_shape']), rtol=relative_tolerance, atol=absolute_tolerance)
+        return {'ok': True, 'sample_ids': actual['sample_ids'], 'shape': list(actual['values'].shape), 'values': actual['values'].tolist()}
+    except InputContractError:
+        assert case.get('expected_exception') == 'InputContractError'
+        return {'ok': True, 'exception': 'InputContractError'}
+    except AssertionError as e:
+        return {'ok': False, 'failed': 'numerical' if 'Not equal' in str(e) else str(e)}
+
+def behavior_run():
+    resolved = reloaded_build
+    assert resolved == configured_build
+    assert resolved['steps'][0]['id'] == 'behavior_tests'
+    assert resolved['steps'][0]['name'] == 'python:3.11'
+    assert resolved['steps'][0]['args'] == ['python', 'learner.py', '${_CASE}']
+    assert resolved['steps'][0]['waitFor'] == ['-']
+    assert resolved['steps'][1]['id'] == 'release_gate'
+    assert resolved['steps'][1]['name'] == 'python:3.11'
+    assert resolved['steps'][1]['args'] == ['python', 'downstream_entry.py', '${_ARTIFACT}']
+    assert resolved['steps'][1]['waitFor'] == ['behavior_tests']
+    for step in resolved['steps']:
+        assert not step.get('allowFailure')
+        assert all((code == 0 for code in step.get('allowExitCodes', [])))
+    evidence = {k: behavior_test(v) for k, v in cases.items()}
+    regressions = {r: behavior_test(cases['valid'], r) for r in contract['regressions']}
+
+    def action(b):
+        rec = execution_cases.get(b['_CASE'])
+        return behavior_test(cases[rec['fixture_id']], rec['regression']) if rec else {'ok': False, 'failed': 'unknown event case'}
+    runs = [execute(resolved, trigger, e, {'behavior_tests': action}) for e in trigger['fixtures']]
+    assert all((v['ok'] for v in evidence.values()))
+    assert all((not v['ok'] for v in regressions.values()))
+    assert runs[0]['steps'][1]['status'] == 'SUCCESS'
+    assert runs[1]['steps'][1]['status'] == 'NOT_STARTED'
+    return {'cases': evidence, 'regressions': regressions, 'tolerances': {'rtol': relative_tolerance, 'atol': absolute_tolerance}, 'config': resolved, 'runs': runs}

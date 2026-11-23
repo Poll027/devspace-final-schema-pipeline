@@ -1,0 +1,58 @@
+# Supplied implementation, fixtures and verification harness; complete only the marked assignments and assertions.
+import pandas as pd
+
+contract = {'columns': ['distance', 'zone'], 'declared_types': {'distance': 'float64', 'zone': 'string'}, 'distance_min': 0, 'distance_max': 100, 'zone_categories': ['north', 'south']}
+
+fixtures = {'valid': {'columns': ['distance', 'zone'], 'rows': [[0, 'north'], [2, 'south'], [100, 'north']]}, 'negative': {'columns': ['distance', 'zone'], 'rows': [[-1, 'north'], [2, 'south'], [100, 'north']]}, 'too_large': {'columns': ['distance', 'zone'], 'rows': [[0, 'north'], [2, 'south'], [101, 'north']]}, 'missing_column': {'columns': ['distance'], 'rows': [[0], [2], [100]]}, 'invalid_representation': {'columns': ['distance', 'zone'], 'rows': [[0, 'NORTH'], [2, 'south'], [100, 'north']]}, 'unexpected_column': {'columns': ['distance', 'zone', 'extra_feature'], 'rows': [[0, 'north', 10], [2, 'south', 10], [100, 'north', 10]]}}
+
+tables = {name: pd.DataFrame(v['rows'], columns=v['columns']).astype({k: t for k, t in contract['declared_types'].items() if k in v['columns']}) for name, v in fixtures.items()}
+
+tables['incorrect_type'] = tables['valid'].astype({'distance': 'string'})
+
+if True:
+
+    def supplied_validate(table, contract):
+        if set(table.columns) != set(contract['columns']):
+            raise ValueError('columns')
+        for column in contract['columns']:
+            if table.dtypes[column] != contract['declared_types'][column]:
+                raise ValueError('dtype')
+        distance = table['distance']
+        if not ((distance >= contract['distance_min']) & (distance <= contract['distance_max'])).all():
+            raise ValueError('distance')
+        zone = table['zone']
+        if not ((zone == 'north') | (zone == 'south')).all():
+            raise ValueError('zone')
+        return table
+
+# TODO: complete the required validate assignment.
+validate = None
+
+assert validate(tables['valid'], contract).equals(tables['valid'])
+
+verdicts = {}
+
+for name in tables:
+    try:
+        validate(tables[name], contract)
+        verdicts[name] = 'accepted'
+    except ValueError as error:
+        verdicts[name] = str(error)
+
+assert verdicts['valid'] == 'accepted'
+
+assert verdicts['negative'] == 'distance'
+
+assert verdicts['too_large'] == 'distance'
+
+assert verdicts['missing_column'] == 'columns'
+
+assert verdicts['unexpected_column'] == 'columns'
+
+assert verdicts['incorrect_type'] == 'dtype'
+
+assert verdicts['invalid_representation'] == 'zone'
+
+result = [tables['valid'], verdicts]
+
+exec("def probe_contract(fixture, contract, wrong_type=False):\n    t = pd.DataFrame(fixture['rows'], columns=fixture['columns'])\n    t = t.astype({k:v for k,v in contract['declared_types'].items() if k in t.columns})\n    if wrong_type: t = t.astype({'distance':'string'})\n    try:\n        return validate(t,contract)\n    except ValueError as error:\n        return str(error)\n")

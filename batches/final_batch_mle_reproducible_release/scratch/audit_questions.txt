@@ -1,0 +1,498 @@
+
+mle.tile.052_055.s05
+The script is saved locally. How do you retain a committed revision?
+o1 Stage training_script.py with git add, commit it with git commit, and retain the resulting revision.
+o2 Retain the filename without staging or committing.
+o3 Run git add training_script.py and retain the current HEAD without committing.
+o4 Retain capture.log instead of committing the script.
+
+mle.tile.052_055.s06
+Judge each independent training-script excerpt against its named criterion.
+i1 Criterion: guarded, explicit training state, actual reporting and structured configuration round-trip. Supplied configuration: {"dataset_path": "training_orders.csv", "threshold": 50.0}
+```
+import json
+from fixture_workflow import supplied_workflow
+
+def train(dataset_path='training_orders.csv', threshold=40.0):
+    result = supplied_workflow(dataset_path=dataset_path, threshold=threshold)
+    print(f"dataset_path={dataset_path} threshold={threshold} validation_accuracy={result['validation_accuracy']}")
+    return {"parameters": result["resolved_parameters"], "validation_accuracy": result["validation_accuracy"]}
+
+if __name__ == "__main__":
+    with open("configuration.json") as handle:
+        config = json.load(handle)
+    default_run = train()
+    configured_run = train(dataset_path=config["dataset_path"], threshold=config["threshold"])
+    record = {"default": default_run, "configured": configured_run}
+    with open("training_record.json", "w") as handle:
+        json.dump(record, handle)
+    with open("training_record.json") as handle:
+        restored = json.load(handle)
+    assert restored == record
+```
+i2 Criterion: importing does not launch training.
+```
+from fixture_workflow import supplied_workflow
+result = supplied_workflow()
+if __name__ == "__main__":
+    print(result)
+```
+i3 Criterion: commit and clean-process verification. This is an illustrative inspection transcript, not a claim of cloud execution.
+```
+git add training_script.py
+git commit -m "Extract parameterized entry point"
+git rev-parse --verify HEAD > retained_revision.txt
+python training_script.py > capture.log 2>&1
+cat capture.log
+# Independently inspected result: successful exit; both reported settings/results match the notebook fixture.
+python -c 'import subprocess; subprocess.run(["python", "training_script.py"], check=True)'
+# Checked caller invocation: successful exit.
+```
+Corresponding notebook results: {"default": {"threshold": 40.0, "validation_accuracy": 0.9375}, "configured": {"threshold": 50.0, "validation_accuracy": 0.9375}}
+i4 Criterion: reporting the resolved configured threshold.
+```
+def train(threshold=40.0):
+    result = supplied_workflow(threshold=threshold)
+    print("threshold=40.0")
+    return result
+train(threshold=50.0)
+```
+
+mle.tile.052_055.s11
+After latest is overwritten, how do you verify the original snapshot?
+o1 Download the recorded generation and compare the SHA-256 of its actual bytes with the original record.
+o2 Download the current latest key and accept it because the object name is unchanged.
+o3 Copy the expected digest into the new download record without reading its bytes.
+o4 Record only the latest object name and omit the generation.
+
+mle.tile.052_055.s12
+Judge each independent storage excerpt against its named criterion. All storage operations are in the authorized version-enabled test bucket.
+i1 Criterion: original byte identity, observed upload generation and availability before recording.
+```
+import hashlib
+with open(local_path, "rb") as handle:
+    original_digest = hashlib.sha256(handle.read()).hexdigest()
+blob = bucket.blob(object_name)
+blob.upload_from_filename(local_path)
+blob.reload()
+generation = blob.generation
+selected = bucket.blob(object_name, generation=generation)
+assert selected.exists()
+record = {"object_name": object_name, "generation": generation, "sha256": original_digest}
+```
+i2 Criterion: retrieve the same generation before and after an authorized latest overwrite. Recorded snapshot:
+{"bucket_name": "authorized-fixture", "object_name": "datasets/latest.csv", "generation": 1, "expected_hash": "d67e606cd75127f615b2ba02dfcc22f853460dcb774c3073bb47fa66ce83a21e", "local_path": "training_orders.csv", "record_path": "snapshot_record.json", "download_path": "downloads/training_orders.csv"}
+```
+selected = bucket.blob(record["object_name"], generation=record["generation"])
+selected.download_to_filename(download_path)
+with open(download_path, "rb") as handle:
+    assert hashlib.sha256(handle.read()).hexdigest() == record["expected_hash"]
+bucket.blob(record["object_name"]).upload_from_filename("changed_latest.csv")
+selected.download_to_filename(download_path)
+with open(download_path, "rb") as handle:
+    assert hashlib.sha256(handle.read()).hexdigest() == record["expected_hash"]
+```
+i3 Criterion: generation-qualified retrieval after overwrite.
+```
+bucket.blob(record["object_name"]).download_to_filename(download_path)
+record["sha256"] = record["sha256"]
+```
+i4 Criterion: availability before recording.
+```
+selected = bucket.blob(object_name, generation=requested_generation)
+# No exists check or successful retrieval is performed.
+record = {"object_name": object_name, "generation": requested_generation, "available": True}
+```
+
+mle.tile.052_055.s16
+A saved manifest parses as JSON. Its dependency mapping differs from a fresh, independent pip-freeze observation. Which verification decision is defensible?
+o1 Reject the mismatch while leaving the independent observation unchanged.
+o2 Accept it because valid JSON proves the environment matches.
+o3 Replace the observed dependency version with the manifest value and accept.
+o4 Ignore dependencies and compare only the revision.
+
+mle.tile.052_055.s17
+Read each independent manifest snippet. Decide whether it meets or violates the named environment-record criterion. Variables named independent_* contain fresh observations, not values copied from the manifest.
+i1 Criterion: collect actual revision, dependency pins and execution context.
+```
+import subprocess, sys
+revision = subprocess.run(["git", "rev-parse", "--verify", "HEAD"], check=True, capture_output=True, text=True).stdout.strip()
+freeze = subprocess.run([sys.executable, "-m", "pip", "freeze"], check=True, capture_output=True, text=True).stdout
+pins = dict(line.split("==", 1) for line in freeze.splitlines() if "==" in line)
+manifest = {"revision": revision, "dependencies": pins, "runtime_identity": supplied_runtime_identity, "python_version": sys.version, "python_executable": sys.executable}
+```
+i2 Criterion: structured JSON and independent verification.
+```
+import json
+with open("environment.json", "w", encoding="utf-8") as handle:
+    json.dump(manifest, handle)
+with open("environment.json", "r", encoding="utf-8") as handle:
+    parsed = json.load(handle)
+assert parsed["revision"] == independent_revision
+assert parsed["dependencies"] == independent_dependencies
+assert parsed["runtime_identity"] == independent_runtime_identity
+assert parsed["python_version"] == independent_python_version
+assert parsed["python_executable"] == independent_python_executable
+```
+i3 Criterion: reject changed revision, dependency or runtime.
+```
+def verify(parsed, independent):
+    independent.update(parsed)
+    return parsed == independent
+```
+i4 Criterion: detect any changed required environment field.
+```
+def verify(parsed, independent):
+    return parsed["revision"] == independent["revision"]
+# Dependencies and all runtime fields are ignored.
+```
+
+mle.tile.052_055.s22
+Verified inputs and execution produced an outcome outside the supplied tolerance. What should be reported?
+o1 Report that this rerun failed the declared outcome agreement check.
+o2 Widen the tolerance after seeing the outcome and report agreement.
+o3 Accept because a zero process exit proves the outcomes agree.
+o4 Skip the outcome comparison because the dataset generation matches.
+
+mle.tile.052_055.s23
+Judge each independent rerun excerpt against its named criterion. recorded and supplied_tolerance refer to the previously retained experiment and its declared tolerance.
+i1 Criterion: verified recorded inputs and path resolution.
+```
+cd "$RECORDED_REPOSITORY"
+git checkout "$RECORDED_REVISION"
+git rev-parse --verify HEAD
+# Hypothetical inspection evidence: checkout succeeded in the recorded repository; observed HEAD equals the recorded revision and the working tree is clean; the explicitly selected recorded dataset generation was downloaded and its actual-byte SHA-256 matches the record; independently inspected Python/runtime identity and dependency pins match the recorded environment; dataset, configuration and script paths were resolved from the recorded repository and artifact directories.
+```
+i2 Criterion: explicit settings, checked process, captured output and declared comparison.
+```
+def rerun(script_path, cwd, dataset_path=recorded_dataset_path, threshold=recorded_default):
+    config = {"dataset_path": dataset_path, "threshold": threshold}
+    with open(os.path.join(cwd, "configuration.json"), "w") as handle:
+        json.dump(config, handle)
+    completed = subprocess.run([recorded_python, script_path], cwd=cwd, capture_output=True, text=True, check=True)
+    inspect(completed.stdout, completed.stderr)
+    observed_record = json.loads(completed.stdout)
+    assert observed_record["resolved_parameters"] == config
+    return abs(observed_record["validation_accuracy"] - recorded_outcome) <= supplied_tolerance
+verdict = rerun("recorded_training_script.py", cwd=recorded_working_directory, dataset_path=verified_dataset_path, threshold=recorded_resolved_threshold)
+# The saved script reads configuration.json in its working directory; inspect is a supplied stream-inspection helper.
+```
+i3 Criterion: capture both streams and distinguish a pipe.
+```
+cd "$RECORDED_REPOSITORY"
+python recorded_training_script.py > capture.log 2>&1
+cat capture.log
+cat capture.log | grep threshold
+# The final command feeds cat output to grep input.
+```
+i4 Criterion: reproduce the recorded snapshot.
+```
+bucket.blob(recorded["dataset_object"]).download_to_filename(local_path)
+# The latest object was overwritten; generation is deliberately omitted.
+run_training(local_path)
+```
+i5 Criterion: outcome agreement under the supplied tolerance.
+```
+if abs(rerun_outcome - recorded_outcome) > supplied_tolerance:
+    supplied_tolerance = abs(rerun_outcome - recorded_outcome)
+return True
+```
+
+mle.tile.056_057.s03
+After latest is overwritten, how do you verify the existing registered version?
+o1 Retrieve its version-qualified generation and verify the bytes against its registered hash.
+o2 Resolve latest and treat its new bytes as the existing approved version.
+o3 Create a new approved version automatically just because latest changed.
+o4 Check only that the model name is still B.
+
+mle.tile.056_057.s04
+Judge each independent registry excerpt against its named criterion. All overwrites are authorized test-bucket operations; the originating artifact record is {"run_id": "run.order.B", "bucket_name": "authorized-fixture", "key": "models/B/latest.json", "generation": 1, "expected_hash": "cb182766714027c89ef572c9cf1c437b88b0cea465e51eeeec10a184cf8ae8c2", "version_qualified_source": "gs://authorized-fixture/models/B/latest.json#1", "model_name": "B", "new_name_model": "baseline", "local_path": "downloads/B.json"}.
+i1 Criterion: exact run artifact and mismatch rejection before version creation.
+```
+from mlflow import MlflowClient
+client = MlflowClient()
+run = client.get_run(record["run_id"])
+assert run_artifact_identity(run) == record
+blob = bucket.blob(record["key"], generation=record["generation"])
+blob.download_to_filename(record["local_path"])
+with open(record["local_path"], "rb") as handle:
+    observed_hash = hashlib.sha256(handle.read()).hexdigest()
+if observed_hash != record["expected_hash"]:
+    return {"registered": False}
+# Only matching bytes can continue to the version-creation branch.
+# run_artifact_identity is the supplied run-record reader.
+```
+i2 Criterion: create and retrieve a pinned version linked to its originating run. Matching-hash branch only.
+```
+client.get_registered_model(record["model_name"])
+version = client.create_model_version(name=record["model_name"], source=record["version_qualified_source"], run_id=record["run_id"])
+client.set_model_version_tag(record["model_name"], version.version, "generation", str(record["generation"]))
+client.set_model_version_tag(record["model_name"], version.version, "sha256", observed_hash)
+retrieved = client.get_model_version(record["model_name"], version.version)
+assert retrieved.source == record["version_qualified_source"]
+assert retrieved.run_id == record["run_id"]
+assert retrieved.tags["generation"] == str(record["generation"])
+assert retrieved.tags["sha256"] == record["expected_hash"]
+assert run_artifact_identity(client.get_run(retrieved.run_id)) == record
+# For a supplied new name, create_registered_model(name) precedes version creation.
+```
+i3 Criterion: registered contents survive latest overwrite.
+```
+bucket.blob(record["key"]).upload_from_filename("replacement_artifact.json")
+bucket.blob(record["key"], generation=int(retrieved.tags["generation"])).download_to_filename(record["local_path"])
+with open(record["local_path"], "rb") as handle:
+    stable = hashlib.sha256(handle.read()).hexdigest() == retrieved.tags["sha256"]
+return {"registered": stable, "version": retrieved.version, "run_id": retrieved.run_id}
+```
+i4 Criterion: reject the mismatch fixture before creation.
+```
+if observed_hash != record["expected_hash"]:
+    version = client.create_model_version(name=record["model_name"], source=record["version_qualified_source"], run_id=record["run_id"])
+    return {"registered": False}
+```
+
+mle.tile.056_057.s10
+A proposed package embeds credentials in image instructions and Compose. Which correction respects the secret policy?
+```
+ARG TRAINING_TOKEN=<literal credential>
+ENV TRAINING_TOKEN=${TRAINING_TOKEN}
+```
+o1 Remove those secret-bearing image and Compose literals; use the authorized runtime secret mechanism.
+o2 Keep only ENV because it does not persist sensitive values.
+o3 Move the same literal credential entirely into Compose.
+o4 Keep ARG and remove ENV, assuming the secret cannot persist.
+
+mle.tile.056_057.s11
+Judge each independent package excerpt against its named reproducibility criterion. The package is trusted and verified unless the excerpt explicitly says otherwise. Declared package settings: {"model_identity": "B", "registry_version": 1, "package_path": "package/B/version_1.pkl", "manifest_path": "requirements.txt", "serving_source": "serve_fixture.py", "serving_command": ["python", "serve_fixture.py"], "compatible_python_image": "python:3.12-slim", "image_tag": "order-fixture:version-1", "container_name": "order-fixture", "host_port": 8080, "container_port": 8080, "nonsecret_settings": {"FIXTURE_MODE": "fixed-orders"}, "secret_policy": "Use authorized runtime secret mounts only; no literal credentials in Dockerfile or Compose.", "fixed_inputs": [[5.0], [40.0], [80.0]], "pre_save_predictions": [0, 1, 1], "expected_preprocessor_mean": 42.5, "rtol": 1e-07, "atol": 1e-09, "failure_cases": ["changed preprocessing mean", "flipped prediction", "untrusted artifact: reject before pickle.load", "deliberately false predicate raises AssertionError without -O"]}. Inspection statements are hypothetical evidence for judgement, not a claim that Docker ran here.
+i1 Criterion: preserve fitted objects and round-trip a pinned manifest.
+```
+import pickle
+with open(package_path, "wb") as handle:
+    pickle.dump({"model": model, "preprocessor": preprocessor}, handle, protocol=5)
+with open(manifest_path, "w", encoding="utf-8") as handle:
+    handle.write(pinned_requirements)
+with open(manifest_path, "r", encoding="utf-8") as handle:
+    assert handle.read() == pinned_requirements
+with open(package_path, "rb") as handle:
+    package = pickle.load(handle)
+# package_path is tied to the recorded version; environment matches the pins.
+```
+i2 Criterion: image build, referenced container identity, state and logs.
+```
+FROM python:3.12-slim
+WORKDIR /app
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+COPY package/B/version_1.pkl /app/package/B/version_1.pkl
+COPY package_contract.json /app/package_contract.json
+COPY fixture_workflow.py /app/fixture_workflow.py
+COPY serve_fixture.py /app/serve_fixture.py
+CMD ["python", "serve_fixture.py"]
+```
+```
+docker build -t order-fixture:version-1 .
+# Context contains Dockerfile and every COPY source; .dockerignore excludes none.
+# Retain the resulting immutable image ID as recorded_image_id.
+docker run --name order-fixture -p 8080:8080 --env FIXTURE_MODE=fixed-orders order-fixture:version-1
+docker container inspect order-fixture
+docker container logs order-fixture
+# Inspection: Image equals recorded_image_id; State matches declared successful execution.
+# Captured stdout/stderr inspected: no initialization or execution failure.
+```
+i3 Criterion: serving order, fixed-input agreement, fitted-state preservation and assertion failure.
+```
+preprocessor = package["preprocessor"]
+model = package["model"]
+container_predictions = model.predict(preprocessor.transform(fixed_inputs))
+prediction_agreement = np.allclose(container_predictions, pre_save_predictions, rtol=rtol, atol=atol)
+preserved_state = preprocessor.mean_ == expected_preprocessor_mean
+assert prediction_agreement
+assert preserved_state
+# The serving entry point uses the two reloaded objects in this order, with no fit call.
+try:
+    assert False
+except AssertionError:
+    false_predicate_raised = True
+assert false_predicate_raised
+# Ordinary non-optimized Python; valid/boundary inputs are the declared fixed inputs.
+# manifest_agreement and inspected_identity_state_logs are the supplied independent, successful manifest/build/run inspection verdicts.
+return {"reproducible": prediction_agreement and preserved_state and manifest_agreement and inspected_identity_state_logs and false_predicate_raised}
+```
+i4 Criterion: safe reload.
+```
+with open(untrusted_download, "rb") as handle:
+    package = pickle.load(handle)
+# Trust and content verification are deliberately skipped.
+```
+i5 Criterion: preserved fitted preprocessing at inference.
+```
+preprocessor = package["preprocessor"]
+preprocessor.fit(request_inputs)
+predictions = package["model"].predict(preprocessor.transform(request_inputs))
+```
+
+mle.tile.058_058.s03
+Candidate B, its fitted preprocessing and threshold were frozen before protected evaluation. A matched comparison against baseline on the same observations reports a failed precommitted requirement for B. Which report respects the protected-test boundary?
+o1 Report B and baseline on the same cohort, including the failure, and leave the frozen choice unchanged.
+o2 Select baseline as the replacement because its protected result looks better.
+o3 Change B’s threshold until the protected requirement passes.
+o4 Refit preprocessing on protected observations and rerun B.
+
+mle.tile.058_058.s04
+Read each independent comparison excerpt and decide whether it meets or violates the named criterion. Frozen policy: {"selected_candidate": "B", "preprocessing_identity": "B.fitted.order_amount.center", "threshold": 40.0, "baseline_threshold": 60.0, "deployment_probabilities": {"0": 0.7, "1": 0.3}, "error_costs": {"FP": 2.0, "FN": 5.0}, "requirements": {"max_expected_error_cost": 0.5, "max_FPR": 0.25, "max_FNR": 0.4}, "correct_prediction_cost": 0.0}. The supplied counts below are computed from the same protected-order fixture for B and baseline.
+i1 Criterion: matched comparison with conditioning counts, fixed probabilities/costs and requirement outcomes.
+```
+{
+  "B": {
+    "FP": 1,
+    "TN": 2,
+    "FN": 1,
+    "TP": 4,
+    "actual_negatives": 3,
+    "actual_positives": 5,
+    "FPR": 0.3333333333333333,
+    "FNR": 0.2,
+    "expected_error_cost": 0.7666666666666666,
+    "requirements": {
+      "FPR": false,
+      "FNR": true,
+      "cost": false
+    }
+  },
+  "baseline": {
+    "FP": 0,
+    "TN": 3,
+    "FN": 3,
+    "TP": 2,
+    "actual_negatives": 3,
+    "actual_positives": 5,
+    "FPR": 0.0,
+    "FNR": 0.6,
+    "expected_error_cost": 0.8999999999999999,
+    "requirements": {
+      "FPR": true,
+      "FNR": false,
+      "cost": false
+    }
+  }
+}
+```
+Report: selected_candidate remains B; no refit, threshold change, replacement selection, or comparison-input change. FPR uses FP/(FP+TN), FNR uses FN/(FN+TP). Expected cost uses the supplied deployment probabilities, not cohort proportions.
+i2 Criterion: undefined conditioning groups and dependent cost.
+```
+actual_negatives = FP + TN
+actual_positives = FN + TP
+fpr = FP / actual_negatives if actual_negatives else None
+fnr = FN / actual_positives if actual_positives else None
+cost = None if fpr is None or fnr is None else p0 * fpr * cost_FP + p1 * fnr * cost_FN
+return {"actual_negatives": actual_negatives, "actual_positives": actual_positives, "FPR": fpr, "FNR": fnr, "expected_error_cost": cost}
+# None is reported explicitly as undefined; no pass verdict is invented for an undefined cost.
+```
+i3 Criterion: actual-class conditioning.
+```
+FPR = FP / (FP + TP)
+FNR = FN / (FN + TN)
+```
+i4 Criterion: preserve the frozen choice after a requirement failure.
+```
+if B_report["expected_error_cost"] > requirements["max_expected_error_cost"]:
+    selected_candidate = "baseline"
+```
+i5 Criterion: expected deployment error cost.
+```
+cost = (FP + FN) / (FP + TN + FN + TP)
+# Report this raw error fraction as expected monetary error cost.
+```
+
+mle.tile.059_059.s04
+The training API accepts only a channel URI. How do you preserve the selected input version?
+o1 Verify the selected version, materialize it at the controlled immutable channel location, and use the declared channel/model paths.
+o2 Add an unsupported VersionId field directly to the training channel request.
+o3 Pass the latest mutable URI without checking the selected version.
+o4 Have the custom container read an arbitrary local path instead of /opt/ml/input/data/CHANNEL.
+
+mle.tile.059_059.s05
+Judge each independent request or inspection excerpt against its named bounded-training criterion. Authorized supplied contract: {"job_name": "order-training-job", "image": "fixture.local/order-training:custom", "role": "arn:aws:iam::000000000000:role/fixture-training", "channel": "training", "input_bucket": "authorized-fixture", "input_key": "datasets/latest.csv", "input_version": "1", "immutable_key": "snapshots/order-training/input.csv", "output_uri": "s3://authorized-fixture/outputs", "instance_type": "ml.m5.large", "max_instance_count": 1, "max_runtime_seconds": 120, "dataset_snapshot": {"bucket_name": "authorized-fixture", "object_name": "datasets/latest.csv", "generation": 1, "expected_hash": "d67e606cd75127f615b2ba02dfcc22f853460dcb774c3073bb47fa66ce83a21e", "local_path": "training_orders.csv", "record_path": "snapshot_record.json", "download_path": "downloads/training_orders.csv"}, "code_reference": "managed_training_code.py", "configuration_path": "job_config.json", "artifact_uri": "s3://authorized-fixture/outputs/order-training-job/output/model.tar.gz", "channel_path": "/opt/ml/input/data/training", "model_output_path": "/opt/ml/model"}. Status statements are hypothetical inspection evidence, not actual cloud execution.
+i1 Criterion: verified version-qualified inputs and immutable materialization before submission.
+```
+selected = storage_client.get_object(Bucket=contract["input_bucket"], Key=contract["input_key"], VersionId=contract["input_version"])
+assert hashlib.sha256(selected["Body"].read()).hexdigest() == contract["dataset_snapshot"]["expected_hash"]
+storage_client.copy_object(Bucket=contract["input_bucket"], Key=contract["immutable_key"], CopySource={"Bucket": contract["input_bucket"], "Key": contract["input_key"], "VersionId": contract["input_version"]})
+# The controlled destination is immutable for this job; the channel URI references it.
+# Supplied custom container reads /opt/ml/input/data/training and writes /opt/ml/model.
+```
+i2 Criterion: exactly one authorized request within the supplied limits. Shown identity-and-budget fields (other API-required platform fields are already supplied):
+```
+{
+  "TrainingJobName": "order-training-job",
+  "AlgorithmSpecification": {
+    "TrainingImage": "fixture.local/order-training:custom",
+    "TrainingInputMode": "File"
+  },
+  "RoleArn": "arn:aws:iam::000000000000:role/fixture-training",
+  "InputDataConfig": [
+    {
+      "ChannelName": "training",
+      "DataSource": {
+        "S3DataSource": {
+          "S3DataType": "S3Prefix",
+          "S3Uri": "s3://authorized-fixture/snapshots/order-training/input.csv",
+          "S3DataDistributionType": "FullyReplicated"
+        }
+      }
+    }
+  ],
+  "OutputDataConfig": {
+    "S3OutputPath": "s3://authorized-fixture/outputs"
+  },
+  "ResourceConfig": {
+    "InstanceType": "ml.m5.large",
+    "InstanceCount": 1
+  },
+  "StoppingCondition": {
+    "MaxRuntimeInSeconds": 120
+  }
+}
+```
+```
+import boto3, json
+client = boto3.client("sagemaker")
+with open(contract["configuration_path"], "w") as handle:
+    resolved_configuration.update(shown_fields)
+    json.dump(resolved_configuration, handle)
+with open(contract["configuration_path"]) as handle:
+    parsed_configuration = json.load(handle)
+client.create_training_job(**parsed_configuration)
+# This branch is entered once only after successful input verification; no retry or second submission.
+```
+i3 Criterion: inspect terminal completion, retrieve the matching artifact and preserve a structured execution record.
+```
+description = client.describe_training_job(TrainingJobName=contract["job_name"])
+# Supplied inspection evidence: TrainingJobStatus is Completed.
+assert description["TrainingJobStatus"] == "Completed"
+artifact = description["ModelArtifacts"]["S3ModelArtifacts"]
+assert artifact == contract["artifact_uri"]
+# Resolve the returned URI to artifact_bucket and artifact_key.
+storage_client.download_file(Bucket=artifact_bucket, Key=artifact_key, Filename=local_artifact)
+record = {"job": contract["job_name"], "dataset_snapshot": contract["dataset_snapshot"], "code_reference": contract["code_reference"], "configuration": parsed_configuration, "artifact_uri": artifact, "status": description["TrainingJobStatus"], "compute_ended": True}
+with open("execution_record.json", "w") as handle:
+    json.dump(record, handle)
+with open("execution_record.json") as handle:
+    restored = json.load(handle)
+assert restored == record
+assert restored["artifact_uri"] == description["ModelArtifacts"]["S3ModelArtifacts"]
+# Non-Completed branches report FailureReason when present and do not claim success.
+```
+i4 Criterion: terminal status confirms job-managed compute has ended.
+```
+client.create_training_job(**resolved_configuration)
+record = {"status": "Completed", "compute_ended": True}
+# No describe_training_job call is made; submission is treated as completion.
+```
+i5 Criterion: do not resubmit on a nonterminal status.
+```
+description = client.describe_training_job(TrainingJobName=job_name)
+while description["TrainingJobStatus"] == "InProgress":
+    client.create_training_job(**resolved_configuration)
+    description = client.describe_training_job(TrainingJobName=job_name)
+```

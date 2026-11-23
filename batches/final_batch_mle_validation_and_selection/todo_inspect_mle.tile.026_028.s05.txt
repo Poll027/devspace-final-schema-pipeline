@@ -1,0 +1,40 @@
+Configure the supplied evaluation scaffold by replacing None in the final interface assignments (conditional_count, loss_mean_fn, loss_std_fn) with the appropriate operations. Assign callable objects, not call results. Read how each interface is used in the scaffold to choose its operation. Keep loading, evaluation logic and returned field names unchanged; the tests evaluate those returned records on the supplied validation inputs. The scaffold supplies the logic for eligible long-distance selection, model and matched-reference error proportions, and the evidence-bounded finding description. Preserve the returned record structure and the sample-only, no-cause limitation. Use the supplied population loss divisor ddof=0. For the description field use exactly: 'Long-distance validation errors persist. The measured model error proportion and mean loss are both lower than the reference in this sample; no cause is established.'.
+# Supplied input loading and dependencies.
+import pandas as pd
+
+observations = pd.read_csv('slice_observations.csv')
+
+eligible = observations['eligible'].to_numpy()
+
+long_distance = observations['long_distance'].to_numpy()
+
+errors = observations['error'].to_numpy()
+
+losses = observations['loss'].to_numpy()
+
+reference_errors = observations['reference_error'].to_numpy()
+
+reference_losses = observations['reference_loss'].to_numpy()
+
+import numpy as np
+
+# Supplied evaluation scaffolding. Configure its interfaces below; keep this block unchanged.
+if __name__:
+    def evaluate(eligible, long_distance, errors, losses, reference_errors, reference_losses):
+        group = (eligible == True) & (long_distance == True)
+        n = conditional_count(group)
+        error_count = conditional_count(errors[group])
+        reference_count = conditional_count(reference_errors[group])
+        error_proportion = error_count / n
+        reference_error_proportion = reference_count / n
+        loss_mean = loss_mean_fn(losses[group])
+        loss_std = loss_std_fn(losses[group], ddof=0)
+        reference_loss_mean = loss_mean_fn(reference_losses[group])
+        reference_loss_std = loss_std_fn(reference_losses[group], ddof=0)
+        description = 'Long-distance validation errors persist. The measured model error proportion and mean loss are both lower than the reference in this sample; no cause is established.'
+        return {'eligible_count': n, 'error_count': error_count, 'error_proportion': error_proportion, 'loss_mean': loss_mean, 'loss_std': loss_std, 'reference_eligible_count': n, 'reference_error_count': reference_count, 'reference_error_proportion': reference_error_proportion, 'reference_loss_mean': reference_loss_mean, 'reference_loss_std': reference_loss_std, 'finding': {'description': description, 'model': {'error_count': error_count, 'eligible_count': n, 'loss_mean': loss_mean, 'loss_std': loss_std}, 'reference': {'error_count': reference_count, 'eligible_count': n, 'loss_mean': reference_loss_mean, 'loss_std': reference_loss_std}, 'limitation': 'Observed eligible long-distance validation comparison only; no cause is established.'}}
+
+# TODO: replace None with the appropriate operation; assign it without calling it.
+conditional_count = None
+loss_mean_fn = None
+loss_std_fn = None

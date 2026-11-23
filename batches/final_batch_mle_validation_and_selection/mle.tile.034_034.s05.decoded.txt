@@ -1,0 +1,50 @@
+exec("import csv\nimport json\ndef supplied_rows(path):\n    with open(path) as f:\n        raw = list(csv.DictReader(f))\n    def convert(v):\n        if v == '': return None\n        if v.lower() == 'true': return True\n        if v.lower() == 'false': return False\n        try: return float(v) if '.' in v or 'e' in v.lower() else int(v)\n        except ValueError: return v\n    return [{k: convert(v) for k,v in r.items()} for r in raw]\nfoundation_outputs = supplied_rows('foundation_outputs.csv')\nvalidation_scores = supplied_rows('validation_scores.csv')\np0 = 0.8\np1 = 0.2\ncfp = 1\ncfn = 5\nbound = 0.3\n")
+import numpy as np
+def evaluate(ids, output_ids, validation_cohorts, output_cohorts, output_kinds, y, outputs, reference, p0, p1, cfp, cfn, bound):
+    ids = np.asarray(ids)
+    output_ids = np.asarray(output_ids)
+    y = np.asarray(y)
+    pred = np.asarray(outputs)
+    reference = np.asarray(reference)
+    if not np.array_equal(ids, output_ids):
+        raise ValueError('observation mismatch')
+    if not np.array_equal(np.asarray(validation_cohorts), np.asarray(output_cohorts)):
+        raise ValueError('cohort mismatch')
+    if aggregate(np.asarray(output_kinds) != 'foundation-model') != 0:
+        raise ValueError('output kind mismatch')
+    if y.shape != pred.shape or y.shape != reference.shape:
+        raise ValueError('shape mismatch')
+    TP = aggregate((y == 1) & (pred == 1))
+    FP = aggregate((y == 0) & (pred == 1))
+    FN = aggregate((y == 1) & (pred == 0))
+    TN = aggregate((y == 0) & (pred == 0))
+    if FP + TN == 0:
+        FPR = None
+    else:
+        FPR = FP / (FP + TN)
+    if FN + TP == 0:
+        FNR = None
+    else:
+        FNR = FN / (FN + TP)
+    if FPR == None or FNR == None:
+        cost = None
+    else:
+        cost = p0 * FPR * cfp + p1 * FNR * cfn
+    accuracy = aggregate(y == pred) / aggregate((y == 0) | (y == 1))
+    baseline_accuracy = aggregate(y == reference) / aggregate((y == 0) | (y == 1))
+    baseline_FP = aggregate((y == 0) & (reference == 1))
+    baseline_TN = aggregate((y == 0) & (reference == 0))
+    baseline_FN = aggregate((y == 1) & (reference == 0))
+    baseline_TP = aggregate((y == 1) & (reference == 1))
+    if baseline_FP + baseline_TN == 0 or baseline_FN + baseline_TP == 0:
+        baseline_cost = None
+    else:
+        baseline_cost = p0 * baseline_FP / (baseline_FP + baseline_TN) * cfp + p1 * baseline_FN / (baseline_FN + baseline_TP) * cfn
+    if cost == None:
+        verdict = 'unresolved'
+    elif cost <= bound:
+        verdict = 'predictive quality accepted'
+    else:
+        verdict = 'predictive quality rejected'
+    return {'aligned': True, 'accuracy': accuracy, 'baseline_accuracy': baseline_accuracy, 'TP': TP, 'FP': FP, 'FN': FN, 'TN': TN, 'FPR': FPR, 'FNR': FNR, 'expected_cost': cost, 'baseline_expected_cost': baseline_cost, 'verdict': verdict, 'limitations': 'Supplied validation cohort only; operating eligibility separate; no universal suitability or protected-test evidence'}
+exec("validation_cohorts = [r['cohort_id'] for r in validation_scores]\noutput_cohorts = [r['cohort_id'] for r in foundation_outputs]\noutput_kinds = [r['output_kind'] for r in foundation_outputs]\n\n\nimport numpy as np\nids = [r['observation_id'] for r in validation_scores]\noutput_ids = [r['observation_id'] for r in foundation_outputs]\ny = [r['actual_label'] for r in validation_scores]\noutputs = [r['foundation_output'] for r in foundation_outputs]\nreference = [r['reference_output'] for r in validation_scores]\nresult = evaluate(ids,output_ids,validation_cohorts,output_cohorts,output_kinds,y,outputs,reference,p0,p1,cfp,cfn,bound)\nempty = evaluate(ids[:2],output_ids[:2],validation_cohorts[:2],output_cohorts[:2],output_kinds[:2],[1,1],outputs[:2],reference[:2],p0,p1,cfp,cfn,bound)\ndef supplied_mismatch_check():\n    try:\n        evaluate(ids,output_ids[::-1],validation_cohorts,output_cohorts,output_kinds,y,outputs,reference,p0,p1,cfp,cfn,bound)\n    except ValueError:\n        return True\n    return False\nmismatch_rejected = supplied_mismatch_check()\n\ndef supplied_rejection_check(cohorts, kinds, message):\n    try:\n        evaluate(ids,output_ids,validation_cohorts,cohorts,kinds,y,outputs,reference,p0,p1,cfp,cfn,bound)\n    except ValueError as e:\n        return str(e) == message\n    return False\ncohort_mismatch_rejected = supplied_rejection_check(['wrong cohort'] * len(output_cohorts),output_kinds,'cohort mismatch')\noutput_kind_mismatch_rejected = supplied_rejection_check(output_cohorts,['non-foundation'] * len(output_kinds),'output kind mismatch')\n")

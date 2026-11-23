@@ -1,0 +1,122 @@
+PROMPT Complete the symbolic command assignments for the declared target and recovery sequence. Each symbolic action advances a simulated state. Stop is permitted only after a successful hypothesis test; start is permitted only after confirmed stop completion; successful recovery requires the same authorized target to be running, restored process state, readiness and a passing bounded prediction exchange. Failed checks return a failure record.
+CONSTRAINTS {'allowed_syntax': ['gcloud compute instances describe INSTANCE --zone=ZONE', 'gcloud compute instances stop INSTANCE --zone=ZONE', 'gcloud compute instances start INSTANCE --zone=ZONE', 'gcloud compute ssh INSTANCE --zone=ZONE'], 'blocked_syntax': ['gcloud compute instances delete', 'gcloud compute disks delete', 'gcloud compute addresses delete']}
+import csv, json
+import numpy as np
+policy = json.loads('{"INSTANCE": "serving-lab", "ZONE": "lab-zone-a", "authorized_identity": "lab.operator", "allowed_actions": ["inspect", "reproduce_fault", "test_hypothesis", "stop", "wait_stopped", "start", "wait_running", "reconnect", "readiness", "bounded_prediction"], "prediction_contract": {"request": {"distance_category": "long_distance", "numeric_values": 5}, "response": {"predicted_class": "late"}}, "credentials": "runtime-injected only"}')
+incident_evidence_rows = list(csv.DictReader(open('incident_evidence.csv')))
+incident_evidence = {}
+incident_evidence['phase'] = np.array([r['phase'] for r in incident_evidence_rows])
+incident_evidence['INSTANCE'] = np.array([r['INSTANCE'] for r in incident_evidence_rows])
+incident_evidence['ZONE'] = np.array([r['ZONE'] for r in incident_evidence_rows])
+incident_evidence['authorized_identity'] = np.array([r['authorized_identity'] for r in incident_evidence_rows])
+incident_evidence['instance_state'] = np.array([r['instance_state'] for r in incident_evidence_rows])
+incident_evidence['process_state'] = np.array([r['process_state'] for r in incident_evidence_rows])
+incident_evidence['readiness'] = np.array([r['readiness'] == 'True' for r in incident_evidence_rows])
+incident_evidence['prediction_contract_pass'] = np.array([r['prediction_contract_pass'] == 'True' for r in incident_evidence_rows])
+incident_evidence['fault_evidence'] = np.array([r['fault_evidence'] for r in incident_evidence_rows])
+incident_evidence['hypothesis_result'] = np.array([r['hypothesis_result'] for r in incident_evidence_rows])
+incident_evidence['credential_review_pass'] = np.array([r['credential_review_pass'] == 'True' for r in incident_evidence_rows])
+
+inspect_command = 'inspect'
+reproduce_command = 'reproduce_fault'
+hypothesis_command = 'test_hypothesis'
+stop_command = 'stop'
+wait_stopped_command = 'wait_stopped'
+start_command = 'start'
+wait_running_command = 'wait_running'
+reconnect_command = 'reconnect'
+readiness_command = 'readiness'
+prediction_command = 'bounded_prediction'
+# Each symbolic command resolves to the policy target, never to a caller-supplied target.
+SUCCESSFUL_HYPOTHESIS = 'runbook-approved service fault reproduced'
+# Each symbolic action advances simulated state; no live commands execute.
+def recover(actions, evidence_rows=None, stop_complete=True):
+    rows=incident_evidence_rows if evidence_rows is None else evidence_rows
+    before=rows[0]; after=rows[1]
+    state={'instance_state':before['instance_state'],'process_state':before['process_state']}
+    successful_hypothesis=False; stopped=False; reconnected=False; ready=False; prediction_pass=False
+    def fail(check): return {'status':'failure','failed_check':check,'state':dict(state)}
+    def truth(value): return value is True or value == 'True'
+    for row in [before,after]:
+        if row['INSTANCE']!=policy['INSTANCE'] or row['ZONE']!=policy['ZONE'] or row['authorized_identity']!=policy['authorized_identity']:
+            return fail('authorized_same_target')
+        if not truth(row['credential_review_pass']): return fail('credential_review')
+    if actions != policy['allowed_actions']: return {'status':'invalid_sequence','actions':actions}
+    for action in actions:
+        if action=='inspect':
+            if state['instance_state']!='RUNNING': return fail('initial_state')
+        elif action=='reproduce_fault':
+            if not before['fault_evidence'] or state['process_state']!='failed': return fail('fault_reproduction')
+        elif action=='test_hypothesis':
+            successful_hypothesis = before['hypothesis_result'] == SUCCESSFUL_HYPOTHESIS
+            if not successful_hypothesis: return fail('hypothesis')
+        elif action=='stop':
+            if not successful_hypothesis: return fail('hypothesis')
+            state['instance_state']='STOPPING'
+        elif action=='wait_stopped':
+            if not stop_complete: return fail('stop_completion')
+            state['instance_state']='TERMINATED'; stopped=True
+        elif action=='start':
+            if not stopped or state['instance_state']!='TERMINATED': return fail('stop_completion')
+            state['instance_state']='STARTING'
+        elif action=='wait_running':
+            if after['instance_state']!='RUNNING': return fail('running_poststate')
+            state['instance_state']='RUNNING'
+        elif action=='reconnect':
+            if state['instance_state']!='RUNNING' or after['process_state']!='running': return fail('restored_process')
+            state['process_state']=after['process_state']; reconnected=True
+        elif action=='readiness':
+            ready=reconnected and truth(after['readiness'])
+            if not ready: return fail('readiness')
+        elif action=='bounded_prediction':
+            prediction_pass=ready and truth(after['prediction_contract_pass'])
+            if not prediction_pass: return fail('bounded_prediction')
+    if not (stopped and reconnected and ready and prediction_pass): return fail('incomplete_recovery')
+    return {'target':policy['INSTANCE'],'zone':policy['ZONE'],'identity':policy['authorized_identity'],'before':before,'fault_evidence':before['fault_evidence'],'hypothesis_test':before['hypothesis_result'],'actions':actions,'after':after,'contract':policy['prediction_contract'],'credentials':'runtime-injected only; captured evidence reviewed'}
+
+
+action0 = None
+
+action1 = None
+
+action2 = None
+
+action3 = None
+
+action4 = None
+
+action5 = None
+
+action6 = None
+
+action7 = None
+
+action8 = None
+
+action9 = None
+
+action0 = inspect_command
+
+action1 = reproduce_command
+
+action2 = hypothesis_command
+
+action3 = stop_command
+
+action4 = wait_stopped_command
+
+action5 = start_command
+
+action6 = wait_running_command
+
+action7 = reconnect_command
+
+action8 = readiness_command
+
+action9 = prediction_command
+
+result = recover([action0,action1,action2,action3,action4,action5,action6,action7,action8,action9])
+failed_hypothesis_rows=[dict(incident_evidence_rows[0],hypothesis_result='failed'),dict(incident_evidence_rows[1])]
+failed_service_rows=[dict(incident_evidence_rows[0]),dict(incident_evidence_rows[1],prediction_contract_pass=False)]
+failed_readiness_rows=[dict(incident_evidence_rows[0]),dict(incident_evidence_rows[1],readiness=False)]
+failure_records=[recover(policy['allowed_actions'],failed_hypothesis_rows),recover(policy['allowed_actions'],stop_complete=False),recover(policy['allowed_actions'],failed_service_rows),recover(policy['allowed_actions'],failed_readiness_rows)]

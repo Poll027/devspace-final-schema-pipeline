@@ -1,0 +1,34 @@
+import csv, json
+import numpy as np
+policy = json.loads('{"reference_id": "reference", "production_window": {"start": "2026-01-02T10:00:00Z", "end": "2026-01-02T11:00:00Z"}, "fixed_edges": [0, 5, 10], "eligible_numeric_range": [0, 10], "declared_categories": ["short_distance", "long_distance", "not_reported"], "declared_classes": ["on_time", "late", "abstain"], "ddof": 0, "window_membership": "All rows of production.csv are in the declared bounded window; reference.csv is the approved reference. Alternate fixtures are independent windows.", "summary_client": "from summary_client import emit; emit(record) appends a single JSON record to summary.jsonl"}')
+reference_rows = list(csv.DictReader(open('reference.csv')))
+reference = {}
+reference['numeric_values'] = np.array([float(r['numeric_values'] or 'nan') for r in reference_rows])
+reference['category'] = np.array([r['category'] for r in reference_rows])
+reference['predicted_class'] = np.array([r['predicted_class'] for r in reference_rows])
+production_rows = list(csv.DictReader(open('production.csv')))
+production = {}
+production['numeric_values'] = np.array([float(r['numeric_values'] or 'nan') for r in production_rows])
+production['category'] = np.array([r['category'] for r in production_rows])
+production['predicted_class'] = np.array([r['predicted_class'] for r in production_rows])
+
+records = []
+def emit(record):
+    records.append(record)
+
+ref_values=reference['numeric_values']; ref_values=ref_values[(ref_values>=0)&(ref_values<=10)]
+cur_values=production['numeric_values']; cur_values=cur_values[(cur_values>=0)&(cur_values<=10)]
+fixed_edges=policy['fixed_edges']
+
+ref_mean = np.mean(ref_values)
+cur_mean = np.mean(cur_values)
+ref_std = np.std(ref_values,ddof=0)
+cur_std = np.std(cur_values,ddof=0)
+ref_counts = np.histogram(ref_values,bins=fixed_edges)
+cur_counts = np.histogram(cur_values,bins=fixed_edges)
+def complete_summary(data,values,mean,std,hist):
+    if mean is None or std is None or hist is None: return None
+    return {'eligible_total':len(values),'category_total':len(data['category']),'class_total':len(data['predicted_class']),'bin_proportions':hist[0]/len(values),'mean':mean,'std':std,'categories':{c:np.sum(data['category']==c)/len(data['category']) for c in policy['declared_categories']},'classes':{c:np.sum(data['predicted_class']==c)/len(data['predicted_class']) for c in policy['declared_classes']}}
+record={'reference_id':policy['reference_id'],'window':policy['production_window'],'fixed_edges':fixed_edges,'category_definitions':policy['declared_categories'],'class_definitions':policy['declared_classes'],'ddof':policy['ddof'],'reference':complete_summary(reference,ref_values,ref_mean,ref_std,ref_counts),'production':complete_summary(production,cur_values,cur_mean,cur_std,cur_counts)}
+emit(record)
+

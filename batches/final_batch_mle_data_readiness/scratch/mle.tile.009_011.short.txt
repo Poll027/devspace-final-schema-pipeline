@@ -1,0 +1,140 @@
+
+mle.tile.009_011.s01 explainer
+Before accepting a delivery-fixture result, state the contract and the checks this rule requires.
+Collection or filtering omissions can exclude observations important to the intended prediction population. Compare category count divided by population total in sample and target to identify supported coverage differences. With known target membership, estimate inclusion probability as included category members divided by all target category members. An empty denominator cannot support a rate.
+Unequal inclusion probabilities affect sample interpretation. A descriptive sample summary is not automatically target-representative. Compute the selected numeric observations' arithmetic mean with np.mean(numeric_values). Use np.std(numeric_values, ddof=0) to divide squared deviations by N before taking the square root. Use ddof=1 only if the stated calculation needs N-1.
+{"type": "data_table", "asset_ref": {"asset_id": "ds.selection_counts"}, "caption": "Known target/sample membership counts"}
+{"type": "data_table", "asset_ref": {"asset_id": "ds.order_features"}, "caption": "Three observations with two numerical features"}
+import numpy as np
+sample_total = sum(fixture["sample_counts"].values())
+target_total = sum(fixture["target_counts"].values())
+for zone, target in fixture["target_counts"].items():
+    sample = fixture["sample_counts"].get(zone, 0)
+    inclusion = sample / target if target else None
+    print(zone, "sample share:", sample, sample_total, sample / sample_total,
+          "target share:", target, target_total, target / target_total,
+          "inclusion:", sample, target, inclusion)
+values = np.array(fixture["numeric_values"])
+print("selected numeric observations:", values)
+print("mean, std, divisor choice:", np.mean(values), np.std(values, ddof=fixture["ddof"]), fixture["ddof"])
+
+mle.tile.009_011.s02 explainer
+Compare the supplied sample and target zone counts with their own population totals. Inclusion uses a different denominator: all target members of that zone. These ratios support a coverage comparison, not claims about every zone characteristic. Summarize the selected numeric observations using their stated mean and standard-deviation divisor. Do not invent an inclusion rate when target membership is empty.
+
+mle.tile.009_011.s03 video
+{"type": "media_group", "segment_ids": ["seg_mle.dataset_selection_bias__yR5wZsh4YI_21_137"], "segments": [{"segment_id": "seg_mle.dataset_selection_bias__yR5wZsh4YI_21_137", "video_id": "_yR5wZsh4YI", "youtube_url": "https://www.youtube.com/watch?v=_yR5wZsh4YI", "review_url": "https://www.youtube.com/watch?v=_yR5wZsh4YI&t=21s", "start_seconds": 21, "end_seconds": 137, "label": "Selection bias: reasoning about observations that never arrived", "summary": "Selection bias arises when observed information does not represent the population being studied. The narrated aircraft example describes returning planes with many bullet holes in their bodies and wings but fewer near their engines. Looking only at those planes suggested adding armor where holes were most common. Wald instead argued for protecting areas with few observed holes: aircraft hit in the engine were not returning. The observed damage therefore reflected which aircraft survived to be counted, not the damage across all aircraft. Missing observations changed how the sample should be interpreted.", "fact_ids": ["f1", "f4"], "transcript_ref": "_yR5wZsh4YI:21-137"}], "group_title": "How missing observations distort dataset coverage", "bridge": {"before": "Watch how observing only returning aircraft changes the interpretation of bullet holes. Connect the clip’s term “selection bias” to collection that excludes relevant observations.", "after": "The clip explains missing observations and misleading sample summaries qualitatively. The text supplies category proportions, conditional inclusion rates, empty-denominator handling, and NumPy mean and standard-deviation calculations."}, "default_mode": "video"}
+
+mle.tile.009_011.s04 explainer
+Sample share and inclusion probability have different denominators. A sample summary is not automatically target-representative.
+
+mle.tile.009_011.s05 check
+{"prompt": "To estimate inclusion within a category whose target members are known, which denominator is needed?", "selection": "single", "shuffle": true, "options": [{"option_id": "0", "text": "All target members in that category"}, {"option_id": "1", "text": "The total sample across all categories"}, {"option_id": "2", "text": "The included members in that category"}]}
+FEEDBACK {"correct": {"message": "You applied the declared boundary and its required checks."}, "incorrect": {"message": "Recheck the declared contract and the evidence for each decision."}, "hints": ["Compare category inclusion with category shares before interpreting coverage."], "remediation_step_id": "mle.tile.009_011.r01"}
+KEY {"correct_option_ids": ["0"], "option_feedback": {"0": {"message": "Correct. A category-specific inclusion rate divides included category members by target category members, not all sampled rows or the numerator itself."}, "1": {"message": "A category-specific inclusion rate divides included category members by target category members, not all sampled rows or the numerator itself."}, "2": {"message": "A category-specific inclusion rate divides included category members by target category members, not all sampled rows or the numerator itself."}}}
+
+mle.tile.009_011.s06 hands_on
+{"prompt": "Using the supplied nonempty category denominators, assign sample_shares, target_shares and inclusion arrays in zone-A, zone-B order. Compute mean and std of numeric_values with ddof=0. Set limitation to the supported lower-inclusion observation for zone B (not a causal or performance claim). Assign result as [sample_shares, target_shares, inclusion, mean, std, limitation]. First identify the supporting comparisons: zone-B inclusion 0.25 versus zone-A 0.50, and zone-B sample share 0.25 versus target share 0.40. Use this exact supported limitation sentence in the result: Zone B has lower inclusion and sample share than its target share; the counts establish neither a cause nor inevitable prediction failure."}
+FEEDBACK {"correct": {"message": "You applied the declared boundary and its required checks."}, "incorrect": {"message": "Recheck the declared contract and the evidence for each decision."}, "hints": ["For inclusion probability, count all target members of the same category in the denominator."], "remediation_step_id": "mle.tile.009_011.r02"}
+KEY {}
+
+mle.tile.009_011.s07 explainer
+Before accepting a delivery-fixture result, state the contract and the checks this rule requires.
+Match labels to observations or predictions by the intended unique identifier, not incidental row order. Check duplicate IDs before constructing the ID-to-label dictionary: reassignment of an existing key replaces its earlier value. Use observation-ID and label-ID set differences to detect missing labels and labels without observations.
+Use keyed dictionary lookups to compare labels, observation timestamps and availability timestamps under task-specific acceptance predicates. Information unavailable at the relevant prediction boundary is not an available input to that prediction. Use assert predicate for valid, boundary and failure fixtures. A false predicate raises AssertionError in ordinary non-optimized execution.
+{"type": "data_table", "asset_ref": {"asset_id": "ds.observations"}, "caption": "Observation IDs and observation timestamps"}
+{"type": "data_table", "asset_ref": {"asset_id": "ds.labels"}, "caption": "Labels in reversed keyed order"}
+from datetime import datetime
+
+def match(observations, labels, contract):
+    observation_ids = [row["observation_id"] for row in observations]
+    label_ids = [row["observation_id"] for row in labels]
+    if len(set(observation_ids)) != len(observation_ids) or len(set(label_ids)) != len(label_ids):
+        raise ValueError("repeated ID")
+    missing = set(observation_ids) - set(label_ids)
+    extra = set(label_ids) - set(observation_ids)
+    print("missing, extra:", missing, extra)
+    if missing or extra:
+        raise ValueError("ID correspondence violated")
+    by_id = {row["observation_id"]: row for row in labels}
+    matched = []
+    for observation in observations:
+        label = by_id[observation["observation_id"]]
+        assert label["label"] in contract["label_values"]
+        if contract["require_matching_observation_timestamp"]:
+            assert label["observation_timestamp"] == observation["observation_timestamp"]
+        # The fixture's label may arrive later; it is not an earlier prediction input.
+        available = datetime.fromisoformat(label["availability_timestamp"])
+        cutoff = datetime.fromisoformat(contract["availability_cutoff"])
+        assert available <= cutoff if contract["availability_boundary_inclusive"] else available < cutoff
+        matched.append((observation, label))
+    return matched
+
+print(match(fixture["observations"], fixture["labels"], fixture["contract"]))
+for name, labels in fixture["cases"].items():
+    try:
+        print(name, match(fixture["observations"], labels, fixture["contract"]))
+    except (ValueError, AssertionError) as error:
+        print(name, type(error).__name__)
+
+mle.tile.009_011.s08 explainer
+The label records are reordered relative to observations. Keyed lookup preserves correspondence; matching row counts alone does not. Detect duplicate IDs before dictionary construction, then inspect both ID-set differences and matched timestamps under the supplied predicates. Later label availability does not make it an earlier prediction input. Exercise reordered, duplicate, missing and boundary fixtures.
+
+mle.tile.009_011.s09 explainer
+Equal row counts can hide reordered identities. A dictionary built before duplicate checks can hide a replaced label.
+
+mle.tile.009_011.s10 check
+{"prompt": "A deliberately false label-integrity predicate is asserted in ordinary non-optimized execution. What follows?", "selection": "single", "shuffle": true, "options": [{"option_id": "0", "text": "AssertionError"}, {"option_id": "1", "text": "The label is automatically realigned"}, {"option_id": "2", "text": "The duplicated ID is automatically removed"}]}
+FEEDBACK {"correct": {"message": "You applied the declared boundary and its required checks."}, "incorrect": {"message": "Recheck the declared contract and the evidence for each decision."}, "hints": ["Consider the false predicate under the stated non-optimized execution mode."], "remediation_step_id": "mle.tile.009_011.r03"}
+KEY {"correct_option_ids": ["0"], "option_feedback": {"0": {"message": "Correct. An assertion verifies a predicate; it does not align or remove records."}, "1": {"message": "An assertion verifies a predicate; it does not align or remove records."}, "2": {"message": "An assertion verifies a predicate; it does not align or remove records."}}}
+
+mle.tile.009_011.s11 hands_on
+{"prompt": "Implement audit(observations, labels, contract). Check repeated IDs before constructing keyed records, distinguish missing and orphaned sets, and audit label values, matched observation timestamps and inclusive availability cutoff. Return ok, repeated_observation_ids, repeated_label_ids, missing, orphaned, invalid and matched (the first label record for each ID). Assign result; assert reordered acceptance, every supplied failure case and cutoff equality. The task concerns label availability for this audit, not permission to use later labels as prediction inputs. Return a dictionary. repeated_observation_ids and repeated_label_ids are lists in encounter order, with one entry for each repeated occurrence after the first. missing and orphaned are sets. invalid is a list of affected matched IDs in observation encounter order. matched is a dictionary containing the first complete label record for every label ID, including orphaned IDs. ok is a Boolean."}
+FEEDBACK {"correct": {"message": "You applied the declared boundary and its required checks."}, "incorrect": {"message": "Recheck the declared contract and the evidence for each decision."}, "hints": ["Check repeated IDs before keyed records can hide them, then compare observation and label ID sets."], "remediation_step_id": "mle.tile.009_011.r04"}
+KEY {}
+
+mle.tile.009_011.s12 explainer
+Before accepting a delivery-fixture result, state the contract and the checks this rule requires.
+A random split is appropriate only when its sampling interpretation matches evaluation. Group dependence or time ordering can require different boundaries. Keep a common evaluation group on one side; keep time-ordered training observations earlier than the intended later evaluation observations. Represent supplied groups with sets and assert an empty training/validation group intersection.
+For a time cutoff, select earlier training and the stated later evaluation observations; check timestamp inequalities. Report each partition's target count divided by its total to describe the population actually evaluated. Use assert predicate for valid, boundary and failure fixtures. A false predicate raises AssertionError in ordinary non-optimized execution.
+{"type": "data_table", "asset_ref": {"asset_id": "ds.group_orders"}, "caption": "Separate group evaluation fixture"}
+{"type": "data_table", "asset_ref": {"asset_id": "ds.time_orders"}, "caption": "Separate later-order evaluation fixture"}
+from datetime import datetime
+orders = fixture["group_records"]
+train = [row for row in orders if row["customer_group"] in fixture["training_groups"]]
+validation = [row for row in orders if row["customer_group"] in fixture["validation_groups"]]
+train_groups = {row["customer_group"] for row in train}
+validation_groups = {row["customer_group"] for row in validation}
+print("partitions:", train, validation)
+print("group sets and intersection:", train_groups, validation_groups, train_groups & validation_groups)
+assert not train_groups & validation_groups
+cutoff = datetime.fromisoformat(fixture["cutoff"])
+earlier = [row for row in fixture["time_records"] if datetime.fromisoformat(row["observation_timestamp"]) < cutoff]
+end = datetime.fromisoformat(fixture["evaluation_end"])
+later = [row for row in fixture["time_records"] if cutoff <= datetime.fromisoformat(row["observation_timestamp"]) < end]
+assert all(datetime.fromisoformat(row["observation_timestamp"]) < cutoff for row in earlier)
+assert all(cutoff <= datetime.fromisoformat(row["observation_timestamp"]) < end for row in later)
+for name, partition in (("group training", train), ("group validation", validation), ("earlier training", earlier), ("later evaluation", later)):
+    count = sum(row["target"] for row in partition)
+    print(name, "target count, total, proportion:", count, len(partition), count / len(partition) if partition else None)
+
+mle.tile.009_011.s13 explainer
+The group fixture keeps every observation from one customer group together; splitting that group across partitions violates its boundary. Assert group disjointness. In the separate time fixture, check earlier training and the declared later evaluation interval directly. Report target counts over each partition total. That proportion describes the cohort actually evaluated; group disjointness does not prove timestamp ordering.
+
+mle.tile.009_011.s14 explainer
+An empty group intersection checks group separation, not whether training timestamps precede evaluation.
+
+mle.tile.009_011.s15 check
+{"prompt": "Evaluation represents unseen customer groups. Which boundary meets that scenario?", "selection": "single", "shuffle": true, "options": [{"option_id": "0", "text": "Every observation in one group remains entirely on one side"}, {"option_id": "1", "text": "Split each group between training and validation"}, {"option_id": "2", "text": "Ignore groups and justify the split solely as random"}]}
+FEEDBACK {"correct": {"message": "You applied the declared boundary and its required checks."}, "incorrect": {"message": "Recheck the declared contract and the evidence for each decision."}, "hints": ["Match the partition boundary to the stated unseen-group evaluation scenario."], "remediation_step_id": "mle.tile.009_011.r05"}
+KEY {"correct_option_ids": ["0"], "option_feedback": {"0": {"message": "Correct. Splitting a common group across sides violates the declared group boundary; randomness alone does not match this scenario."}, "1": {"message": "Splitting a common group across sides violates the declared group boundary; randomness alone does not match this scenario."}, "2": {"message": "Splitting a common group across sides violates the declared group boundary; randomness alone does not match this scenario."}}}
+
+mle.tile.009_011.s16 hands_on
+{"prompt": "Write group_split and time_split. For groups, assign only supplied memberships and assert no shared group. For time, use training < cutoff and evaluation cutoff <= timestamp < evaluation_end. Return training, validation, training_proportion and validation_proportion from each function; each nonempty share is target count / row count. Assign result for the group fixture and time_result for the time fixture. Author assertions for group isolation and cutoff equality. These boundaries represent unseen groups and later orders, respectively; random splitting would not preserve them. Define group_split(records, training_groups, validation_groups) and time_split(records, cutoff, end), where end is evaluation_end. Each returns a dictionary with keys training, validation, training_proportion and validation_proportion. Partition lists must preserve records’ input order."}
+FEEDBACK {"correct": {"message": "You applied the declared boundary and its required checks."}, "incorrect": {"message": "Recheck the declared contract and the evidence for each decision."}, "hints": ["Apply supplied group memberships and timestamp inequalities while preserving record order."], "remediation_step_id": "mle.tile.009_011.r06"}
+KEY {}
+
+mle.tile.009_011.s17 recap
+Sample share and inclusion probability have different denominators. A sample summary is not automatically target-representative.
+Equal row counts can hide reordered identities. A dictionary built before duplicate checks can hide a replaced label.
+An empty group intersection checks group separation, not whether training timestamps precede evaluation.
+{"type": "up_next", "title": "Fit missing-value imputation using training data only", "text": "Next: Fit missing-value imputation using training data only."}

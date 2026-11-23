@@ -1,0 +1,116 @@
+{
+  "concept_id": "fastapi_backend.webhook_delivery_idempotency",
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "The situation",
+      "content": "A webhook event can arrive twice or concurrently. Prevent repeated business effects with durable authenticated event identity, not only a process-local memory check.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "definition",
+      "title": "The rule and its boundary",
+      "content": "Use an authenticated publisher event identifier as the deduplication key and retain the deduplication record across application restarts for the required replay window.",
+      "fact_ids": [
+        "f1"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "How to use the rule",
+      "content": "Record the event identifier atomically with its durable state changes in a transaction, backed by a uniqueness constraint, so concurrent deliveries cannot both apply the effect. Treat an already processed event as a successful duplicate acknowledgment without repeating its state change, and test duplicate and concurrent deliveries separately.",
+      "fact_ids": [
+        "f2",
+        "f3"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "walkthrough",
+      "title": "Reason through an example",
+      "content": "Use the authenticated publisher event identifier as the deduplication key and retain its record across restarts for the required replay window. Store the identifier atomically with durable state changes in a transaction backed by uniqueness. For a hypothetical order event, the first accepted processing applies the change and records the identity; an already processed delivery receives a successful duplicate acknowledgment without another change. Test sequential duplicates separately from concurrent deliveries, because two simultaneous attempts must not both pass the boundary and apply the effect. Trace the event record and business change together. A separate early check that is not atomically tied to the durable change does not express the required transaction boundary.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "misconception",
+      "title": "Keep this distinction",
+      "content": "A process-local seen-event list does not satisfy persistent deduplication across restarts or atomic suppression of concurrent effects.",
+      "fact_ids": [
+        "f1",
+        "f2"
+      ]
+    }
+  ],
+  "visual_anchor": {
+    "type": "process_flow",
+    "purpose": "Show two deliveries carrying the same authenticated publisher event identifier converging on a persistent uniqueness boundary. Place the event record and order change inside one transaction boundary; distinguish the one committed effect from successful duplicate acknowledgments, and show that the record survives application restart."
+  },
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Implement duplicate-safe handling of one authenticated order event, recording its publisher event identifier and durable order change in the same transaction.",
+    "success": "The first processing commits one order change and its event record. Sequential duplicates, including after an application restart, receive successful acknowledgments without another change. Concurrent deliveries with the same identifier produce exactly one committed change.",
+    "live_code": {
+      "required_skill": "Use a persistent unique event identifier and a shared transaction boundary to suppress repeated order changes, translating only a confirmed duplicate into a successful acknowledgment.",
+      "allowed_syntax": [
+        "async def",
+        "await",
+        "function calls",
+        "type annotations",
+        "if",
+        "return",
+        "try",
+        "except IntegrityError",
+        "raise",
+        "async with session.begin()",
+        "session.add(...)",
+        "await session.flush()",
+        "await session.scalar(...)",
+        "select(...)",
+        ".where(...)",
+        "attribute access and assignment",
+        "UniqueConstraint(...)",
+        "assert"
+      ],
+      "blocked_syntax": [
+        "time.time()",
+        "datetime.now()",
+        "@retry(...)"
+      ],
+      "starter_state_intent": "Provide an authenticated order event, existing order and persistent event-record models, a unique constraint on the publisher event identifier, and request-scoped sessions. Supply a test harness for sequential deliveries, application restart with the database retained, and concurrent deliveries. Leave the transactional handler and its assertions unfinished.",
+      "observable_success": "Tests independently demonstrate sequential duplicate suppression and concurrent duplicate suppression. The event record remains available after restart for the required replay window. A failed transaction leaves neither its event record nor its order change committed. A duplicate acknowledgment follows confirmation of the existing processed event, not an arbitrary database integrity failure."
+    }
+  },
+  "required_facts": [
+    {
+      "id": "f1",
+      "statement": "Use an authenticated publisher event identifier as the deduplication key and retain the deduplication record across application restarts for the required replay window.",
+      "source_refs": [
+        "owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Webhook_Security_Cheat_Sheet.html#idempotency-and-duplicate-events"
+      ]
+    },
+    {
+      "id": "f2",
+      "statement": "Record the event identifier atomically with its durable state changes in a transaction, backed by a uniqueness constraint, so concurrent deliveries cannot both apply the effect.",
+      "source_refs": [
+        "owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Webhook_Security_Cheat_Sheet.html#idempotency-and-duplicate-events",
+        "postgresql_docs#https://www.postgresql.org/docs/current/ddl-constraints.html#DDL-CONSTRAINTS-UNIQUE-CONSTRAINTS",
+        "sqlalchemy_20_tutorial#https://docs.sqlalchemy.org/en/20/orm/session_transaction.html#managing-transactions"
+      ]
+    },
+    {
+      "id": "f3",
+      "statement": "Treat an already processed event as a successful duplicate acknowledgment without repeating its state change, and test duplicate and concurrent deliveries separately.",
+      "source_refs": [
+        "owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Webhook_Security_Cheat_Sheet.html#idempotency-and-duplicate-events"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+_fixture_support
+import csv, json, datetime
+import numpy as np
+SCHEMAS = {'validation_counts': {'fixture': 'string', 'model_role': 'string', 'cohort_id': 'string', 'registry_artifact_id': 'string', 'FP': 'integer', 'TN': 'integer', 'FN': 'integer', 'TP': 'integer', 'slice_pass': 'boolean', 'compatibility_pass': 'boolean'}}
+def load(name):
+    with open(name+'.csv') as f:
+        data=list(csv.DictReader(f))
+    for r in data:
+        for k,t in SCHEMAS[name].items():
+            v=r[k]
+            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)
+    return data
+def column(data,key):
+    return np.asarray([r[key] for r in data])
+def emit(value):
+    return value
+
+
+
+policy = {'P_Y0': 0.5, 'P_Y1': 0.5, 'cost_FP': 1, 'cost_FN': 2, 'acceptance': {'maximum_FPR': 0.1, 'maximum_FNR': 0.1, 'cost_not_above_incumbent': True, 'slice_pass_required': True, 'compatibility_pass_required': True}, 'empty_group': 'undefined; reject', 'cohort': 'cohort.validation', 'decision_record_fields': ['registry_artifact_id', 'cohort_id', 'FPR', 'FNR', 'expected_cost', 'quality_pass', 'slice_pass', 'compatibility_pass', 'verdict'], 'protected_test': 'not provided; never used for selection'}
+
+def candidate_fixtures():
+    data=load('validation_counts');cases=[]
+    for r in data:
+        if r['model_role']=='candidate':
+            incumbent=next(o for o in data if o['fixture']==r['fixture'] and o['model_role']=='incumbent')
+            cases.append((r,incumbent))
+    return cases
+def run_candidates(function):
+    results=[]
+    for candidate,incumbent in candidate_fixtures():
+        for identity in [candidate['registry_artifact_id'],candidate['registry_artifact_id']+'.different']:
+            results.append(function(candidate,incumbent,identity,policy))
+    return results
+def case_record(records,name,identity_match=True):
+    return next(r for r in records if r['fixture']==name and r['promotion_identity_matches']==identity_match)
+
+_supplied_functions
+def supplied_conditional_rates(row, policy):
+    negative = row['FP'] + row['TN']
+    positive = row['FN'] + row['TP']
+    fpr = None
+    fnr = None
+    cost = None
+    if negative > 0:
+        fpr = row['FP'] / negative
+    if positive > 0:
+        fnr = row['FN'] / positive
+    if fpr != None and fnr != None:
+        cost = policy['P_Y0'] * fpr * policy['cost_FP'] + policy['P_Y1'] * fnr * policy['cost_FN']
+    return {'FPR': fpr, 'FNR': fnr, 'expected_cost': cost}
+def supplied_all_required_gates(candidate, incumbent, promotion_identity, policy):
+    rr = conditional_rates(candidate, policy)
+    ir = conditional_rates(incumbent, policy)
+    defined = rr['expected_cost'] != None and ir['expected_cost'] != None
+    quality_pass = False
+    cost_pass = False
+    if defined:
+        quality_pass = rr['FPR'] <= policy['acceptance']['maximum_FPR'] and rr['FNR'] <= policy['acceptance']['maximum_FNR']
+        cost_pass = rr['expected_cost'] <= ir['expected_cost']
+    cohort_pass = candidate['cohort_id'] == incumbent['cohort_id'] and candidate['cohort_id'] == policy['cohort']
+    identity_match = promotion_identity == candidate['registry_artifact_id']
+    accept = defined and quality_pass and cost_pass and candidate['slice_pass'] and candidate['compatibility_pass'] and cohort_pass and identity_match
+    return {'fixture': candidate['fixture'], 'candidate': candidate['registry_artifact_id'], 'cohort': candidate['cohort_id'], 'rates': rr, 'incumbent_rates': ir, 'quality_pass': quality_pass, 'cost_pass': cost_pass, 'slice_pass': candidate['slice_pass'], 'compatibility_pass': candidate['compatibility_pass'], 'cohort_pass': cohort_pass, 'promotion_identity': promotion_identity, 'promotion_identity_matches': identity_match, 'verdict': accept}
+
+_supplied_driver
+validate_candidate = all_required_gates
+report = run_candidates(validate_candidate)
+assert case_record(report, 'valid')['verdict']
+assert case_record(report, 'boundary')['verdict']
+assert not case_record(report, 'slice_fail')['verdict']
+assert not case_record(report, 'compat_fail')['verdict']
+assert not case_record(report, 'valid', False)['verdict']
+assert not case_record(report, 'empty_negative')['verdict'] and case_record(report, 'empty_negative')['rates']['FPR'] == None

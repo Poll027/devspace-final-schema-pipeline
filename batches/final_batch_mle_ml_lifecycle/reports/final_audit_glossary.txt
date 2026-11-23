@@ -1,0 +1,2104 @@
+
+mle.dataset_quality_gate
+{
+  "context": {
+    "concept_id": "mle.dataset_quality_gate",
+    "concept_name": "Gate pipeline execution on dataset-quality tests",
+    "path_id": "machine_learning_engineer",
+    "depth_tier": "core",
+    "toc_location": {
+      "region_id": "mle.region.ml_lifecycle",
+      "terrain_id": "mle.terrain.quality_gates",
+      "tile_id": "mle.tile.073_075"
+    },
+    "prerequisites": [
+      "mle.dataset_schema_validation",
+      "mle.label_integrity",
+      "mle.dataset_cleaning_policy"
+    ],
+    "blocked_future_concepts": [
+      "mle.model_behavior_tests",
+      "mle.model_release_quality_gate",
+      "mle.pipeline_artifact_dependencies",
+      "mle.staged_ml_promotion",
+      "mle.pipeline_failure_recovery",
+      "mle.deployed_model_lineage_audit",
+      "mle.distribution_monitoring",
+      "mle.drift_degradation_distinction",
+      "mle.data_drift_detection",
+      "mle.delayed_label_quality",
+      "mle.actionable_ml_alerts",
+      "mle.production_regression_diagnosis",
+      "mle.retraining_trigger_policy",
+      "mle.authorized_retraining_execution",
+      "mle.retraining_run_idempotency",
+      "mle.retrained_candidate_validation",
+      "mle.ml_incident_runbook",
+      "mle.ml_resource_utilization",
+      "mle.ml_workload_cost_attribution",
+      "mle.ml_workload_cost_guardrail",
+      "mle.serving_resource_cleanup"
+    ]
+  },
+  "coverage": {
+    "learning_objective": "Wire a fail-closed data-quality function into an existing commit-triggered pipeline.",
+    "required_facts": [
+      {
+        "id": "f1",
+        "statement": "Run data validation before model training; unexpected features, missing features or invalid feature values should prevent the affected pipeline execution from continuing.",
+        "source_refs": [
+          "google_mlops_pipelines#Data and model validation"
+        ]
+      },
+      {
+        "id": "f2",
+        "statement": "Represent each required schema/quality check as a named result and aggregate them into an explicit pass/fail decision under the supplied gate policy.",
+        "source_refs": [
+          "python_tutorial#datastructures.html \u2014 List Comprehensions; Sets; Dictionaries"
+        ]
+      },
+      {
+        "id": "f3",
+        "statement": "On a failed required test, raise or return the declared failure result and do not invoke the downstream training stage.",
+        "source_refs": [
+          "python_tutorial#errors.html \u2014 Handling Exceptions; Raising Exceptions"
+        ]
+      },
+      {
+        "id": "f4",
+        "statement": "Retain the tested input snapshot and failed check evidence so a repaired dataset can be validated against the same requirements.",
+        "source_refs": [
+          "google_mlops_pipelines#Data and model validation"
+        ]
+      },
+      {
+        "id": "f5",
+        "statement": "Write assert predicate checks for the declared valid, boundary and failure cases; a false predicate raises AssertionError during ordinary non-optimized execution.",
+        "source_refs": [
+          "python_tutorial#../reference/simple_stmts.html \u2014 The assert statement"
+        ]
+      },
+      {
+        "id": "f6",
+        "statement": "In an existing Cloud Build YAML/JSON configuration, each steps item declares its execution image in name and its command in args or script; wire the function/test entry point into the assigned stage.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/build-config-file-schema \u2014 Build steps; name; args; script; serviceAccount; allowFailure; allowExitCodes"
+        ]
+      },
+      {
+        "id": "f7",
+        "statement": "Assign step IDs and set waitFor to the required preceding step IDs; downstream execution depends on those steps completing successfully, not just their textual location.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/configuring-builds/configure-build-step-order \u2014 id; waitFor"
+        ]
+      },
+      {
+        "id": "f8",
+        "statement": "Keep required gate failures fatal: do not set allowFailure or add failing gate exit codes to allowExitCodes, and ensure a rejected Python gate exits unsuccessfully.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/build-config-file-schema \u2014 Build steps; name; args; script; serviceAccount; allowFailure; allowExitCodes"
+        ]
+      },
+      {
+        "id": "f9",
+        "statement": "Use the configured repository commit trigger and branch filter to run the existing pipeline, then inspect actual stage results and resolved inputs for accepted and rejected fixtures.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/automating-builds/create-manage-triggers \u2014 Creating a build trigger; Manually running triggers"
+        ]
+      },
+      {
+        "id": "f10",
+        "statement": "With the declared PyYAML dependency, import yaml; write a mapping/list configuration with yaml.safe_dump(config, file_handle), reload it with yaml.safe_load(file_handle), and inspect the required resolved fields before submitting it to the existing runtime. Safe loading accepts standard YAML tags, not arbitrary Python object constructors.",
+        "source_refs": [
+          "python_tutorial#https://pyyaml.org/wiki/PyYAMLDocumentation \u2014 Reference: safe_load; safe_dump"
+        ]
+      }
+    ],
+    "misconceptions": []
+  },
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "Gate Data and Model Releases",
+      "content": "A data-quality failure must stop the affected training path. The gate turns named validation results into a fatal decision within the existing pipeline, not a warning that downstream stages can ignore.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "mechanism",
+      "title": "The working rule",
+      "content": "Run data validation before model training; unexpected features, missing features or invalid feature values should prevent the affected pipeline execution from continuing. Represent each required schema/quality check as a named result and aggregate them into an explicit pass/fail decision under the supplied gate policy. On a failed required test, raise or return the declared failure result and do not invoke the downstream training stage.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Retain the tested input snapshot and failed check evidence so a repaired dataset can be validated against the same requirements. Write assert predicate checks for the declared valid, boundary and failure cases; a false predicate raises AssertionError during ordinary non-optimized execution. In an existing Cloud Build YAML/JSON configuration, each steps item declares its execution image in name and its command in args or script; wire the function/test entry point into the assigned stage.",
+      "fact_ids": [
+        "f4",
+        "f5",
+        "f6"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Assign step IDs and set waitFor to the required preceding step IDs; downstream execution depends on those steps completing successfully, not just their textual location. Keep required gate failures fatal: do not set allowFailure or add failing gate exit codes to allowExitCodes, and ensure a rejected Python gate exits unsuccessfully. Use the configured repository commit trigger and branch filter to run the existing pipeline, then inspect actual stage results and resolved inputs for accepted and rejected fixtures.",
+      "fact_ids": [
+        "f7",
+        "f8",
+        "f9"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "With the declared PyYAML dependency, import yaml; write a mapping/list configuration with yaml.safe_dump(config, file_handle), reload it with yaml.safe_load(file_handle), and inspect the required resolved fields before submitting it to the existing runtime. Safe loading accepts standard YAML tags, not arbitrary Python object constructors.",
+      "fact_ids": [
+        "f10"
+      ]
+    },
+    {
+      "id": "tb6",
+      "purpose": "example",
+      "title": "A bounded work example",
+      "content": "Suppose a dataset fixture is missing a required feature. Record the failed named check and snapshot identity, return the declared failure or raise, and verify training did not run. Wire the supplied test entry point into its Cloud Build step with the execution image and command. Set step IDs and waitFor dependencies; textual order alone does not establish the required dependency. Keep gate failure fatal rather than allowing its exit code. Run accepted and rejected fixtures through the existing repository trigger and branch filter, inspecting actual stage results. A repaired snapshot must pass the same requirements before the affected path can continue.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5",
+        "f6",
+        "f7",
+        "f8",
+        "f9",
+        "f10"
+      ]
+    },
+    {
+      "id": "tb7",
+      "purpose": "misconception",
+      "title": "A distinction to keep",
+      "content": "A reported failure is not a blocking gate if training still executes. allowFailure or allowed failing exit codes would defeat the required fatal boundary.",
+      "fact_ids": [
+        "f3",
+        "f7",
+        "f8"
+      ]
+    }
+  ],
+  "video_need": {
+    "level": "HIGH",
+    "reason": "A live fixture with visible intermediate state and acceptance checks would make this distinction concrete: A data-quality gate is a fail-closed boundary before artifact consumption.",
+    "preferred_visual_modes": [
+      "live_code"
+    ]
+  },
+  "assessment_anchors": [
+    {
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f5"
+      ],
+      "capability": "demonstrate_dataset_contract_acceptance_and_rejection"
+    },
+    {
+      "fact_ids": [
+        "f6",
+        "f7",
+        "f8"
+      ],
+      "capability": "enforce_fatal_quality_stage_before_training"
+    },
+    {
+      "fact_ids": [
+        "f4",
+        "f9"
+      ],
+      "capability": "verify_triggered_run_outcomes_and_preserve_failure_evidence"
+    },
+    {
+      "fact_ids": [
+        "f6",
+        "f7",
+        "f8",
+        "f10"
+      ],
+      "capability": "inspect_round_tripped_gate_configuration"
+    }
+  ],
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Implement a learner-defined Python dataset-gate function and write its required imports in the supplied pipeline's test stage. Author named contract checks and assertions for valid, boundary and invalid fixtures, including a fixture missing a required feature. Preserve tested snapshot identities and failure evidence. Write and reload the existing Cloud Build configuration with PyYAML, inspect its resolved fields, and wire fatal gate execution and explicit training dependencies. Use the configured repository commit trigger and branch filter to run accepted and rejected fixtures.",
+    "success": "The declared valid and acceptable boundary fixtures pass; invalid fixtures produce named failure evidence and an unsuccessful gate-process exit. Reloaded configuration retains the required image, command, step IDs and waitFor dependencies without permitting required gate failures. Actual triggered-run results show training starts only after an accepted quality stage and never starts after a rejected quality stage. Tested snapshots and failed checks remain available for validation of a repaired dataset against the same contract.",
+    "live_code": {
+      "required_skill": "Write a dataset-gate function that aggregates named checks under the supplied policy, test it with assert predicates, and connect its fatal result to the existing Cloud Build test stage.",
+      "allowed_syntax": [
+        "import yaml",
+        "import sys",
+        "Learner-written imports for declared dataset-reading and validation dependencies",
+        "def function_name(...):",
+        "Function calls and local variable assignment",
+        "Dictionary and list literals",
+        "Dictionary and list access",
+        "for loops",
+        "if/else conditionals",
+        "Boolean expressions and comparisons",
+        "assert predicate",
+        "return",
+        "raise",
+        "try/except AssertionError",
+        "with open(...) as file_handle:",
+        "yaml.safe_dump(config, file_handle)",
+        "yaml.safe_load(file_handle)",
+        "sys.exit(nonzero_status)"
+      ],
+      "blocked_syntax": [],
+      "starter_state_intent": "Provide the existing authorized repository, commit trigger and branch filter, Cloud Build configuration, declared dependencies, dataset contract, gate policy and dataset snapshot. Include the missing-required-feature fixture described in the example and locations for learner-authored valid, boundary and invalid fixtures. Leave the gate function, imports and assertions unwritten. Retain the existing training entry point without requiring changes to its implementation.",
+      "observable_success": "Assertions distinguish the declared fixture cases in ordinary non-optimized execution. Named results determine an explicit gate decision, rejected execution exits unsuccessfully, and saved evidence identifies the tested snapshot and failed requirements. Resolved configuration fields and actual triggered stage results establish that a successful gate permits training while a failed required check prevents training from starting."
+    }
+  },
+  "visual_anchor": {
+    "type": "UI_state",
+    "purpose": "Make actual accepted and rejected pipeline runs visible alongside their resolved input snapshot identities and named check evidence. Show the accepted quality stage followed by training, and the failed quality stage with downstream training not started."
+  },
+  "teaching_notes": [
+    "Start with the concrete fixture and the declared contract; keep the explanation within this tile: Gate Data and Model Releases.",
+    "Use the registered prerequisite preparation rather than reteaching general Python, statistics, software engineering or cloud administration. This path assumes those foundations; ownership remains bounded to the supplied ML task and existing authorized runtime.",
+    "Declared direct prerequisites: mle.dataset_schema_validation, mle.label_integrity, mle.dataset_cleaning_policy. Use these as preparation, not additional learning targets. No forward-preview concepts are taught.",
+    "All numeric values and short names in the work example are illustrative fixture data, not observed production results. Retain each source rule, qualifier, declared budget and policy boundary."
+  ],
+  "cluster_ref": "cluster_machine_learning_engineer_073_075_73_75",
+  "validation": {
+    "source_supported": true,
+    "prerequisite_safe": true,
+    "media_aligned": true,
+    "ready_for_final_schema": true
+  }
+}
+
+mle.model_behavior_tests
+{
+  "context": {
+    "concept_id": "mle.model_behavior_tests",
+    "concept_name": "Test preprocessing and model inference behavior",
+    "path_id": "machine_learning_engineer",
+    "depth_tier": "core",
+    "toc_location": {
+      "region_id": "mle.region.ml_lifecycle",
+      "terrain_id": "mle.terrain.quality_gates",
+      "tile_id": "mle.tile.073_075"
+    },
+    "prerequisites": [
+      "mle.online_prediction_contract",
+      "mle.preprocessing_pipeline"
+    ],
+    "blocked_future_concepts": [
+      "mle.model_release_quality_gate",
+      "mle.pipeline_artifact_dependencies",
+      "mle.staged_ml_promotion",
+      "mle.pipeline_failure_recovery",
+      "mle.deployed_model_lineage_audit",
+      "mle.distribution_monitoring",
+      "mle.drift_degradation_distinction",
+      "mle.data_drift_detection",
+      "mle.delayed_label_quality",
+      "mle.actionable_ml_alerts",
+      "mle.production_regression_diagnosis",
+      "mle.retraining_trigger_policy",
+      "mle.authorized_retraining_execution",
+      "mle.retraining_run_idempotency",
+      "mle.retrained_candidate_validation",
+      "mle.ml_incident_runbook",
+      "mle.ml_resource_utilization",
+      "mle.ml_workload_cost_attribution",
+      "mle.ml_workload_cost_guardrail",
+      "mle.serving_resource_cleanup"
+    ]
+  },
+  "coverage": {
+    "learning_objective": "Connect behavior assertions to a pipeline gate that blocks dependent stages on failure.",
+    "required_facts": [
+      {
+        "id": "f1",
+        "statement": "Behavior tests must exercise the packaged fitted preprocessing and model through the same prediction path used for inference.",
+        "source_refs": [
+          "scikit_learn_user_guide#common_pitfalls.html \u2014 12.1 Inconsistent preprocessing"
+        ]
+      },
+      {
+        "id": "f2",
+        "statement": "For each supplied fixture, check its expected output row count, feature/target alignment and output shape before comparing values.",
+        "source_refs": [
+          "numpy_user_guide#user/absolute_beginners.html \u2014 Attributes of an array; How to create a basic array"
+        ]
+      },
+      {
+        "id": "f3",
+        "statement": "Compare numerical output to the expected fixture with np.testing.assert_allclose using explicitly declared tolerances.",
+        "source_refs": [
+          "numpy_user_guide#reference/generated/numpy.testing.assert_allclose.html"
+        ]
+      },
+      {
+        "id": "f4",
+        "statement": "Exercise malformed input and boundary fixtures, checking explicit rejection when the contract does not permit them.",
+        "source_refs": [
+          "python_tutorial#errors.html \u2014 Handling Exceptions; Raising Exceptions"
+        ]
+      },
+      {
+        "id": "f5",
+        "statement": "Write assert predicate checks for the declared valid, boundary and failure cases; a false predicate raises AssertionError during ordinary non-optimized execution.",
+        "source_refs": [
+          "python_tutorial#../reference/simple_stmts.html \u2014 The assert statement"
+        ]
+      },
+      {
+        "id": "f6",
+        "statement": "In an existing Cloud Build YAML/JSON configuration, each steps item declares its execution image in name and its command in args or script; wire the function/test entry point into the assigned stage.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/build-config-file-schema \u2014 Build steps; name; args; script; serviceAccount; allowFailure; allowExitCodes"
+        ]
+      },
+      {
+        "id": "f7",
+        "statement": "Assign step IDs and set waitFor to the required preceding step IDs; downstream execution depends on those steps completing successfully, not just their textual location.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/configuring-builds/configure-build-step-order \u2014 id; waitFor"
+        ]
+      },
+      {
+        "id": "f8",
+        "statement": "Keep required gate failures fatal: do not set allowFailure or add failing gate exit codes to allowExitCodes, and ensure a rejected Python gate exits unsuccessfully.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/build-config-file-schema \u2014 Build steps; name; args; script; serviceAccount; allowFailure; allowExitCodes"
+        ]
+      },
+      {
+        "id": "f9",
+        "statement": "Use the configured repository commit trigger and branch filter to run the existing pipeline, then inspect actual stage results and resolved inputs for accepted and rejected fixtures.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/automating-builds/create-manage-triggers \u2014 Creating a build trigger; Manually running triggers"
+        ]
+      },
+      {
+        "id": "f10",
+        "statement": "With the declared PyYAML dependency, import yaml; write a mapping/list configuration with yaml.safe_dump(config, file_handle), reload it with yaml.safe_load(file_handle), and inspect the required resolved fields before submitting it to the existing runtime. Safe loading accepts standard YAML tags, not arbitrary Python object constructors.",
+        "source_refs": [
+          "python_tutorial#https://pyyaml.org/wiki/PyYAMLDocumentation \u2014 Reference: safe_load; safe_dump"
+        ]
+      }
+    ],
+    "misconceptions": []
+  },
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "Gate Data and Model Releases",
+      "content": "Behavior tests need the packaged inference path, including fitted preprocessing. Testing an isolated estimator with manually prepared data could miss a defect in the package that clients actually use.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "mechanism",
+      "title": "The working rule",
+      "content": "Behavior tests must exercise the packaged fitted preprocessing and model through the same prediction path used for inference. For each supplied fixture, check its expected output row count, feature/target alignment and output shape before comparing values. Compare numerical output to the expected fixture with np.testing.assert_allclose using explicitly declared tolerances.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Exercise malformed input and boundary fixtures, checking explicit rejection when the contract does not permit them. Write assert predicate checks for the declared valid, boundary and failure cases; a false predicate raises AssertionError during ordinary non-optimized execution. In an existing Cloud Build YAML/JSON configuration, each steps item declares its execution image in name and its command in args or script; wire the function/test entry point into the assigned stage.",
+      "fact_ids": [
+        "f4",
+        "f5",
+        "f6"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Assign step IDs and set waitFor to the required preceding step IDs; downstream execution depends on those steps completing successfully, not just their textual location. Keep required gate failures fatal: do not set allowFailure or add failing gate exit codes to allowExitCodes, and ensure a rejected Python gate exits unsuccessfully. Use the configured repository commit trigger and branch filter to run the existing pipeline, then inspect actual stage results and resolved inputs for accepted and rejected fixtures.",
+      "fact_ids": [
+        "f7",
+        "f8",
+        "f9"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "With the declared PyYAML dependency, import yaml; write a mapping/list configuration with yaml.safe_dump(config, file_handle), reload it with yaml.safe_load(file_handle), and inspect the required resolved fields before submitting it to the existing runtime. Safe loading accepts standard YAML tags, not arbitrary Python object constructors.",
+      "fact_ids": [
+        "f10"
+      ]
+    },
+    {
+      "id": "tb6",
+      "purpose": "example",
+      "title": "A bounded work example",
+      "content": "Use the supplied valid fixture to check row count, feature/target alignment and output shape before comparing numerical values with explicit tolerances. Then exercise malformed and boundary fixtures, expecting explicit rejection where the contract requires it. Wire this entry point into the existing build step and its required dependencies, keeping rejection fatal. Run the configured repository trigger and inspect accepted and failed stage results rather than assuming a locally passing test is the pipeline verdict. Parse the existing YAML and inspect resolved fields. The fixture should fail if the package produces the right-looking numbers for the wrong rows, not merely if its scalar values differ.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5",
+        "f6",
+        "f7",
+        "f8",
+        "f9",
+        "f10"
+      ]
+    },
+    {
+      "id": "tb7",
+      "purpose": "misconception",
+      "title": "A distinction to keep",
+      "content": "Matching numbers alone is insufficient without shape and correspondence checks. Tests must call the packaged fitted path, and required test failure must block downstream execution.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f8"
+      ]
+    }
+  ],
+  "video_need": {
+    "level": "HIGH",
+    "reason": "A live fixture with visible intermediate state and acceptance checks would make this distinction concrete: Behavior tests protect the prediction contract independently of accuracy.",
+    "preferred_visual_modes": [
+      "live_code"
+    ]
+  },
+  "assessment_anchors": [
+    {
+      "fact_ids": [
+        "f1",
+        "f2"
+      ],
+      "capability": "detect_packaged_prediction_structure_regressions"
+    },
+    {
+      "fact_ids": [
+        "f3"
+      ],
+      "capability": "detect_numerical_regressions_with_explicit_tolerances"
+    },
+    {
+      "fact_ids": [
+        "f4",
+        "f5"
+      ],
+      "capability": "assert_valid_boundary_and_failure_behavior"
+    },
+    {
+      "fact_ids": [
+        "f6",
+        "f7",
+        "f8",
+        "f9"
+      ],
+      "capability": "verify_behavior_test_failures_stop_dependent_stages"
+    },
+    {
+      "fact_ids": [
+        "f10"
+      ],
+      "capability": "safely_round_trip_and_inspect_test_stage_configuration"
+    }
+  ],
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Write a learner-defined Python test function, with learner-written imports, that uses reusable valid, boundary and malformed fixtures to exercise the supplied packaged prediction function. Assert row count, feature/target correspondence and output shape before numerical comparisons with explicit tolerances, and test the declared exception path. Safely write and reload the supplied Cloud Build configuration, connect the test entry point to its assigned stage, and verify accepted and deliberately regressed runs through the configured repository commit trigger and branch filter.",
+    "success": "The accepted fixtures pass all structural and numerical checks, and contract-prohibited inputs produce the declared exception. The reloaded configuration has the required execution image, command, step IDs and waitFor dependencies without failure allowances. A deliberate behavior regression produces an unsuccessful test-stage exit in an actual triggered run, and dependent later stages do not execute.",
+    "live_code": {
+      "required_skill": "Author reusable fixture-based assertions against a fitted prediction package and connect their executable entry point to an existing fatal test stage.",
+      "allowed_syntax": [
+        "import numpy as np",
+        "import yaml",
+        "imports for the supplied prediction package",
+        "def",
+        "function calls",
+        "return",
+        "variable assignment",
+        "numeric and string literals",
+        "lists and dictionaries",
+        "for",
+        "if",
+        "assert",
+        "try",
+        "except",
+        "else",
+        "raise",
+        "AssertionError",
+        "the supplied contract's exception type",
+        "np.array",
+        "array indexing",
+        "array.shape",
+        "len",
+        "comparison and Boolean operators",
+        "np.testing.assert_allclose with explicit rtol and atol",
+        "with open",
+        "yaml.safe_dump",
+        "yaml.safe_load",
+        "if __name__ == \"__main__\""
+      ],
+      "blocked_syntax": [],
+      "starter_state_intent": "Provide the supplied packaged prediction callable, its declared contract, fixture inputs and expected outputs using only the supplied example's existing names, the declared NumPy and PyYAML dependencies, and an existing authorized Cloud Build configuration and repository trigger. Leave the test function, imports, assertions and assigned-stage wiring for the learner to implement.",
+      "observable_success": "Execution demonstrates structure checks before numerical comparisons, explicit tolerances, and assertions for valid, boundary and failure cases. Configuration inspection after safe reloading confirms the required resolved fields. Actual triggered stage results show an accepted run succeeding and an injected regression failing the test stage with dependent stages unexecuted."
+    }
+  },
+  "visual_anchor": {
+    "type": "comparison",
+    "purpose": "Make accepted and regressed fixture results visible side by side: row count, feature/target correspondence, output shape, numerical tolerance checks and expected rejection. Pair these with resolved test-stage configuration fields and actual stage statuses showing that a fatal regression prevents dependent execution."
+  },
+  "teaching_notes": [
+    "Start with the concrete fixture and the declared contract; keep the explanation within this tile: Gate Data and Model Releases.",
+    "Use the registered prerequisite preparation rather than reteaching general Python, statistics, software engineering or cloud administration. This path assumes those foundations; ownership remains bounded to the supplied ML task and existing authorized runtime.",
+    "Declared direct prerequisites: mle.online_prediction_contract, mle.preprocessing_pipeline. Use these as preparation, not additional learning targets. No forward-preview concepts are taught.",
+    "All numeric values and short names in the work example are illustrative fixture data, not observed production results. Retain each source rule, qualifier, declared budget and policy boundary."
+  ],
+  "cluster_ref": "cluster_machine_learning_engineer_073_075_73_75",
+  "validation": {
+    "source_supported": true,
+    "prerequisite_safe": true,
+    "media_aligned": true,
+    "ready_for_final_schema": true
+  }
+}
+
+mle.model_release_quality_gate
+{
+  "context": {
+    "concept_id": "mle.model_release_quality_gate",
+    "concept_name": "Block release promotion when model acceptance gates fail",
+    "path_id": "machine_learning_engineer",
+    "depth_tier": "core",
+    "toc_location": {
+      "region_id": "mle.region.ml_lifecycle",
+      "terrain_id": "mle.terrain.quality_gates",
+      "tile_id": "mle.tile.073_075"
+    },
+    "prerequisites": [
+      "mle.model_acceptance_criteria",
+      "mle.protected_test_comparison",
+      "mle.model_version_registration",
+      "mle.validation_candidate_comparison"
+    ],
+    "blocked_future_concepts": [
+      "mle.pipeline_artifact_dependencies",
+      "mle.staged_ml_promotion",
+      "mle.pipeline_failure_recovery",
+      "mle.deployed_model_lineage_audit",
+      "mle.distribution_monitoring",
+      "mle.drift_degradation_distinction",
+      "mle.data_drift_detection",
+      "mle.delayed_label_quality",
+      "mle.actionable_ml_alerts",
+      "mle.production_regression_diagnosis",
+      "mle.retraining_trigger_policy",
+      "mle.authorized_retraining_execution",
+      "mle.retraining_run_idempotency",
+      "mle.retrained_candidate_validation",
+      "mle.ml_incident_runbook",
+      "mle.ml_resource_utilization",
+      "mle.ml_workload_cost_attribution",
+      "mle.ml_workload_cost_guardrail",
+      "mle.serving_resource_cleanup"
+    ]
+  },
+  "coverage": {
+    "learning_objective": "Implement a fail-closed, event-triggered candidate release gate from fixed validation and operating evidence.",
+    "required_facts": [
+      {
+        "id": "f1",
+        "statement": "A release gate compares the candidate with the accepted reference and the predeclared quality requirements before promotion.",
+        "source_refs": [
+          "google_mlops_pipelines#Data and model validation"
+        ]
+      },
+      {
+        "id": "f2",
+        "statement": "Read the supplied candidate evidence fields, evaluate each required acceptance predicate and report which predicate failed when the verdict is reject.",
+        "source_refs": [
+          "python_tutorial#datastructures.html \u2014 List Comprehensions; Sets; Dictionaries"
+        ]
+      },
+      {
+        "id": "f3",
+        "statement": "Calculate validation expected error cost using the predeclared deployment probabilities and error costs, and include the fixed latency/operating limits in eligibility.",
+        "source_refs": [
+          "scikit_learn_user_guide#auto_examples/model_selection/plot_cost_sensitive_learning.html \u2014 Cost-sensitive learning with constant gains and costs"
+        ]
+      },
+      {
+        "id": "f4",
+        "statement": "A failed or incomplete required gate blocks promotion rather than being treated as success.",
+        "source_refs": [
+          "python_tutorial#errors.html \u2014 Handling Exceptions; Raising Exceptions"
+        ]
+      },
+      {
+        "id": "f5",
+        "statement": "For binary validation counts, FPR = FP/(FP+TN) conditions on actual negatives, and FNR = FN/(FN+TP) conditions on actual positives; an empty conditioning group does not yield a defined rate.",
+        "source_refs": [
+          "google_ml_crash_course#classification/accuracy-precision-recall \u2014 Accuracy; Recall, or true positive rate; False positive rate; Precision"
+        ]
+      },
+      {
+        "id": "f6",
+        "statement": "With zero cost for correct predictions and supplied deployment class probabilities, expected error cost is P(Y=0) \u00d7 FPR \u00d7 cost_FP + P(Y=1) \u00d7 FNR \u00d7 cost_FN.",
+        "source_refs": [
+          "scikit_learn_user_guide#auto_examples/model_selection/plot_cost_sensitive_learning.html \u2014 Cost-sensitive learning with constant gains and costs"
+        ]
+      },
+      {
+        "id": "f7",
+        "statement": "Do not use protected test observations to fit preprocessing, choose a model or tune its settings; doing so leaks information into the chosen system.",
+        "source_refs": [
+          "scikit_learn_user_guide#common_pitfalls.html \u2014 12.2 Data leakage"
+        ]
+      },
+      {
+        "id": "f8",
+        "statement": "In an existing Cloud Build YAML/JSON configuration, each steps item declares its execution image in name and its command in args or script; wire the function/test entry point into the assigned stage.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/build-config-file-schema \u2014 Build steps; name; args; script; serviceAccount; allowFailure; allowExitCodes"
+        ]
+      },
+      {
+        "id": "f9",
+        "statement": "Assign step IDs and set waitFor to the required preceding step IDs; downstream execution depends on those steps completing successfully, not just their textual location.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/configuring-builds/configure-build-step-order \u2014 id; waitFor"
+        ]
+      },
+      {
+        "id": "f10",
+        "statement": "Keep required gate failures fatal: do not set allowFailure or add failing gate exit codes to allowExitCodes, and ensure a rejected Python gate exits unsuccessfully.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/build-config-file-schema \u2014 Build steps; name; args; script; serviceAccount; allowFailure; allowExitCodes"
+        ]
+      },
+      {
+        "id": "f11",
+        "statement": "Use the configured Pub/Sub artifact/event trigger with its configured payload bindings and filters to run the existing pipeline, then inspect actual stage results and resolved inputs for accepted and rejected fixtures.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/automating-builds/create-pubsub-triggers \u2014 Creating a Pub/Sub trigger; Substitution variables; Filters"
+        ]
+      },
+      {
+        "id": "f12",
+        "statement": "With the declared PyYAML dependency, import yaml; write a mapping/list configuration with yaml.safe_dump(config, file_handle), reload it with yaml.safe_load(file_handle), and inspect the required resolved fields before submitting it to the existing runtime. Safe loading accepts standard YAML tags, not arbitrary Python object constructors.",
+        "source_refs": [
+          "python_tutorial#https://pyyaml.org/wiki/PyYAMLDocumentation \u2014 Reference: safe_load; safe_dump"
+        ]
+      }
+    ],
+    "misconceptions": []
+  },
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "Gate Data and Model Releases",
+      "content": "A model release needs a gate over its exact evidence and predeclared requirements. Aggregate improvement is not a substitute for all required quality and operating predicates being complete and passing.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "mechanism",
+      "title": "The working rule",
+      "content": "A release gate compares the candidate with the accepted reference and the predeclared quality requirements before promotion. Read the supplied candidate evidence fields, evaluate each required acceptance predicate and report which predicate failed when the verdict is reject. Calculate validation expected error cost using the predeclared deployment probabilities and error costs, and include the fixed latency/operating limits in eligibility.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "A failed or incomplete required gate blocks promotion rather than being treated as success. For binary validation counts, FPR = FP/(FP+TN) conditions on actual negatives, and FNR = FN/(FN+TP) conditions on actual positives; an empty conditioning group does not yield a defined rate. With zero cost for correct predictions and supplied deployment class probabilities, expected error cost is P(Y=0) \u00d7 FPR \u00d7 cost_FP + P(Y=1) \u00d7 FNR \u00d7 cost_FN.",
+      "fact_ids": [
+        "f4",
+        "f5",
+        "f6"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Do not use protected test observations to fit preprocessing, choose a model or tune its settings; doing so leaks information into the chosen system. In an existing Cloud Build YAML/JSON configuration, each steps item declares its execution image in name and its command in args or script; wire the function/test entry point into the assigned stage. Assign step IDs and set waitFor to the required preceding step IDs; downstream execution depends on those steps completing successfully, not just their textual location.",
+      "fact_ids": [
+        "f7",
+        "f8",
+        "f9"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Keep required gate failures fatal: do not set allowFailure or add failing gate exit codes to allowExitCodes, and ensure a rejected Python gate exits unsuccessfully. Use the configured Pub/Sub artifact/event trigger with its configured payload bindings and filters to run the existing pipeline, then inspect actual stage results and resolved inputs for accepted and rejected fixtures. With the declared PyYAML dependency, import yaml; write a mapping/list configuration with yaml.safe_dump(config, file_handle), reload it with yaml.safe_load(file_handle), and inspect the required resolved fields before submitting it to the existing runtime. Safe loading accepts standard YAML tags, not arbitrary Python object constructors.",
+      "fact_ids": [
+        "f10",
+        "f11",
+        "f12"
+      ]
+    },
+    {
+      "id": "tb6",
+      "purpose": "example",
+      "title": "A bounded work example",
+      "content": "Suppose the candidate's expected cost is below the permitted bound but its fixed latency check fails. Return reject with that predicate identified, rather than reporting the cost success as release approval. Calculate cost with the fixed class probabilities and supplied error costs, retaining actual-class denominators. Bind the evidence to the candidate identity. In the existing event-triggered build, configure the gate's image, command and waitFor edges, without failure-tolerant settings. Inspect actual resolved inputs and stage results for accepted and rejected events. Protected-test observations remain outside fitting and tuning; an incomplete required gate blocks promotion just as a failed one does.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5",
+        "f6",
+        "f7",
+        "f8",
+        "f9",
+        "f10",
+        "f11",
+        "f12"
+      ]
+    },
+    {
+      "id": "tb7",
+      "purpose": "misconception",
+      "title": "A distinction to keep",
+      "content": "A release gate is not an average of independent requirements. One failed or incomplete required condition blocks promotion even when another metric improves.",
+      "fact_ids": [
+        "f2",
+        "f3",
+        "f4"
+      ]
+    }
+  ],
+  "video_need": {
+    "level": "HIGH",
+    "reason": "A live fixture with visible intermediate state and acceptance checks would make this distinction concrete: A release gate fails closed on model acceptance evidence before promotion.",
+    "preferred_visual_modes": [
+      "live_code"
+    ]
+  },
+  "assessment_anchors": [
+    {
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4"
+      ],
+      "capability": "reject_failed_or_incomplete_candidate_acceptance"
+    },
+    {
+      "fact_ids": [
+        "f3",
+        "f5",
+        "f6"
+      ],
+      "capability": "calculate_validation_error_cost_and_apply_operating_limits"
+    },
+    {
+      "fact_ids": [
+        "f7"
+      ],
+      "capability": "preserve_protected_test_isolation"
+    },
+    {
+      "fact_ids": [
+        "f8",
+        "f9",
+        "f10"
+      ],
+      "capability": "wire_a_fatal_acceptance_gate_before_promotion"
+    },
+    {
+      "fact_ids": [
+        "f4",
+        "f11"
+      ],
+      "capability": "verify_event_triggered_gate_results_block_rejected_promotion"
+    },
+    {
+      "fact_ids": [
+        "f12"
+      ],
+      "capability": "safely_round_trip_and_inspect_release_configuration"
+    }
+  ],
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Implement a learner-defined Python acceptance function in the supplied artifact-triggered Cloud Build pipeline, writing the required imports yourself. Read the supplied candidate and accepted-reference evidence, calculate validation expected error cost from the declared probabilities and costs, and evaluate every required quality and operating predicate. Reject failed or incomplete evidence with explicit exceptions identifying the affected predicates. Write assertions for passing and failing evidence, safely write and reload the existing configuration, wire the assigned gate entry point and required step dependencies, and trigger accepted and rejected fixtures through the configured Pub/Sub event trigger.",
+    "success": "Assertions confirm acceptance only when all required predicates are complete and passing, and confirm explicit rejection for failed or incomplete evidence, including undefined rates from empty conditioning groups. The reloaded configuration retains the required image, command, step IDs and waitFor dependencies without failure-tolerant gate settings. Actual resolved inputs identify the intended candidate fixtures. The accepted run passes the gate and reaches promotion; the rejected run exits unsuccessfully at the gate and does not execute promotion.",
+    "live_code": {
+      "required_skill": "Implement and test a fail-closed Python acceptance function, then connect its entry point to the assigned stage of an existing event-triggered release pipeline.",
+      "allowed_syntax": [
+        "import statements for yaml and required supplied-runtime library or client dependencies",
+        "def statements, parameters, function calls and return statements",
+        "dictionary and list literals, indexing and membership checks",
+        "variable assignment and arithmetic expressions",
+        "comparison operators and Boolean expressions",
+        "if, elif and else statements",
+        "for loops over required acceptance predicates",
+        "raise statements with explicit exception messages",
+        "try and except statements for asserting expected rejection without suppressing runtime gate failures",
+        "assert statements",
+        "with open(...) as file_handle",
+        "yaml.safe_dump(config, file_handle)",
+        "yaml.safe_load(file_handle)",
+        "existing pipeline mapping/list fields: steps, name, args or script, id and waitFor"
+      ],
+      "blocked_syntax": [],
+      "starter_state_intent": "Provide incomplete function and test entry points, the supplied candidate and accepted-reference evidence fixtures, predeclared acceptance requirements, deployment class probabilities, error costs and fixed operating limits. Include the existing Cloud Build configuration, declared PyYAML dependency, assigned gate and promotion stages, and configured event payload bindings and filters. Retain only the supplied fixture field names; do not provide a complete implementation or require creation of a new pipeline or trigger.",
+      "observable_success": "The learner's assertions distinguish accepted, failed and incomplete evidence. Configuration inspection confirms the required resolved fields and fatal dependency chain. Recorded results from both configured event-triggered runs show the intended inputs, successful gate execution for accepted evidence, and unsuccessful gate execution with an identified predicate and blocked promotion for rejected evidence."
+    }
+  },
+  "visual_anchor": {
+    "type": "comparison",
+    "purpose": "Make accepted and rejected fixture runs visible side by side: candidate identity, required predicate results, calculated expected error cost, fixed operating checks, gate exit status, resolved stage inputs and whether promotion executed. Show that a passing cost check cannot compensate for a failed latency check."
+  },
+  "teaching_notes": [
+    "Start with the concrete fixture and the declared contract; keep the explanation within this tile: Gate Data and Model Releases.",
+    "Use the registered prerequisite preparation rather than reteaching general Python, statistics, software engineering or cloud administration. This path assumes those foundations; ownership remains bounded to the supplied ML task and existing authorized runtime.",
+    "Declared direct prerequisites: mle.model_acceptance_criteria, mle.protected_test_comparison, mle.model_version_registration, mle.validation_candidate_comparison. Use these as preparation, not additional learning targets. No forward-preview concepts are taught.",
+    "All numeric values and short names in the work example are illustrative fixture data, not observed production results. Retain each source rule, qualifier, declared budget and policy boundary."
+  ],
+  "cluster_ref": "cluster_machine_learning_engineer_073_075_73_75",
+  "validation": {
+    "source_supported": true,
+    "prerequisite_safe": true,
+    "media_aligned": true,
+    "ready_for_final_schema": true
+  }
+}
+
+mle.pipeline_artifact_dependencies
+{
+  "context": {
+    "concept_id": "mle.pipeline_artifact_dependencies",
+    "concept_name": "Define artifact dependencies between ML pipeline stages",
+    "path_id": "machine_learning_engineer",
+    "depth_tier": "core",
+    "toc_location": {
+      "region_id": "mle.region.ml_lifecycle",
+      "terrain_id": "mle.terrain.orchestrated_release",
+      "tile_id": "mle.tile.076_079"
+    },
+    "prerequisites": [
+      "mle.training_dataset_version",
+      "mle.model_version_registration"
+    ],
+    "blocked_future_concepts": [
+      "mle.staged_ml_promotion",
+      "mle.pipeline_failure_recovery",
+      "mle.deployed_model_lineage_audit",
+      "mle.distribution_monitoring",
+      "mle.drift_degradation_distinction",
+      "mle.data_drift_detection",
+      "mle.delayed_label_quality",
+      "mle.actionable_ml_alerts",
+      "mle.production_regression_diagnosis",
+      "mle.retraining_trigger_policy",
+      "mle.authorized_retraining_execution",
+      "mle.retraining_run_idempotency",
+      "mle.retrained_candidate_validation",
+      "mle.ml_incident_runbook",
+      "mle.ml_resource_utilization",
+      "mle.ml_workload_cost_attribution",
+      "mle.ml_workload_cost_guardrail",
+      "mle.serving_resource_cleanup"
+    ]
+  },
+  "coverage": {
+    "learning_objective": "Encode and verify immutable artifact dependencies between pipeline stages.",
+    "required_facts": [
+      {
+        "id": "f1",
+        "statement": "Reusable pipeline components need explicit input/output artifacts so the same workflow can run across experiment and production environments.",
+        "source_refs": [
+          "google_mlops_pipelines#MLOps level 1: ML pipeline automation \u2014 Characteristics"
+        ]
+      },
+      {
+        "id": "f2",
+        "statement": "Record each stage\u2019s consumed dataset/artifact identity, execution parameters and produced artifact identity rather than joining unrelated stage outputs only by filename.",
+        "source_refs": [
+          "google_mlops_pipelines#Metadata management"
+        ]
+      },
+      {
+        "id": "f3",
+        "statement": "Represent the stage dependency map as a dictionary and check that every required upstream artifact identity matches the supplied downstream reference.",
+        "source_refs": [
+          "python_tutorial#datastructures.html \u2014 List Comprehensions; Sets; Dictionaries"
+        ]
+      },
+      {
+        "id": "f4",
+        "statement": "Require the relevant dataset or model validation result before executing a stage that depends on that validated artifact.",
+        "source_refs": [
+          "google_mlops_pipelines#Data and model validation"
+        ]
+      },
+      {
+        "id": "f5",
+        "statement": "Write assert predicate checks for the declared valid, boundary and failure cases; a false predicate raises AssertionError during ordinary non-optimized execution.",
+        "source_refs": [
+          "python_tutorial#../reference/simple_stmts.html \u2014 The assert statement"
+        ]
+      },
+      {
+        "id": "f6",
+        "statement": "In an existing Cloud Build YAML/JSON configuration, each steps item declares its execution image in name and its command in args or script; wire the function/test entry point into the assigned stage.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/build-config-file-schema \u2014 Build steps; name; args; script; serviceAccount; allowFailure; allowExitCodes"
+        ]
+      },
+      {
+        "id": "f7",
+        "statement": "Assign step IDs and set waitFor to the required preceding step IDs; downstream execution depends on those steps completing successfully, not just their textual location.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/configuring-builds/configure-build-step-order \u2014 id; waitFor"
+        ]
+      },
+      {
+        "id": "f8",
+        "statement": "Keep required gate failures fatal: do not set allowFailure or add failing gate exit codes to allowExitCodes, and ensure a rejected Python gate exits unsuccessfully.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/build-config-file-schema \u2014 Build steps; name; args; script; serviceAccount; allowFailure; allowExitCodes"
+        ]
+      },
+      {
+        "id": "f9",
+        "statement": "Use the configured Pub/Sub artifact/event trigger with its configured payload bindings and filters to run the existing pipeline, then inspect actual stage results and resolved inputs for accepted and rejected fixtures.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/automating-builds/create-pubsub-triggers \u2014 Creating a Pub/Sub trigger; Substitution variables; Filters"
+        ]
+      },
+      {
+        "id": "f10",
+        "statement": "Bind each consumer stage\u2019s args/substitutions to the immutable artifact identifier produced by its declared upstream stage; inspect actual run inputs to verify the edge rather than only reviewing stage order.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/build-config-file-schema \u2014 Build steps; name; args; script; serviceAccount; allowFailure; allowExitCodes"
+        ]
+      },
+      {
+        "id": "f11",
+        "statement": "With the declared PyYAML dependency, import yaml; write a mapping/list configuration with yaml.safe_dump(config, file_handle), reload it with yaml.safe_load(file_handle), and inspect the required resolved fields before submitting it to the existing runtime. Safe loading accepts standard YAML tags, not arbitrary Python object constructors.",
+        "source_refs": [
+          "python_tutorial#https://pyyaml.org/wiki/PyYAMLDocumentation \u2014 Reference: safe_load; safe_dump"
+        ]
+      }
+    ],
+    "misconceptions": []
+  },
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "Orchestrate Traceable Promotion",
+      "content": "The training output and the artifact consumed by validation must be the same identified artifact. A pipeline diagram with stages in the right order can still connect the wrong files if inputs and outputs are not explicitly bound.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "mechanism",
+      "title": "The working rule",
+      "content": "Reusable pipeline components need explicit input/output artifacts so the same workflow can run across experiment and production environments. Record each stage\u2019s consumed dataset/artifact identity, execution parameters and produced artifact identity rather than joining unrelated stage outputs only by filename. Represent the stage dependency map as a dictionary and check that every required upstream artifact identity matches the supplied downstream reference.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Require the relevant dataset or model validation result before executing a stage that depends on that validated artifact. Write assert predicate checks for the declared valid, boundary and failure cases; a false predicate raises AssertionError during ordinary non-optimized execution. In an existing Cloud Build YAML/JSON configuration, each steps item declares its execution image in name and its command in args or script; wire the function/test entry point into the assigned stage.",
+      "fact_ids": [
+        "f4",
+        "f5",
+        "f6"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Assign step IDs and set waitFor to the required preceding step IDs; downstream execution depends on those steps completing successfully, not just their textual location. Keep required gate failures fatal: do not set allowFailure or add failing gate exit codes to allowExitCodes, and ensure a rejected Python gate exits unsuccessfully. Use the configured Pub/Sub artifact/event trigger with its configured payload bindings and filters to run the existing pipeline, then inspect actual stage results and resolved inputs for accepted and rejected fixtures.",
+      "fact_ids": [
+        "f7",
+        "f8",
+        "f9"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Bind each consumer stage\u2019s args/substitutions to the immutable artifact identifier produced by its declared upstream stage; inspect actual run inputs to verify the edge rather than only reviewing stage order. With the declared PyYAML dependency, import yaml; write a mapping/list configuration with yaml.safe_dump(config, file_handle), reload it with yaml.safe_load(file_handle), and inspect the required resolved fields before submitting it to the existing runtime. Safe loading accepts standard YAML tags, not arbitrary Python object constructors.",
+      "fact_ids": [
+        "f10",
+        "f11"
+      ]
+    },
+    {
+      "id": "tb6",
+      "purpose": "example",
+      "title": "A bounded work example",
+      "content": "Suppose training produces immutable artifact A but the validation step's arguments name B. The dependency-map check should flag the mismatch, even if both filenames resemble model output. Record consumed identity, parameters and produced identity per stage. Bind consumers to the declared upstream immutable identifier through the existing args/substitutions and inspect actual run inputs. Require the relevant validation verdict before dependent execution. Parse build configuration, set waitFor edges and keep required failures fatal. Exercise the existing event trigger's bindings and filters with accepted and rejected fixtures, so the evidence checks the actual artifact edge rather than only the written stage sequence.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5",
+        "f6",
+        "f7",
+        "f8",
+        "f9",
+        "f10",
+        "f11"
+      ]
+    },
+    {
+      "id": "tb7",
+      "purpose": "misconception",
+      "title": "A distinction to keep",
+      "content": "A waitFor dependency does not itself prove the correct artifact was consumed. Stage completion and artifact-identity agreement are distinct checks.",
+      "fact_ids": [
+        "f3",
+        "f7",
+        "f10"
+      ]
+    }
+  ],
+  "video_need": {
+    "level": "HIGH",
+    "reason": "A live fixture with visible intermediate state and acceptance checks would make this distinction concrete: Pipeline order follows artifact producer-consumer dependencies.",
+    "preferred_visual_modes": [
+      "live_code"
+    ]
+  },
+  "assessment_anchors": [
+    {
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f10"
+      ],
+      "capability": "specify_immutable_artifact_producer_consumer_edges"
+    },
+    {
+      "fact_ids": [
+        "f4",
+        "f6",
+        "f7",
+        "f8"
+      ],
+      "capability": "configure_required_stage_dependencies_and_fatal_validation_gates"
+    },
+    {
+      "fact_ids": [
+        "f3",
+        "f5"
+      ],
+      "capability": "assert_artifact_dependency_contracts_for_declared_cases"
+    },
+    {
+      "fact_ids": [
+        "f6",
+        "f11"
+      ],
+      "capability": "serialize_reload_and_inspect_pipeline_configuration"
+    },
+    {
+      "fact_ids": [
+        "f9",
+        "f10"
+      ],
+      "capability": "verify_artifact_edges_from_resolved_run_inputs"
+    }
+  ],
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Edit the supplied Cloud Build YAML configuration and dependency-map checks to connect data validation, training and model validation through immutable artifact references. Preserve required fatal gates, serialize and reload the configuration, then exercise the existing configured Pub/Sub trigger with bounded accepted and rejected fixtures and inspect resolved stage inputs.",
+    "success": "The reloaded configuration has the required execution images, entry points, step IDs, waitFor edges and immutable consumer references. Predicate checks distinguish the declared valid, boundary and failure cases, including training output A incorrectly referenced as B. Accepted fixture results confirm the actual producer-consumer identities; rejected fixture results show unsuccessful required gates and no execution of their dependent stages.",
+    "live_code": {
+      "required_skill": "Edit a supplied pipeline configuration and Python dependency dictionary, assert artifact-identity and validation predicates, and verify configured edges against bounded runtime results.",
+      "allowed_syntax": [
+        "Python dictionary and list literals",
+        "String, numeric and Boolean literals",
+        "Variable assignment",
+        "Dictionary and list indexing",
+        "Equality comparisons and Boolean predicates",
+        "assert predicate",
+        "Existing function and test entry-point calls",
+        "import yaml",
+        "with open(...) as file_handle",
+        "yaml.safe_dump(config, file_handle)",
+        "yaml.safe_load(file_handle)",
+        "YAML mappings and sequences",
+        "Cloud Build steps, name, args and script fields",
+        "Cloud Build id and waitFor fields",
+        "Existing Cloud Build substitutions and immutable artifact references"
+      ],
+      "blocked_syntax": [],
+      "starter_state_intent": "Supply the existing authorized pipeline, configured event bindings and filters, declared PyYAML dependency, and valid, boundary and failure fixtures. Include a dependency dictionary and a consumer reference to B where training produces A, so the learner must repair the identity mismatch as well as configure explicit execution dependencies.",
+      "observable_success": "Saved and reloaded fields match the declared contract; assertions detect the A-to-B mismatch before repair and accept the corrected edge. Bounded accepted and rejected runs expose resolved artifact inputs and stage outcomes demonstrating both correct identity binding and fatal required validation gates."
+    }
+  },
+  "visual_anchor": {
+    "type": "code",
+    "purpose": "Make the dependency dictionary and supplied YAML configuration visible alongside resolved stage inputs and gate outcomes, distinguishing successful predecessor completion from agreement between training output A and the model-validation input."
+  },
+  "teaching_notes": [
+    "Start with the concrete fixture and the declared contract; keep the explanation within this tile: Orchestrate Traceable Promotion.",
+    "Use the registered prerequisite preparation rather than reteaching general Python, statistics, software engineering or cloud administration. This path assumes those foundations; ownership remains bounded to the supplied ML task and existing authorized runtime.",
+    "Declared direct prerequisites: mle.training_dataset_version, mle.model_version_registration. Use these as preparation, not additional learning targets. No forward-preview concepts are taught.",
+    "All numeric values and short names in the work example are illustrative fixture data, not observed production results. Retain each source rule, qualifier, declared budget and policy boundary."
+  ],
+  "cluster_ref": null,
+  "validation": {
+    "source_supported": true,
+    "prerequisite_safe": true,
+    "media_aligned": true,
+    "ready_for_final_schema": true
+  }
+}
+
+mle.staged_ml_promotion
+{
+  "context": {
+    "concept_id": "mle.staged_ml_promotion",
+    "concept_name": "Promote an approved registry version through accountable staged ML release gates",
+    "path_id": "machine_learning_engineer",
+    "depth_tier": "core",
+    "toc_location": {
+      "region_id": "mle.region.ml_lifecycle",
+      "terrain_id": "mle.terrain.orchestrated_release",
+      "tile_id": "mle.tile.076_079"
+    },
+    "prerequisites": [
+      "mle.model_release_quality_gate",
+      "mle.deployment_verification",
+      "mle.model_version_registration"
+    ],
+    "blocked_future_concepts": [
+      "mle.pipeline_failure_recovery",
+      "mle.deployed_model_lineage_audit",
+      "mle.distribution_monitoring",
+      "mle.drift_degradation_distinction",
+      "mle.data_drift_detection",
+      "mle.delayed_label_quality",
+      "mle.actionable_ml_alerts",
+      "mle.production_regression_diagnosis",
+      "mle.retraining_trigger_policy",
+      "mle.authorized_retraining_execution",
+      "mle.retraining_run_idempotency",
+      "mle.retrained_candidate_validation",
+      "mle.ml_incident_runbook",
+      "mle.ml_resource_utilization",
+      "mle.ml_workload_cost_attribution",
+      "mle.ml_workload_cost_guardrail",
+      "mle.serving_resource_cleanup"
+    ]
+  },
+  "coverage": {
+    "learning_objective": "Gate an existing staging-to-production handoff on artifact-specific approval, quality and protected identity.",
+    "required_facts": [
+      {
+        "id": "f1",
+        "statement": "Read the approved registered model name/version and its run/artifact link before authorizing staged deployment.",
+        "source_refs": [
+          "mlflow_docs#ml/model-registry/workflow/ \u2014 Registering a Model; Fetching an MLflow Model from the Model Registry; Deploy and Organize Models"
+        ]
+      },
+      {
+        "id": "f2",
+        "statement": "Automated continuous delivery first checks the model\u2019s compatibility in a test environment and then passes model validation before production deployment.",
+        "source_refs": [
+          "google_mlops_pipelines#MLOps level 2: CI/CD pipeline automation \u2014 CI/CD pipeline"
+        ]
+      },
+      {
+        "id": "f3",
+        "statement": "Preserve the validation verdict for the exact artifact being promoted, including its offline requirements and supplied staged evaluation evidence.",
+        "source_refs": [
+          "google_mlops_pipelines#Data and model validation"
+        ]
+      },
+      {
+        "id": "f4",
+        "statement": "Keep the promotion within the permitted identity and approval scope, recording the accountable authorization rather than changing the policy.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/architecture/blueprints/security-foundations/authentication-authorization \u2014 Authentication and authorization"
+        ]
+      },
+      {
+        "id": "f5",
+        "statement": "Write the approval, registry version, artifact identity and per-stage gate results into the promotion record.",
+        "source_refs": [
+          "google_mlops_pipelines#Metadata management"
+        ]
+      },
+      {
+        "id": "f6",
+        "statement": "In an existing Cloud Build YAML/JSON configuration, each steps item declares its execution image in name and its command in args or script; wire the function/test entry point into the assigned stage.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/build-config-file-schema \u2014 Build steps; name; args; script; serviceAccount; allowFailure; allowExitCodes"
+        ]
+      },
+      {
+        "id": "f7",
+        "statement": "Assign step IDs and set waitFor to the required preceding step IDs; downstream execution depends on those steps completing successfully, not just their textual location.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/configuring-builds/configure-build-step-order \u2014 id; waitFor"
+        ]
+      },
+      {
+        "id": "f8",
+        "statement": "Keep required gate failures fatal: do not set allowFailure or add failing gate exit codes to allowExitCodes, and ensure a rejected Python gate exits unsuccessfully.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/build-config-file-schema \u2014 Build steps; name; args; script; serviceAccount; allowFailure; allowExitCodes"
+        ]
+      },
+      {
+        "id": "f9",
+        "statement": "Use the configured Pub/Sub artifact/event trigger with its configured payload bindings and filters to run the existing pipeline, then inspect actual stage results and resolved inputs for accepted and rejected fixtures.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/automating-builds/create-pubsub-triggers \u2014 Creating a Pub/Sub trigger; Substitution variables; Filters"
+        ]
+      },
+      {
+        "id": "f10",
+        "statement": "Bind approved Secret Manager version references with availableSecrets.secretManager and expose them only to the needed step through secretEnv; the YAML contains references, not secret values.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/securing-builds/use-secrets \u2014 Configuring builds to access UTF-8 secrets from Secret Manager"
+        ]
+      },
+      {
+        "id": "f11",
+        "statement": "Use the authorized build/step identity and preserve the separate authorization required for a promotion action.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/architecture/blueprints/security-foundations/authentication-authorization \u2014 Authentication and authorization"
+        ]
+      },
+      {
+        "id": "f12",
+        "statement": "Check captured build output for non-disclosure of secret values; do not echo or serialize runtime credentials.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/securing-builds/use-secrets \u2014 Configuring builds to access UTF-8 secrets from Secret Manager"
+        ]
+      },
+      {
+        "id": "f13",
+        "statement": "Edit and parse the existing staging/production YAML so production depends on staging quality and authorization gates for the identical immutable artifact; test an unauthorized promotion and inspect that production did not execute.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/build-config-file-schema \u2014 Build steps; name; args; script; serviceAccount; allowFailure; allowExitCodes"
+        ]
+      },
+      {
+        "id": "f14",
+        "statement": "With the declared PyYAML dependency, import yaml; write a mapping/list configuration with yaml.safe_dump(config, file_handle), reload it with yaml.safe_load(file_handle), and inspect the required resolved fields before submitting it to the existing runtime. Safe loading accepts standard YAML tags, not arbitrary Python object constructors.",
+        "source_refs": [
+          "python_tutorial#https://pyyaml.org/wiki/PyYAMLDocumentation \u2014 Reference: safe_load; safe_dump"
+        ]
+      }
+    ],
+    "misconceptions": []
+  },
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "Orchestrate Traceable Promotion",
+      "content": "Promotion carries one approved artifact through the existing test and production boundaries. Preserve both the validation verdict and the separate authorization, rather than treating a completed build as permission to deploy.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "mechanism",
+      "title": "The working rule",
+      "content": "Read the approved registered model name/version and its run/artifact link before authorizing staged deployment. Automated continuous delivery first checks the model\u2019s compatibility in a test environment and then passes model validation before production deployment. Preserve the validation verdict for the exact artifact being promoted, including its offline requirements and supplied staged evaluation evidence.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Keep the promotion within the permitted identity and approval scope, recording the accountable authorization rather than changing the policy. Write the approval, registry version, artifact identity and per-stage gate results into the promotion record. In an existing Cloud Build YAML/JSON configuration, each steps item declares its execution image in name and its command in args or script; wire the function/test entry point into the assigned stage.",
+      "fact_ids": [
+        "f4",
+        "f5",
+        "f6"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Assign step IDs and set waitFor to the required preceding step IDs; downstream execution depends on those steps completing successfully, not just their textual location. Keep required gate failures fatal: do not set allowFailure or add failing gate exit codes to allowExitCodes, and ensure a rejected Python gate exits unsuccessfully. Use the configured Pub/Sub artifact/event trigger with its configured payload bindings and filters to run the existing pipeline, then inspect actual stage results and resolved inputs for accepted and rejected fixtures.",
+      "fact_ids": [
+        "f7",
+        "f8",
+        "f9"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Bind approved Secret Manager version references with availableSecrets.secretManager and expose them only to the needed step through secretEnv; the YAML contains references, not secret values. Use the authorized build/step identity and preserve the separate authorization required for a promotion action. Check captured build output for non-disclosure of secret values; do not echo or serialize runtime credentials.",
+      "fact_ids": [
+        "f10",
+        "f11",
+        "f12"
+      ]
+    },
+    {
+      "id": "tb6",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Edit and parse the existing staging/production YAML so production depends on staging quality and authorization gates for the identical immutable artifact; test an unauthorized promotion and inspect that production did not execute. With the declared PyYAML dependency, import yaml; write a mapping/list configuration with yaml.safe_dump(config, file_handle), reload it with yaml.safe_load(file_handle), and inspect the required resolved fields before submitting it to the existing runtime. Safe loading accepts standard YAML tags, not arbitrary Python object constructors.",
+      "fact_ids": [
+        "f13",
+        "f14"
+      ]
+    },
+    {
+      "id": "tb7",
+      "purpose": "example",
+      "title": "A bounded work example",
+      "content": "Read the approved registry version and run/artifact link. In the existing staging/production YAML, make production depend on staging quality and authorization gates for that identical immutable artifact. Record offline requirements, staged evidence, approval and per-stage results. Use the approved build identity and expose Secret Manager references only to the needed steps through secretEnv, never literal secret values. Replay an unauthorized promotion fixture and inspect that production did not execute. Parse configuration and inspect actual event-bound inputs, preserving fatal gate failures. Check captured output for secret non-disclosure. Passing staging for A must not silently approve a different artifact B.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5",
+        "f6",
+        "f7",
+        "f8",
+        "f9",
+        "f10",
+        "f11",
+        "f12",
+        "f13",
+        "f14"
+      ]
+    },
+    {
+      "id": "tb8",
+      "purpose": "misconception",
+      "title": "A distinction to keep",
+      "content": "Successful training or staging is not promotion authorization. Validation and approval belong to the exact artifact, and runtime credentials must not be echoed into the promotion record.",
+      "fact_ids": [
+        "f3",
+        "f4",
+        "f11",
+        "f12",
+        "f13"
+      ]
+    }
+  ],
+  "video_need": {
+    "level": "HIGH",
+    "reason": "A live fixture with visible intermediate state and acceptance checks would make this distinction concrete: Promotion changes authorized environment while preserving artifact identity.",
+    "preferred_visual_modes": [
+      "live_code"
+    ]
+  },
+  "assessment_anchors": [
+    {
+      "fact_ids": [
+        "f1",
+        "f3",
+        "f5"
+      ],
+      "capability": "preserve_approved_artifact_identity_and_promotion_evidence"
+    },
+    {
+      "fact_ids": [
+        "f2",
+        "f6",
+        "f7",
+        "f8",
+        "f13"
+      ],
+      "capability": "enforce_staged_quality_and_authorization_dependencies"
+    },
+    {
+      "fact_ids": [
+        "f4",
+        "f11"
+      ],
+      "capability": "record_accountable_promotion_within_authorized_scope"
+    },
+    {
+      "fact_ids": [
+        "f9",
+        "f13"
+      ],
+      "capability": "verify_event_bound_inputs_and_rejected_promotion_results"
+    },
+    {
+      "fact_ids": [
+        "f10",
+        "f12"
+      ],
+      "capability": "verify_scoped_credential_injection_and_non_disclosure"
+    },
+    {
+      "fact_ids": [
+        "f14"
+      ],
+      "capability": "safely_write_reload_and_inspect_promotion_configuration"
+    }
+  ],
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Edit and safely parse the supplied staging/production configuration to promote one approved immutable registry version through staging quality and separate authorization gates. Use the configured event trigger and approved credential references, then inspect accepted and unauthorized fixture results without changing the permission policy.",
+    "success": "The reloaded configuration preserves the approved registry version and artifact identity, wires the supplied entry points into explicit stage dependencies, and keeps required gate failures fatal. The accepted fixture reaches production only after compatibility, validation and authorization succeed. The unauthorized fixture does not execute production. The promotion record retains the approval, exact artifact, validation evidence and per-stage results. Credentials are scoped to the needed step, and neither configuration nor captured output contains their values.",
+    "live_code": {
+      "required_skill": "Modify an existing Cloud Build configuration, round-trip it with PyYAML, and verify artifact-bound quality and authorization gates using supplied runtime fixtures.",
+      "allowed_syntax": [
+        "import yaml",
+        "with open(...) as file_handle",
+        "Python mapping and list literals",
+        "String, numeric, Boolean and None literals",
+        "Mapping key access and assignment",
+        "List indexing and iteration",
+        "Function calls to supplied test and gate entry points",
+        "Conditional statements",
+        "Assertions",
+        "import sys",
+        "sys.exit(1)",
+        "yaml.safe_dump(config, file_handle)",
+        "yaml.safe_load(file_handle)",
+        "Cloud Build steps, name, args and script fields",
+        "Cloud Build id and waitFor fields",
+        "availableSecrets.secretManager and secretEnv fields"
+      ],
+      "blocked_syntax": [],
+      "starter_state_intent": "Provide the existing staging/production configuration, declared PyYAML dependency, approved registry name/version and run/artifact link, supplied offline requirements and staged evaluation evidence, gate entry points, authorized build identity, Secret Manager version references, and configured event bindings and filters. Include accepted and unauthorized promotion fixtures and access to captured stage results and output; do not supply literal credential values in the configuration.",
+      "observable_success": "Inspect the safely reloaded fields and actual event-resolved inputs. Confirm that production depends on successful staging quality and separate authorization for the same immutable artifact, with no gate failure exemptions. Verify production executes for the accepted fixture but not the unauthorized fixture, the accountable promotion record is complete, and captured output and serialized configuration disclose no credential values."
+    }
+  },
+  "visual_anchor": {
+    "type": "code",
+    "purpose": "Make the staging/production configuration and its parsed fields visible beside accepted and unauthorized stage results: explicit step IDs and dependencies, the unchanged immutable artifact reference, scoped secret references, and production not executed after rejected authorization. Show the promotion record and non-disclosure check results without displaying credential values."
+  },
+  "teaching_notes": [
+    "Start with the concrete fixture and the declared contract; keep the explanation within this tile: Orchestrate Traceable Promotion.",
+    "Use the registered prerequisite preparation rather than reteaching general Python, statistics, software engineering or cloud administration. This path assumes those foundations; ownership remains bounded to the supplied ML task and existing authorized runtime.",
+    "Declared direct prerequisites: mle.model_release_quality_gate, mle.deployment_verification, mle.model_version_registration. Use these as preparation, not additional learning targets. No forward-preview concepts are taught.",
+    "All numeric values and short names in the work example are illustrative fixture data, not observed production results. Retain each source rule, qualifier, declared budget and policy boundary."
+  ],
+  "cluster_ref": null,
+  "validation": {
+    "source_supported": true,
+    "prerequisite_safe": true,
+    "media_aligned": true,
+    "ready_for_final_schema": true
+  }
+}
+
+mle.pipeline_failure_recovery
+{
+  "context": {
+    "concept_id": "mle.pipeline_failure_recovery",
+    "concept_name": "Recover a failed ML pipeline run without bypassing quality gates",
+    "path_id": "machine_learning_engineer",
+    "depth_tier": "core",
+    "toc_location": {
+      "region_id": "mle.region.ml_lifecycle",
+      "terrain_id": "mle.terrain.orchestrated_release",
+      "tile_id": "mle.tile.076_079"
+    },
+    "prerequisites": [
+      "mle.pipeline_artifact_dependencies",
+      "mle.dataset_quality_gate",
+      "mle.model_release_quality_gate"
+    ],
+    "blocked_future_concepts": [
+      "mle.deployed_model_lineage_audit",
+      "mle.distribution_monitoring",
+      "mle.drift_degradation_distinction",
+      "mle.data_drift_detection",
+      "mle.delayed_label_quality",
+      "mle.actionable_ml_alerts",
+      "mle.production_regression_diagnosis",
+      "mle.retraining_trigger_policy",
+      "mle.authorized_retraining_execution",
+      "mle.retraining_run_idempotency",
+      "mle.retrained_candidate_validation",
+      "mle.ml_incident_runbook",
+      "mle.ml_resource_utilization",
+      "mle.ml_workload_cost_attribution",
+      "mle.ml_workload_cost_guardrail",
+      "mle.serving_resource_cleanup"
+    ]
+  },
+  "coverage": {
+    "learning_objective": "Recover an injected stage failure through verified artifact boundaries without bypassing gates.",
+    "required_facts": [
+      {
+        "id": "f1",
+        "statement": "Locate the failed stage from its execution status and retained artifact records, preserving the identities of successfully completed required stages.",
+        "source_refs": [
+          "google_mlops_pipelines#Metadata management"
+        ]
+      },
+      {
+        "id": "f2",
+        "statement": "Catch the declared recoverable error with try/except, record the failure and apply only the supplied recovery action rather than silently declaring success.",
+        "source_refs": [
+          "python_tutorial#errors.html \u2014 Handling Exceptions; Raising Exceptions"
+        ]
+      },
+      {
+        "id": "f3",
+        "statement": "After a repair, rerun the affected required quality check and stop if it still fails; failure recovery must not bypass dataset or model gates.",
+        "source_refs": [
+          "google_mlops_pipelines#Data and model validation"
+        ]
+      },
+      {
+        "id": "f4",
+        "statement": "Reuse a completed upstream artifact only when its recorded identity and required validation are still valid for the resumed downstream stage.",
+        "source_refs": [
+          "google_mlops_pipelines#MLOps level 1: ML pipeline automation \u2014 Characteristics"
+        ]
+      },
+      {
+        "id": "f5",
+        "statement": "In an existing Cloud Build YAML/JSON configuration, each steps item declares its execution image in name and its command in args or script; wire the function/test entry point into the assigned stage.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/build-config-file-schema \u2014 Build steps; name; args; script; serviceAccount; allowFailure; allowExitCodes"
+        ]
+      },
+      {
+        "id": "f6",
+        "statement": "Assign step IDs and set waitFor to the required preceding step IDs; downstream execution depends on those steps completing successfully, not just their textual location.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/configuring-builds/configure-build-step-order \u2014 id; waitFor"
+        ]
+      },
+      {
+        "id": "f7",
+        "statement": "Keep required gate failures fatal: do not set allowFailure or add failing gate exit codes to allowExitCodes, and ensure a rejected Python gate exits unsuccessfully.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/build-config-file-schema \u2014 Build steps; name; args; script; serviceAccount; allowFailure; allowExitCodes"
+        ]
+      },
+      {
+        "id": "f8",
+        "statement": "Use the configured Pub/Sub artifact/event trigger with its configured payload bindings and filters to run the existing pipeline, then inspect actual stage results and resolved inputs for accepted and rejected fixtures.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/build/docs/automating-builds/create-pubsub-triggers \u2014 Creating a Pub/Sub trigger; Substitution variables; Filters"
+        ]
+      },
+      {
+        "id": "f9",
+        "statement": "The recovery function must distinguish the injected recoverable exception from unrelated failures, then retry from the verified artifact boundary and inspect that the retry and later required gates actually executed.",
+        "source_refs": [
+          "python_tutorial#errors.html \u2014 Handling Exceptions; Raising Exceptions"
+        ]
+      },
+      {
+        "id": "f10",
+        "statement": "With the declared PyYAML dependency, import yaml; write a mapping/list configuration with yaml.safe_dump(config, file_handle), reload it with yaml.safe_load(file_handle), and inspect the required resolved fields before submitting it to the existing runtime. Safe loading accepts standard YAML tags, not arbitrary Python object constructors.",
+        "source_refs": [
+          "python_tutorial#https://pyyaml.org/wiki/PyYAMLDocumentation \u2014 Reference: safe_load; safe_dump"
+        ]
+      },
+      {
+        "id": "f11",
+        "statement": "Bound the recovery fixture\u2019s partial effects to declared named Cloud Storage artifact uploads and reconcile each declared output before repeating it: use blob.exists(), blob.reload() and its generation to retrieve the existing bytes, verify their expected content hash and required validation, then skip only the matching completed upload; create a missing output with blob.upload_from_filename(path, if_generation_match=0). If the create reports 412 Precondition Failed, re-read and verify the already-created output instead of overwriting it; conflicting content or failed validation stops recovery.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/python/docs/reference/storage/latest/google.cloud.storage.blob.Blob \u2014 exists; reload; generation; download_to_filename; upload_from_filename",
+          "google_mlops_pipelines#https://docs.cloud.google.com/storage/docs/request-preconditions \u2014 The 0 value in a generation-match precondition",
+          "python_tutorial#../library/hashlib.html \u2014 Usage",
+          "google_mlops_pipelines#Data and model validation"
+        ]
+      },
+      {
+        "id": "f12",
+        "statement": "Inject failure after one declared output upload but before the remaining stage work; assert recovery retains the first output\u2019s generation/hash, completes only missing uploads, runs the retried stage and downstream required gates, and reports failure for an invalid existing output. Invoke recovery again on the completed fixture and assert no extra output generations or uploads occur, while required validation is not bypassed.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/python/docs/reference/storage/latest/google.cloud.storage.blob.Blob \u2014 exists; reload; generation; download_to_filename; upload_from_filename",
+          "google_mlops_pipelines#https://docs.cloud.google.com/storage/docs/request-preconditions \u2014 The 0 value in a generation-match precondition",
+          "python_tutorial#../reference/simple_stmts.html \u2014 The assert statement",
+          "google_mlops_pipelines#Data and model validation"
+        ]
+      }
+    ],
+    "misconceptions": []
+  },
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "Orchestrate Traceable Promotion",
+      "content": "A pipeline fails after one output upload. Recovery must preserve valid completed effects, finish missing work and rerun required gates without creating extra generations or hiding conflicting output content.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "mechanism",
+      "title": "The working rule",
+      "content": "Locate the failed stage from its execution status and retained artifact records, preserving the identities of successfully completed required stages. Catch the declared recoverable error with try/except, record the failure and apply only the supplied recovery action rather than silently declaring success. After a repair, rerun the affected required quality check and stop if it still fails; failure recovery must not bypass dataset or model gates.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Reuse a completed upstream artifact only when its recorded identity and required validation are still valid for the resumed downstream stage. In an existing Cloud Build YAML/JSON configuration, each steps item declares its execution image in name and its command in args or script; wire the function/test entry point into the assigned stage. Assign step IDs and set waitFor to the required preceding step IDs; downstream execution depends on those steps completing successfully, not just their textual location.",
+      "fact_ids": [
+        "f4",
+        "f5",
+        "f6"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Keep required gate failures fatal: do not set allowFailure or add failing gate exit codes to allowExitCodes, and ensure a rejected Python gate exits unsuccessfully. Use the configured Pub/Sub artifact/event trigger with its configured payload bindings and filters to run the existing pipeline, then inspect actual stage results and resolved inputs for accepted and rejected fixtures. The recovery function must distinguish the injected recoverable exception from unrelated failures, then retry from the verified artifact boundary and inspect that the retry and later required gates actually executed.",
+      "fact_ids": [
+        "f7",
+        "f8",
+        "f9"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "With the declared PyYAML dependency, import yaml; write a mapping/list configuration with yaml.safe_dump(config, file_handle), reload it with yaml.safe_load(file_handle), and inspect the required resolved fields before submitting it to the existing runtime. Safe loading accepts standard YAML tags, not arbitrary Python object constructors. Bound the recovery fixture\u2019s partial effects to declared named Cloud Storage artifact uploads and reconcile each declared output before repeating it: use blob.exists(), blob.reload() and its generation to retrieve the existing bytes, verify their expected content hash and required validation, then skip only the matching completed upload; create a missing output with blob.upload_from_filename(path, if_generation_match=0). If the create reports 412 Precondition Failed, re-read and verify the already-created output instead of overwriting it; conflicting content or failed validation stops recovery. Inject failure after one declared output upload but before the remaining stage work; assert recovery retains the first output\u2019s generation/hash, completes only missing uploads, runs the retried stage and downstream required gates, and reports failure for an invalid existing output. Invoke recovery again on the completed fixture and assert no extra output generations or uploads occur, while required validation is not bypassed.",
+      "fact_ids": [
+        "f10",
+        "f11",
+        "f12"
+      ]
+    },
+    {
+      "id": "tb6",
+      "purpose": "example",
+      "title": "A bounded work example",
+      "content": "Inject failure after declared output A is uploaded but before B. Inspect A's existence, generation, bytes, expected hash and validation. Skip that matching completed upload; create missing B with if_generation_match=0. If creation reports 412, re-read and verify the already-created output instead of overwriting it. Conflicting bytes or failed validation stop recovery. Retry from the verified boundary, run the affected stage and downstream required gates, and inspect their results. Invoke recovery again on the completed fixture and verify no extra uploads or generations while validation remains enforced. Catch only the declared recoverable exception; unrelated failures are not permission to resume.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5",
+        "f6",
+        "f7",
+        "f8",
+        "f9",
+        "f10",
+        "f11",
+        "f12"
+      ]
+    },
+    {
+      "id": "tb7",
+      "purpose": "misconception",
+      "title": "A distinction to keep",
+      "content": "Recovery is not \u2018ignore failure and continue.\u2019 A completed upload is reusable only with verified identity and validation, and retry must not overwrite a conflicting artifact.",
+      "fact_ids": [
+        "f3",
+        "f4",
+        "f9",
+        "f11",
+        "f12"
+      ]
+    }
+  ],
+  "video_need": {
+    "level": "HIGH",
+    "reason": "A live fixture with visible intermediate state and acceptance checks would make this distinction concrete: Safe retries preserve artifact identity and gate semantics.",
+    "preferred_visual_modes": [
+      "live_code"
+    ]
+  },
+  "assessment_anchors": [
+    {
+      "fact_ids": [
+        "f1",
+        "f4"
+      ],
+      "capability": "identify_verified_recovery_boundary"
+    },
+    {
+      "fact_ids": [
+        "f2",
+        "f9"
+      ],
+      "capability": "handle_only_declared_recoverable_failure"
+    },
+    {
+      "fact_ids": [
+        "f3",
+        "f6",
+        "f7"
+      ],
+      "capability": "preserve_required_gate_execution_and_failure"
+    },
+    {
+      "fact_ids": [
+        "f5",
+        "f10"
+      ],
+      "capability": "wire_and_verify_recovery_stage_configuration"
+    },
+    {
+      "fact_ids": [
+        "f8",
+        "f9"
+      ],
+      "capability": "verify_triggered_stage_execution_and_resolved_inputs"
+    },
+    {
+      "fact_ids": [
+        "f11",
+        "f12"
+      ],
+      "capability": "reconcile_partial_uploads_without_duplicate_effects"
+    }
+  ],
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Write a Python recovery function and its required imports for the supplied event-triggered pipeline. Inject the declared recoverable failure after output A uploads but before B, record and isolate the failure, reconcile declared outputs, and resume from a verified artifact boundary. Wire the function/test entry point into the assigned Cloud Build stage, round-trip its configuration through PyYAML, and exercise accepted and rejected fixtures through the configured Pub/Sub trigger without changing its bindings or filters.",
+    "success": "Recovery preserves A's generation and hash, creates only missing B, and verifies an existing output after a 412 response instead of overwriting it. Conflicting content, invalid artifacts, unrelated exceptions and rejected gates remain failures. Actual results show the retried stage and subsequent required gates executed. A second recovery invocation creates no additional uploads or generations while required validation remains enforced.",
+    "live_code": {
+      "required_skill": "Implement bounded exception handling, generation-aware artifact reconciliation, configuration verification and execution assertions within the supplied recovery contract.",
+      "allowed_syntax": [
+        "Learner-written imports for yaml, hashlib, the declared Cloud Storage client and the supplied fixture dependencies",
+        "def, function parameters, return and calls to supplied fixture helpers",
+        "Local assignments, string and numeric literals, dictionaries and lists",
+        "if/elif/else and for loops over declared outputs",
+        "try/except for the declared recoverable exception and declared client precondition exception",
+        "raise to preserve unrelated failures, content conflicts and validation failures",
+        "assert for fixture acceptance checks",
+        "with open(...) as file_handle",
+        "yaml.safe_dump(config, file_handle)",
+        "yaml.safe_load(file_handle)",
+        "Dictionary access and inspection of steps, name, args or script, id and waitFor",
+        "blob.exists(), blob.reload() and blob.generation",
+        "blob.download_as_bytes(if_generation_match=recorded_generation)",
+        "hashlib.sha256(data).hexdigest()",
+        "blob.upload_from_filename(path, if_generation_match=0)",
+        "Calls to supplied failure-recording, recovery-action, artifact-validation, trigger and execution-inspection helpers",
+        "A nonzero Python process exit for a rejected required gate"
+      ],
+      "blocked_syntax": [],
+      "starter_state_intent": "Supply the existing authorized pipeline configuration, configured Pub/Sub trigger, declared dependencies and helper interfaces, retained stage/artifact records, and local files for named outputs A and B with expected hashes and validation requirements. Include accepted, rejected and invalid-existing-output fixtures plus an injection point after A uploads. Provide no completed recovery function or imports; the learner writes them.",
+      "observable_success": "Assertions compare A's generation/hash before and after recovery, verify B's content and validation, and inspect actual stage statuses and resolved inputs. Tests establish safe reconciliation after a 412 response, fatal rejection of invalid existing output and unrelated failures, successful execution of the retried stage and later gates for the accepted fixture, and fatal gate failure for the rejected fixture. Configuration checks confirm explicit dependencies and no gate-failure allowances. Repeating recovery on the completed fixture leaves upload counts and generations unchanged without bypassing validation."
+    }
+  },
+  "visual_anchor": {
+    "type": "before_after",
+    "purpose": "Make the failure boundary and recovery effects visible: show A and B existence, generations, hashes and validation results alongside stage statuses before failure, after recovery and after a second invocation. Include a rejected fixture whose failed required gate stops downstream execution."
+  },
+  "teaching_notes": [
+    "Start with the concrete fixture and the declared contract; keep the explanation within this tile: Orchestrate Traceable Promotion.",
+    "Use the registered prerequisite preparation rather than reteaching general Python, statistics, software engineering or cloud administration. This path assumes those foundations; ownership remains bounded to the supplied ML task and existing authorized runtime.",
+    "Declared direct prerequisites: mle.pipeline_artifact_dependencies, mle.dataset_quality_gate, mle.model_release_quality_gate. Use these as preparation, not additional learning targets. No forward-preview concepts are taught.",
+    "All numeric values and short names in the work example are illustrative fixture data, not observed production results. Retain each source rule, qualifier, declared budget and policy boundary."
+  ],
+  "cluster_ref": null,
+  "validation": {
+    "source_supported": true,
+    "prerequisite_safe": true,
+    "media_aligned": true,
+    "ready_for_final_schema": true
+  }
+}
+
+mle.deployed_model_lineage_audit
+{
+  "context": {
+    "concept_id": "mle.deployed_model_lineage_audit",
+    "concept_name": "Audit dataset, code, run and artifact lineage of a deployed model",
+    "path_id": "machine_learning_engineer",
+    "depth_tier": "core",
+    "toc_location": {
+      "region_id": "mle.region.ml_lifecycle",
+      "terrain_id": "mle.terrain.orchestrated_release",
+      "tile_id": "mle.tile.076_079"
+    },
+    "prerequisites": [
+      "mle.model_version_registration",
+      "mle.training_dataset_version",
+      "mle.training_environment_record",
+      "mle.experiment_metric_logging"
+    ],
+    "blocked_future_concepts": [
+      "mle.distribution_monitoring",
+      "mle.drift_degradation_distinction",
+      "mle.data_drift_detection",
+      "mle.delayed_label_quality",
+      "mle.actionable_ml_alerts",
+      "mle.production_regression_diagnosis",
+      "mle.retraining_trigger_policy",
+      "mle.authorized_retraining_execution",
+      "mle.retraining_run_idempotency",
+      "mle.retrained_candidate_validation",
+      "mle.ml_incident_runbook",
+      "mle.ml_resource_utilization",
+      "mle.ml_workload_cost_attribution",
+      "mle.ml_workload_cost_guardrail",
+      "mle.serving_resource_cleanup"
+    ]
+  },
+  "coverage": {
+    "learning_objective": "Audit the served artifact\u2019s registry, run, input, revision and configuration lineage.",
+    "required_facts": [
+      {
+        "id": "f1",
+        "statement": "Lineage connects the served artifact to its training execution, resolved configuration, code revision and dataset snapshot.",
+        "source_refs": [
+          "google_mlops_pipelines#Metadata management"
+        ]
+      },
+      {
+        "id": "f2",
+        "statement": "Resolve the deployed registry version and inspect its artifact source and run link.",
+        "source_refs": [
+          "mlflow_docs#ml/model-registry/workflow/ \u2014 Registering a Model; Fetching an MLflow Model from the Model Registry; Deploy and Organize Models"
+        ]
+      },
+      {
+        "id": "f3",
+        "statement": "Retrieve that recorded run and compare its dataset/configuration/artifact evidence with the deployment and approval records.",
+        "source_refs": [
+          "mlflow_docs#ml/tracking/tracking-api/ \u2014 Starting and Managing Runs; Logging Data to Runs; Querying Runs Programmatically"
+        ]
+      },
+      {
+        "id": "f4",
+        "statement": "Implement pairwise identity checks along the supplied lineage chain, and flag a missing link or mismatched identity rather than inferring provenance from similar names.",
+        "source_refs": [
+          "python_tutorial#datastructures.html \u2014 List Comprehensions; Sets; Dictionaries"
+        ]
+      },
+      {
+        "id": "f5",
+        "statement": "Write assert predicate checks for the declared valid, boundary and failure cases; a false predicate raises AssertionError during ordinary non-optimized execution.",
+        "source_refs": [
+          "python_tutorial#../reference/simple_stmts.html \u2014 The assert statement"
+        ]
+      },
+      {
+        "id": "f6",
+        "statement": "Download the registry\u2019s exact recorded artifact generation and verify its content identity against the lineage record.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/storage/docs/using-versioned-objects \u2014 Download noncurrent object versions"
+        ]
+      },
+      {
+        "id": "f7",
+        "statement": "Inspect the recorded local code revision with git rev-parse --verify REVISION and git show REVISION, verifying that the referenced commit exists rather than only copying its string.",
+        "source_refs": [
+          "git_docs#git-rev-parse \u2014 --verify; git-show \u2014 DESCRIPTION"
+        ]
+      }
+    ],
+    "misconceptions": []
+  },
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "Orchestrate Traceable Promotion",
+      "content": "The active model must be traceable to its training record, code and data. Similar names across deployment and tracking records do not establish this lineage; inspect the supplied identity links pair by pair.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "mechanism",
+      "title": "The working rule",
+      "content": "Lineage connects the served artifact to its training execution, resolved configuration, code revision and dataset snapshot. Resolve the deployed registry version and inspect its artifact source and run link. Retrieve that recorded run and compare its dataset/configuration/artifact evidence with the deployment and approval records.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Implement pairwise identity checks along the supplied lineage chain, and flag a missing link or mismatched identity rather than inferring provenance from similar names. Write assert predicate checks for the declared valid, boundary and failure cases; a false predicate raises AssertionError during ordinary non-optimized execution. Download the registry\u2019s exact recorded artifact generation and verify its content identity against the lineage record.",
+      "fact_ids": [
+        "f4",
+        "f5",
+        "f6"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Inspect the recorded local code revision with git rev-parse --verify REVISION and git show REVISION, verifying that the referenced commit exists rather than only copying its string.",
+      "fact_ids": [
+        "f7"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "example",
+      "title": "A bounded work example",
+      "content": "Resolve the deployed registry version, artifact source and originating run. Compare that run's dataset, configuration and artifact identities with the deployment and approval record. Download the exact recorded artifact generation and verify its content identity. Inspect the referenced local commit with git rev-parse and git show to confirm that the commit exists, rather than copying a revision string into the audit. In a failure fixture, a deployment linked to artifact B while approval covers A must be flagged. Preserve missing links and mismatches explicitly. The audit connects evidence that exists; it should not infer an unrecorded training source from a familiar model name.\n\nWalk the identity chain in order, comparing deployment to registry, registry to artifact/run, run to recorded configuration and dataset, and code record to the existing commit. Each edge can fail independently, so preserve the missing or mismatched link instead of collapsing every result into a plausible name. The exact-generation download checks content against the lineage record, while local revision inspection checks whether the referenced code exists. Together they make provenance auditable from supplied records. They do not recover an absent lineage link by guesswork, even when deployment and experiment names look similar.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5",
+        "f6",
+        "f7"
+      ]
+    },
+    {
+      "id": "tb6",
+      "purpose": "misconception",
+      "title": "A distinction to keep",
+      "content": "Matching names are not matching lineage. A missing or mismatched run/artifact link must be reported, and an unverified revision string is not evidence that the code commit exists.",
+      "fact_ids": [
+        "f1",
+        "f4",
+        "f7"
+      ]
+    }
+  ],
+  "video_need": {
+    "level": "HIGH",
+    "reason": "A live fixture with visible intermediate state and acceptance checks would make this distinction concrete: Lineage is a chain of provenance references supporting accountability.",
+    "preferred_visual_modes": [
+      "live_code"
+    ]
+  },
+  "assessment_anchors": [
+    {
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3"
+      ],
+      "capability": "trace_deployed_version_to_recorded_training_evidence"
+    },
+    {
+      "fact_ids": [
+        "f4"
+      ],
+      "capability": "identify_missing_or_mismatched_lineage_links"
+    },
+    {
+      "fact_ids": [
+        "f5"
+      ],
+      "capability": "assert_declared_lineage_case_predicates"
+    },
+    {
+      "fact_ids": [
+        "f6"
+      ],
+      "capability": "verify_exact_artifact_generation_and_content_identity"
+    },
+    {
+      "fact_ids": [
+        "f7"
+      ],
+      "capability": "verify_recorded_local_code_commit"
+    }
+  ],
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Implement a learner-defined Python function with learner-written dependency imports that audits the supplied deployment, registry, run, approval, dataset, configuration, artifact and code records. Resolve dictionary links, compare identities pairwise, download the exact recorded artifact generation, verify its content identity, and inspect the recorded revision in the supplied local repository. Return the verified lineage chain or an explicit missing or mismatched link.",
+    "success": "The function reports a verified chain only when the supplied identity links, downloaded artifact content and local commit checks agree. It explicitly reports missing links and identity mismatches without relying on similar names. Learner-written assert predicates pass for the declared valid, boundary and failure fixtures; a deliberately false predicate raises AssertionError during ordinary non-optimized execution.",
+    "live_code": {
+      "required_skill": "Resolve supplied provenance records and validate their pairwise identities using dictionary lookup, exact-generation object retrieval, content verification and local Git inspection.",
+      "allowed_syntax": [
+        "import statements for required library and storage-client dependencies",
+        "def with parameters and return",
+        "variable assignment",
+        "dictionary literals, key lookup and dict.get()",
+        "list and tuple literals",
+        "if, elif and else",
+        "for loops over supplied records",
+        "equality, inequality, membership and Boolean predicates",
+        "assert predicate",
+        "function and method calls",
+        "the supplied storage client's version-qualified artifact download interface",
+        "file byte reads and the supplied content-identity hashing method",
+        "subprocess.run() with argument lists, a local repository working directory and captured command results",
+        "git rev-parse --verify REVISION and git show REVISION invoked through subprocess",
+        "command return-code and output inspection"
+      ],
+      "blocked_syntax": [],
+      "starter_state_intent": "Provide dictionary fixtures for deployment, registry, run, approval, dataset, configuration, artifact and code records; authorized object-storage references with an exact artifact generation and expected content identity; and a local repository containing the referenced revision. Include declared valid, boundary and failure cases, including approval for artifact A paired with deployment artifact B and a missing lineage link. Supply client-interface documentation and case contracts, but no complete function or dependency imports.",
+      "observable_success": "The returned result identifies the checked lineage edges. The artifact request uses the registry's recorded generation, and the downloaded content is compared with the recorded identity. The recorded revision is inspected with both required Git commands, with unsuccessful command results preventing a verified-chain report. Assertions check the declared case outcomes, including explicit missing-link and mismatch results."
+    }
+  },
+  "visual_anchor": {
+    "type": "code",
+    "purpose": "Make the supplied records, intermediate pairwise identity checks, exact-generation artifact request, content comparison, local Git inspection results and final audit result visible alongside the declared case assertions."
+  },
+  "teaching_notes": [
+    "Start with the concrete fixture and the declared contract; keep the explanation within this tile: Orchestrate Traceable Promotion.",
+    "Use the registered prerequisite preparation rather than reteaching general Python, statistics, software engineering or cloud administration. This path assumes those foundations; ownership remains bounded to the supplied ML task and existing authorized runtime.",
+    "Declared direct prerequisites: mle.model_version_registration, mle.training_dataset_version, mle.training_environment_record, mle.experiment_metric_logging. Use these as preparation, not additional learning targets. No forward-preview concepts are taught.",
+    "All numeric values and short names in the work example are illustrative fixture data, not observed production results. Retain each source rule, qualifier, declared budget and policy boundary."
+  ],
+  "cluster_ref": null,
+  "validation": {
+    "source_supported": true,
+    "prerequisite_safe": true,
+    "media_aligned": true,
+    "ready_for_final_schema": true
+  }
+}

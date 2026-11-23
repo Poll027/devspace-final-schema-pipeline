@@ -1,0 +1,239 @@
+PROMPT
+Complete has_labels by comparing matched_counts with zero. Retain the supplied group-rate loop and evidence ledger unchanged. Groups with no matched labels must retain an unresolved rate rather than be reported as zero-error.
+CONSTRAINTS
+{'allowed_syntax': ['variable assignment', 'numeric, string, Boolean and None literals', 'lists and dictionaries', 'dictionary indexing', 'for loops', 'if/elif/else statements', 'comparison operators', 'Boolean mask operators & and |', 'parenthesized expressions', 'NumPy array indexing with Boolean masks', 'np.count_nonzero(...)', 'division guarded by a nonzero denominator', 'assert statements'], 'blocked_syntax': ['submit_retraining_job(...)', 'promote_retrained_candidate(...)', 'delete_serving_resources(...)']}
+STARTER
+exec('import csv, json')
+
+exec('import numpy as np')
+
+exec('policy = json.loads(\'{"permitted_responses": ["data_repair", "approved_rollback", "gated_retraining"], "selected_fixture_authorization": "approved rollback cfg.bad -> cfg.r2 under lab.operator; readiness and bounded prediction gates required", "quality_denominator": "matched_eligible_labels; zero means undefined", "hypothesis": "configuration mismatch, distinguished by approved-configuration replay"}\')')
+
+exec("release_evidence_rows = list(csv.DictReader(open('release_evidence.csv')))")
+
+exec('release_evidence = {}')
+
+exec("release_evidence['release_id'] = np.array([r['release_id'] for r in release_evidence_rows])")
+
+exec("release_evidence['cohort_id'] = np.array([r['cohort_id'] for r in release_evidence_rows])")
+
+exec("release_evidence['timestamp'] = np.array([r['timestamp'] for r in release_evidence_rows])")
+
+exec("release_evidence['active_artifact'] = np.array([r['active_artifact'] for r in release_evidence_rows])")
+
+exec("release_evidence['approved_artifact'] = np.array([r['approved_artifact'] for r in release_evidence_rows])")
+
+exec("release_evidence['active_config'] = np.array([r['active_config'] for r in release_evidence_rows])")
+
+exec("release_evidence['approved_config'] = np.array([r['approved_config'] for r in release_evidence_rows])")
+
+exec("release_evidence['schema_pass'] = np.array([r['schema_pass'] == 'True' for r in release_evidence_rows])")
+
+exec("release_evidence['distribution_distance'] = np.array([float(r['distribution_distance'] or 'nan') for r in release_evidence_rows])")
+
+exec("release_evidence['matched_eligible_labels'] = np.array([float(r['matched_eligible_labels'] or 'nan') for r in release_evidence_rows])")
+
+exec("release_evidence['labeled_errors'] = np.array([float(r['labeled_errors'] or 'nan') for r in release_evidence_rows])")
+
+exec("release_evidence['client_impact'] = np.array([r['client_impact'] for r in release_evidence_rows])")
+
+exec("release_evidence['hypothesis_test'] = np.array([r['hypothesis_test'] for r in release_evidence_rows])")
+
+exec("release_evidence['supported_response'] = np.array([r['supported_response'] for r in release_evidence_rows])")
+
+exec("evidence = [{k: v[i].item() if hasattr(v[i], 'item') else v[i] for k, v in release_evidence.items()} for i in range(len(release_evidence_rows))]")
+
+exec("matched_counts = release_evidence['matched_eligible_labels']")
+
+exec("error_counts = release_evidence['labeled_errors']")
+
+exec('rate_groups = list(range(len(matched_counts)))')
+
+zero = 0
+
+has_labels = None
+
+selected_rates = []
+
+for group in rate_groups:
+    rate = None
+    if has_labels[group]:
+        rate = error_counts[group] / matched_counts[group]
+    selected_rates = selected_rates + [rate]
+
+exec('result = []')
+
+exec("def diagnostic_record(row, rate, response, gates):\n    n = row['matched_eligible_labels']\n    errors = row['labeled_errors']\n    return {'release': row['release_id'], 'cohort': row['cohort_id'], 'timestamp': row['timestamp'], 'impact': row['client_impact'], 'active_artifact': row['active_artifact'], 'approved_artifact': row['approved_artifact'], 'active_config': row['active_config'], 'approved_config': row['approved_config'], 'hypothesis': policy['hypothesis'], 'hypothesis_test': row['hypothesis_test'], 'matched_eligible_labels': n, 'errors': errors, 'error_rate': rate, 'response': response, 'required_gates': gates, 'quality_claim': 'matched mature cohort only; distribution alone does not establish quality loss'}")
+
+label_investigate = 'investigate'
+
+label_approved_rollback = 'approved_rollback'
+
+label_none = 'none'
+
+for row in evidence:
+    n = row['matched_eligible_labels']
+    rate = selected_rates[len(result)]
+    response = label_investigate
+    gates = []
+    mismatch_replay = row['active_config'] != row['approved_config'] and row['active_artifact'] == row['approved_artifact'] and n > 0 and row['schema_pass'] and row['hypothesis_test'] == 'bad configuration reproduces errors; approved rollback restores baseline' and row['supported_response'] == label_approved_rollback
+    if mismatch_replay:
+        response = label_approved_rollback
+        gates = ['readiness', 'bounded_prediction']
+    elif row['client_impact'] == 'baseline':
+        response = label_none
+    result = result + [diagnostic_record(row, rate, response, gates)]
+
+SOLUTION
+exec('import csv, json')
+
+exec('import numpy as np')
+
+exec('policy = json.loads(\'{"permitted_responses": ["data_repair", "approved_rollback", "gated_retraining"], "selected_fixture_authorization": "approved rollback cfg.bad -> cfg.r2 under lab.operator; readiness and bounded prediction gates required", "quality_denominator": "matched_eligible_labels; zero means undefined", "hypothesis": "configuration mismatch, distinguished by approved-configuration replay"}\')')
+
+exec("release_evidence_rows = list(csv.DictReader(open('release_evidence.csv')))")
+
+exec('release_evidence = {}')
+
+exec("release_evidence['release_id'] = np.array([r['release_id'] for r in release_evidence_rows])")
+
+exec("release_evidence['cohort_id'] = np.array([r['cohort_id'] for r in release_evidence_rows])")
+
+exec("release_evidence['timestamp'] = np.array([r['timestamp'] for r in release_evidence_rows])")
+
+exec("release_evidence['active_artifact'] = np.array([r['active_artifact'] for r in release_evidence_rows])")
+
+exec("release_evidence['approved_artifact'] = np.array([r['approved_artifact'] for r in release_evidence_rows])")
+
+exec("release_evidence['active_config'] = np.array([r['active_config'] for r in release_evidence_rows])")
+
+exec("release_evidence['approved_config'] = np.array([r['approved_config'] for r in release_evidence_rows])")
+
+exec("release_evidence['schema_pass'] = np.array([r['schema_pass'] == 'True' for r in release_evidence_rows])")
+
+exec("release_evidence['distribution_distance'] = np.array([float(r['distribution_distance'] or 'nan') for r in release_evidence_rows])")
+
+exec("release_evidence['matched_eligible_labels'] = np.array([float(r['matched_eligible_labels'] or 'nan') for r in release_evidence_rows])")
+
+exec("release_evidence['labeled_errors'] = np.array([float(r['labeled_errors'] or 'nan') for r in release_evidence_rows])")
+
+exec("release_evidence['client_impact'] = np.array([r['client_impact'] for r in release_evidence_rows])")
+
+exec("release_evidence['hypothesis_test'] = np.array([r['hypothesis_test'] for r in release_evidence_rows])")
+
+exec("release_evidence['supported_response'] = np.array([r['supported_response'] for r in release_evidence_rows])")
+
+exec("evidence = [{k: v[i].item() if hasattr(v[i], 'item') else v[i] for k, v in release_evidence.items()} for i in range(len(release_evidence_rows))]")
+
+exec("matched_counts = release_evidence['matched_eligible_labels']")
+
+exec("error_counts = release_evidence['labeled_errors']")
+
+exec('rate_groups = list(range(len(matched_counts)))')
+
+zero = 0
+
+has_labels = matched_counts > zero
+
+selected_rates = []
+
+for group in rate_groups:
+    rate = None
+    if has_labels[group]:
+        rate = error_counts[group] / matched_counts[group]
+    selected_rates = selected_rates + [rate]
+
+exec('result = []')
+
+exec("def diagnostic_record(row, rate, response, gates):\n    n = row['matched_eligible_labels']\n    errors = row['labeled_errors']\n    return {'release': row['release_id'], 'cohort': row['cohort_id'], 'timestamp': row['timestamp'], 'impact': row['client_impact'], 'active_artifact': row['active_artifact'], 'approved_artifact': row['approved_artifact'], 'active_config': row['active_config'], 'approved_config': row['approved_config'], 'hypothesis': policy['hypothesis'], 'hypothesis_test': row['hypothesis_test'], 'matched_eligible_labels': n, 'errors': errors, 'error_rate': rate, 'response': response, 'required_gates': gates, 'quality_claim': 'matched mature cohort only; distribution alone does not establish quality loss'}")
+
+label_investigate = 'investigate'
+
+label_approved_rollback = 'approved_rollback'
+
+label_none = 'none'
+
+for row in evidence:
+    n = row['matched_eligible_labels']
+    rate = selected_rates[len(result)]
+    response = label_investigate
+    gates = []
+    mismatch_replay = row['active_config'] != row['approved_config'] and row['active_artifact'] == row['approved_artifact'] and n > 0 and row['schema_pass'] and row['hypothesis_test'] == 'bad configuration reproduces errors; approved rollback restores baseline' and row['supported_response'] == label_approved_rollback
+    if mismatch_replay:
+        response = label_approved_rollback
+        gates = ['readiness', 'bounded_prediction']
+    elif row['client_impact'] == 'baseline':
+        response = label_none
+    result = result + [diagnostic_record(row, rate, response, gates)]
+
+TESTS
+[
+  {
+    "test_id": "t1",
+    "kind": "value_equals",
+    "spec": {
+      "expr": "result",
+      "expected": [
+        {
+          "release": "r1",
+          "cohort": "before",
+          "timestamp": "2026-01-02T09:00:00Z",
+          "impact": "baseline",
+          "active_artifact": "model.r1",
+          "approved_artifact": "model.r1",
+          "active_config": "cfg.r1",
+          "approved_config": "cfg.r1",
+          "hypothesis": "configuration mismatch, distinguished by approved-configuration replay",
+          "hypothesis_test": "approved configuration reproduces baseline",
+          "matched_eligible_labels": 60,
+          "errors": 6,
+          "error_rate": 0.1,
+          "response": "none",
+          "required_gates": [],
+          "quality_claim": "matched mature cohort only; distribution alone does not establish quality loss"
+        },
+        {
+          "release": "r2",
+          "cohort": "after",
+          "timestamp": "2026-01-02T11:00:00Z",
+          "impact": "more incorrect arrival predictions",
+          "active_artifact": "model.r2",
+          "approved_artifact": "model.r2",
+          "active_config": "cfg.bad",
+          "approved_config": "cfg.r2",
+          "hypothesis": "configuration mismatch, distinguished by approved-configuration replay",
+          "hypothesis_test": "bad configuration reproduces errors; approved rollback restores baseline",
+          "matched_eligible_labels": 40,
+          "errors": 12,
+          "error_rate": 0.3,
+          "response": "approved_rollback",
+          "required_gates": [
+            "readiness",
+            "bounded_prediction"
+          ],
+          "quality_claim": "matched mature cohort only; distribution alone does not establish quality loss"
+        },
+        {
+          "release": "r2",
+          "cohort": "incomplete",
+          "timestamp": "2026-01-03T23:00:00Z",
+          "impact": "quality unresolved",
+          "active_artifact": "model.r2",
+          "approved_artifact": "model.r2",
+          "active_config": "cfg.bad",
+          "approved_config": "cfg.r2",
+          "hypothesis": "configuration mismatch, distinguished by approved-configuration replay",
+          "hypothesis_test": "no mature labels",
+          "matched_eligible_labels": 0,
+          "errors": 0,
+          "error_rate": null,
+          "response": "investigate",
+          "required_gates": [],
+          "quality_claim": "matched mature cohort only; distribution alone does not establish quality loss"
+        }
+      ]
+    },
+    "visible": true,
+    "message_on_fail": "The returned record or calculation does not match the declared fixture contract."
+  }
+]

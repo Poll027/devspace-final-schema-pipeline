@@ -1,0 +1,614 @@
+{
+  "type": "code_exercise",
+  "public": {
+    "prompt": "Implement the fixed prediction cohort join and its mature-label report. Preserve original prediction timestamps and membership. Reject duplicate label IDs, list unmatched labels, exclude labels after the cutoff or predictions below maturity age, and retain all eligible cohort IDs in the coverage denominator. Compute matched errors/eligible mature IDs and mean/std(ddof=0) of mature losses. Scope the result to mature matched traffic, not all traffic.\nThe supplied mechanism handles parsing and report assembly. Your bounded edit is to bind each named input to the intended mounted row collection and select np.mean and np.std as its mean/spread functions. Replace only the None bindings. Do not copy an output or change the fixed contract. Run and inspect the full report described above. The graded variable is report: a record with top-level fields cohort, eligible_predictions, mature_matched_ids, unmatched_labels, excluded_labels, maturity_coverage, error_count, error_proportion, mean_loss, std_loss, scope. Retain the supplied nested record structure and declared ordering.",
+    "runtime": {
+      "kind": "python",
+      "version": "0.29.5",
+      "packages": [
+        "numpy"
+      ]
+    },
+    "workspace": {
+      "entry": "main.py",
+      "files": [
+        {
+          "path": "main.py",
+          "role": "editable",
+          "language": "python",
+          "content": "# Supplied fixture parsing, contract/report mechanism and authorized simulator.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'predictions': {'prediction_id': 'string', 'prediction_timestamp': 'datetime', 'prediction': 'string', 'cohort_id': 'string', 'eligible': 'boolean'}, 'labels': {'prediction_id': 'string', 'label_timestamp': 'datetime', 'label': 'string', 'loss': 'number'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\ndef mature(pred,label,policy):\\n    cutoff=datetime.datetime.fromisoformat(policy['analysis_time'].replace('Z','+00:00'))\\n    pt=datetime.datetime.fromisoformat(pred['prediction_timestamp'].replace('Z','+00:00'))\\n    lt=datetime.datetime.fromisoformat(label['label_timestamp'].replace('Z','+00:00'))\\n    return lt<=cutoff and (cutoff-pt).total_seconds()>=policy['minimum_age_hours']*3600\\n\\n\\npolicy = {'cohort': 'fixed_100', 'analysis_time': '2026-01-04T00:00:00Z', 'minimum_age_hours': 24, 'label_available_through': '2026-01-04T00:00:00Z', 'duplicate_policy': 'reject repeated prediction or label ID before dictionary construction', 'unmatched_policy': 'exclude and record', 'outside_cohort_policy': 'exclude and record', 'ddof': 0}\\ndef calculate_contract(predictions_input,labels_input,mean_function,spread_function):\\n    supplied_rows = {'predictions':predictions_input,'labels':labels_input}\\n    def load(name):\\n        return supplied_rows[name]\\n    policy = {'cohort': 'fixed_100', 'analysis_time': '2026-01-04T00:00:00Z', 'minimum_age_hours': 24, 'label_available_through': '2026-01-04T00:00:00Z', 'duplicate_policy': 'reject repeated prediction or label ID before dictionary construction', 'unmatched_policy': 'exclude and record', 'outside_cohort_policy': 'exclude and record', 'ddof': 0}\\n    predictions = load('predictions')\\n    labels = load('labels')\\n    pred_by_id = {}\\n    \\n    for pred in predictions:\\n        if pred['prediction_id'] in pred_by_id:\\n            raise ValueError('duplicate prediction ID')\\n        pred_by_id[pred['prediction_id']] = pred\\n    \\n    label_by_id = {}\\n    \\n    for label in labels:\\n        if label['prediction_id'] in label_by_id:\\n            raise ValueError('duplicate label ID')\\n        label_by_id[label['prediction_id']] = label\\n    \\n    eligible = []\\n    \\n    matched = []\\n    \\n    losses = []\\n    \\n    errors = []\\n    \\n    unmatched = []\\n    \\n    excluded = []\\n    \\n    for pred in predictions:\\n        if pred['eligible'] and pred['cohort_id'] == policy['cohort']:\\n            eligible.append({'prediction_id':pred['prediction_id'],'prediction_timestamp':pred['prediction_timestamp']})\\n    \\n    for label in labels:\\n        if label['prediction_id'] not in pred_by_id:\\n            unmatched.append(label['prediction_id'])\\n        else:\\n            pred = pred_by_id[label['prediction_id']]\\n            if pred['eligible'] and pred['cohort_id']==policy['cohort'] and mature(pred,label,policy):\\n                matched.append(pred['prediction_id'])\\n                losses.append(label['loss'])\\n                errors.append(pred['prediction'] != label['label'])\\n            else:\\n                excluded.append(label['prediction_id'])\\n    \\n    coverage = len(matched) / len(eligible)\\n    \\n    error_count = sum(errors)\\n    \\n    error_proportion = error_count / len(matched)\\n    \\n    mean_loss = mean_function(losses)\\n    \\n    std_loss = spread_function(losses, ddof=0)\\n    \\n    result = {'cohort':policy,'eligible_predictions':eligible,'mature_matched_ids':matched,'unmatched_labels':unmatched,'excluded_labels':excluded,'maturity_coverage':coverage,'error_count':error_count,'error_proportion':error_proportion,'mean_loss':mean_loss,'std_loss':std_loss,'scope':'mature matched cohort only; all traffic quality unestablished'}\\n    \\n    report = result\\n    return report\\n\"\nexec(_fixture_support)\npredictions_rows = load('predictions')\nlabels_rows = load('labels')\n# Bind each contract input to its intended row collection.\npredictions_input = None\nlabels_input = None\nmean_function = None\nspread_function = None\n# Select the NumPy mean and standard-deviation functions; the supplied contract fixes ddof=0.\nreport = calculate_contract(predictions_input,labels_input,mean_function,spread_function)\n"
+        }
+      ],
+      "asset_mounts": [
+        {
+          "asset_id": "ds.predictions",
+          "mount_path": "predictions.csv"
+        },
+        {
+          "asset_id": "ds.labels",
+          "mount_path": "labels.csv"
+        }
+      ]
+    },
+    "constraints": {
+      "allowed_syntax": [
+        "import numpy as np",
+        "import statements for required supplied library or client dependencies",
+        "def",
+        "return",
+        "variable assignment",
+        "dictionary literals",
+        "dictionary key lookup and assignment",
+        "for loops",
+        "if and else",
+        "membership tests",
+        "comparison operators",
+        "list literals and append",
+        "len",
+        "sum",
+        "arithmetic operators",
+        "numeric literals",
+        "string literals",
+        "np.mean(numeric_values)",
+        "np.std(numeric_values, ddof=0)",
+        "np.std(numeric_values, ddof=1)"
+      ],
+      "blocked_syntax": []
+    }
+  },
+  "grading": {
+    "solution_files": [
+      {
+        "path": "main.py",
+        "content": "# Supplied fixture parsing, contract/report mechanism and authorized simulator.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'predictions': {'prediction_id': 'string', 'prediction_timestamp': 'datetime', 'prediction': 'string', 'cohort_id': 'string', 'eligible': 'boolean'}, 'labels': {'prediction_id': 'string', 'label_timestamp': 'datetime', 'label': 'string', 'loss': 'number'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\ndef mature(pred,label,policy):\\n    cutoff=datetime.datetime.fromisoformat(policy['analysis_time'].replace('Z','+00:00'))\\n    pt=datetime.datetime.fromisoformat(pred['prediction_timestamp'].replace('Z','+00:00'))\\n    lt=datetime.datetime.fromisoformat(label['label_timestamp'].replace('Z','+00:00'))\\n    return lt<=cutoff and (cutoff-pt).total_seconds()>=policy['minimum_age_hours']*3600\\n\\n\\npolicy = {'cohort': 'fixed_100', 'analysis_time': '2026-01-04T00:00:00Z', 'minimum_age_hours': 24, 'label_available_through': '2026-01-04T00:00:00Z', 'duplicate_policy': 'reject repeated prediction or label ID before dictionary construction', 'unmatched_policy': 'exclude and record', 'outside_cohort_policy': 'exclude and record', 'ddof': 0}\\ndef calculate_contract(predictions_input,labels_input,mean_function,spread_function):\\n    supplied_rows = {'predictions':predictions_input,'labels':labels_input}\\n    def load(name):\\n        return supplied_rows[name]\\n    policy = {'cohort': 'fixed_100', 'analysis_time': '2026-01-04T00:00:00Z', 'minimum_age_hours': 24, 'label_available_through': '2026-01-04T00:00:00Z', 'duplicate_policy': 'reject repeated prediction or label ID before dictionary construction', 'unmatched_policy': 'exclude and record', 'outside_cohort_policy': 'exclude and record', 'ddof': 0}\\n    predictions = load('predictions')\\n    labels = load('labels')\\n    pred_by_id = {}\\n    \\n    for pred in predictions:\\n        if pred['prediction_id'] in pred_by_id:\\n            raise ValueError('duplicate prediction ID')\\n        pred_by_id[pred['prediction_id']] = pred\\n    \\n    label_by_id = {}\\n    \\n    for label in labels:\\n        if label['prediction_id'] in label_by_id:\\n            raise ValueError('duplicate label ID')\\n        label_by_id[label['prediction_id']] = label\\n    \\n    eligible = []\\n    \\n    matched = []\\n    \\n    losses = []\\n    \\n    errors = []\\n    \\n    unmatched = []\\n    \\n    excluded = []\\n    \\n    for pred in predictions:\\n        if pred['eligible'] and pred['cohort_id'] == policy['cohort']:\\n            eligible.append({'prediction_id':pred['prediction_id'],'prediction_timestamp':pred['prediction_timestamp']})\\n    \\n    for label in labels:\\n        if label['prediction_id'] not in pred_by_id:\\n            unmatched.append(label['prediction_id'])\\n        else:\\n            pred = pred_by_id[label['prediction_id']]\\n            if pred['eligible'] and pred['cohort_id']==policy['cohort'] and mature(pred,label,policy):\\n                matched.append(pred['prediction_id'])\\n                losses.append(label['loss'])\\n                errors.append(pred['prediction'] != label['label'])\\n            else:\\n                excluded.append(label['prediction_id'])\\n    \\n    coverage = len(matched) / len(eligible)\\n    \\n    error_count = sum(errors)\\n    \\n    error_proportion = error_count / len(matched)\\n    \\n    mean_loss = mean_function(losses)\\n    \\n    std_loss = spread_function(losses, ddof=0)\\n    \\n    result = {'cohort':policy,'eligible_predictions':eligible,'mature_matched_ids':matched,'unmatched_labels':unmatched,'excluded_labels':excluded,'maturity_coverage':coverage,'error_count':error_count,'error_proportion':error_proportion,'mean_loss':mean_loss,'std_loss':std_loss,'scope':'mature matched cohort only; all traffic quality unestablished'}\\n    \\n    report = result\\n    return report\\n\"\nexec(_fixture_support)\npredictions_rows = load('predictions')\nlabels_rows = load('labels')\npredictions_input = predictions_rows\nlabels_input = labels_rows\nmean_function = np.mean\nspread_function = np.std\nreport = calculate_contract(predictions_input,labels_input,mean_function,spread_function)\n"
+      }
+    ],
+    "tests": [
+      {
+        "test_id": "report",
+        "kind": "value_equals",
+        "spec": {
+          "expr": "report",
+          "expected": {
+            "cohort": {
+              "cohort": "fixed_100",
+              "analysis_time": "2026-01-04T00:00:00Z",
+              "minimum_age_hours": 24,
+              "label_available_through": "2026-01-04T00:00:00Z",
+              "duplicate_policy": "reject repeated prediction or label ID before dictionary construction",
+              "unmatched_policy": "exclude and record",
+              "outside_cohort_policy": "exclude and record",
+              "ddof": 0
+            },
+            "eligible_predictions": [
+              {
+                "prediction_id": "p001",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p002",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p003",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p004",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p005",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p006",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p007",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p008",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p009",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p010",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p011",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p012",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p013",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p014",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p015",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p016",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p017",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p018",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p019",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p020",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p021",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p022",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p023",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p024",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p025",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p026",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p027",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p028",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p029",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p030",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p031",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p032",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p033",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p034",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p035",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p036",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p037",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p038",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p039",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p040",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p041",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p042",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p043",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p044",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p045",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p046",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p047",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p048",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p049",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p050",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p051",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p052",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p053",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p054",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p055",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p056",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p057",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p058",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p059",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p060",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p061",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p062",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p063",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p064",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p065",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p066",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p067",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p068",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p069",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p070",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p071",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p072",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p073",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p074",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p075",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p076",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p077",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p078",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p079",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p080",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p081",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p082",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p083",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p084",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p085",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p086",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p087",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p088",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p089",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p090",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p091",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p092",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p093",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p094",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p095",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p096",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p097",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p098",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p099",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              },
+              {
+                "prediction_id": "p100",
+                "prediction_timestamp": "2026-01-02T10:00:00Z"
+              }
+            ],
+            "mature_matched_ids": [
+              "p001",
+              "p002",
+              "p003",
+              "p004",
+              "p005",
+              "p006",
+              "p007",
+              "p008",
+              "p009",
+              "p010",
+              "p011",
+              "p012",
+              "p013",
+              "p014",
+              "p015",
+              "p016",
+              "p017",
+              "p018",
+              "p019",
+              "p020",
+              "p021",
+              "p022",
+              "p023",
+              "p024",
+              "p025",
+              "p026",
+              "p027",
+              "p028",
+              "p029",
+              "p030",
+              "p031",
+              "p032",
+              "p033",
+              "p034",
+              "p035",
+              "p036",
+              "p037",
+              "p038",
+              "p039",
+              "p040",
+              "p041",
+              "p042",
+              "p043",
+              "p044",
+              "p045",
+              "p046",
+              "p047",
+              "p048",
+              "p049",
+              "p050",
+              "p051",
+              "p052",
+              "p053",
+              "p054",
+              "p055",
+              "p056",
+              "p057",
+              "p058",
+              "p059",
+              "p060"
+            ],
+            "unmatched_labels": [
+              "unmatched"
+            ],
+            "excluded_labels": [
+              "p061"
+            ],
+            "maturity_coverage": 0.6,
+            "error_count": 6,
+            "error_proportion": 0.1,
+            "mean_loss": 0.1,
+            "std_loss": 0.30000000000000004,
+            "scope": "mature matched cohort only; all traffic quality unestablished"
+          }
+        },
+        "message_on_fail": "The report differs from the declared fixture contract. Recheck execution order, scope, definitions and required evidence."
+      }
+    ]
+  },
+  "interaction_id": "ix.mle.tile.083_085.s06",
+  "difficulty": "core",
+  "grading_mode": "client",
+  "standalone": true,
+  "measures": [
+    {
+      "concept_id": "mle.delayed_label_quality",
+      "capability": "preserve_and_join_a_time_bounded_prediction_cohort",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3"
+      ]
+    },
+    {
+      "concept_id": "mle.delayed_label_quality",
+      "capability": "compute_label_maturity_and_scope_quality_estimates",
+      "fact_ids": [
+        "f4",
+        "f5"
+      ]
+    },
+    {
+      "concept_id": "mle.delayed_label_quality",
+      "capability": "compute_mean_and_declared_standard_deviation_of_mature_losses",
+      "fact_ids": [
+        "f6",
+        "f7"
+      ]
+    }
+  ],
+  "anchors": [
+    "mle.delayed_label_quality#practice",
+    "mle.delayed_label_quality#assessment:preserve_and_join_a_time_bounded_prediction_cohort",
+    "mle.delayed_label_quality#assessment:compute_label_maturity_and_scope_quality_estimates",
+    "mle.delayed_label_quality#assessment:compute_mean_and_declared_standard_deviation_of_mature_losses"
+  ],
+  "feedback": {
+    "correct": {
+      "message": "Your result follows the declared evidence and contract boundaries."
+    },
+    "incorrect": {
+      "message": "Recheck the declared scope, eligible observations and required evidence before accepting the result."
+    },
+    "hints": [
+      "Identify which observations or operations the stated contract makes eligible.",
+      "Keep the declared identities, definitions and required gates intact."
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+# fixture support separately
+exec(_fixture_support)
+policy = {'INSTANCE': 'serving-lab', 'process_id': 'model-service', 'interval_start': '2026-01-02T10:00:00Z', 'interval_end_exclusive': '2026-01-02T10:03:00Z', 'cpu_unit': 'percent', 'memory_unit': 'MiB', 'ddof': 0, 'action_required': False, 'lifecycle_policy': 'These lifecycle records belong to the utilization fixture; no recovery fault or learner lifecycle action is required.'}
+data = load('resource_telemetry')
+instance = column(data, 'INSTANCE')
+process = column(data, 'process_id')
+running_process = column(data, 'running_process')
+state = column(data, 'instance_state')
+time = column(data, 'timestamp')
+cpu_all = column(data, 'cpu_percent')
+memory_all = column(data, 'memory_value')
+mask = (instance == policy['INSTANCE']) & (process == policy['process_id']) & (running_process == policy['process_id']) & (state == 'RUNNING') & (time >= policy['interval_start']) & (time < policy['interval_end_exclusive'])
+cpu = cpu_all[mask]
+memory = memory_all[mask]
+count = len(cpu)
+cpu_mean = np.mean(cpu)
+cpu_std = np.std(cpu, ddof=0)
+memory_mean = np.mean(memory)
+memory_std = np.std(memory, ddof=0)
+report = {'scope': policy, 'count': count, 'cpu_mean': cpu_mean, 'cpu_std': cpu_std, 'memory_mean': memory_mean, 'memory_std': memory_std, 'cpu_count': count, 'memory_count': len(memory), 'interpretation': 'descriptive utilization for this matched workload interval only'}

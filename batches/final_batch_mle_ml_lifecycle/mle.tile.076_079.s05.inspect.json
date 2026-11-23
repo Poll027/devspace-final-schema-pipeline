@@ -1,0 +1,2437 @@
+{
+  "type": "code_exercise",
+  "interaction_id": "ix.mle.tile.076_079.s05",
+  "difficulty": "core",
+  "grading_mode": "client",
+  "standalone": false,
+  "measures": [
+    {
+      "concept_id": "mle.pipeline_artifact_dependencies",
+      "capability": "specify_immutable_artifact_producer_consumer_edges",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f10"
+      ]
+    },
+    {
+      "concept_id": "mle.pipeline_artifact_dependencies",
+      "capability": "configure_required_stage_dependencies_and_fatal_validation_gates",
+      "fact_ids": [
+        "f4",
+        "f6",
+        "f7",
+        "f8"
+      ]
+    },
+    {
+      "concept_id": "mle.pipeline_artifact_dependencies",
+      "capability": "assert_artifact_dependency_contracts_for_declared_cases",
+      "fact_ids": [
+        "f3",
+        "f5"
+      ]
+    },
+    {
+      "concept_id": "mle.pipeline_artifact_dependencies",
+      "capability": "serialize_reload_and_inspect_pipeline_configuration",
+      "fact_ids": [
+        "f6",
+        "f11"
+      ]
+    },
+    {
+      "concept_id": "mle.pipeline_artifact_dependencies",
+      "capability": "verify_artifact_edges_from_resolved_run_inputs",
+      "fact_ids": [
+        "f9",
+        "f10"
+      ]
+    }
+  ],
+  "anchors": [
+    "mle.pipeline_artifact_dependencies#practice",
+    "mle.pipeline_artifact_dependencies#assessment:specify_immutable_artifact_producer_consumer_edges",
+    "mle.pipeline_artifact_dependencies#assessment:configure_required_stage_dependencies_and_fatal_validation_gates",
+    "mle.pipeline_artifact_dependencies#assessment:assert_artifact_dependency_contracts_for_declared_cases",
+    "mle.pipeline_artifact_dependencies#assessment:serialize_reload_and_inspect_pipeline_configuration",
+    "mle.pipeline_artifact_dependencies#assessment:verify_artifact_edges_from_resolved_run_inputs"
+  ],
+  "feedback": {
+    "correct": {
+      "message": "The required predicates and evidence agree with the declared contract."
+    },
+    "incorrect": {
+      "message": "Recheck the failed predicate or dependency against the declared contract; success must not be inferred from a name or submission alone."
+    },
+    "hints": [
+      "Separate declared configuration from the inputs and results actually recorded.",
+      "Check each required predicate before accepting the overall result."
+    ]
+  },
+  "public": {
+    "prompt": "Complete the one configuration round-trip assignment: use the supplied PyYAML alias pd to safely serialize build_to_submit with safe_dump and reload that YAML with safe_load into configured_build. Do not alter the supplied fixtures, validation implementations, dependency configuration or execution helpers. Inspect their required checks and fatal dependencies. The supplied runner then writes/reloads configured_build, asserts the accepted, boundary and rejected fixture outcomes and retains the existing case evidence. Its result dictionary and exercise_case(case_id) interface are already supplied. These are bounded local in-process simulator executions, not hosted cloud runs. pd here aliases yaml; it is not pandas. All checks must still pass against the fixture inputs.",
+    "runtime": {
+      "kind": "python",
+      "version": "0.29.5",
+      "packages": [
+        "pyyaml"
+      ]
+    },
+    "workspace": {
+      "files": [
+        {
+          "path": "main.py",
+          "role": "editable",
+          "language": "python",
+          "content": "# Fictional bounded in-process exercise; no hosted cloud runs or real credentials.\n# Keep supplied fixtures and execution helpers unchanged.\ncases = {'valid': {'data_validation': {'consumed': 'snapshot.A', 'parameters': {'contract': 'dataset_contract'}, 'produced': 'validated.snapshot.A', 'validation_ok': True}, 'training': {'consumed': 'validated.snapshot.A', 'parameters': {'feature_scale': 5.0, 'threshold': 0.4, 'package': 'A'}, 'produced': 'A'}, 'model_validation': {'consumed': 'A', 'parameters': {'rtol': 1e-07, 'atol': 1e-08}, 'produced': 'validated.A', 'validation_ok': True}}, 'mismatch': {'data_validation': {'consumed': 'snapshot.A', 'parameters': {'contract': 'dataset_contract'}, 'produced': 'validated.snapshot.A', 'validation_ok': True}, 'training': {'consumed': 'validated.snapshot.A', 'parameters': {'feature_scale': 5.0, 'threshold': 0.4, 'package': 'A'}, 'produced': 'A'}, 'model_validation': {'consumed': 'B', 'parameters': {'rtol': 1e-07, 'atol': 1e-08}, 'produced': 'validated.A', 'validation_ok': True}}, 'rejected_data': {'data_validation': {'consumed': 'snapshot.A', 'parameters': {'contract': 'dataset_contract'}, 'produced': 'validated.snapshot.A', 'validation_ok': False}, 'training': {'consumed': 'validated.snapshot.A', 'parameters': {'feature_scale': 5.0, 'threshold': 0.4, 'package': 'A'}, 'produced': 'A'}, 'model_validation': {'consumed': 'A', 'parameters': {'rtol': 1e-07, 'atol': 1e-08}, 'produced': 'validated.A', 'validation_ok': True}}, 'boundary': {'data_validation': {'consumed': 'snapshot.A', 'parameters': {'contract': 'dataset_contract'}, 'produced': 'validated.snapshot.A', 'validation_ok': True}, 'training': {'consumed': 'validated.snapshot.A', 'parameters': {'feature_scale': 5.0, 'threshold': 0.4, 'package': 'A'}, 'produced': 'A'}, 'model_validation': {'consumed': 'A', 'parameters': {'rtol': 1e-07, 'atol': 1e-08}, 'produced': 'validated.A', 'validation_ok': True}}}\ncontract = {'required_edges': [['data_validation', 'training'], ['training', 'model_validation']], 'checks': ['producer immutable identity equals consumer reference', 'validation result before dependent execution', 'resolved run args agree with dependency dictionary'], 'assignment': 'repair training A / model-validation B mismatch and configure explicit waitFor edges'}\ntrigger = {'id': 'fixture-artifact-trigger', 'topic': 'projects/fixture-project/topics/artifacts', 'bindings': {'_CASE': 'case_id', '_ARTIFACT': 'artifact_id'}, 'filters': {'event_type': 'artifact_ready'}, 'fixtures': [{'event_type': 'artifact_ready', 'case_id': 'valid', 'artifact_id': 'A'}, {'event_type': 'artifact_ready', 'case_id': 'mismatch', 'artifact_id': 'B'}, {'event_type': 'artifact_ready', 'case_id': 'rejected_data', 'artifact_id': 'A'}, {'event_type': 'unrelated', 'case_id': 'valid', 'artifact_id': 'A'}]}\ncontract_edges = [['data_validation', 'training'], ['training', 'model_validation']]\nadapter_source = 'import io\\nimport yaml\\ndef roundtrip(build):\\n    stream = io.StringIO()\\n    yaml.safe_dump(build, stream)\\n    stream.seek(0)\\n    return yaml.safe_load(stream)\\n\\ndef execute(config, trigger, event, actions):\\n    import re\\n    if \"branch_filter\" in trigger:\\n        if re.fullmatch(trigger[\"branch_filter\"], event.get(\"branch\", \"\")) is None:\\n            return {\"triggered\": False, \"steps\": []}\\n    else:\\n        if any(event.get(k) != v for k,v in trigger[\"filters\"].items()):\\n            return {\"triggered\": False, \"steps\": []}\\n    binding = dict(config.get(\"substitutions\", {}))\\n    binding.update({k:event[v] for k,v in trigger[\"bindings\"].items()})\\n    results=[]; statuses={}\\n    for step in config[\"steps\"]:\\n        args=[str(a) for a in step.get(\"args\", [])]\\n        for k,v in binding.items():\\n            args=[a.replace(\"${\"+k+\"}\",str(v)) for a in args]\\n        deps=[x for x in step[\"waitFor\"] if x!=\"-\"]\\n        record={\"id\":step[\"id\"],\"name\":step[\"name\"],\"resolved_args\":args,\"waitFor\":deps}\\n        if any(statuses.get(d)!=\"SUCCESS\" for d in deps):\\n            record.update(status=\"NOT_STARTED\",exit_code=None,evidence=None)\\n        else:\\n            if step.get(\"allowFailure\") or any(x!=0 for x in step.get(\"allowExitCodes\",[])):\\n                raise ValueError(\"required gate failure allowances are forbidden\")\\n            callback=actions.get(step[\"id\"])\\n            context=dict(binding);context[\"_RESOLVED_ARGS\"]=args\\n            result=callback(context) if callback else {\"ok\":True}\\n            record.update(status=\"SUCCESS\" if result[\"ok\"] else \"FAILURE\",exit_code=0 if result[\"ok\"] else 1,evidence=result)\\n        statuses[step[\"id\"]]=record[\"status\"];results.append(record)\\n    return {\"triggered\":True,\"bindings\":binding,\"steps\":results}\\n\\ndef dependency_checks(record):\\n    edges={p+\"->\"+c:record[p][\"produced\"]==record[c][\"consumed\"] for p,c in required_edges}\\n    checks=dict(edges)\\n    checks[\"data_validation\"]=record[\"data_validation\"][\"validation_ok\"]\\n    checks[\"model_validation\"]=record[\"model_validation\"][\"validation_ok\"]\\n    return {\"ok\":all(checks.values()),\"checks\":checks,\"record\":record}\\n\\ndef exercise_case(case_id):\\n    all_evidence = dependency_run()\\n    return {\"case\":all_evidence[\"cases\"].get(case_id, {\"ok\":False,\"reason\":\"missing case\"}),\"all_evidence\":all_evidence}\\n'\nexec(adapter_source)\n\n# Learner-authored imports, configuration edits, implementations and assertions.\n\n# Supplied validation, configuration and execution scaffolding.\n# Inspect this implementation; leave its fixtures and helpers unchanged.\nsupplied_implementation = 'import copy, json, math, hashlib, io\\nimport yaml\\n\\nrequired_edges = [[\"data_validation\", \"training\"], [\"training\", \"model_validation\"]]\\nconfigured_build = {\\'steps\\': [{\\'id\\': \\'data_validation\\', \\'name\\': \\'python:3.11\\', \\'args\\': [\\'python\\', \\'learner.py\\', \\'${_CASE}\\'], \\'waitFor\\': [\\'-\\']}, {\\'id\\': \\'training\\', \\'name\\': \\'python:3.11\\', \\'args\\': [\\'python\\', \\'downstream_entry.py\\', \\'${_ARTIFACT}\\'], \\'waitFor\\': []}, {\\'id\\': \\'model_validation\\', \\'name\\': \\'python:3.11\\', \\'args\\': [\\'python\\', \\'learner.py\\', \\'${_CASE}\\', \\'TODO_IMMUTABLE_PRODUCER_REFERENCE\\'], \\'waitFor\\': []}], \\'substitutions\\': {\\'_SNAPSHOT\\': \\'valid\\', \\'_CASE\\': \\'valid\\', \\'_ARTIFACT\\': \\'A\\'}, \\'serviceAccount\\': \\'projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com\\'}\\nconfigured_build[\"steps\"][1][\"waitFor\"] = [\\'data_validation\\']\\nconfigured_build[\"steps\"][2][\"waitFor\"] = [\\'training\\']\\nconfigured_build[\"steps\"][2][\"args\"] = [\\'python\\', \\'learner.py\\', \\'${_CASE}\\', \\'A\\']\\n\\ndef dependency_run():\\n    with open(\"configured_build.yaml\", \"w\") as file_handle:\\n        yaml.safe_dump(configured_build, file_handle)\\n    with open(\"configured_build.yaml\") as file_handle:\\n        resolved = yaml.safe_load(file_handle)\\n    assert resolved == configured_build\\n    assert resolved[\"steps\"][0][\"id\"] == \\'data_validation\\'\\n    assert resolved[\"steps\"][0][\"name\"] == \\'python:3.11\\'\\n    assert resolved[\"steps\"][0][\"args\"] == [\\'python\\', \\'learner.py\\', \\'${_CASE}\\']\\n    assert resolved[\"steps\"][0][\"waitFor\"] == [\\'-\\']\\n    assert resolved[\"steps\"][1][\"id\"] == \\'training\\'\\n    assert resolved[\"steps\"][1][\"name\"] == \\'python:3.11\\'\\n    assert resolved[\"steps\"][1][\"args\"] == [\\'python\\', \\'downstream_entry.py\\', \\'${_ARTIFACT}\\']\\n    assert resolved[\"steps\"][1][\"waitFor\"] == [\\'data_validation\\']\\n    assert resolved[\"steps\"][2][\"id\"] == \\'model_validation\\'\\n    assert resolved[\"steps\"][2][\"name\"] == \\'python:3.11\\'\\n    assert resolved[\"steps\"][2][\"args\"] == [\\'python\\', \\'learner.py\\', \\'${_CASE}\\', \\'A\\']\\n    assert resolved[\"steps\"][2][\"waitFor\"] == [\\'training\\']\\n    for step in resolved[\"steps\"]:\\n        assert not step.get(\"allowFailure\")\\n        assert all(code == 0 for code in step.get(\"allowExitCodes\", []))\\n    evidence={k:dependency_checks(v) for k,v in cases.items()}\\n    repaired=copy.deepcopy(cases[\"mismatch\"])\\n    repaired[\"model_validation\"][\"consumed\"]=repaired[\"training\"][\"produced\"]\\n    repair=dependency_checks(repaired)\\n    def data_action(b):\\n        row=cases.get(b[\"_CASE\"],cases[\"mismatch\"])\\n        return {\"ok\":row[\"data_validation\"][\"validation_ok\"],\"consumed\":row[\"data_validation\"][\"consumed\"],\"produced\":row[\"data_validation\"][\"produced\"],\"parameters\":row[\"data_validation\"][\"parameters\"]}\\n    def training_action(b):\\n        row=cases.get(b[\"_CASE\"],cases[\"mismatch\"])\\n        return {\"ok\":row[\"data_validation\"][\"produced\"]==row[\"training\"][\"consumed\"],\"consumed\":row[\"training\"][\"consumed\"],\"produced\":b[\"_RESOLVED_ARGS\"][-1],\"parameters\":row[\"training\"][\"parameters\"]}\\n    def model_action(b):\\n        row=cases.get(b[\"_CASE\"],cases[\"mismatch\"])\\n        record=dependency_checks(row)\\n        record[\"resolved_consumer_matches_producer\"]=b[\"_RESOLVED_ARGS\"][-1]==b[\"_ARTIFACT\"]==row[\"training\"][\"produced\"]==row[\"model_validation\"][\"consumed\"]\\n        record[\"ok\"]=record[\"ok\"] and record[\"resolved_consumer_matches_producer\"]\\n        return record\\n    runs=[execute(resolved,trigger,e,{\"data_validation\":data_action,\"training\":training_action,\"model_validation\":model_action}) for e in trigger[\"fixtures\"]]\\n    assert evidence[\"valid\"][\"ok\"] and evidence[\"boundary\"][\"ok\"]\\n    assert not evidence[\"mismatch\"][\"ok\"] and not evidence[\"rejected_data\"][\"ok\"]\\n    assert repair[\"ok\"]\\n    assert [s[\"status\"] for s in runs[-2][\"steps\"]]==[\"FAILURE\",\"NOT_STARTED\",\"NOT_STARTED\"]\\n    for run in runs:\\n        if run[\"triggered\"]:\\n            for step in run[\"steps\"]:\\n                if step[\"status\"]==\"SUCCESS\":\\n                    assert step[\"resolved_args\"]\\n    return {\"cases\":evidence,\"repaired\":repair,\"required_edges\":required_edges,\"config\":resolved,\"runs\":runs}\\n\\n'\nexec(supplied_implementation)\n# pd is an alias of the supplied PyYAML module, not pandas.\npd = yaml\nbuild_to_submit = configured_build\n\n# TODO: safely serialize build_to_submit and reload it into configured_build.\nconfigured_build = None\n\n# Supplied runner writes/reloads the selected config and inspects fixture evidence.\nresult = dependency_run()\n"
+        }
+      ],
+      "entry": "main.py",
+      "asset_mounts": []
+    },
+    "constraints": {
+      "allowed_syntax": [
+        "Python dictionary and list literals",
+        "String, numeric and Boolean literals",
+        "Variable assignment",
+        "Dictionary and list indexing",
+        "Equality comparisons and Boolean predicates",
+        "assert predicate",
+        "Existing function and test entry-point calls",
+        "import yaml",
+        "with open(...) as file_handle",
+        "yaml.safe_dump(config, file_handle)",
+        "yaml.safe_load(file_handle)",
+        "YAML mappings and sequences",
+        "Cloud Build steps, name, args and script fields",
+        "Cloud Build id and waitFor fields",
+        "Existing Cloud Build substitutions and immutable artifact references"
+      ],
+      "blocked_syntax": []
+    }
+  },
+  "grading": {
+    "solution_files": [
+      {
+        "path": "main.py",
+        "content": "# Fictional bounded in-process exercise; no hosted cloud runs or real credentials.\n# Keep supplied fixtures and execution helpers unchanged.\ncases = {'valid': {'data_validation': {'consumed': 'snapshot.A', 'parameters': {'contract': 'dataset_contract'}, 'produced': 'validated.snapshot.A', 'validation_ok': True}, 'training': {'consumed': 'validated.snapshot.A', 'parameters': {'feature_scale': 5.0, 'threshold': 0.4, 'package': 'A'}, 'produced': 'A'}, 'model_validation': {'consumed': 'A', 'parameters': {'rtol': 1e-07, 'atol': 1e-08}, 'produced': 'validated.A', 'validation_ok': True}}, 'mismatch': {'data_validation': {'consumed': 'snapshot.A', 'parameters': {'contract': 'dataset_contract'}, 'produced': 'validated.snapshot.A', 'validation_ok': True}, 'training': {'consumed': 'validated.snapshot.A', 'parameters': {'feature_scale': 5.0, 'threshold': 0.4, 'package': 'A'}, 'produced': 'A'}, 'model_validation': {'consumed': 'B', 'parameters': {'rtol': 1e-07, 'atol': 1e-08}, 'produced': 'validated.A', 'validation_ok': True}}, 'rejected_data': {'data_validation': {'consumed': 'snapshot.A', 'parameters': {'contract': 'dataset_contract'}, 'produced': 'validated.snapshot.A', 'validation_ok': False}, 'training': {'consumed': 'validated.snapshot.A', 'parameters': {'feature_scale': 5.0, 'threshold': 0.4, 'package': 'A'}, 'produced': 'A'}, 'model_validation': {'consumed': 'A', 'parameters': {'rtol': 1e-07, 'atol': 1e-08}, 'produced': 'validated.A', 'validation_ok': True}}, 'boundary': {'data_validation': {'consumed': 'snapshot.A', 'parameters': {'contract': 'dataset_contract'}, 'produced': 'validated.snapshot.A', 'validation_ok': True}, 'training': {'consumed': 'validated.snapshot.A', 'parameters': {'feature_scale': 5.0, 'threshold': 0.4, 'package': 'A'}, 'produced': 'A'}, 'model_validation': {'consumed': 'A', 'parameters': {'rtol': 1e-07, 'atol': 1e-08}, 'produced': 'validated.A', 'validation_ok': True}}}\ncontract = {'required_edges': [['data_validation', 'training'], ['training', 'model_validation']], 'checks': ['producer immutable identity equals consumer reference', 'validation result before dependent execution', 'resolved run args agree with dependency dictionary'], 'assignment': 'repair training A / model-validation B mismatch and configure explicit waitFor edges'}\ntrigger = {'id': 'fixture-artifact-trigger', 'topic': 'projects/fixture-project/topics/artifacts', 'bindings': {'_CASE': 'case_id', '_ARTIFACT': 'artifact_id'}, 'filters': {'event_type': 'artifact_ready'}, 'fixtures': [{'event_type': 'artifact_ready', 'case_id': 'valid', 'artifact_id': 'A'}, {'event_type': 'artifact_ready', 'case_id': 'mismatch', 'artifact_id': 'B'}, {'event_type': 'artifact_ready', 'case_id': 'rejected_data', 'artifact_id': 'A'}, {'event_type': 'unrelated', 'case_id': 'valid', 'artifact_id': 'A'}]}\ncontract_edges = [['data_validation', 'training'], ['training', 'model_validation']]\nadapter_source = 'import io\\nimport yaml\\ndef roundtrip(build):\\n    stream = io.StringIO()\\n    yaml.safe_dump(build, stream)\\n    stream.seek(0)\\n    return yaml.safe_load(stream)\\n\\ndef execute(config, trigger, event, actions):\\n    import re\\n    if \"branch_filter\" in trigger:\\n        if re.fullmatch(trigger[\"branch_filter\"], event.get(\"branch\", \"\")) is None:\\n            return {\"triggered\": False, \"steps\": []}\\n    else:\\n        if any(event.get(k) != v for k,v in trigger[\"filters\"].items()):\\n            return {\"triggered\": False, \"steps\": []}\\n    binding = dict(config.get(\"substitutions\", {}))\\n    binding.update({k:event[v] for k,v in trigger[\"bindings\"].items()})\\n    results=[]; statuses={}\\n    for step in config[\"steps\"]:\\n        args=[str(a) for a in step.get(\"args\", [])]\\n        for k,v in binding.items():\\n            args=[a.replace(\"${\"+k+\"}\",str(v)) for a in args]\\n        deps=[x for x in step[\"waitFor\"] if x!=\"-\"]\\n        record={\"id\":step[\"id\"],\"name\":step[\"name\"],\"resolved_args\":args,\"waitFor\":deps}\\n        if any(statuses.get(d)!=\"SUCCESS\" for d in deps):\\n            record.update(status=\"NOT_STARTED\",exit_code=None,evidence=None)\\n        else:\\n            if step.get(\"allowFailure\") or any(x!=0 for x in step.get(\"allowExitCodes\",[])):\\n                raise ValueError(\"required gate failure allowances are forbidden\")\\n            callback=actions.get(step[\"id\"])\\n            context=dict(binding);context[\"_RESOLVED_ARGS\"]=args\\n            result=callback(context) if callback else {\"ok\":True}\\n            record.update(status=\"SUCCESS\" if result[\"ok\"] else \"FAILURE\",exit_code=0 if result[\"ok\"] else 1,evidence=result)\\n        statuses[step[\"id\"]]=record[\"status\"];results.append(record)\\n    return {\"triggered\":True,\"bindings\":binding,\"steps\":results}\\n\\ndef dependency_checks(record):\\n    edges={p+\"->\"+c:record[p][\"produced\"]==record[c][\"consumed\"] for p,c in required_edges}\\n    checks=dict(edges)\\n    checks[\"data_validation\"]=record[\"data_validation\"][\"validation_ok\"]\\n    checks[\"model_validation\"]=record[\"model_validation\"][\"validation_ok\"]\\n    return {\"ok\":all(checks.values()),\"checks\":checks,\"record\":record}\\n\\ndef exercise_case(case_id):\\n    all_evidence = dependency_run()\\n    return {\"case\":all_evidence[\"cases\"].get(case_id, {\"ok\":False,\"reason\":\"missing case\"}),\"all_evidence\":all_evidence}\\n'\nexec(adapter_source)\n\n# Learner-authored imports, configuration edits, implementations and assertions.\n\n# Supplied validation, configuration and execution scaffolding.\n# Inspect this implementation; leave its fixtures and helpers unchanged.\nsupplied_implementation = 'import copy, json, math, hashlib, io\\nimport yaml\\n\\nrequired_edges = [[\"data_validation\", \"training\"], [\"training\", \"model_validation\"]]\\nconfigured_build = {\\'steps\\': [{\\'id\\': \\'data_validation\\', \\'name\\': \\'python:3.11\\', \\'args\\': [\\'python\\', \\'learner.py\\', \\'${_CASE}\\'], \\'waitFor\\': [\\'-\\']}, {\\'id\\': \\'training\\', \\'name\\': \\'python:3.11\\', \\'args\\': [\\'python\\', \\'downstream_entry.py\\', \\'${_ARTIFACT}\\'], \\'waitFor\\': []}, {\\'id\\': \\'model_validation\\', \\'name\\': \\'python:3.11\\', \\'args\\': [\\'python\\', \\'learner.py\\', \\'${_CASE}\\', \\'TODO_IMMUTABLE_PRODUCER_REFERENCE\\'], \\'waitFor\\': []}], \\'substitutions\\': {\\'_SNAPSHOT\\': \\'valid\\', \\'_CASE\\': \\'valid\\', \\'_ARTIFACT\\': \\'A\\'}, \\'serviceAccount\\': \\'projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com\\'}\\nconfigured_build[\"steps\"][1][\"waitFor\"] = [\\'data_validation\\']\\nconfigured_build[\"steps\"][2][\"waitFor\"] = [\\'training\\']\\nconfigured_build[\"steps\"][2][\"args\"] = [\\'python\\', \\'learner.py\\', \\'${_CASE}\\', \\'A\\']\\n\\ndef dependency_run():\\n    with open(\"configured_build.yaml\", \"w\") as file_handle:\\n        yaml.safe_dump(configured_build, file_handle)\\n    with open(\"configured_build.yaml\") as file_handle:\\n        resolved = yaml.safe_load(file_handle)\\n    assert resolved == configured_build\\n    assert resolved[\"steps\"][0][\"id\"] == \\'data_validation\\'\\n    assert resolved[\"steps\"][0][\"name\"] == \\'python:3.11\\'\\n    assert resolved[\"steps\"][0][\"args\"] == [\\'python\\', \\'learner.py\\', \\'${_CASE}\\']\\n    assert resolved[\"steps\"][0][\"waitFor\"] == [\\'-\\']\\n    assert resolved[\"steps\"][1][\"id\"] == \\'training\\'\\n    assert resolved[\"steps\"][1][\"name\"] == \\'python:3.11\\'\\n    assert resolved[\"steps\"][1][\"args\"] == [\\'python\\', \\'downstream_entry.py\\', \\'${_ARTIFACT}\\']\\n    assert resolved[\"steps\"][1][\"waitFor\"] == [\\'data_validation\\']\\n    assert resolved[\"steps\"][2][\"id\"] == \\'model_validation\\'\\n    assert resolved[\"steps\"][2][\"name\"] == \\'python:3.11\\'\\n    assert resolved[\"steps\"][2][\"args\"] == [\\'python\\', \\'learner.py\\', \\'${_CASE}\\', \\'A\\']\\n    assert resolved[\"steps\"][2][\"waitFor\"] == [\\'training\\']\\n    for step in resolved[\"steps\"]:\\n        assert not step.get(\"allowFailure\")\\n        assert all(code == 0 for code in step.get(\"allowExitCodes\", []))\\n    evidence={k:dependency_checks(v) for k,v in cases.items()}\\n    repaired=copy.deepcopy(cases[\"mismatch\"])\\n    repaired[\"model_validation\"][\"consumed\"]=repaired[\"training\"][\"produced\"]\\n    repair=dependency_checks(repaired)\\n    def data_action(b):\\n        row=cases.get(b[\"_CASE\"],cases[\"mismatch\"])\\n        return {\"ok\":row[\"data_validation\"][\"validation_ok\"],\"consumed\":row[\"data_validation\"][\"consumed\"],\"produced\":row[\"data_validation\"][\"produced\"],\"parameters\":row[\"data_validation\"][\"parameters\"]}\\n    def training_action(b):\\n        row=cases.get(b[\"_CASE\"],cases[\"mismatch\"])\\n        return {\"ok\":row[\"data_validation\"][\"produced\"]==row[\"training\"][\"consumed\"],\"consumed\":row[\"training\"][\"consumed\"],\"produced\":b[\"_RESOLVED_ARGS\"][-1],\"parameters\":row[\"training\"][\"parameters\"]}\\n    def model_action(b):\\n        row=cases.get(b[\"_CASE\"],cases[\"mismatch\"])\\n        record=dependency_checks(row)\\n        record[\"resolved_consumer_matches_producer\"]=b[\"_RESOLVED_ARGS\"][-1]==b[\"_ARTIFACT\"]==row[\"training\"][\"produced\"]==row[\"model_validation\"][\"consumed\"]\\n        record[\"ok\"]=record[\"ok\"] and record[\"resolved_consumer_matches_producer\"]\\n        return record\\n    runs=[execute(resolved,trigger,e,{\"data_validation\":data_action,\"training\":training_action,\"model_validation\":model_action}) for e in trigger[\"fixtures\"]]\\n    assert evidence[\"valid\"][\"ok\"] and evidence[\"boundary\"][\"ok\"]\\n    assert not evidence[\"mismatch\"][\"ok\"] and not evidence[\"rejected_data\"][\"ok\"]\\n    assert repair[\"ok\"]\\n    assert [s[\"status\"] for s in runs[-2][\"steps\"]]==[\"FAILURE\",\"NOT_STARTED\",\"NOT_STARTED\"]\\n    for run in runs:\\n        if run[\"triggered\"]:\\n            for step in run[\"steps\"]:\\n                if step[\"status\"]==\"SUCCESS\":\\n                    assert step[\"resolved_args\"]\\n    return {\"cases\":evidence,\"repaired\":repair,\"required_edges\":required_edges,\"config\":resolved,\"runs\":runs}\\n\\n'\nexec(supplied_implementation)\n# pd is an alias of the supplied PyYAML module, not pandas.\npd = yaml\nbuild_to_submit = configured_build\n\nconfigured_build = pd.safe_load(pd.safe_dump(build_to_submit))\n\n# Supplied runner writes/reloads the selected config and inspects fixture evidence.\nresult = dependency_run()\n"
+      }
+    ],
+    "tests": [
+      {
+        "test_id": "case_valid",
+        "kind": "function_call",
+        "visible": true,
+        "spec": {
+          "function": "exercise_case",
+          "args": [
+            "valid"
+          ],
+          "expected": {
+            "case": {
+              "ok": true,
+              "checks": {
+                "data_validation->training": true,
+                "training->model_validation": true,
+                "data_validation": true,
+                "model_validation": true
+              },
+              "record": {
+                "data_validation": {
+                  "consumed": "snapshot.A",
+                  "parameters": {
+                    "contract": "dataset_contract"
+                  },
+                  "produced": "validated.snapshot.A",
+                  "validation_ok": true
+                },
+                "training": {
+                  "consumed": "validated.snapshot.A",
+                  "parameters": {
+                    "feature_scale": 5,
+                    "threshold": 0.4,
+                    "package": "A"
+                  },
+                  "produced": "A"
+                },
+                "model_validation": {
+                  "consumed": "A",
+                  "parameters": {
+                    "rtol": 1e-07,
+                    "atol": 1e-08
+                  },
+                  "produced": "validated.A",
+                  "validation_ok": true
+                }
+              }
+            },
+            "all_evidence": {
+              "cases": {
+                "valid": {
+                  "ok": true,
+                  "checks": {
+                    "data_validation->training": true,
+                    "training->model_validation": true,
+                    "data_validation": true,
+                    "model_validation": true
+                  },
+                  "record": {
+                    "data_validation": {
+                      "consumed": "snapshot.A",
+                      "parameters": {
+                        "contract": "dataset_contract"
+                      },
+                      "produced": "validated.snapshot.A",
+                      "validation_ok": true
+                    },
+                    "training": {
+                      "consumed": "validated.snapshot.A",
+                      "parameters": {
+                        "feature_scale": 5,
+                        "threshold": 0.4,
+                        "package": "A"
+                      },
+                      "produced": "A"
+                    },
+                    "model_validation": {
+                      "consumed": "A",
+                      "parameters": {
+                        "rtol": 1e-07,
+                        "atol": 1e-08
+                      },
+                      "produced": "validated.A",
+                      "validation_ok": true
+                    }
+                  }
+                },
+                "mismatch": {
+                  "ok": false,
+                  "checks": {
+                    "data_validation->training": true,
+                    "training->model_validation": false,
+                    "data_validation": true,
+                    "model_validation": true
+                  },
+                  "record": {
+                    "data_validation": {
+                      "consumed": "snapshot.A",
+                      "parameters": {
+                        "contract": "dataset_contract"
+                      },
+                      "produced": "validated.snapshot.A",
+                      "validation_ok": true
+                    },
+                    "training": {
+                      "consumed": "validated.snapshot.A",
+                      "parameters": {
+                        "feature_scale": 5,
+                        "threshold": 0.4,
+                        "package": "A"
+                      },
+                      "produced": "A"
+                    },
+                    "model_validation": {
+                      "consumed": "B",
+                      "parameters": {
+                        "rtol": 1e-07,
+                        "atol": 1e-08
+                      },
+                      "produced": "validated.A",
+                      "validation_ok": true
+                    }
+                  }
+                },
+                "rejected_data": {
+                  "ok": false,
+                  "checks": {
+                    "data_validation->training": true,
+                    "training->model_validation": true,
+                    "data_validation": false,
+                    "model_validation": true
+                  },
+                  "record": {
+                    "data_validation": {
+                      "consumed": "snapshot.A",
+                      "parameters": {
+                        "contract": "dataset_contract"
+                      },
+                      "produced": "validated.snapshot.A",
+                      "validation_ok": false
+                    },
+                    "training": {
+                      "consumed": "validated.snapshot.A",
+                      "parameters": {
+                        "feature_scale": 5,
+                        "threshold": 0.4,
+                        "package": "A"
+                      },
+                      "produced": "A"
+                    },
+                    "model_validation": {
+                      "consumed": "A",
+                      "parameters": {
+                        "rtol": 1e-07,
+                        "atol": 1e-08
+                      },
+                      "produced": "validated.A",
+                      "validation_ok": true
+                    }
+                  }
+                },
+                "boundary": {
+                  "ok": true,
+                  "checks": {
+                    "data_validation->training": true,
+                    "training->model_validation": true,
+                    "data_validation": true,
+                    "model_validation": true
+                  },
+                  "record": {
+                    "data_validation": {
+                      "consumed": "snapshot.A",
+                      "parameters": {
+                        "contract": "dataset_contract"
+                      },
+                      "produced": "validated.snapshot.A",
+                      "validation_ok": true
+                    },
+                    "training": {
+                      "consumed": "validated.snapshot.A",
+                      "parameters": {
+                        "feature_scale": 5,
+                        "threshold": 0.4,
+                        "package": "A"
+                      },
+                      "produced": "A"
+                    },
+                    "model_validation": {
+                      "consumed": "A",
+                      "parameters": {
+                        "rtol": 1e-07,
+                        "atol": 1e-08
+                      },
+                      "produced": "validated.A",
+                      "validation_ok": true
+                    }
+                  }
+                }
+              },
+              "repaired": {
+                "ok": true,
+                "checks": {
+                  "data_validation->training": true,
+                  "training->model_validation": true,
+                  "data_validation": true,
+                  "model_validation": true
+                },
+                "record": {
+                  "data_validation": {
+                    "consumed": "snapshot.A",
+                    "parameters": {
+                      "contract": "dataset_contract"
+                    },
+                    "produced": "validated.snapshot.A",
+                    "validation_ok": true
+                  },
+                  "training": {
+                    "consumed": "validated.snapshot.A",
+                    "parameters": {
+                      "feature_scale": 5,
+                      "threshold": 0.4,
+                      "package": "A"
+                    },
+                    "produced": "A"
+                  },
+                  "model_validation": {
+                    "consumed": "A",
+                    "parameters": {
+                      "rtol": 1e-07,
+                      "atol": 1e-08
+                    },
+                    "produced": "validated.A",
+                    "validation_ok": true
+                  }
+                }
+              },
+              "required_edges": [
+                [
+                  "data_validation",
+                  "training"
+                ],
+                [
+                  "training",
+                  "model_validation"
+                ]
+              ],
+              "config": {
+                "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+                "steps": [
+                  {
+                    "args": [
+                      "python",
+                      "learner.py",
+                      "${_CASE}"
+                    ],
+                    "id": "data_validation",
+                    "name": "python:3.11",
+                    "waitFor": [
+                      "-"
+                    ]
+                  },
+                  {
+                    "args": [
+                      "python",
+                      "downstream_entry.py",
+                      "${_ARTIFACT}"
+                    ],
+                    "id": "training",
+                    "name": "python:3.11",
+                    "waitFor": [
+                      "data_validation"
+                    ]
+                  },
+                  {
+                    "args": [
+                      "python",
+                      "learner.py",
+                      "${_CASE}",
+                      "A"
+                    ],
+                    "id": "model_validation",
+                    "name": "python:3.11",
+                    "waitFor": [
+                      "training"
+                    ]
+                  }
+                ],
+                "substitutions": {
+                  "_ARTIFACT": "A",
+                  "_CASE": "valid",
+                  "_SNAPSHOT": "valid"
+                }
+              },
+              "runs": [
+                {
+                  "triggered": true,
+                  "bindings": {
+                    "_ARTIFACT": "A",
+                    "_CASE": "valid",
+                    "_SNAPSHOT": "valid"
+                  },
+                  "steps": [
+                    {
+                      "id": "data_validation",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "learner.py",
+                        "valid"
+                      ],
+                      "waitFor": [],
+                      "status": "SUCCESS",
+                      "exit_code": 0,
+                      "evidence": {
+                        "ok": true,
+                        "consumed": "snapshot.A",
+                        "produced": "validated.snapshot.A",
+                        "parameters": {
+                          "contract": "dataset_contract"
+                        }
+                      }
+                    },
+                    {
+                      "id": "training",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "downstream_entry.py",
+                        "A"
+                      ],
+                      "waitFor": [
+                        "data_validation"
+                      ],
+                      "status": "SUCCESS",
+                      "exit_code": 0,
+                      "evidence": {
+                        "ok": true,
+                        "consumed": "validated.snapshot.A",
+                        "produced": "A",
+                        "parameters": {
+                          "feature_scale": 5,
+                          "threshold": 0.4,
+                          "package": "A"
+                        }
+                      }
+                    },
+                    {
+                      "id": "model_validation",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "learner.py",
+                        "valid",
+                        "A"
+                      ],
+                      "waitFor": [
+                        "training"
+                      ],
+                      "status": "SUCCESS",
+                      "exit_code": 0,
+                      "evidence": {
+                        "ok": true,
+                        "checks": {
+                          "data_validation->training": true,
+                          "training->model_validation": true,
+                          "data_validation": true,
+                          "model_validation": true
+                        },
+                        "record": {
+                          "data_validation": {
+                            "consumed": "snapshot.A",
+                            "parameters": {
+                              "contract": "dataset_contract"
+                            },
+                            "produced": "validated.snapshot.A",
+                            "validation_ok": true
+                          },
+                          "training": {
+                            "consumed": "validated.snapshot.A",
+                            "parameters": {
+                              "feature_scale": 5,
+                              "threshold": 0.4,
+                              "package": "A"
+                            },
+                            "produced": "A"
+                          },
+                          "model_validation": {
+                            "consumed": "A",
+                            "parameters": {
+                              "rtol": 1e-07,
+                              "atol": 1e-08
+                            },
+                            "produced": "validated.A",
+                            "validation_ok": true
+                          }
+                        },
+                        "resolved_consumer_matches_producer": true
+                      }
+                    }
+                  ]
+                },
+                {
+                  "triggered": true,
+                  "bindings": {
+                    "_ARTIFACT": "B",
+                    "_CASE": "mismatch",
+                    "_SNAPSHOT": "valid"
+                  },
+                  "steps": [
+                    {
+                      "id": "data_validation",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "learner.py",
+                        "mismatch"
+                      ],
+                      "waitFor": [],
+                      "status": "SUCCESS",
+                      "exit_code": 0,
+                      "evidence": {
+                        "ok": true,
+                        "consumed": "snapshot.A",
+                        "produced": "validated.snapshot.A",
+                        "parameters": {
+                          "contract": "dataset_contract"
+                        }
+                      }
+                    },
+                    {
+                      "id": "training",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "downstream_entry.py",
+                        "B"
+                      ],
+                      "waitFor": [
+                        "data_validation"
+                      ],
+                      "status": "SUCCESS",
+                      "exit_code": 0,
+                      "evidence": {
+                        "ok": true,
+                        "consumed": "validated.snapshot.A",
+                        "produced": "B",
+                        "parameters": {
+                          "feature_scale": 5,
+                          "threshold": 0.4,
+                          "package": "A"
+                        }
+                      }
+                    },
+                    {
+                      "id": "model_validation",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "learner.py",
+                        "mismatch",
+                        "A"
+                      ],
+                      "waitFor": [
+                        "training"
+                      ],
+                      "status": "FAILURE",
+                      "exit_code": 1,
+                      "evidence": {
+                        "ok": false,
+                        "checks": {
+                          "data_validation->training": true,
+                          "training->model_validation": false,
+                          "data_validation": true,
+                          "model_validation": true
+                        },
+                        "record": {
+                          "data_validation": {
+                            "consumed": "snapshot.A",
+                            "parameters": {
+                              "contract": "dataset_contract"
+                            },
+                            "produced": "validated.snapshot.A",
+                            "validation_ok": true
+                          },
+                          "training": {
+                            "consumed": "validated.snapshot.A",
+                            "parameters": {
+                              "feature_scale": 5,
+                              "threshold": 0.4,
+                              "package": "A"
+                            },
+                            "produced": "A"
+                          },
+                          "model_validation": {
+                            "consumed": "B",
+                            "parameters": {
+                              "rtol": 1e-07,
+                              "atol": 1e-08
+                            },
+                            "produced": "validated.A",
+                            "validation_ok": true
+                          }
+                        },
+                        "resolved_consumer_matches_producer": false
+                      }
+                    }
+                  ]
+                },
+                {
+                  "triggered": true,
+                  "bindings": {
+                    "_ARTIFACT": "A",
+                    "_CASE": "rejected_data",
+                    "_SNAPSHOT": "valid"
+                  },
+                  "steps": [
+                    {
+                      "id": "data_validation",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "learner.py",
+                        "rejected_data"
+                      ],
+                      "waitFor": [],
+                      "status": "FAILURE",
+                      "exit_code": 1,
+                      "evidence": {
+                        "ok": false,
+                        "consumed": "snapshot.A",
+                        "produced": "validated.snapshot.A",
+                        "parameters": {
+                          "contract": "dataset_contract"
+                        }
+                      }
+                    },
+                    {
+                      "id": "training",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "downstream_entry.py",
+                        "A"
+                      ],
+                      "waitFor": [
+                        "data_validation"
+                      ],
+                      "status": "NOT_STARTED",
+                      "exit_code": null,
+                      "evidence": null
+                    },
+                    {
+                      "id": "model_validation",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "learner.py",
+                        "rejected_data",
+                        "A"
+                      ],
+                      "waitFor": [
+                        "training"
+                      ],
+                      "status": "NOT_STARTED",
+                      "exit_code": null,
+                      "evidence": null
+                    }
+                  ]
+                },
+                {
+                  "triggered": false,
+                  "steps": []
+                }
+              ]
+            }
+          }
+        },
+        "message_on_fail": "Use every required predicate and the explicit fatal configuration. Inspect the recorded evidence for the first case that differs."
+      },
+      {
+        "test_id": "case_mismatch",
+        "kind": "function_call",
+        "visible": true,
+        "spec": {
+          "function": "exercise_case",
+          "args": [
+            "mismatch"
+          ],
+          "expected": {
+            "case": {
+              "ok": false,
+              "checks": {
+                "data_validation->training": true,
+                "training->model_validation": false,
+                "data_validation": true,
+                "model_validation": true
+              },
+              "record": {
+                "data_validation": {
+                  "consumed": "snapshot.A",
+                  "parameters": {
+                    "contract": "dataset_contract"
+                  },
+                  "produced": "validated.snapshot.A",
+                  "validation_ok": true
+                },
+                "training": {
+                  "consumed": "validated.snapshot.A",
+                  "parameters": {
+                    "feature_scale": 5,
+                    "threshold": 0.4,
+                    "package": "A"
+                  },
+                  "produced": "A"
+                },
+                "model_validation": {
+                  "consumed": "B",
+                  "parameters": {
+                    "rtol": 1e-07,
+                    "atol": 1e-08
+                  },
+                  "produced": "validated.A",
+                  "validation_ok": true
+                }
+              }
+            },
+            "all_evidence": {
+              "cases": {
+                "valid": {
+                  "ok": true,
+                  "checks": {
+                    "data_validation->training": true,
+                    "training->model_validation": true,
+                    "data_validation": true,
+                    "model_validation": true
+                  },
+                  "record": {
+                    "data_validation": {
+                      "consumed": "snapshot.A",
+                      "parameters": {
+                        "contract": "dataset_contract"
+                      },
+                      "produced": "validated.snapshot.A",
+                      "validation_ok": true
+                    },
+                    "training": {
+                      "consumed": "validated.snapshot.A",
+                      "parameters": {
+                        "feature_scale": 5,
+                        "threshold": 0.4,
+                        "package": "A"
+                      },
+                      "produced": "A"
+                    },
+                    "model_validation": {
+                      "consumed": "A",
+                      "parameters": {
+                        "rtol": 1e-07,
+                        "atol": 1e-08
+                      },
+                      "produced": "validated.A",
+                      "validation_ok": true
+                    }
+                  }
+                },
+                "mismatch": {
+                  "ok": false,
+                  "checks": {
+                    "data_validation->training": true,
+                    "training->model_validation": false,
+                    "data_validation": true,
+                    "model_validation": true
+                  },
+                  "record": {
+                    "data_validation": {
+                      "consumed": "snapshot.A",
+                      "parameters": {
+                        "contract": "dataset_contract"
+                      },
+                      "produced": "validated.snapshot.A",
+                      "validation_ok": true
+                    },
+                    "training": {
+                      "consumed": "validated.snapshot.A",
+                      "parameters": {
+                        "feature_scale": 5,
+                        "threshold": 0.4,
+                        "package": "A"
+                      },
+                      "produced": "A"
+                    },
+                    "model_validation": {
+                      "consumed": "B",
+                      "parameters": {
+                        "rtol": 1e-07,
+                        "atol": 1e-08
+                      },
+                      "produced": "validated.A",
+                      "validation_ok": true
+                    }
+                  }
+                },
+                "rejected_data": {
+                  "ok": false,
+                  "checks": {
+                    "data_validation->training": true,
+                    "training->model_validation": true,
+                    "data_validation": false,
+                    "model_validation": true
+                  },
+                  "record": {
+                    "data_validation": {
+                      "consumed": "snapshot.A",
+                      "parameters": {
+                        "contract": "dataset_contract"
+                      },
+                      "produced": "validated.snapshot.A",
+                      "validation_ok": false
+                    },
+                    "training": {
+                      "consumed": "validated.snapshot.A",
+                      "parameters": {
+                        "feature_scale": 5,
+                        "threshold": 0.4,
+                        "package": "A"
+                      },
+                      "produced": "A"
+                    },
+                    "model_validation": {
+                      "consumed": "A",
+                      "parameters": {
+                        "rtol": 1e-07,
+                        "atol": 1e-08
+                      },
+                      "produced": "validated.A",
+                      "validation_ok": true
+                    }
+                  }
+                },
+                "boundary": {
+                  "ok": true,
+                  "checks": {
+                    "data_validation->training": true,
+                    "training->model_validation": true,
+                    "data_validation": true,
+                    "model_validation": true
+                  },
+                  "record": {
+                    "data_validation": {
+                      "consumed": "snapshot.A",
+                      "parameters": {
+                        "contract": "dataset_contract"
+                      },
+                      "produced": "validated.snapshot.A",
+                      "validation_ok": true
+                    },
+                    "training": {
+                      "consumed": "validated.snapshot.A",
+                      "parameters": {
+                        "feature_scale": 5,
+                        "threshold": 0.4,
+                        "package": "A"
+                      },
+                      "produced": "A"
+                    },
+                    "model_validation": {
+                      "consumed": "A",
+                      "parameters": {
+                        "rtol": 1e-07,
+                        "atol": 1e-08
+                      },
+                      "produced": "validated.A",
+                      "validation_ok": true
+                    }
+                  }
+                }
+              },
+              "repaired": {
+                "ok": true,
+                "checks": {
+                  "data_validation->training": true,
+                  "training->model_validation": true,
+                  "data_validation": true,
+                  "model_validation": true
+                },
+                "record": {
+                  "data_validation": {
+                    "consumed": "snapshot.A",
+                    "parameters": {
+                      "contract": "dataset_contract"
+                    },
+                    "produced": "validated.snapshot.A",
+                    "validation_ok": true
+                  },
+                  "training": {
+                    "consumed": "validated.snapshot.A",
+                    "parameters": {
+                      "feature_scale": 5,
+                      "threshold": 0.4,
+                      "package": "A"
+                    },
+                    "produced": "A"
+                  },
+                  "model_validation": {
+                    "consumed": "A",
+                    "parameters": {
+                      "rtol": 1e-07,
+                      "atol": 1e-08
+                    },
+                    "produced": "validated.A",
+                    "validation_ok": true
+                  }
+                }
+              },
+              "required_edges": [
+                [
+                  "data_validation",
+                  "training"
+                ],
+                [
+                  "training",
+                  "model_validation"
+                ]
+              ],
+              "config": {
+                "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+                "steps": [
+                  {
+                    "args": [
+                      "python",
+                      "learner.py",
+                      "${_CASE}"
+                    ],
+                    "id": "data_validation",
+                    "name": "python:3.11",
+                    "waitFor": [
+                      "-"
+                    ]
+                  },
+                  {
+                    "args": [
+                      "python",
+                      "downstream_entry.py",
+                      "${_ARTIFACT}"
+                    ],
+                    "id": "training",
+                    "name": "python:3.11",
+                    "waitFor": [
+                      "data_validation"
+                    ]
+                  },
+                  {
+                    "args": [
+                      "python",
+                      "learner.py",
+                      "${_CASE}",
+                      "A"
+                    ],
+                    "id": "model_validation",
+                    "name": "python:3.11",
+                    "waitFor": [
+                      "training"
+                    ]
+                  }
+                ],
+                "substitutions": {
+                  "_ARTIFACT": "A",
+                  "_CASE": "valid",
+                  "_SNAPSHOT": "valid"
+                }
+              },
+              "runs": [
+                {
+                  "triggered": true,
+                  "bindings": {
+                    "_ARTIFACT": "A",
+                    "_CASE": "valid",
+                    "_SNAPSHOT": "valid"
+                  },
+                  "steps": [
+                    {
+                      "id": "data_validation",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "learner.py",
+                        "valid"
+                      ],
+                      "waitFor": [],
+                      "status": "SUCCESS",
+                      "exit_code": 0,
+                      "evidence": {
+                        "ok": true,
+                        "consumed": "snapshot.A",
+                        "produced": "validated.snapshot.A",
+                        "parameters": {
+                          "contract": "dataset_contract"
+                        }
+                      }
+                    },
+                    {
+                      "id": "training",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "downstream_entry.py",
+                        "A"
+                      ],
+                      "waitFor": [
+                        "data_validation"
+                      ],
+                      "status": "SUCCESS",
+                      "exit_code": 0,
+                      "evidence": {
+                        "ok": true,
+                        "consumed": "validated.snapshot.A",
+                        "produced": "A",
+                        "parameters": {
+                          "feature_scale": 5,
+                          "threshold": 0.4,
+                          "package": "A"
+                        }
+                      }
+                    },
+                    {
+                      "id": "model_validation",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "learner.py",
+                        "valid",
+                        "A"
+                      ],
+                      "waitFor": [
+                        "training"
+                      ],
+                      "status": "SUCCESS",
+                      "exit_code": 0,
+                      "evidence": {
+                        "ok": true,
+                        "checks": {
+                          "data_validation->training": true,
+                          "training->model_validation": true,
+                          "data_validation": true,
+                          "model_validation": true
+                        },
+                        "record": {
+                          "data_validation": {
+                            "consumed": "snapshot.A",
+                            "parameters": {
+                              "contract": "dataset_contract"
+                            },
+                            "produced": "validated.snapshot.A",
+                            "validation_ok": true
+                          },
+                          "training": {
+                            "consumed": "validated.snapshot.A",
+                            "parameters": {
+                              "feature_scale": 5,
+                              "threshold": 0.4,
+                              "package": "A"
+                            },
+                            "produced": "A"
+                          },
+                          "model_validation": {
+                            "consumed": "A",
+                            "parameters": {
+                              "rtol": 1e-07,
+                              "atol": 1e-08
+                            },
+                            "produced": "validated.A",
+                            "validation_ok": true
+                          }
+                        },
+                        "resolved_consumer_matches_producer": true
+                      }
+                    }
+                  ]
+                },
+                {
+                  "triggered": true,
+                  "bindings": {
+                    "_ARTIFACT": "B",
+                    "_CASE": "mismatch",
+                    "_SNAPSHOT": "valid"
+                  },
+                  "steps": [
+                    {
+                      "id": "data_validation",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "learner.py",
+                        "mismatch"
+                      ],
+                      "waitFor": [],
+                      "status": "SUCCESS",
+                      "exit_code": 0,
+                      "evidence": {
+                        "ok": true,
+                        "consumed": "snapshot.A",
+                        "produced": "validated.snapshot.A",
+                        "parameters": {
+                          "contract": "dataset_contract"
+                        }
+                      }
+                    },
+                    {
+                      "id": "training",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "downstream_entry.py",
+                        "B"
+                      ],
+                      "waitFor": [
+                        "data_validation"
+                      ],
+                      "status": "SUCCESS",
+                      "exit_code": 0,
+                      "evidence": {
+                        "ok": true,
+                        "consumed": "validated.snapshot.A",
+                        "produced": "B",
+                        "parameters": {
+                          "feature_scale": 5,
+                          "threshold": 0.4,
+                          "package": "A"
+                        }
+                      }
+                    },
+                    {
+                      "id": "model_validation",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "learner.py",
+                        "mismatch",
+                        "A"
+                      ],
+                      "waitFor": [
+                        "training"
+                      ],
+                      "status": "FAILURE",
+                      "exit_code": 1,
+                      "evidence": {
+                        "ok": false,
+                        "checks": {
+                          "data_validation->training": true,
+                          "training->model_validation": false,
+                          "data_validation": true,
+                          "model_validation": true
+                        },
+                        "record": {
+                          "data_validation": {
+                            "consumed": "snapshot.A",
+                            "parameters": {
+                              "contract": "dataset_contract"
+                            },
+                            "produced": "validated.snapshot.A",
+                            "validation_ok": true
+                          },
+                          "training": {
+                            "consumed": "validated.snapshot.A",
+                            "parameters": {
+                              "feature_scale": 5,
+                              "threshold": 0.4,
+                              "package": "A"
+                            },
+                            "produced": "A"
+                          },
+                          "model_validation": {
+                            "consumed": "B",
+                            "parameters": {
+                              "rtol": 1e-07,
+                              "atol": 1e-08
+                            },
+                            "produced": "validated.A",
+                            "validation_ok": true
+                          }
+                        },
+                        "resolved_consumer_matches_producer": false
+                      }
+                    }
+                  ]
+                },
+                {
+                  "triggered": true,
+                  "bindings": {
+                    "_ARTIFACT": "A",
+                    "_CASE": "rejected_data",
+                    "_SNAPSHOT": "valid"
+                  },
+                  "steps": [
+                    {
+                      "id": "data_validation",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "learner.py",
+                        "rejected_data"
+                      ],
+                      "waitFor": [],
+                      "status": "FAILURE",
+                      "exit_code": 1,
+                      "evidence": {
+                        "ok": false,
+                        "consumed": "snapshot.A",
+                        "produced": "validated.snapshot.A",
+                        "parameters": {
+                          "contract": "dataset_contract"
+                        }
+                      }
+                    },
+                    {
+                      "id": "training",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "downstream_entry.py",
+                        "A"
+                      ],
+                      "waitFor": [
+                        "data_validation"
+                      ],
+                      "status": "NOT_STARTED",
+                      "exit_code": null,
+                      "evidence": null
+                    },
+                    {
+                      "id": "model_validation",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "learner.py",
+                        "rejected_data",
+                        "A"
+                      ],
+                      "waitFor": [
+                        "training"
+                      ],
+                      "status": "NOT_STARTED",
+                      "exit_code": null,
+                      "evidence": null
+                    }
+                  ]
+                },
+                {
+                  "triggered": false,
+                  "steps": []
+                }
+              ]
+            }
+          }
+        },
+        "message_on_fail": "Use every required predicate and the explicit fatal configuration. Inspect the recorded evidence for the first case that differs."
+      },
+      {
+        "test_id": "case_rejected_data",
+        "kind": "function_call",
+        "visible": true,
+        "spec": {
+          "function": "exercise_case",
+          "args": [
+            "rejected_data"
+          ],
+          "expected": {
+            "case": {
+              "ok": false,
+              "checks": {
+                "data_validation->training": true,
+                "training->model_validation": true,
+                "data_validation": false,
+                "model_validation": true
+              },
+              "record": {
+                "data_validation": {
+                  "consumed": "snapshot.A",
+                  "parameters": {
+                    "contract": "dataset_contract"
+                  },
+                  "produced": "validated.snapshot.A",
+                  "validation_ok": false
+                },
+                "training": {
+                  "consumed": "validated.snapshot.A",
+                  "parameters": {
+                    "feature_scale": 5,
+                    "threshold": 0.4,
+                    "package": "A"
+                  },
+                  "produced": "A"
+                },
+                "model_validation": {
+                  "consumed": "A",
+                  "parameters": {
+                    "rtol": 1e-07,
+                    "atol": 1e-08
+                  },
+                  "produced": "validated.A",
+                  "validation_ok": true
+                }
+              }
+            },
+            "all_evidence": {
+              "cases": {
+                "valid": {
+                  "ok": true,
+                  "checks": {
+                    "data_validation->training": true,
+                    "training->model_validation": true,
+                    "data_validation": true,
+                    "model_validation": true
+                  },
+                  "record": {
+                    "data_validation": {
+                      "consumed": "snapshot.A",
+                      "parameters": {
+                        "contract": "dataset_contract"
+                      },
+                      "produced": "validated.snapshot.A",
+                      "validation_ok": true
+                    },
+                    "training": {
+                      "consumed": "validated.snapshot.A",
+                      "parameters": {
+                        "feature_scale": 5,
+                        "threshold": 0.4,
+                        "package": "A"
+                      },
+                      "produced": "A"
+                    },
+                    "model_validation": {
+                      "consumed": "A",
+                      "parameters": {
+                        "rtol": 1e-07,
+                        "atol": 1e-08
+                      },
+                      "produced": "validated.A",
+                      "validation_ok": true
+                    }
+                  }
+                },
+                "mismatch": {
+                  "ok": false,
+                  "checks": {
+                    "data_validation->training": true,
+                    "training->model_validation": false,
+                    "data_validation": true,
+                    "model_validation": true
+                  },
+                  "record": {
+                    "data_validation": {
+                      "consumed": "snapshot.A",
+                      "parameters": {
+                        "contract": "dataset_contract"
+                      },
+                      "produced": "validated.snapshot.A",
+                      "validation_ok": true
+                    },
+                    "training": {
+                      "consumed": "validated.snapshot.A",
+                      "parameters": {
+                        "feature_scale": 5,
+                        "threshold": 0.4,
+                        "package": "A"
+                      },
+                      "produced": "A"
+                    },
+                    "model_validation": {
+                      "consumed": "B",
+                      "parameters": {
+                        "rtol": 1e-07,
+                        "atol": 1e-08
+                      },
+                      "produced": "validated.A",
+                      "validation_ok": true
+                    }
+                  }
+                },
+                "rejected_data": {
+                  "ok": false,
+                  "checks": {
+                    "data_validation->training": true,
+                    "training->model_validation": true,
+                    "data_validation": false,
+                    "model_validation": true
+                  },
+                  "record": {
+                    "data_validation": {
+                      "consumed": "snapshot.A",
+                      "parameters": {
+                        "contract": "dataset_contract"
+                      },
+                      "produced": "validated.snapshot.A",
+                      "validation_ok": false
+                    },
+                    "training": {
+                      "consumed": "validated.snapshot.A",
+                      "parameters": {
+                        "feature_scale": 5,
+                        "threshold": 0.4,
+                        "package": "A"
+                      },
+                      "produced": "A"
+                    },
+                    "model_validation": {
+                      "consumed": "A",
+                      "parameters": {
+                        "rtol": 1e-07,
+                        "atol": 1e-08
+                      },
+                      "produced": "validated.A",
+                      "validation_ok": true
+                    }
+                  }
+                },
+                "boundary": {
+                  "ok": true,
+                  "checks": {
+                    "data_validation->training": true,
+                    "training->model_validation": true,
+                    "data_validation": true,
+                    "model_validation": true
+                  },
+                  "record": {
+                    "data_validation": {
+                      "consumed": "snapshot.A",
+                      "parameters": {
+                        "contract": "dataset_contract"
+                      },
+                      "produced": "validated.snapshot.A",
+                      "validation_ok": true
+                    },
+                    "training": {
+                      "consumed": "validated.snapshot.A",
+                      "parameters": {
+                        "feature_scale": 5,
+                        "threshold": 0.4,
+                        "package": "A"
+                      },
+                      "produced": "A"
+                    },
+                    "model_validation": {
+                      "consumed": "A",
+                      "parameters": {
+                        "rtol": 1e-07,
+                        "atol": 1e-08
+                      },
+                      "produced": "validated.A",
+                      "validation_ok": true
+                    }
+                  }
+                }
+              },
+              "repaired": {
+                "ok": true,
+                "checks": {
+                  "data_validation->training": true,
+                  "training->model_validation": true,
+                  "data_validation": true,
+                  "model_validation": true
+                },
+                "record": {
+                  "data_validation": {
+                    "consumed": "snapshot.A",
+                    "parameters": {
+                      "contract": "dataset_contract"
+                    },
+                    "produced": "validated.snapshot.A",
+                    "validation_ok": true
+                  },
+                  "training": {
+                    "consumed": "validated.snapshot.A",
+                    "parameters": {
+                      "feature_scale": 5,
+                      "threshold": 0.4,
+                      "package": "A"
+                    },
+                    "produced": "A"
+                  },
+                  "model_validation": {
+                    "consumed": "A",
+                    "parameters": {
+                      "rtol": 1e-07,
+                      "atol": 1e-08
+                    },
+                    "produced": "validated.A",
+                    "validation_ok": true
+                  }
+                }
+              },
+              "required_edges": [
+                [
+                  "data_validation",
+                  "training"
+                ],
+                [
+                  "training",
+                  "model_validation"
+                ]
+              ],
+              "config": {
+                "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+                "steps": [
+                  {
+                    "args": [
+                      "python",
+                      "learner.py",
+                      "${_CASE}"
+                    ],
+                    "id": "data_validation",
+                    "name": "python:3.11",
+                    "waitFor": [
+                      "-"
+                    ]
+                  },
+                  {
+                    "args": [
+                      "python",
+                      "downstream_entry.py",
+                      "${_ARTIFACT}"
+                    ],
+                    "id": "training",
+                    "name": "python:3.11",
+                    "waitFor": [
+                      "data_validation"
+                    ]
+                  },
+                  {
+                    "args": [
+                      "python",
+                      "learner.py",
+                      "${_CASE}",
+                      "A"
+                    ],
+                    "id": "model_validation",
+                    "name": "python:3.11",
+                    "waitFor": [
+                      "training"
+                    ]
+                  }
+                ],
+                "substitutions": {
+                  "_ARTIFACT": "A",
+                  "_CASE": "valid",
+                  "_SNAPSHOT": "valid"
+                }
+              },
+              "runs": [
+                {
+                  "triggered": true,
+                  "bindings": {
+                    "_ARTIFACT": "A",
+                    "_CASE": "valid",
+                    "_SNAPSHOT": "valid"
+                  },
+                  "steps": [
+                    {
+                      "id": "data_validation",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "learner.py",
+                        "valid"
+                      ],
+                      "waitFor": [],
+                      "status": "SUCCESS",
+                      "exit_code": 0,
+                      "evidence": {
+                        "ok": true,
+                        "consumed": "snapshot.A",
+                        "produced": "validated.snapshot.A",
+                        "parameters": {
+                          "contract": "dataset_contract"
+                        }
+                      }
+                    },
+                    {
+                      "id": "training",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "downstream_entry.py",
+                        "A"
+                      ],
+                      "waitFor": [
+                        "data_validation"
+                      ],
+                      "status": "SUCCESS",
+                      "exit_code": 0,
+                      "evidence": {
+                        "ok": true,
+                        "consumed": "validated.snapshot.A",
+                        "produced": "A",
+                        "parameters": {
+                          "feature_scale": 5,
+                          "threshold": 0.4,
+                          "package": "A"
+                        }
+                      }
+                    },
+                    {
+                      "id": "model_validation",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "learner.py",
+                        "valid",
+                        "A"
+                      ],
+                      "waitFor": [
+                        "training"
+                      ],
+                      "status": "SUCCESS",
+                      "exit_code": 0,
+                      "evidence": {
+                        "ok": true,
+                        "checks": {
+                          "data_validation->training": true,
+                          "training->model_validation": true,
+                          "data_validation": true,
+                          "model_validation": true
+                        },
+                        "record": {
+                          "data_validation": {
+                            "consumed": "snapshot.A",
+                            "parameters": {
+                              "contract": "dataset_contract"
+                            },
+                            "produced": "validated.snapshot.A",
+                            "validation_ok": true
+                          },
+                          "training": {
+                            "consumed": "validated.snapshot.A",
+                            "parameters": {
+                              "feature_scale": 5,
+                              "threshold": 0.4,
+                              "package": "A"
+                            },
+                            "produced": "A"
+                          },
+                          "model_validation": {
+                            "consumed": "A",
+                            "parameters": {
+                              "rtol": 1e-07,
+                              "atol": 1e-08
+                            },
+                            "produced": "validated.A",
+                            "validation_ok": true
+                          }
+                        },
+                        "resolved_consumer_matches_producer": true
+                      }
+                    }
+                  ]
+                },
+                {
+                  "triggered": true,
+                  "bindings": {
+                    "_ARTIFACT": "B",
+                    "_CASE": "mismatch",
+                    "_SNAPSHOT": "valid"
+                  },
+                  "steps": [
+                    {
+                      "id": "data_validation",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "learner.py",
+                        "mismatch"
+                      ],
+                      "waitFor": [],
+                      "status": "SUCCESS",
+                      "exit_code": 0,
+                      "evidence": {
+                        "ok": true,
+                        "consumed": "snapshot.A",
+                        "produced": "validated.snapshot.A",
+                        "parameters": {
+                          "contract": "dataset_contract"
+                        }
+                      }
+                    },
+                    {
+                      "id": "training",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "downstream_entry.py",
+                        "B"
+                      ],
+                      "waitFor": [
+                        "data_validation"
+                      ],
+                      "status": "SUCCESS",
+                      "exit_code": 0,
+                      "evidence": {
+                        "ok": true,
+                        "consumed": "validated.snapshot.A",
+                        "produced": "B",
+                        "parameters": {
+                          "feature_scale": 5,
+                          "threshold": 0.4,
+                          "package": "A"
+                        }
+                      }
+                    },
+                    {
+                      "id": "model_validation",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "learner.py",
+                        "mismatch",
+                        "A"
+                      ],
+                      "waitFor": [
+                        "training"
+                      ],
+                      "status": "FAILURE",
+                      "exit_code": 1,
+                      "evidence": {
+                        "ok": false,
+                        "checks": {
+                          "data_validation->training": true,
+                          "training->model_validation": false,
+                          "data_validation": true,
+                          "model_validation": true
+                        },
+                        "record": {
+                          "data_validation": {
+                            "consumed": "snapshot.A",
+                            "parameters": {
+                              "contract": "dataset_contract"
+                            },
+                            "produced": "validated.snapshot.A",
+                            "validation_ok": true
+                          },
+                          "training": {
+                            "consumed": "validated.snapshot.A",
+                            "parameters": {
+                              "feature_scale": 5,
+                              "threshold": 0.4,
+                              "package": "A"
+                            },
+                            "produced": "A"
+                          },
+                          "model_validation": {
+                            "consumed": "B",
+                            "parameters": {
+                              "rtol": 1e-07,
+                              "atol": 1e-08
+                            },
+                            "produced": "validated.A",
+                            "validation_ok": true
+                          }
+                        },
+                        "resolved_consumer_matches_producer": false
+                      }
+                    }
+                  ]
+                },
+                {
+                  "triggered": true,
+                  "bindings": {
+                    "_ARTIFACT": "A",
+                    "_CASE": "rejected_data",
+                    "_SNAPSHOT": "valid"
+                  },
+                  "steps": [
+                    {
+                      "id": "data_validation",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "learner.py",
+                        "rejected_data"
+                      ],
+                      "waitFor": [],
+                      "status": "FAILURE",
+                      "exit_code": 1,
+                      "evidence": {
+                        "ok": false,
+                        "consumed": "snapshot.A",
+                        "produced": "validated.snapshot.A",
+                        "parameters": {
+                          "contract": "dataset_contract"
+                        }
+                      }
+                    },
+                    {
+                      "id": "training",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "downstream_entry.py",
+                        "A"
+                      ],
+                      "waitFor": [
+                        "data_validation"
+                      ],
+                      "status": "NOT_STARTED",
+                      "exit_code": null,
+                      "evidence": null
+                    },
+                    {
+                      "id": "model_validation",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "learner.py",
+                        "rejected_data",
+                        "A"
+                      ],
+                      "waitFor": [
+                        "training"
+                      ],
+                      "status": "NOT_STARTED",
+                      "exit_code": null,
+                      "evidence": null
+                    }
+                  ]
+                },
+                {
+                  "triggered": false,
+                  "steps": []
+                }
+              ]
+            }
+          }
+        },
+        "message_on_fail": "Use every required predicate and the explicit fatal configuration. Inspect the recorded evidence for the first case that differs."
+      },
+      {
+        "test_id": "case_boundary",
+        "kind": "function_call",
+        "visible": true,
+        "spec": {
+          "function": "exercise_case",
+          "args": [
+            "boundary"
+          ],
+          "expected": {
+            "case": {
+              "ok": true,
+              "checks": {
+                "data_validation->training": true,
+                "training->model_validation": true,
+                "data_validation": true,
+                "model_validation": true
+              },
+              "record": {
+                "data_validation": {
+                  "consumed": "snapshot.A",
+                  "parameters": {
+                    "contract": "dataset_contract"
+                  },
+                  "produced": "validated.snapshot.A",
+                  "validation_ok": true
+                },
+                "training": {
+                  "consumed": "validated.snapshot.A",
+                  "parameters": {
+                    "feature_scale": 5,
+                    "threshold": 0.4,
+                    "package": "A"
+                  },
+                  "produced": "A"
+                },
+                "model_validation": {
+                  "consumed": "A",
+                  "parameters": {
+                    "rtol": 1e-07,
+                    "atol": 1e-08
+                  },
+                  "produced": "validated.A",
+                  "validation_ok": true
+                }
+              }
+            },
+            "all_evidence": {
+              "cases": {
+                "valid": {
+                  "ok": true,
+                  "checks": {
+                    "data_validation->training": true,
+                    "training->model_validation": true,
+                    "data_validation": true,
+                    "model_validation": true
+                  },
+                  "record": {
+                    "data_validation": {
+                      "consumed": "snapshot.A",
+                      "parameters": {
+                        "contract": "dataset_contract"
+                      },
+                      "produced": "validated.snapshot.A",
+                      "validation_ok": true
+                    },
+                    "training": {
+                      "consumed": "validated.snapshot.A",
+                      "parameters": {
+                        "feature_scale": 5,
+                        "threshold": 0.4,
+                        "package": "A"
+                      },
+                      "produced": "A"
+                    },
+                    "model_validation": {
+                      "consumed": "A",
+                      "parameters": {
+                        "rtol": 1e-07,
+                        "atol": 1e-08
+                      },
+                      "produced": "validated.A",
+                      "validation_ok": true
+                    }
+                  }
+                },
+                "mismatch": {
+                  "ok": false,
+                  "checks": {
+                    "data_validation->training": true,
+                    "training->model_validation": false,
+                    "data_validation": true,
+                    "model_validation": true
+                  },
+                  "record": {
+                    "data_validation": {
+                      "consumed": "snapshot.A",
+                      "parameters": {
+                        "contract": "dataset_contract"
+                      },
+                      "produced": "validated.snapshot.A",
+                      "validation_ok": true
+                    },
+                    "training": {
+                      "consumed": "validated.snapshot.A",
+                      "parameters": {
+                        "feature_scale": 5,
+                        "threshold": 0.4,
+                        "package": "A"
+                      },
+                      "produced": "A"
+                    },
+                    "model_validation": {
+                      "consumed": "B",
+                      "parameters": {
+                        "rtol": 1e-07,
+                        "atol": 1e-08
+                      },
+                      "produced": "validated.A",
+                      "validation_ok": true
+                    }
+                  }
+                },
+                "rejected_data": {
+                  "ok": false,
+                  "checks": {
+                    "data_validation->training": true,
+                    "training->model_validation": true,
+                    "data_validation": false,
+                    "model_validation": true
+                  },
+                  "record": {
+                    "data_validation": {
+                      "consumed": "snapshot.A",
+                      "parameters": {
+                        "contract": "dataset_contract"
+                      },
+                      "produced": "validated.snapshot.A",
+                      "validation_ok": false
+                    },
+                    "training": {
+                      "consumed": "validated.snapshot.A",
+                      "parameters": {
+                        "feature_scale": 5,
+                        "threshold": 0.4,
+                        "package": "A"
+                      },
+                      "produced": "A"
+                    },
+                    "model_validation": {
+                      "consumed": "A",
+                      "parameters": {
+                        "rtol": 1e-07,
+                        "atol": 1e-08
+                      },
+                      "produced": "validated.A",
+                      "validation_ok": true
+                    }
+                  }
+                },
+                "boundary": {
+                  "ok": true,
+                  "checks": {
+                    "data_validation->training": true,
+                    "training->model_validation": true,
+                    "data_validation": true,
+                    "model_validation": true
+                  },
+                  "record": {
+                    "data_validation": {
+                      "consumed": "snapshot.A",
+                      "parameters": {
+                        "contract": "dataset_contract"
+                      },
+                      "produced": "validated.snapshot.A",
+                      "validation_ok": true
+                    },
+                    "training": {
+                      "consumed": "validated.snapshot.A",
+                      "parameters": {
+                        "feature_scale": 5,
+                        "threshold": 0.4,
+                        "package": "A"
+                      },
+                      "produced": "A"
+                    },
+                    "model_validation": {
+                      "consumed": "A",
+                      "parameters": {
+                        "rtol": 1e-07,
+                        "atol": 1e-08
+                      },
+                      "produced": "validated.A",
+                      "validation_ok": true
+                    }
+                  }
+                }
+              },
+              "repaired": {
+                "ok": true,
+                "checks": {
+                  "data_validation->training": true,
+                  "training->model_validation": true,
+                  "data_validation": true,
+                  "model_validation": true
+                },
+                "record": {
+                  "data_validation": {
+                    "consumed": "snapshot.A",
+                    "parameters": {
+                      "contract": "dataset_contract"
+                    },
+                    "produced": "validated.snapshot.A",
+                    "validation_ok": true
+                  },
+                  "training": {
+                    "consumed": "validated.snapshot.A",
+                    "parameters": {
+                      "feature_scale": 5,
+                      "threshold": 0.4,
+                      "package": "A"
+                    },
+                    "produced": "A"
+                  },
+                  "model_validation": {
+                    "consumed": "A",
+                    "parameters": {
+                      "rtol": 1e-07,
+                      "atol": 1e-08
+                    },
+                    "produced": "validated.A",
+                    "validation_ok": true
+                  }
+                }
+              },
+              "required_edges": [
+                [
+                  "data_validation",
+                  "training"
+                ],
+                [
+                  "training",
+                  "model_validation"
+                ]
+              ],
+              "config": {
+                "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com",
+                "steps": [
+                  {
+                    "args": [
+                      "python",
+                      "learner.py",
+                      "${_CASE}"
+                    ],
+                    "id": "data_validation",
+                    "name": "python:3.11",
+                    "waitFor": [
+                      "-"
+                    ]
+                  },
+                  {
+                    "args": [
+                      "python",
+                      "downstream_entry.py",
+                      "${_ARTIFACT}"
+                    ],
+                    "id": "training",
+                    "name": "python:3.11",
+                    "waitFor": [
+                      "data_validation"
+                    ]
+                  },
+                  {
+                    "args": [
+                      "python",
+                      "learner.py",
+                      "${_CASE}",
+                      "A"
+                    ],
+                    "id": "model_validation",
+                    "name": "python:3.11",
+                    "waitFor": [
+                      "training"
+                    ]
+                  }
+                ],
+                "substitutions": {
+                  "_ARTIFACT": "A",
+                  "_CASE": "valid",
+                  "_SNAPSHOT": "valid"
+                }
+              },
+              "runs": [
+                {
+                  "triggered": true,
+                  "bindings": {
+                    "_ARTIFACT": "A",
+                    "_CASE": "valid",
+                    "_SNAPSHOT": "valid"
+                  },
+                  "steps": [
+                    {
+                      "id": "data_validation",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "learner.py",
+                        "valid"
+                      ],
+                      "waitFor": [],
+                      "status": "SUCCESS",
+                      "exit_code": 0,
+                      "evidence": {
+                        "ok": true,
+                        "consumed": "snapshot.A",
+                        "produced": "validated.snapshot.A",
+                        "parameters": {
+                          "contract": "dataset_contract"
+                        }
+                      }
+                    },
+                    {
+                      "id": "training",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "downstream_entry.py",
+                        "A"
+                      ],
+                      "waitFor": [
+                        "data_validation"
+                      ],
+                      "status": "SUCCESS",
+                      "exit_code": 0,
+                      "evidence": {
+                        "ok": true,
+                        "consumed": "validated.snapshot.A",
+                        "produced": "A",
+                        "parameters": {
+                          "feature_scale": 5,
+                          "threshold": 0.4,
+                          "package": "A"
+                        }
+                      }
+                    },
+                    {
+                      "id": "model_validation",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "learner.py",
+                        "valid",
+                        "A"
+                      ],
+                      "waitFor": [
+                        "training"
+                      ],
+                      "status": "SUCCESS",
+                      "exit_code": 0,
+                      "evidence": {
+                        "ok": true,
+                        "checks": {
+                          "data_validation->training": true,
+                          "training->model_validation": true,
+                          "data_validation": true,
+                          "model_validation": true
+                        },
+                        "record": {
+                          "data_validation": {
+                            "consumed": "snapshot.A",
+                            "parameters": {
+                              "contract": "dataset_contract"
+                            },
+                            "produced": "validated.snapshot.A",
+                            "validation_ok": true
+                          },
+                          "training": {
+                            "consumed": "validated.snapshot.A",
+                            "parameters": {
+                              "feature_scale": 5,
+                              "threshold": 0.4,
+                              "package": "A"
+                            },
+                            "produced": "A"
+                          },
+                          "model_validation": {
+                            "consumed": "A",
+                            "parameters": {
+                              "rtol": 1e-07,
+                              "atol": 1e-08
+                            },
+                            "produced": "validated.A",
+                            "validation_ok": true
+                          }
+                        },
+                        "resolved_consumer_matches_producer": true
+                      }
+                    }
+                  ]
+                },
+                {
+                  "triggered": true,
+                  "bindings": {
+                    "_ARTIFACT": "B",
+                    "_CASE": "mismatch",
+                    "_SNAPSHOT": "valid"
+                  },
+                  "steps": [
+                    {
+                      "id": "data_validation",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "learner.py",
+                        "mismatch"
+                      ],
+                      "waitFor": [],
+                      "status": "SUCCESS",
+                      "exit_code": 0,
+                      "evidence": {
+                        "ok": true,
+                        "consumed": "snapshot.A",
+                        "produced": "validated.snapshot.A",
+                        "parameters": {
+                          "contract": "dataset_contract"
+                        }
+                      }
+                    },
+                    {
+                      "id": "training",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "downstream_entry.py",
+                        "B"
+                      ],
+                      "waitFor": [
+                        "data_validation"
+                      ],
+                      "status": "SUCCESS",
+                      "exit_code": 0,
+                      "evidence": {
+                        "ok": true,
+                        "consumed": "validated.snapshot.A",
+                        "produced": "B",
+                        "parameters": {
+                          "feature_scale": 5,
+                          "threshold": 0.4,
+                          "package": "A"
+                        }
+                      }
+                    },
+                    {
+                      "id": "model_validation",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "learner.py",
+                        "mismatch",
+                        "A"
+                      ],
+                      "waitFor": [
+                        "training"
+                      ],
+                      "status": "FAILURE",
+                      "exit_code": 1,
+                      "evidence": {
+                        "ok": false,
+                        "checks": {
+                          "data_validation->training": true,
+                          "training->model_validation": false,
+                          "data_validation": true,
+                          "model_validation": true
+                        },
+                        "record": {
+                          "data_validation": {
+                            "consumed": "snapshot.A",
+                            "parameters": {
+                              "contract": "dataset_contract"
+                            },
+                            "produced": "validated.snapshot.A",
+                            "validation_ok": true
+                          },
+                          "training": {
+                            "consumed": "validated.snapshot.A",
+                            "parameters": {
+                              "feature_scale": 5,
+                              "threshold": 0.4,
+                              "package": "A"
+                            },
+                            "produced": "A"
+                          },
+                          "model_validation": {
+                            "consumed": "B",
+                            "parameters": {
+                              "rtol": 1e-07,
+                              "atol": 1e-08
+                            },
+                            "produced": "validated.A",
+                            "validation_ok": true
+                          }
+                        },
+                        "resolved_consumer_matches_producer": false
+                      }
+                    }
+                  ]
+                },
+                {
+                  "triggered": true,
+                  "bindings": {
+                    "_ARTIFACT": "A",
+                    "_CASE": "rejected_data",
+                    "_SNAPSHOT": "valid"
+                  },
+                  "steps": [
+                    {
+                      "id": "data_validation",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "learner.py",
+                        "rejected_data"
+                      ],
+                      "waitFor": [],
+                      "status": "FAILURE",
+                      "exit_code": 1,
+                      "evidence": {
+                        "ok": false,
+                        "consumed": "snapshot.A",
+                        "produced": "validated.snapshot.A",
+                        "parameters": {
+                          "contract": "dataset_contract"
+                        }
+                      }
+                    },
+                    {
+                      "id": "training",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "downstream_entry.py",
+                        "A"
+                      ],
+                      "waitFor": [
+                        "data_validation"
+                      ],
+                      "status": "NOT_STARTED",
+                      "exit_code": null,
+                      "evidence": null
+                    },
+                    {
+                      "id": "model_validation",
+                      "name": "python:3.11",
+                      "resolved_args": [
+                        "python",
+                        "learner.py",
+                        "rejected_data",
+                        "A"
+                      ],
+                      "waitFor": [
+                        "training"
+                      ],
+                      "status": "NOT_STARTED",
+                      "exit_code": null,
+                      "evidence": null
+                    }
+                  ]
+                },
+                {
+                  "triggered": false,
+                  "steps": []
+                }
+              ]
+            }
+          }
+        },
+        "message_on_fail": "Use every required predicate and the explicit fatal configuration. Inspect the recorded evidence for the first case that differs."
+      }
+    ]
+  }
+}

@@ -1,0 +1,68 @@
+Read the supplied evaluation function and configure its callable interfaces at the final TODO. Choose the appropriate supplied callable for each interface: conditional_count. Assign the callable itself, not its result. Keep the supplied data loading, evaluation functions and callable definitions unchanged; the checker calls those functions using your configured interfaces.
+# Supplied input loading and dependencies.
+import pandas as pd
+
+contract = pd.read_csv('acceptance_contract.csv').iloc[0]
+
+p_negative = contract['deployment_negative_probability']
+
+p_positive = contract['deployment_positive_probability']
+
+cost_FP = contract['cost_FP']
+
+cost_FN = contract['cost_FN']
+
+bound = contract['expected_cost_bound']
+
+observations = pd.read_csv('validation_scores.csv')
+
+y = observations['actual_label'].to_numpy()
+
+scores = observations['score'].to_numpy()
+
+thresholds = pd.read_csv('thresholds.csv')['threshold'].tolist()
+
+import numpy as np
+
+count_errors = np.count_nonzero
+
+# Supplied evaluation scaffolding. Configure its interfaces below; keep this block unchanged.
+if __name__:
+    def evaluate(scores, y, thresholds, p_negative, p_positive, cost_FP, cost_FN, bound):
+        records = []
+        selected = None
+        best_cost = None
+        for threshold in thresholds:
+            predictions = scores >= threshold
+            FP = conditional_count((y == 0) & (predictions == 1))
+            TN = conditional_count((y == 0) & (predictions == 0))
+            FN = conditional_count((y == 1) & (predictions == 0))
+            TP = conditional_count((y == 1) & (predictions == 1))
+            negative_count = FP + TN
+            positive_count = FN + TP
+            FPR = None
+            FNR = None
+            expected_cost = None
+            if negative_count > 0:
+                FPR = FP / negative_count
+            if positive_count > 0:
+                FNR = FN / positive_count
+            if negative_count > 0:
+                if positive_count > 0:
+                    expected_cost = p_negative * FPR * cost_FP + p_positive * FNR * cost_FN
+            record = {'FP': FP, 'TN': TN, 'FN': FN, 'TP': TP, 'actual_negative_count': negative_count, 'actual_positive_count': positive_count, 'FPR': FPR, 'FNR': FNR, 'expected_cost': expected_cost, 'threshold': threshold, 'score_representation': 'probability'}
+            records.append(record)
+            if expected_cost is not None:
+                if expected_cost <= bound:
+                    if best_cost is None:
+                        best_cost = expected_cost
+                        selected = threshold
+                    elif expected_cost < best_cost:
+                        best_cost = expected_cost
+                        selected = threshold
+        return {'records': records, 'selected_threshold': selected, 'score_representation': 'probability'}
+
+# Supplied callable operations; keep these assignments unchanged.
+supplied_np_count_nonzero = np.count_nonzero
+# TODO: configure each interface using the matching supplied callable, without calling it.
+conditional_count = None

@@ -1,0 +1,30 @@
+import csv
+import json
+def supplied_rows(path):
+    with open(path) as f:
+        raw = list(csv.DictReader(f))
+    def convert(v):
+        if v == '': return None
+        if v.lower() == 'true': return True
+        if v.lower() == 'false': return False
+        try: return float(v) if '.' in v or 'e' in v.lower() else int(v)
+        except ValueError: return v
+    return [{k: convert(v) for k,v in r.items()} for r in raw]
+slice_observations = supplied_rows('slice_observations.csv')
+import numpy as np
+def error_analysis(eligible, long_distance, error, loss, reference_error, reference_loss):
+    mask = eligible & long_distance
+    count = tally(mask)
+    errors = tally(error[mask])
+    reference_errors = tally(reference_error[mask])
+    return {'eligible_count': count, 'error_count': errors, 'error_probability': errors/count, 'loss_mean': average(loss[mask]), 'loss_std': spread(loss[mask]), 'reference_error_count': reference_errors, 'reference_error_probability': reference_errors/count, 'reference_loss_mean': average(reference_loss[mask]), 'reference_loss_std': spread(reference_loss[mask]), 'finding': 'Long-distance supplied failures recur in this predefined eligible group; comparison is descriptive same-cohort evidence, not an established cause.'}
+
+
+eligible = np.array([r['eligible'] for r in slice_observations])
+long_distance = np.array([r['long_distance'] for r in slice_observations])
+error = np.array([r['error'] for r in slice_observations])
+loss = np.array([r['loss'] for r in slice_observations])
+reference_error = np.array([r['reference_error'] for r in slice_observations])
+reference_loss = np.array([r['reference_loss'] for r in slice_observations])
+result = error_analysis(eligible,long_distance,error,loss,reference_error,reference_loss)
+

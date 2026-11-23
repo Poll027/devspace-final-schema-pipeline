@@ -1,0 +1,390 @@
+PRACTICE {
+  "type": "live_code",
+  "objective": "Retrieve /openapi.json and audit one existing router's generated contract against its models, supplied non-authentication HTTP outcomes and established security configuration. Record drift and unsafe public examples without adding authentication or authorization tests.",
+  "success": "The audit covers paths, parameters, request and response schemas, requiredness, types, constraints, output fields, documented statuses, examples, descriptions and security requirements. Findings distinguish declarations from observed behavior, identify sensitive or invalid examples, and flag security declarations that differ from the deployed contract.",
+  "live_code": {
+    "required_skill": "Inspect generated OpenAPI with Python and compare its declarations with existing models, exercised HTTP evidence and configured security metadata.",
+    "allowed_syntax": [
+      "Variable assignment",
+      "String, numeric, boolean, list and dictionary literals",
+      "Dictionary indexing and .get()",
+      "List indexing",
+      "for loops",
+      "if statements",
+      "Equality and membership comparisons",
+      "assert statements",
+      "List .append()",
+      "TestClient(app)",
+      "client.get(\"/openapi.json\")",
+      "response.json()",
+      "Existing Pydantic model .model_validate()"
+    ],
+    "blocked_syntax": [
+      "client.get(..., headers={\"Authorization\": \"Bearer invalid\"})",
+      "New authentication or authorization test functions",
+      "Assertions testing invalid-token rejection or permission enforcement"
+    ],
+    "starter_state_intent": "Provide an existing application and one router, its request and response models, synthetic public examples, previously exercised non-authentication request/response evidence, and the established bearer and issuer configuration. Include an incomplete audit script that retrieves the schema and collects findings using the router's existing names only.",
+    "observable_success": "The completed script retrieves the generated schema, inspects the selected router and referenced schemas, compares declarations with supplied behavior evidence, validates synthetic examples against existing models, and records documentation findings. Security review compares declarations with supplied configuration rather than exercising authentication or authorization."
+  }
+}
+SOLUTION
+#!/usr/bin/env bash
+set -euo pipefail
+# Requires the supplied native workspace dependencies and any provisioned service.
+cat > 'starter.py' <<'DEVSPACE_FILE_0'
+import json
+from pathlib import Path
+expected_models = json.loads(Path('expected_models.json').read_text())
+def audit(client, models, http_evidence, security_configuration):
+    response = client.get('/openapi.json')
+    assert response.status_code == 200
+    schema = response.json()
+    findings = []
+    paths = schema['paths']
+    components = schema['components']['schemas']
+    # Inventory and model comparison cover requiredness, types, constraints,
+    # request/response schemas and public output fields separately from statuses.
+    for name in expected_models:
+        if components.get(name) != expected_models[name]:
+            findings.append({'dimension':'model_schema', 'location':name, 'declared':components.get(name), 'expected':expected_models[name]})
+    for record in http_evidence['records']:
+        request = record['request']
+        path = request['path']
+        method = request['method']
+        operation_path = path
+        if method == 'GET':
+            operation_path = '/orders/{order_id}'
+        operation = paths.get(operation_path, {}).get(method.lower())
+        if operation is None:
+            findings.append({'dimension':'paths','location':method+' '+operation_path})
+        else:
+            status = str(record['status'])
+            if status not in operation['responses']:
+                findings.append({'dimension':'observed_status','location':method+' '+operation_path,'observed':record['status'],'declared':list(operation['responses'])})
+            if method == 'GET':
+                parameters = operation.get('parameters', [])
+                if not parameters:
+                    findings.append({'dimension':'parameters','location':operation_path})
+                for parameter in parameters:
+                    if parameter['name'] == 'order_id':
+                        if parameter.get('required') != True or parameter.get('schema',{}).get('type') != 'integer':
+                            findings.append({'dimension':'parameter_contract','location':operation_path})
+            if method == 'POST':
+                request_schema=operation['requestBody']['content']['application/json']['schema']
+                if request_schema.get('$ref') != '#/components/schemas/OrderInput':
+                    findings.append({'dimension':'request_schema','location':operation_path})
+            if record['status'] in [200,201]:
+                models['PublicOrder'].model_validate(record['body'])
+                if 'owner_id' in record['body']:
+                    findings.append({'dimension':'sensitive_output','location':operation_path})
+                result_schema=operation['responses'][status]['content']['application/json']['schema']
+                if result_schema.get('$ref') != '#/components/schemas/PublicOrder':
+                    findings.append({'dimension':'response_schema','location':operation_path})
+    # The supplied public examples are synthetic and must validate; never copy
+    # realistic personal data into documentation to make examples convincing.
+    for name in ['OrderInput','PublicOrder','ErrorBody']:
+        for example in components.get(name,{}).get('examples',[]):
+            models[name].model_validate(example)
+            for prohibited in ['owner_id','password','access_token','secret','email']:
+                if prohibited in example:
+                    findings.append({'dimension':'sensitive_example','location':name,'field':prohibited})
+    for path in paths:
+        for method in paths[path]:
+            operation=paths[path][method]
+            for text in [operation.get('description',''), operation.get('summary','')]:
+                for prohibited in ['access_token=','password=','secret=','@example.com']:
+                    if prohibited in text:
+                        findings.append({'dimension':'sensitive_description','location':method+' '+path})
+    schemes=schema['components'].get('securitySchemes',{})
+    for name in security_configuration['schemes']:
+        if schemes.get(name) != security_configuration['schemes'][name]:
+            findings.append({'dimension':'security_scheme','location':name,'declared':schemes.get(name),'expected':security_configuration['schemes'][name]})
+    for location in security_configuration['operations']:
+        method,path=location.split(' ')
+        declared=paths[path][method.lower()].get('security',[])
+        if declared != security_configuration['operations'][location]:
+            findings.append({'dimension':'operation_security','location':location,'declared':declared,'expected':security_configuration['operations'][location]})
+    return findings
+DEVSPACE_FILE_0
+cat > 'expected_models.json' <<'DEVSPACE_FILE_1'
+{"OrderInput": {"properties": {"id": {"exclusiveMinimum": 0, "title": "Id", "type": "integer"}, "status": {"default": "pending", "enum": ["pending", "complete"], "title": "Status", "type": "string"}}, "required": ["id"], "title": "OrderInput", "type": "object"}, "PublicOrder": {"examples": [{"id": 101, "status": "pending"}], "properties": {"id": {"title": "Id", "type": "integer"}, "status": {"enum": ["pending", "complete"], "title": "Status", "type": "string"}}, "required": ["id", "status"], "title": "PublicOrder", "type": "object"}, "ErrorBody": {"properties": {"detail": {"title": "Detail", "type": "string"}}, "required": ["detail"], "title": "ErrorBody", "type": "object"}}
+DEVSPACE_FILE_1
+cat > 'check_audit.py' <<'DEVSPACE_FILE_2'
+import json
+from pathlib import Path
+from fastapi.testclient import TestClient
+from application import app, security_configuration
+from models import OrderInput, PublicOrder, ErrorBody
+from starter import audit
+with TestClient(app) as client:
+    findings=audit(client, {'OrderInput':OrderInput,'PublicOrder':PublicOrder,'ErrorBody':ErrorBody},json.loads(Path('http_evidence.json').read_text()),security_configuration)
+assert any(f['dimension']=='observed_status' and f['observed']==400 for f in findings)
+assert any(f['dimension']=='security_scheme' and f['location']=='OrderAuthorizationCode' for f in findings)
+assert any(f['dimension']=='operation_security' for f in findings)
+DEVSPACE_FILE_2
+python check_audit.py
+
+
+FILE starter.py
+def audit(client, models, http_evidence, security_configuration):
+    response = client.get('/openapi.json')
+    schema = response.json()
+    findings = []
+    # TODO: select supplied orders router and inspect declarations against
+    # models, non-auth HTTP evidence and established security configuration.
+    # Validate synthetic examples. Do not add authentication/authorization tests.
+    return findings
+
+FILE fixtures.json
+{
+  "router": "orders",
+  "synthetic_example": {
+    "id": 101,
+    "status": "pending"
+  },
+  "audit_dimensions": [
+    "paths",
+    "parameters",
+    "requiredness",
+    "types",
+    "constraints",
+    "request_schemas",
+    "response_schemas",
+    "output_fields",
+    "statuses",
+    "examples",
+    "descriptions",
+    "security_requirements"
+  ],
+  "note": "Concrete fictional router fixtures. Bundled HTTP evidence was captured from this application using the supplied established issuer configuration.",
+  "initial_orders": [
+    {
+      "id": 101,
+      "owner_id": "caller_a",
+      "status": "pending"
+    }
+  ],
+  "created_order": {
+    "id": 202,
+    "status": "pending"
+  }
+}
+
+FILE models.py
+from pydantic import BaseModel,Field,ConfigDict
+from typing import Literal
+class OrderInput(BaseModel):
+    id:int=Field(gt=0)
+    status:Literal['pending','complete']='pending'
+class PublicOrder(BaseModel):
+    id:int
+    status:Literal['pending','complete']
+    model_config=ConfigDict(json_schema_extra={'examples':[{'id':101,'status':'pending'}]})
+class ErrorBody(BaseModel):
+    detail:str
+
+FILE application.py
+import json
+from pathlib import Path
+from fastapi import FastAPI,APIRouter,HTTPException,Depends
+from fastapi.security import HTTPBearer
+from dependencies import read_orders, write_orders
+from models import OrderInput,PublicOrder,ErrorBody
+router=APIRouter(prefix='/orders',tags=['orders'])
+# Established training issuer; verification and permissions are active.
+# Bearer metadata is present; the unfinished audit compares issuer declarations.
+bearer=HTTPBearer(auto_error=False,scheme_name='OrderBearer')
+fixtures=json.loads(Path('fixtures.json').read_text())
+orders={row['id']:dict(row) for row in fixtures['initial_orders']}
+@router.post('',response_model=PublicOrder,status_code=201,
+             responses={409:{'model':ErrorBody,'description':'Duplicate order'}})
+def create_order(value:OrderInput,credential=Depends(bearer),principal=Depends(write_orders)):
+    if value.id in orders:
+        # Deliberate documentation drift: actual conflict is 400, not declared 409.
+        raise HTTPException(400,'Duplicate order')
+    row={**value.model_dump(),'owner_id':fixtures['initial_orders'][0]['owner_id']}
+    orders[value.id]=row
+    return row
+@router.get('/{order_id}',response_model=PublicOrder,
+            responses={404:{'model':ErrorBody,'description':'Order unavailable'}})
+def retrieve_order(order_id:int,credential=Depends(bearer),principal=Depends(read_orders)):
+    if order_id not in orders: raise HTTPException(404,'Not found')
+    return orders[order_id]
+app=FastAPI()
+app.include_router(router)
+security_configuration={'schemes': {'OrderBearer': {'type': 'http', 'scheme': 'bearer'}, 'OrderAuthorizationCode': {'type': 'oauth2', 'flows': {'authorizationCode': {'authorizationUrl': 'http://127.0.0.1:37353/authorize', 'tokenUrl': 'http://127.0.0.1:37353/token', 'scopes': {'orders:read': 'Read orders', 'orders:write': 'Create orders'}}}}}, 'operations': {'GET /orders/{order_id}': [{'OrderBearer': [], 'OrderAuthorizationCode': ['orders:read']}], 'POST /orders': [{'OrderBearer': [], 'OrderAuthorizationCode': ['orders:write']}]}, 'authorization_code_issuer': {'issuer': 'http://127.0.0.1:37353', 'authorization_url': 'http://127.0.0.1:37353/authorize', 'token_url': 'http://127.0.0.1:37353/token', 'jwks_url': 'http://127.0.0.1:37353/jwks', 'client_id': 'order-training-client', 'redirect_uri': 'http://127.0.0.1:37353/client/callback', 'algorithms': ['RS256'], 'required_claims': ['iss', 'aud', 'sub', 'exp', 'iat'], 'audience': 'order-api', 'scopes': {'orders:read': 'Read orders', 'orders:write': 'Create orders'}, 'pkce': {'required': True, 'code_challenge_method': 'S256'}, 'runtime_boundary': 'Publisher-provisioned isolated loopback training issuer; not a public production service.'}, 'dependency_graph': ['operation -> read_orders/write_orders -> authenticated -> HTTPBearer extraction -> ExistingVerifier.verify -> JWKS signature/issuer/audience/required claims', 'read_orders/write_orders -> enforce_permission -> required scope'], 'operation_dependencies': {'GET /orders/{order_id}': {'dependency': 'read_orders', 'scope': 'orders:read'}, 'POST /orders': {'dependency': 'write_orders', 'scope': 'orders:write'}}, 'provenance': 'Supplied application configuration backed by the separately provisioned loopback training issuer and active verification/permission dependencies.', 'note': 'Compare generated security declarations with this supplied established configuration; do not add authentication or authorization tests to this audit.'}
+
+FILE capture.py
+import json,hashlib
+from pathlib import Path
+from fastapi.testclient import TestClient
+from application import app,orders,security_configuration,fixtures
+from models import OrderInput,PublicOrder
+from acquisition_harness import AcquisitionHarness
+# Supply an issuer-acquired credential to exercise non-authentication behavior;
+# this capture adds no authentication/authorization cases or assertions.
+issued_token=AcquisitionHarness(security_configuration['authorization_code_issuer']).acquire()
+orders.clear();orders.update({row['id']:dict(row) for row in fixtures['initial_orders']})
+existing=fixtures['initial_orders'][0]['id']
+missing=max([row['id'] for row in fixtures['initial_orders']]+[fixtures['created_order']['id']])+1
+requests=[{'method':'GET','path':f'/orders/{existing}'},
+          {'method':'GET','path':f'/orders/{missing}'},
+          {'method':'POST','path':'/orders','json':fixtures['created_order']},
+          {'method':'POST','path':'/orders','json':fixtures['synthetic_example']},
+          {'method':'POST','path':'/orders','json':{**fixtures['synthetic_example'],'id':-1}}]
+records=[]
+with TestClient(app) as client:
+    schema=client.get('/openapi.json').json()
+    for request in requests:
+        response=client.request(request['method'],request['path'],json=request.get('json'),headers={'Authorization':'Bearer '+issued_token})
+        records.append({'request':request,'status':response.status_code,'body':response.json()})
+source_hashes={name:hashlib.sha256(Path(name).read_bytes()).hexdigest() for name in ['application.py','models.py','fixtures.json','capture.py','dependencies.py','existing_verifier.py','issuer_configuration.json','acquisition_harness.py']}
+Path('http_evidence.json').write_text(json.dumps({'provenance':{'kind':'captured TestClient HTTP outcomes from supplied fictional app','source_sha256':source_hashes,'authentication_tests':False},'records':records},indent=2)+'\n')
+Path('generated_schema.json').write_text(json.dumps(schema,indent=2)+'\n')
+Path('security_configuration.json').write_text(json.dumps(security_configuration,indent=2)+'\n')
+
+FILE run_audit.py
+import json
+from pathlib import Path
+from fastapi.testclient import TestClient
+from application import app,security_configuration
+from models import OrderInput,PublicOrder,ErrorBody
+from starter import audit
+http_evidence=json.loads(Path('http_evidence.json').read_text())
+with TestClient(app) as client:
+    findings=audit(client,{'OrderInput':OrderInput,'PublicOrder':PublicOrder,'ErrorBody':ErrorBody},http_evidence,security_configuration)
+print(json.dumps(findings,indent=2))
+
+FILE issuer_service.py
+# Publisher infrastructure, not a learner implementation task.
+# oauthlib implements the authorization-code/PKCE protocol; PyJWT and
+# cryptography provide signing. The resource server never owns this key.
+import json, secrets, time
+from pathlib import Path
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from urllib.parse import urlsplit, parse_qs
+import jwt
+from cryptography.hazmat.primitives.asymmetric import rsa
+from oauthlib.oauth2 import Server, RequestValidator
+cfg=json.loads(Path('issuer_configuration.json').read_text())
+key=rsa.generate_private_key(public_exponent=65537,key_size=2048)
+kid=secrets.token_hex(16)
+jwk=json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(key.public_key()))
+jwk.update(kid=kid,use='sig',alg='RS256')
+class Validator(RequestValidator):
+    def __init__(self): self.codes={}
+    def validate_client_id(self,client_id,request,*a,**kw): return client_id==cfg['client_id']
+    def get_default_redirect_uri(self,client_id,request,*a,**kw): return cfg['redirect_uri']
+    def validate_redirect_uri(self,client_id,redirect_uri,request,*a,**kw): return redirect_uri==cfg['redirect_uri']
+    def validate_response_type(self,client_id,response_type,client,request,*a,**kw): return response_type=='code'
+    def validate_scopes(self,client_id,scopes,client,request,*a,**kw): return set(scopes)<=set(cfg['scopes'])
+    def get_default_scopes(self,client_id,request,*a,**kw): return list(cfg['scopes'])
+    def save_authorization_code(self,client_id,code,request,*a,**kw):
+        self.codes[code['code']]={'client_id':client_id,'redirect_uri':request.redirect_uri,'scopes':request.scopes,'challenge':request.code_challenge,'method':request.code_challenge_method}
+    def is_pkce_required(self,client_id,request): return True
+    def client_authentication_required(self,request,*a,**kw): return False
+    def authenticate_client_id(self,client_id,request,*a,**kw):
+        if client_id!=cfg['client_id']: return False
+        request.client=type('RegisteredClient',(),{'client_id':client_id})();return True
+    def validate_grant_type(self,client_id,grant_type,client,request,*a,**kw): return grant_type=='authorization_code'
+    def validate_code(self,client_id,code,client,request,*a,**kw):
+        record=self.codes.get(code)
+        if not record or record['client_id']!=client_id: return False
+        request.scopes=record['scopes'];request.user='training-principal';return True
+    def confirm_redirect_uri(self,client_id,code,redirect_uri,client,request,*a,**kw): return self.codes.get(code,{}).get('redirect_uri')==redirect_uri
+    def get_code_challenge(self,code,request): return self.codes.get(code,{}).get('challenge')
+    def get_code_challenge_method(self,code,request): return self.codes.get(code,{}).get('method')
+    def invalidate_authorization_code(self,client_id,code,request,*a,**kw): self.codes.pop(code,None)
+    def save_bearer_token(self,token,request,*a,**kw): pass
+validator=Validator()
+def issue(request,refresh_token=False):
+    now=int(time.time())
+    return jwt.encode({'iss':cfg['issuer'],'aud':cfg['audience'],'sub':'training-principal','iat':now,'exp':now+600,'scope':' '.join(request.scopes)},key,algorithm='RS256',headers={'kid':kid})
+server=Server(validator,token_generator=issue)
+class Handler(BaseHTTPRequestHandler):
+    def reply(self,status,body,headers=None):
+        self.send_response(status)
+        for k,v in (headers or {'Content-Type':'application/json'}).items():self.send_header(k,v)
+        self.end_headers();self.wfile.write(body.encode())
+    def do_GET(self):
+        path=urlsplit(self.path).path
+        if path=='/jwks':return self.reply(200,json.dumps({'keys':[jwk]}))
+        if path=='/health':return self.reply(200,json.dumps({'issuer':cfg['issuer'],'client_id':cfg['client_id']}))
+        if path=='/client/callback':return self.reply(200,json.dumps(parse_qs(urlsplit(self.path).query)))
+        if path=='/authorize':
+            # The supplied publisher harness represents the already-approved
+            # training user; no password grant or production login UI exists.
+            headers,body,status=server.create_authorization_response(cfg['issuer']+self.path,scopes=list(cfg['scopes']),credentials={'user':'training-principal'})
+            return self.reply(status,body or '',headers)
+        self.reply(404,'{}')
+    def do_POST(self):
+        if urlsplit(self.path).path!='/token':return self.reply(404,'{}')
+        body=self.rfile.read(int(self.headers.get('Content-Length',0))).decode()
+        headers,body,status=server.create_token_response(cfg['token_url'],http_method='POST',body=body,headers=dict(self.headers))
+        self.reply(status,body,headers)
+if __name__=='__main__':
+    url=urlsplit(cfg['issuer']); HTTPServer((url.hostname,url.port),Handler).serve_forever()
+
+FILE acquisition_harness.py
+import base64, hashlib, secrets
+from urllib.parse import urlsplit, parse_qs
+import httpx
+class AcquisitionHarness:
+    def __init__(self,configuration):self.configuration=configuration
+    def acquire(self):
+        c=self.configuration
+        verifier=secrets.token_urlsafe(48)
+        challenge=base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b'=').decode()
+        state=secrets.token_urlsafe(24)
+        with httpx.Client(follow_redirects=False) as client:
+            redirect=client.get(c['authorization_url'],params={'response_type':'code','client_id':c['client_id'],'redirect_uri':c['redirect_uri'],'scope':' '.join(c['scopes']),'state':state,'code_challenge':challenge,'code_challenge_method':'S256'})
+            if redirect.status_code != 302: raise RuntimeError(redirect.text)
+            location=redirect.headers['location']
+            if location.split('?')[0]!=c['redirect_uri']:raise ValueError('Unregistered callback')
+            callback=client.get(location);callback.raise_for_status()
+            params=parse_qs(urlsplit(location).query)
+            if params.get('state')!=[state]:raise ValueError('State mismatch')
+            response=client.post(c['token_url'],data={'grant_type':'authorization_code','client_id':c['client_id'],'code':params['code'][0],'redirect_uri':c['redirect_uri'],'code_verifier':verifier})
+            response.raise_for_status()
+            return response.json()['access_token']
+
+FILE existing_verifier.py
+import jwt
+from jwt import PyJWKClient
+from fastapi import HTTPException
+class ExistingVerifier:
+    def __init__(self):self.configuration=None;self.jwks=None
+    def configure(self,configuration):
+        self.configuration=configuration
+        self.jwks=PyJWKClient(configuration['jwks_url'])
+    def verify(self,token):
+        if self.configuration is None:raise HTTPException(503,'Integration settings incomplete')
+        c=self.configuration
+        try:
+            signing_key=self.jwks.get_signing_key_from_jwt(token)
+            return jwt.decode(token,signing_key.key,algorithms=c['algorithms'],issuer=c['issuer'],audience=c['audience'],options={'require':c['required_claims']})
+        except jwt.PyJWTError:
+            raise HTTPException(401,'Invalid access token')
+
+FILE dependencies.py
+import json
+from pathlib import Path
+from fastapi import Request, HTTPException
+from fastapi.security import HTTPBearer
+from existing_verifier import ExistingVerifier
+configuration=json.loads(Path('issuer_configuration.json').read_text())
+existing_verifier=ExistingVerifier();existing_verifier.configure(configuration)
+extraction=HTTPBearer(auto_error=False)
+async def authenticated(request:Request):
+    credential=await extraction(request)
+    if credential is None:raise HTTPException(401,'Bearer token required')
+    return existing_verifier.verify(credential.credentials)
+def enforce_permission(principal,required):
+    if required not in principal.get('scope','').split():raise HTTPException(403,'Permission required')
+    return principal
+from fastapi import Depends
+def read_orders(principal=Depends(authenticated)):
+    return enforce_permission(principal,'orders:read')
+def write_orders(principal=Depends(authenticated)):
+    return enforce_permission(principal,'orders:write')

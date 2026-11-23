@@ -1,0 +1,16 @@
+exec("import csv\nimport json\ndef supplied_rows(path):\n    with open(path) as f:\n        raw = list(csv.DictReader(f))\n    def convert(v):\n        if v == '': return None\n        if v.lower() == 'true': return True\n        if v.lower() == 'false': return False\n        try: return float(v) if '.' in v or 'e' in v.lower() else int(v)\n        except ValueError: return v\n    return [{k: convert(v) for k,v in r.items()} for r in raw]\npaired_trials = supplied_rows('paired_trials.csv')\ndef supplied_pair(seed, split_random_state, estimator_random_state):\n    if split_random_state != seed or estimator_random_state != seed:\n        raise ValueError('both random sources must match seed')\n    return next(r for r in paired_trials if r['seed'] == seed)\n")
+import numpy as np
+def paired(declared_seed_list):
+    records = []
+    selected_results = []
+    wins = 0
+    for seed in declared_seed_list:
+        record = supplied_pair(seed, split_random_state=seed, estimator_random_state=seed)
+        if record['candidate_result'] != None and record['baseline_result'] != None:
+            records.append(record)
+            selected_results.append(record['candidate_result'])
+            if record['candidate_result'] < record['baseline_result']:
+                wins = wins + 1
+    count = len(records)
+    return {'records': records, 'completed_pairs': count, 'wins': wins, 'win_probability': wins / count, 'limitation': 'Split and estimator randomness controlled; universal deterministic replay not established.', 'candidate_mean': aggregate(selected_results), 'candidate_std': np.std(selected_results, ddof=0)}
+exec("\n\nimport numpy as np\ndeclared_seed_list = [r['seed'] for r in paired_trials]\nresult = paired(declared_seed_list)\n\n")

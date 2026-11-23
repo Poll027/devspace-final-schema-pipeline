@@ -1,0 +1,70 @@
+import numpy as np
+aggregate = np.sum
+import csv
+import json
+def supplied_rows(path):
+    with open(path) as f:
+        raw = list(csv.DictReader(f))
+
+    def convert(v):
+        if v == '':
+            return None
+        if v.lower() == 'true':
+            return True
+        if v.lower() == 'false':
+            return False
+        try:
+            return float(v) if '.' in v or 'e' in v.lower() else int(v)
+        except ValueError:
+            return v
+    return [{k: convert(v) for k, v in r.items()} for r in raw]
+orders_train = supplied_rows('orders_train.csv')
+orders_validation = supplied_rows('orders_validation.csv')
+p0 = 0.8
+p1 = 0.2
+cfp = 1
+cfn = 5
+bound = 0.3
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+def baseline(X_train, y_train, X_validation, y, p0, p1, cfp, cfn, train_feature_ids, train_label_ids, validation_feature_ids, validation_label_ids):
+    assert X_train.shape == (6, 2)
+    assert y_train.shape == (6,)
+    assert train_feature_ids.shape == train_label_ids.shape
+    assert train_feature_ids.shape[0] == y_train.shape[0]
+    assert aggregate(train_feature_ids != train_label_ids) == 0
+    assert validation_feature_ids.shape == validation_label_ids.shape
+    assert validation_feature_ids.shape[0] == y.shape[0]
+    assert aggregate(validation_feature_ids != validation_label_ids) == 0
+    assert X_validation.shape[0] == y.shape[0]
+    estimator = LogisticRegression(random_state=0)
+    estimator.fit(X_train, y_train)
+    pred = estimator.predict(X_validation)
+    TP = aggregate((y == 1) & (pred == 1))
+    FP = aggregate((y == 0) & (pred == 1))
+    FN = aggregate((y == 1) & (pred == 0))
+    TN = aggregate((y == 0) & (pred == 0))
+    if FP + TN == 0:
+        FPR = None
+    else:
+        FPR = FP / (FP + TN)
+    if FN + TP == 0:
+        FNR = None
+    else:
+        FNR = FN / (FN + TP)
+    if FPR == None or FNR == None:
+        cost = None
+    else:
+        cost = p0 * FPR * cfp + p1 * FNR * cfn
+    return {'training_shape': X_train.shape, 'target_shape': y_train.shape, 'predictions': pred, 'TP': TP, 'FP': FP, 'FN': FN, 'TN': TN, 'FPR': FPR, 'FNR': FNR, 'expected_cost': cost}
+X_train = np.array([[r['feature_1'], r['feature_2']] for r in orders_train])
+y_train = np.array([r['y_train'] for r in orders_train])
+X_validation = np.array([[r['feature_1'], r['feature_2']] for r in orders_validation])
+y = np.array([r['y_validation'] for r in orders_validation])
+train_feature_ids = np.array([r['observation_id'] for r in orders_train])
+train_label_ids = np.array([r['observation_id'] for r in orders_train])
+validation_feature_ids = np.array([r['observation_id'] for r in orders_validation])
+validation_label_ids = np.array([r['observation_id'] for r in orders_validation])
+result = baseline(X_train, y_train, X_validation, y, p0, p1, cfp, cfn, train_feature_ids, train_label_ids, validation_feature_ids, validation_label_ids)
+empty_negative = baseline(X_train, y_train, X_validation[:2], np.array([1, 1]), p0, p1, cfp, cfn, train_feature_ids, train_label_ids, validation_feature_ids[:2], validation_label_ids[:2])
+empty_positive = baseline(X_train, y_train, X_validation[:2], np.array([0, 0]), p0, p1, cfp, cfn, train_feature_ids, train_label_ids, validation_feature_ids[:2], validation_label_ids[:2])

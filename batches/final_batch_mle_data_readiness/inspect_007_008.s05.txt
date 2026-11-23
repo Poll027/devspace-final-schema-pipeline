@@ -1,0 +1,279 @@
+PROMPT In the supplied workflow, replace only `learner_operation = None` with a binding of `learner_operation` to `supplied_operation` (without calling it). The helper implements `set(table.columns)`. Leave the inputs, helper and verification scaffolding unchanged. This is a scaffolded operation-binding task; the remaining implementation is supplied. The completed workflow must meet the following output contract: Implement validate(table) without changing its input. Require exactly the supplied column set and declared dtypes, inclusive distance bounds, and the two declared zone spellings. Raise ValueError with exactly "columns", "types", "distance" or "zone" for the respective first violation, in that order. The supplied verify harness checks unchanged inputs. Add assertions for valid boundary fixtures and every column/type/value failure.
+SOLUTION
+# Supplied inputs and operation; do not edit.
+FIXTURES = {'contract': {'columns': ['distance', 'zone'], 'declared_types': {'distance': 'float64', 'zone': 'string'}, 'distance_min': 0, 'distance_max': 100, 'zone_categories': ['north', 'south']}, 'valid': {'columns': ['distance', 'zone'], 'rows': [[0, 'north'], [2, 'south'], [100, 'north']]}, 'negative': {'columns': ['distance', 'zone'], 'rows': [[-1, 'north'], [2, 'south'], [100, 'north']]}, 'too_large': {'columns': ['distance', 'zone'], 'rows': [[0, 'north'], [2, 'south'], [101, 'north']]}, 'missing_column': {'columns': ['distance'], 'rows': [[0], [2], [100]]}, 'invalid_representation': {'columns': ['distance', 'zone'], 'rows': [[0, 'NORTH'], [2, 'south'], [100, 'north']]}, 'unexpected_column': {'columns': ['distance', 'zone', 'extra_feature'], 'rows': [[0, 'north', 10], [2, 'south', 10], [100, 'north', 10]]}}
+if True:
+
+    def supplied_operation(set, table):
+        return set(table.columns)
+
+learner_operation = supplied_operation
+
+# Supplied workflow and verification scaffolding; do not edit.
+if True:
+    import pandas as pd
+    if True:
+
+        def supplied_table(case, bad_type=False):
+            table = pd.DataFrame(case['rows'], columns=case['columns'])
+            for column in table.columns:
+                if column in FIXTURES['contract']['declared_types']:
+                    table[column] = table[column].astype(FIXTURES['contract']['declared_types'][column])
+            if bad_type:
+                table['distance'] = table['distance'].astype('string')
+            return table
+    if True:
+
+        def verify(case, bad_type=False):
+            table = supplied_table(case, bad_type)
+            original = table.copy(deep=True)
+            try:
+                validate(table)
+                verdict = 'accepted'
+            except ValueError as error:
+                verdict = str(error)
+            assert table.equals(original)
+            return verdict
+
+    def validate(table):
+        if learner_operation(set, table) != set(FIXTURES['contract']['columns']):
+            raise ValueError('columns')
+        for column in FIXTURES['contract']['columns']:
+            if table.dtypes[column] != FIXTURES['contract']['declared_types'][column]:
+                raise ValueError('types')
+        if not ((table['distance'] >= FIXTURES['contract']['distance_min']) & (table['distance'] <= FIXTURES['contract']['distance_max'])).all():
+            raise ValueError('distance')
+        if not ((table['zone'] == 'north') | (table['zone'] == 'south')).all():
+            raise ValueError('zone')
+        return table
+    assert verify(FIXTURES['valid']) == 'accepted'
+    assert verify(FIXTURES['negative']) == 'distance'
+    assert verify(FIXTURES['too_large']) == 'distance'
+    assert verify(FIXTURES['missing_column']) == 'columns'
+    assert verify(FIXTURES['unexpected_column']) == 'columns'
+    assert verify(FIXTURES['invalid_representation']) == 'zone'
+    assert verify(FIXTURES['valid'], True) == 'types'
+
+TESTS
+[
+  {
+    "test_id": "case_1",
+    "kind": "function_call",
+    "spec": {
+      "function": "verify",
+      "args": [
+        {
+          "columns": [
+            "distance",
+            "zone"
+          ],
+          "rows": [
+            [
+              0,
+              "north"
+            ],
+            [
+              2,
+              "south"
+            ],
+            [
+              100,
+              "north"
+            ]
+          ]
+        }
+      ],
+      "expected": "accepted"
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  },
+  {
+    "test_id": "case_2",
+    "kind": "function_call",
+    "spec": {
+      "function": "verify",
+      "args": [
+        {
+          "columns": [
+            "distance",
+            "zone"
+          ],
+          "rows": [
+            [
+              -1,
+              "north"
+            ],
+            [
+              2,
+              "south"
+            ],
+            [
+              100,
+              "north"
+            ]
+          ]
+        }
+      ],
+      "expected": "distance"
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  },
+  {
+    "test_id": "case_3",
+    "kind": "function_call",
+    "spec": {
+      "function": "verify",
+      "args": [
+        {
+          "columns": [
+            "distance",
+            "zone"
+          ],
+          "rows": [
+            [
+              0,
+              "north"
+            ],
+            [
+              2,
+              "south"
+            ],
+            [
+              101,
+              "north"
+            ]
+          ]
+        }
+      ],
+      "expected": "distance"
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  },
+  {
+    "test_id": "case_4",
+    "kind": "function_call",
+    "spec": {
+      "function": "verify",
+      "args": [
+        {
+          "columns": [
+            "distance"
+          ],
+          "rows": [
+            [
+              0
+            ],
+            [
+              2
+            ],
+            [
+              100
+            ]
+          ]
+        }
+      ],
+      "expected": "columns"
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  },
+  {
+    "test_id": "case_5",
+    "kind": "function_call",
+    "spec": {
+      "function": "verify",
+      "args": [
+        {
+          "columns": [
+            "distance",
+            "zone",
+            "extra_feature"
+          ],
+          "rows": [
+            [
+              0,
+              "north",
+              10
+            ],
+            [
+              2,
+              "south",
+              10
+            ],
+            [
+              100,
+              "north",
+              10
+            ]
+          ]
+        }
+      ],
+      "expected": "columns"
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  },
+  {
+    "test_id": "case_6",
+    "kind": "function_call",
+    "spec": {
+      "function": "verify",
+      "args": [
+        {
+          "columns": [
+            "distance",
+            "zone"
+          ],
+          "rows": [
+            [
+              0,
+              "NORTH"
+            ],
+            [
+              2,
+              "south"
+            ],
+            [
+              100,
+              "north"
+            ]
+          ]
+        }
+      ],
+      "expected": "zone"
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  },
+  {
+    "test_id": "case_7",
+    "kind": "function_call",
+    "spec": {
+      "function": "verify",
+      "args": [
+        {
+          "columns": [
+            "distance",
+            "zone"
+          ],
+          "rows": [
+            [
+              0,
+              "north"
+            ],
+            [
+              2,
+              "south"
+            ],
+            [
+              100,
+              "north"
+            ]
+          ]
+        },
+        true
+      ],
+      "expected": "types"
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  }
+]
+CONSTRAINTS
+{"allowed_syntax": ["import pandas as pd", "def statements, parameters, and return statements", "if statements", "for loops", "dictionary, list, set, string, and numeric literals", "variable assignment and function calls", "pd.DataFrame construction with explicit column dtypes", "table.columns and table.dtypes", "column selection with table[column_name]", "set equality and dtype comparisons", "comparison operators and boolean operators", "elementwise boolean predicates combined with &", "Series.all()", "raise ValueError with a descriptive message", "try and except ValueError", "assert predicate statements"], "blocked_syntax": ["DataFrame.drop_duplicates()", "DataFrame.fillna()", "pandas.get_dummies()", "sklearn preprocessing and pipeline APIs", "model.fit() and model.predict()", "train_test_split()"]}

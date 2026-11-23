@@ -1,0 +1,117 @@
+{
+  "concept_id": "integration.bounded_idempotent_retries",
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "The situation",
+      "content": "A lost response can tempt a client to retry immediately, but the remote operation may already have taken effect. Retry policy must govern both repeated effects and finite waiting.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "definition",
+      "title": "The rule and its boundary",
+      "content": "Automatically repeating a non-idempotent request can duplicate effects; retry only when the method or application contract establishes idempotency or proves that the original request was not applied.",
+      "fact_ids": [
+        "f1"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "How to use the rule",
+      "content": "Retry-After can be an HTTP date or delay in seconds; incorporate a valid server-supplied delay into a retry policy rather than retrying immediately against that instruction. Configure a finite attempt count and finite total time budget, with a maintained client's bounded backoff where applicable, so repeated transient failures eventually stop. Classify the supplied failure as retryable or terminal under the operation contract, recognizing that a timeout or lost response alone does not prove the remote operation had no effect. Verify a transient failure followed by success and repeated failures exhausting the configured limit, and confirm that a non-idempotent operation without a retry-safe contract is not blindly repeated.",
+      "fact_ids": [
+        "f2",
+        "f3",
+        "f4",
+        "f5"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "walkthrough",
+      "title": "Reason through an example",
+      "content": "First classify the supplied failure under the operation contract. A timeout or lost response does not prove nothing happened. Retry only when method semantics or the application contract establish idempotency, or establish that the original request was not applied. Incorporate a valid Retry-After delay, whether seconds or an HTTP date, and use finite attempt and total-time budgets with bounded client backoff where applicable. Verify a transient failure followed by success, repeated failures reaching the limit, and a non-idempotent operation without a retry-safe contract that is not blindly repeated. Trace permission to retry before timing the retry. A finite policy can still duplicate effects if repetition itself is unsafe.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "misconception",
+      "title": "Keep this distinction",
+      "content": "Finite retries are not automatically safe retries. A missing response does not prove the remote request had no effect.",
+      "fact_ids": [
+        "f1",
+        "f4"
+      ]
+    }
+  ],
+  "visual_anchor": {
+    "type": "process_flow",
+    "purpose": "Make the decision order visible: establish permission to repeat, classify the failure, incorporate a valid server delay and bounded backoff, check remaining attempt and total-time budgets, then retry or stop. Include a lost-response branch showing that the remote effect may already have occurred."
+  },
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Specify one outbound operation's retry policy in a supplied Python configuration mapping: identify its retry-safety basis, classify supplied failures, honor valid Retry-After values, and set finite attempt and total-time limits with bounded client backoff.",
+    "success": "The policy permits only contract-approved, retry-safe repetition; honors both forms of Retry-After without exceeding its total-time budget; and stops on terminal failures or exhausted limits. Supplied checks demonstrate transient failure followed by success, repeated-failure exhaustion, and no blind repetition of a non-idempotent operation without a retry-safe contract.",
+    "live_code": {
+      "required_skill": "Express bounded retry decisions as configuration for a supplied maintained-client adapter, without implementing a retry engine.",
+      "allowed_syntax": [
+        "Assignment to the supplied policy mapping",
+        "Dictionary literals with string keys",
+        "String, integer, float, Boolean, and None literals",
+        "List literals for supplied failure classifications"
+      ],
+      "blocked_syntax": [],
+      "starter_state_intent": "Provide an incomplete policy mapping for the outbound operation and a supplied adapter with documented configuration fields. Supply the operation contract, failure classifications, Retry-After cases, and verification scenarios; require no client-internal implementation or additional domain data.",
+      "observable_success": "Running the supplied checks shows success after a permitted transient failure, no immediate retry against a valid server delay, termination at the attempt or total-time limit, and one attempt only when a non-idempotent operation lacks a retry-safe contract. A timeout alone never grants permission to repeat."
+    }
+  },
+  "required_facts": [
+    {
+      "id": "f1",
+      "statement": "Automatically repeating a non-idempotent request can duplicate effects; retry only when the method or application contract establishes idempotency or proves that the original request was not applied.",
+      "source_refs": [
+        "rfc_9110_http_semantics#https://www.rfc-editor.org/rfc/rfc9110.html#section-9.2.2"
+      ]
+    },
+    {
+      "id": "f2",
+      "statement": "Retry-After can be an HTTP date or delay in seconds; incorporate a valid server-supplied delay into a retry policy rather than retrying immediately against that instruction.",
+      "source_refs": [
+        "rfc_9110_http_semantics#https://www.rfc-editor.org/rfc/rfc9110.html#section-10.2.3"
+      ]
+    },
+    {
+      "id": "f3",
+      "statement": "Configure a finite attempt count and finite total time budget, with a maintained client's bounded backoff where applicable, so repeated transient failures eventually stop.",
+      "source_refs": [
+        "redis_docs#https://redis.io/docs/latest/develop/clients/redis-py/produsage/#retries",
+        "python_tutorial#https://docs.python.org/3/library/asyncio-task.html#timeouts"
+      ]
+    },
+    {
+      "id": "f4",
+      "statement": "Classify the supplied failure as retryable or terminal under the operation contract, recognizing that a timeout or lost response alone does not prove the remote operation had no effect.",
+      "source_refs": [
+        "fastapi_docs_advanced#https://www.python-httpx.org/exceptions/#the-exception-hierarchy",
+        "rfc_9110_http_semantics#https://www.rfc-editor.org/rfc/rfc9110.html#section-9.2.2"
+      ]
+    },
+    {
+      "id": "f5",
+      "statement": "Verify a transient failure followed by success and repeated failures exhausting the configured limit, and confirm that a non-idempotent operation without a retry-safe contract is not blindly repeated.",
+      "source_refs": [
+        "fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/testing/#using-testclient",
+        "rfc_9110_http_semantics#https://www.rfc-editor.org/rfc/rfc9110.html#section-9.2.2"
+      ]
+    }
+  ]
+}

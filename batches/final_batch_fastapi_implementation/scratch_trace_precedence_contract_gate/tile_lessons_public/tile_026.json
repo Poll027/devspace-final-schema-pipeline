@@ -1,0 +1,1531 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "python_fastapi_backend_developer",
+  "tile_id": "tile_026",
+  "toc_location": {
+    "region_id": "region_implementation",
+    "terrain_id": "terrain_routes_configuration"
+  },
+  "title": "Custom validation for domain invariants · Expected API failures with HTTPException",
+  "summary": "",
+  "concept_ids": [
+    "pydantic.domain_validation",
+    "fastapi.expected_http_errors"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_python_fastapi_backend_developer",
+    "toc_freeze_hash": "96d245a8da4552263398bda220dd1f88774cc30045abdf029e8d40064881cb7e",
+    "glossary_bundle_hashes": {
+      "pydantic.domain_validation": "4c4659dc6a862f02093a0d05555d2f1744e56bcca59001f007225252507c6c12",
+      "fastapi.expected_http_errors": "982af1480e179def32fb0d1ae3164933bafe721a7750ac0ab49887801b11524a"
+    },
+    "scenario_registry_hash": "c048f8767b9a4f4400fec50ac35af6f24f1dc7516758255eb20c51074d3b52f4"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core"
+    ],
+    "block_types": [
+      "code_walkthrough",
+      "media_group",
+      "prose",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "code_exercise"
+    ],
+    "runtimes": [
+      "python_asgi"
+    ],
+    "asset_ids": []
+  },
+  "pacing": {
+    "estimated_minutes": 11.2
+  },
+  "steps": [
+    {
+      "step_id": "tile_026.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "pydantic.domain_validation"
+      ],
+      "title": "The rule: Custom validation for domain invariants",
+      "lineage": {
+        "concept_ids": [
+          "pydantic.domain_validation"
+        ],
+        "teaching_block_ids": [
+          "pydantic.domain_validation#tb1",
+          "pydantic.domain_validation#tb2",
+          "pydantic.domain_validation#tb3"
+        ],
+        "fact_ids": [
+          "pydantic.domain_validation#f1",
+          "pydantic.domain_validation#f2",
+          "pydantic.domain_validation#f3",
+          "pydantic.domain_validation#f4"
+        ],
+        "anchors": [
+          "pydantic.domain_validation#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Choose @model_validator(mode='after') on an instance method to check an invariant involving multiple already-validated fields.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "pydantic.domain_validation"
+            ],
+            "teaching_block_ids": [
+              "pydantic.domain_validation#tb2"
+            ],
+            "fact_ids": [
+              "pydantic.domain_validation#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "An after-model validator raises ValueError when its invariant fails and returns self when validation succeeds. Use @field_validator('field', mode='after') with a classmethod for a custom check on one validated field, returning the validated value when accepted. Verify a cross-field rule with input that passes each individual field's validation but violates the model invariant, asserting that model construction raises ValidationError; also verify a consistent input is accepted.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "pydantic.domain_validation"
+            ],
+            "teaching_block_ids": [
+              "pydantic.domain_validation#tb3"
+            ],
+            "fact_ids": [
+              "pydantic.domain_validation#f2",
+              "pydantic.domain_validation#f3",
+              "pydantic.domain_validation#f4"
+            ]
+          }
+        },
+        {
+          "type": "code_walkthrough",
+          "language": "python",
+          "code": "from pydantic import BaseModel, model_validator, ValidationError\n\nclass Booking(BaseModel):\n    start: int\n    end: int\n    @model_validator(mode='after')\n    def validate_booking(self):\n        if self.end <= self.start:\n            raise ValueError('end must be later than start')\n        return self\n\n# checks.py\nfrom pydantic import ValidationError\n\ncases = [{'start': 5, 'end': 3}, {'start': 3, 'end': 3}, {'start': 3, 'end': 5}]\nfor values in cases:\n    if values['end'] <= values['start']:\n        try:\n            Booking(**values)\n        except ValidationError:\n            pass\n        else:\n            raise AssertionError('Inconsistent pair was accepted')\n    else:\n        booking = Booking(**values)\n        assert booking.start == values['start'] and booking.end == values['end']\n",
+          "annotations": [
+            {
+              "start_line": 1,
+              "end_line": 26,
+              "text": "For the booking rule, end must be later than start. Use individually valid values that violate that relationship to isolate the invariant. An after-model instance validator raises ValueError on failure; construction then raises ValidationError. A consistent pair succeeds and the validator returns self. For a custom single-field check, use an after-field classmethod validator and return the accepted value."
+            }
+          ],
+          "reveal": "all",
+          "lineage": {
+            "concept_ids": [
+              "pydantic.domain_validation"
+            ],
+            "teaching_block_ids": [
+              "pydantic.domain_validation#tb1",
+              "pydantic.domain_validation#tb2",
+              "pydantic.domain_validation#tb3"
+            ],
+            "fact_ids": [
+              "pydantic.domain_validation#f1",
+              "pydantic.domain_validation#f2",
+              "pydantic.domain_validation#f3",
+              "pydantic.domain_validation#f4"
+            ],
+            "anchors": [
+              "pydantic.domain_validation#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_026.s02",
+      "type": "explainer",
+      "concept_ids": [
+        "pydantic.domain_validation"
+      ],
+      "title": "Trace the boundary: Custom validation for domain invariants",
+      "lineage": {
+        "concept_ids": [
+          "pydantic.domain_validation"
+        ],
+        "teaching_block_ids": [
+          "pydantic.domain_validation#tb4",
+          "pydantic.domain_validation#tb5"
+        ],
+        "fact_ids": [
+          "pydantic.domain_validation#f1",
+          "pydantic.domain_validation#f2",
+          "pydantic.domain_validation#f3",
+          "pydantic.domain_validation#f4"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "For the booking rule, end must be later than start. Use individually valid values that violate that relationship to isolate the invariant. An after-model instance validator raises ValueError on failure; construction then raises ValidationError. A consistent pair succeeds and the validator returns self. For a custom single-field check, use an after-field classmethod validator and return the accepted value.",
+          "role": "walkthrough",
+          "lineage": {
+            "concept_ids": [
+              "pydantic.domain_validation"
+            ],
+            "teaching_block_ids": [
+              "pydantic.domain_validation#tb4",
+              "pydantic.domain_validation#tb5"
+            ],
+            "fact_ids": [
+              "pydantic.domain_validation#f1",
+              "pydantic.domain_validation#f2",
+              "pydantic.domain_validation#f3",
+              "pydantic.domain_validation#f4"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_026.s03",
+      "type": "video",
+      "concept_ids": [
+        "pydantic.domain_validation"
+      ],
+      "title": "Custom validation for domain invariants",
+      "lineage": {
+        "concept_ids": [
+          "pydantic.domain_validation"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "pydantic.domain_validation#f1"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "media_group",
+          "segment_ids": [
+            "seg_pydantic.domain_validation_M81pfi64eeM_3409_3542"
+          ],
+          "segments": [
+            {
+              "segment_id": "seg_pydantic.domain_validation_M81pfi64eeM_3409_3542",
+              "video_id": "M81pfi64eeM",
+              "youtube_url": "https://www.youtube.com/watch?v=M81pfi64eeM",
+              "review_url": "https://www.youtube.com/watch?v=M81pfi64eeM&t=3409s",
+              "start_seconds": 3409,
+              "end_seconds": 3542,
+              "label": "Check a password-confirmation invariant after field validation",
+              "summary": "A registration model contains email, password and confirmation fields. A model validator compares the two password fields after individual field validation. It receives self, giving it access to the model instance rather than just one value, and does not use the classmethod decorator used for field validators. Constructing the model with two different password strings produces a validation error reporting that the passwords do not match.",
+              "fact_ids": [
+                "f1"
+              ],
+              "transcript_ref": "M81pfi64eeM:3409-3542"
+            }
+          ],
+          "group_title": "Checking relationships after field validation",
+          "bridge": {
+            "before": "Watch how the validator receives the whole instance after individual field validation. The clip checks password confirmation using a mismatched pair; our booking example applies the same cross-field principle.",
+            "after": "The clip demonstrates a mismatch failure. The text also covers returning self on success, the complete single-field validator pattern, and verifying both rejection of individually valid but inconsistent inputs and acceptance of consistent inputs."
+          },
+          "default_mode": "video"
+        }
+      ]
+    },
+    {
+      "step_id": "tile_026.s04",
+      "type": "check",
+      "concept_ids": [
+        "pydantic.domain_validation"
+      ],
+      "title": "Choose the distinction: Custom validation for domain invariants",
+      "lineage": {
+        "concept_ids": [
+          "pydantic.domain_validation"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "pydantic.domain_validation#f1",
+          "pydantic.domain_validation#f3"
+        ],
+        "anchors": [
+          "pydantic.domain_validation#assessment:distinguish_cross_field_invariants_from_single_field_checks"
+        ]
+      },
+      "eyebrow": "Check your understanding",
+      "lede": "Use the declared contract to distinguish the outcomes.",
+      "interaction": {
+        "interaction_id": "ix.tile_026.s04",
+        "type": "choice",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "pydantic.domain_validation",
+            "capability": "distinguish_cross_field_invariants_from_single_field_checks",
+            "fact_ids": [
+              "f1",
+              "f3"
+            ]
+          }
+        ],
+        "anchors": [
+          "pydantic.domain_validation#assessment:distinguish_cross_field_invariants_from_single_field_checks"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Correct. Use @model_validator(mode='after') on an instance method to check an invariant involving multiple already-validated fields."
+          },
+          "incorrect": {
+            "message": "Recheck the distinction: Use @model_validator(mode='after') on an instance method to check an invariant involving multiple already-validated fields."
+          },
+          "hints": [
+            "Ask whether a failure belongs to one field or to the relationship between validated fields."
+          ],
+          "remediation_step_id": "tile_026.r01"
+        },
+        "public": {
+          "prompt": "Booking has individually valid integer start and end fields. Which rule requires their relationship to be checked together?",
+          "options": [
+            {
+              "option_id": "a",
+              "text": "end must be later than start."
+            },
+            {
+              "option_id": "b",
+              "text": "start must be an integer."
+            },
+            {
+              "option_id": "c",
+              "text": "end must be an integer."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "a"
+          ],
+          "option_feedback": {
+            "a": {
+              "message": "Correct. Use @model_validator(mode='after') on an instance method to check an invariant involving multiple already-validated fields."
+            },
+            "b": {
+              "message": "This concerns one field rather than the relationship."
+            },
+            "c": {
+              "message": "This also concerns one field rather than comparing both values."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_026.s05",
+      "type": "check",
+      "concept_ids": [
+        "pydantic.domain_validation"
+      ],
+      "title": "Choose the distinction: Custom validation for domain invariants",
+      "lineage": {
+        "concept_ids": [
+          "pydantic.domain_validation"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "pydantic.domain_validation#f4"
+        ],
+        "anchors": [
+          "pydantic.domain_validation#assessment:identify_inputs_that_isolate_cross_field_validity"
+        ]
+      },
+      "eyebrow": "Check your understanding",
+      "lede": "Use the declared contract to distinguish the outcomes.",
+      "interaction": {
+        "interaction_id": "ix.tile_026.s05",
+        "type": "choice",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "pydantic.domain_validation",
+            "capability": "identify_inputs_that_isolate_cross_field_validity",
+            "fact_ids": [
+              "f4"
+            ]
+          }
+        ],
+        "anchors": [
+          "pydantic.domain_validation#assessment:identify_inputs_that_isolate_cross_field_validity"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Correct. Verify a cross-field rule with input that passes each individual field's validation but violates the model invariant, asserting that model construction raises ValidationError; also verify a consistent input is accepted."
+          },
+          "incorrect": {
+            "message": "Recheck the distinction: Verify a cross-field rule with input that passes each individual field's validation but violates the model invariant, asserting that model construction raises ValidationError; also verify a consistent input is accepted."
+          },
+          "hints": [
+            "Ask whether a failure belongs to one field or to the relationship between validated fields."
+          ]
+        },
+        "public": {
+          "prompt": "Which supplied pair isolates a failure of end > start while keeping both inputs individually valid integers?",
+          "options": [
+            {
+              "option_id": "a",
+              "text": "start=5, end=3."
+            },
+            {
+              "option_id": "b",
+              "text": "start=3, end=5."
+            },
+            {
+              "option_id": "c",
+              "text": "start=\"not-an-integer\", end=5."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "a"
+          ],
+          "option_feedback": {
+            "a": {
+              "message": "Correct. Verify a cross-field rule with input that passes each individual field's validation but violates the model invariant, asserting that model construction raises ValidationError; also verify a consistent input is accepted."
+            },
+            "b": {
+              "message": "This pair satisfies end > start."
+            },
+            "c": {
+              "message": "This introduces a single-field type failure instead of isolating the invariant."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_026.s06",
+      "type": "hands_on",
+      "concept_ids": [
+        "pydantic.domain_validation"
+      ],
+      "title": "Practice: Custom validation for domain invariants",
+      "lineage": {
+        "concept_ids": [
+          "pydantic.domain_validation"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "pydantic.domain_validation#f1",
+          "pydantic.domain_validation#f2"
+        ],
+        "anchors": [
+          "pydantic.domain_validation#practice",
+          "pydantic.domain_validation#assessment:identify_after_model_invariant_validation_requirements"
+        ]
+      },
+      "eyebrow": "Apply the contract",
+      "lede": "Work in the supplied orders-service exercise snapshot.",
+      "interaction": {
+        "interaction_id": "ix.tile_026.s06",
+        "type": "code_exercise",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "pydantic.domain_validation",
+            "capability": "identify_after_model_invariant_validation_requirements",
+            "fact_ids": [
+              "f1",
+              "f2"
+            ]
+          }
+        ],
+        "anchors": [
+          "pydantic.domain_validation#practice",
+          "pydantic.domain_validation#assessment:identify_after_model_invariant_validation_requirements"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Correct. Use @model_validator(mode='after') on an instance method to check an invariant involving multiple already-validated fields."
+          },
+          "incorrect": {
+            "message": "Recheck the distinction: Use @model_validator(mode='after') on an instance method to check an invariant involving multiple already-validated fields."
+          },
+          "hints": [
+            "Ask whether a failure belongs to one field or to the relationship between validated fields."
+          ]
+        },
+        "public": {
+          "prompt": "Add Booking.validate_order as an after-model instance validator. Require end > start, raise ValueError on failure, and return self on success. Constructor checks include (5,3), (3,3), (3,5) and (2,7); reject the first two and preserve the accepted integer fields.",
+          "runtime": {
+            "kind": "python_asgi",
+            "version": "0.29.5",
+            "packages": [
+              "pydantic"
+            ]
+          },
+          "workspace": {
+            "entry": "main.py",
+            "files": [
+              {
+                "path": "main.py",
+                "role": "editable",
+                "content": "from pydantic import BaseModel, model_validator, ValidationError\n\nclass Booking(BaseModel):\n    start: int\n    end: int\n    # TODO: add an after-model invariant validator.\n\n# Supplied constructor inspector returns validation outcome and accepted field values.\ndef booking_case(start, end):\n    try:\n        b = Booking(start=start, end=end)\n        return {\"accepted\": True, \"start\": b.start, \"end\": b.end}\n    except ValidationError:\n        return {\"accepted\": False}\n"
+              }
+            ],
+            "asset_mounts": []
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "from pydantic import BaseModel, model_validator, ValidationError",
+              "class Booking(BaseModel):",
+              "start: int",
+              "end: int",
+              "@model_validator(mode='after')",
+              "def validate_order(self):",
+              "self.start",
+              "self.end",
+              "if",
+              "<=",
+              "raise ValueError(...)",
+              "return self",
+              "integer literals",
+              "string literals",
+              "Booking(start=..., end=...)"
+            ],
+            "blocked_syntax": [
+              "HTTPException(...)",
+              "APIRouter(...)",
+              "Depends(...)",
+              "@app.post(...)",
+              "TestClient(...)",
+              "model_dump(exclude_unset=True)"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "main.py",
+              "content": "from pydantic import BaseModel, model_validator, ValidationError\n\nclass Booking(BaseModel):\n    start: int\n    end: int\n    # TODO: add an after-model invariant validator.\n    @model_validator(mode=\"after\")\n    def validate_order(self):\n        if self.end <= self.start:\n            raise ValueError(\"end must be later than start\")\n        return self\n\n# Supplied constructor inspector returns validation outcome and accepted field values.\ndef booking_case(start, end):\n    try:\n        b = Booking(start=start, end=end)\n        return {\"accepted\": True, \"start\": b.start, \"end\": b.end}\n    except ValidationError:\n        return {\"accepted\": False}\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "t1",
+              "kind": "function_call",
+              "spec": {
+                "function": "booking_case",
+                "args": [
+                  5,
+                  3
+                ],
+                "expected": {
+                  "accepted": false
+                }
+              },
+              "message_on_fail": "The completed implementation does not meet this observable contract.",
+              "visible": true
+            },
+            {
+              "test_id": "t2",
+              "kind": "function_call",
+              "spec": {
+                "function": "booking_case",
+                "args": [
+                  3,
+                  3
+                ],
+                "expected": {
+                  "accepted": false
+                }
+              },
+              "message_on_fail": "The completed implementation does not meet this observable contract.",
+              "visible": true
+            },
+            {
+              "test_id": "t3",
+              "kind": "function_call",
+              "spec": {
+                "function": "booking_case",
+                "args": [
+                  3,
+                  5
+                ],
+                "expected": {
+                  "accepted": true,
+                  "start": 3,
+                  "end": 5
+                }
+              },
+              "message_on_fail": "The completed implementation does not meet this observable contract.",
+              "visible": true
+            },
+            {
+              "test_id": "t4",
+              "kind": "function_call",
+              "spec": {
+                "function": "booking_case",
+                "args": [
+                  2,
+                  7
+                ],
+                "expected": {
+                  "accepted": true,
+                  "start": 2,
+                  "end": 7
+                }
+              },
+              "message_on_fail": "The completed implementation does not meet this observable contract.",
+              "visible": true
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "pyodide",
+            "runtime_version": "0.29.5",
+            "solution_sha256": "d0ad6a2cb4a6cf6ba412423b4c25b91e597526063cfbfcfab3bd43e370a75906",
+            "tests_passed": 4
+          },
+          "hidden_checks": []
+        }
+      }
+    },
+    {
+      "step_id": "tile_026.s07",
+      "type": "explainer",
+      "concept_ids": [
+        "fastapi.expected_http_errors"
+      ],
+      "title": "The rule: Expected API failures with HTTPException",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.expected_http_errors"
+        ],
+        "teaching_block_ids": [
+          "fastapi.expected_http_errors#tb1",
+          "fastapi.expected_http_errors#tb2",
+          "fastapi.expected_http_errors#tb3",
+          "fastapi.expected_http_errors#tb4"
+        ],
+        "fact_ids": [
+          "fastapi.expected_http_errors#f1",
+          "fastapi.expected_http_errors#f2",
+          "fastapi.expected_http_errors#f3"
+        ],
+        "anchors": [
+          "fastapi.expected_http_errors#visual"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Raise HTTPException(status_code=..., detail=...) to stop the operation and return a deliberate HTTP rejection rather than returning the exception object.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.expected_http_errors"
+            ],
+            "teaching_block_ids": [
+              "fastapi.expected_http_errors#tb2"
+            ],
+            "fact_ids": [
+              "fastapi.expected_http_errors#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "HTTPException accepts headers for required response metadata, such as an authentication challenge. FastAPI's default HTTPException response contains the supplied detail under the JSON key detail.",
+          "role": "mechanism",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.expected_http_errors"
+            ],
+            "teaching_block_ids": [
+              "fastapi.expected_http_errors#tb3"
+            ],
+            "fact_ids": [
+              "fastapi.expected_http_errors#f2",
+              "fastapi.expected_http_errors#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "At the absent-order branch, raise HTTPException with the intended status and client-facing detail. The raise stops normal operation work and produces a deliberate HTTP rejection; returning the exception object is different. FastAPI puts the supplied detail under the default JSON key detail. Supply headers when the rejection requires metadata, such as an authentication challenge.",
+          "role": "walkthrough",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.expected_http_errors"
+            ],
+            "teaching_block_ids": [
+              "fastapi.expected_http_errors#tb4"
+            ],
+            "fact_ids": [
+              "fastapi.expected_http_errors#f1",
+              "fastapi.expected_http_errors#f2",
+              "fastapi.expected_http_errors#f3"
+            ]
+          }
+        },
+        {
+          "type": "code_walkthrough",
+          "language": "python",
+          "code": "from fastapi import FastAPI, HTTPException\napp = FastAPI()\norder = None\n\n@app.get(\"/order\")\ndef get_order():\n    if order is None:\n        raise HTTPException(status_code=404, detail=\"Order not found\")\n    return order\n",
+          "annotations": [
+            {
+              "start_line": 1,
+              "end_line": 9,
+              "text": "At the absent-order branch, raise HTTPException with the intended status and client-facing detail. The raise stops normal operation work and produces a deliberate HTTP rejection; returning the exception object is different. FastAPI puts the supplied detail under the default JSON key detail. Supply headers when the rejection requires metadata, such as an authentication challenge."
+            }
+          ],
+          "reveal": "all",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.expected_http_errors"
+            ],
+            "teaching_block_ids": [
+              "fastapi.expected_http_errors#tb1",
+              "fastapi.expected_http_errors#tb2",
+              "fastapi.expected_http_errors#tb3",
+              "fastapi.expected_http_errors#tb4"
+            ],
+            "fact_ids": [
+              "fastapi.expected_http_errors#f1",
+              "fastapi.expected_http_errors#f2",
+              "fastapi.expected_http_errors#f3"
+            ],
+            "anchors": [
+              "fastapi.expected_http_errors#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_026.s08",
+      "type": "explainer",
+      "concept_ids": [
+        "fastapi.expected_http_errors"
+      ],
+      "title": "Trace the boundary: Expected API failures with HTTPException",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.expected_http_errors"
+        ],
+        "teaching_block_ids": [
+          "fastapi.expected_http_errors#tb5",
+          "fastapi.expected_http_errors#tb6"
+        ],
+        "fact_ids": [
+          "fastapi.expected_http_errors#f1",
+          "fastapi.expected_http_errors#f2",
+          "fastapi.expected_http_errors#f3"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "At the absent-order branch, raise HTTPException with the intended status and client-facing detail. The raise stops normal operation work and produces a deliberate HTTP rejection; returning the exception object is different. FastAPI puts the supplied detail under the default JSON key detail. Supply headers when the rejection requires metadata, such as an authentication challenge.",
+          "role": "walkthrough",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.expected_http_errors"
+            ],
+            "teaching_block_ids": [
+              "fastapi.expected_http_errors#tb5",
+              "fastapi.expected_http_errors#tb6"
+            ],
+            "fact_ids": [
+              "fastapi.expected_http_errors#f1",
+              "fastapi.expected_http_errors#f2",
+              "fastapi.expected_http_errors#f3"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_026.s09",
+      "type": "check",
+      "concept_ids": [
+        "fastapi.expected_http_errors"
+      ],
+      "title": "Choose the distinction: Expected API failures with HTTPException",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.expected_http_errors"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "fastapi.expected_http_errors#f1"
+        ],
+        "anchors": [
+          "fastapi.expected_http_errors#assessment:determine_deliberate_rejection_control_flow"
+        ]
+      },
+      "eyebrow": "Check your understanding",
+      "lede": "Use the declared contract to distinguish the outcomes.",
+      "interaction": {
+        "interaction_id": "ix.tile_026.s09",
+        "type": "choice",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "fastapi.expected_http_errors",
+            "capability": "determine_deliberate_rejection_control_flow",
+            "fact_ids": [
+              "f1"
+            ]
+          }
+        ],
+        "anchors": [
+          "fastapi.expected_http_errors#assessment:determine_deliberate_rejection_control_flow"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Correct. Raise HTTPException(status_code=..., detail=...) to stop the operation and return a deliberate HTTP rejection rather than returning the exception object."
+          },
+          "incorrect": {
+            "message": "Recheck the distinction: Raise HTTPException(status_code=..., detail=...) to stop the operation and return a deliberate HTTP rejection rather than returning the exception object."
+          },
+          "hints": [
+            "Distinguish constructing an exception, raising it, and returning a normal value."
+          ],
+          "remediation_step_id": "tile_026.r04"
+        },
+        "public": {
+          "prompt": "An absent-order branch must reject deliberately and stop before the normal return. Which form does that?",
+          "options": [
+            {
+              "option_id": "a",
+              "text": "raise HTTPException(status_code=404, detail=\"Order not found\")"
+            },
+            {
+              "option_id": "b",
+              "text": "return HTTPException(status_code=404, detail=\"Order not found\")"
+            },
+            {
+              "option_id": "c",
+              "text": "Construct HTTPException, then continue to the normal return."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "a"
+          ],
+          "option_feedback": {
+            "a": {
+              "message": "Correct. Raise HTTPException(status_code=..., detail=...) to stop the operation and return a deliberate HTTP rejection rather than returning the exception object."
+            },
+            "b": {
+              "message": "Returning an exception is not raising a deliberate rejection."
+            },
+            "c": {
+              "message": "Construction alone does not stop control flow."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_026.s10",
+      "type": "check",
+      "concept_ids": [
+        "fastapi.expected_http_errors"
+      ],
+      "title": "Choose the distinction: Expected API failures with HTTPException",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.expected_http_errors"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "fastapi.expected_http_errors#f2"
+        ],
+        "anchors": [
+          "fastapi.expected_http_errors#assessment:identify_required_rejection_headers"
+        ]
+      },
+      "eyebrow": "Check your understanding",
+      "lede": "Use the declared contract to distinguish the outcomes.",
+      "interaction": {
+        "interaction_id": "ix.tile_026.s10",
+        "type": "choice",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "fastapi.expected_http_errors",
+            "capability": "identify_required_rejection_headers",
+            "fact_ids": [
+              "f2"
+            ]
+          }
+        ],
+        "anchors": [
+          "fastapi.expected_http_errors#assessment:identify_required_rejection_headers"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Correct. HTTPException accepts headers for required response metadata, such as an authentication challenge."
+          },
+          "incorrect": {
+            "message": "Recheck the distinction: HTTPException accepts headers for required response metadata, such as an authentication challenge."
+          },
+          "hints": [
+            "Distinguish constructing an exception, raising it, and returning a normal value."
+          ]
+        },
+        "public": {
+          "prompt": "A deliberate HTTP rejection requires a client-facing header X-Reason: absent. Where should the rejection attach it?",
+          "options": [
+            {
+              "option_id": "a",
+              "text": "HTTPException(..., headers={\"X-Reason\": \"absent\"})"
+            },
+            {
+              "option_id": "b",
+              "text": "Only inside the detail text."
+            },
+            {
+              "option_id": "c",
+              "text": "Nowhere: deliberate rejections cannot carry headers."
+            }
+          ],
+          "selection": "single",
+          "shuffle": true
+        },
+        "grading": {
+          "correct_option_ids": [
+            "a"
+          ],
+          "option_feedback": {
+            "a": {
+              "message": "Correct. HTTPException accepts headers for required response metadata, such as an authentication challenge."
+            },
+            "b": {
+              "message": "Text in detail is not a response header."
+            },
+            "c": {
+              "message": "HTTPException supports headers for the rejection."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_026.s11",
+      "type": "hands_on",
+      "concept_ids": [
+        "fastapi.expected_http_errors"
+      ],
+      "title": "Practice: Expected API failures with HTTPException",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.expected_http_errors"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "fastapi.expected_http_errors#f3"
+        ],
+        "anchors": [
+          "fastapi.expected_http_errors#practice",
+          "fastapi.expected_http_errors#assessment:determine_default_rejection_body"
+        ]
+      },
+      "eyebrow": "Apply the contract",
+      "lede": "Work in the supplied orders-service exercise snapshot.",
+      "interaction": {
+        "interaction_id": "ix.tile_026.s11",
+        "type": "code_exercise",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": false,
+        "measures": [
+          {
+            "concept_id": "fastapi.expected_http_errors",
+            "capability": "determine_default_rejection_body",
+            "fact_ids": [
+              "f3"
+            ]
+          }
+        ],
+        "anchors": [
+          "fastapi.expected_http_errors#practice",
+          "fastapi.expected_http_errors#assessment:determine_default_rejection_body"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Correct. FastAPI's default HTTPException response contains the supplied detail under the JSON key detail."
+          },
+          "incorrect": {
+            "message": "Recheck the distinction: FastAPI's default HTTPException response contains the supplied detail under the JSON key detail."
+          },
+          "hints": [
+            "Distinguish constructing an exception, raising it, and returning a normal value."
+          ]
+        },
+        "public": {
+          "prompt": "Complete the absent-order branch with a raised HTTPException: status 404 and the supplied missing_detail. Do not return the exception or proceed to the normal return in that branch. The /order rejection must carry {\"detail\": missing_detail}.",
+          "runtime": {
+            "kind": "python_asgi",
+            "version": "0.29.5",
+            "packages": [
+              "fastapi"
+            ]
+          },
+          "workspace": {
+            "entry": "main.py",
+            "files": [
+              {
+                "path": "main.py",
+                "role": "editable",
+                "content": "from fastapi import FastAPI, HTTPException\napp = FastAPI()\norder = None\nmissing_detail = \"Order not found\"\n@app.get(\"/order\")\ndef get_order():\n    if order is None:\n        pass\n    return order\n"
+              }
+            ],
+            "asset_mounts": []
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "from fastapi import FastAPI, HTTPException",
+              "app = FastAPI()",
+              "@app.get(\"/order\")",
+              "def",
+              "if order is None:",
+              "raise HTTPException(status_code=404, detail=\"Order not found\")",
+              "HTTPException headers keyword with a string-to-string dictionary",
+              "return",
+              "variable assignment",
+              "None",
+              "string and integer literals",
+              "dictionary literals"
+            ],
+            "blocked_syntax": [
+              "APIRouter",
+              "Depends",
+              "Path",
+              "Query",
+              "Body",
+              "Header",
+              "Cookie",
+              "response_model",
+              "BackgroundTasks",
+              "@app.exception_handler",
+              "TestClient",
+              "app.dependency_overrides"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "main.py",
+              "content": "from fastapi import FastAPI, HTTPException\napp = FastAPI()\norder = None\nmissing_detail = \"Order not found\"\n@app.get(\"/order\")\ndef get_order():\n    if order is None:\n        raise HTTPException(status_code=404, detail=missing_detail)\n    return order\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "t1",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "GET",
+                    "path": "/order"
+                  }
+                ],
+                "expected": {
+                  "status": 404,
+                  "json": {
+                    "detail": "Order not found"
+                  }
+                }
+              },
+              "message_on_fail": "The completed implementation does not meet this observable contract.",
+              "visible": true
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "pyodide",
+            "runtime_version": "0.29.5",
+            "solution_sha256": "d7a4ae7cf22a553bba48b81846c8af8a10ffbe59527ccb7d17c53d5f9349863d",
+            "tests_passed": 1
+          },
+          "hidden_checks": [
+            {
+              "check_id": "hc_var_missing_detail_t1",
+              "mutation": {
+                "ops": [
+                  {
+                    "op": "set_variable",
+                    "name": "missing_detail",
+                    "value": "Order not found_x"
+                  }
+                ]
+              },
+              "test_id": "t1",
+              "expected": {
+                "value": {
+                  "status": 404,
+                  "json": {
+                    "detail": "Order not found_x"
+                  }
+                }
+              },
+              "ordered": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "step_id": "tile_026.s12",
+      "type": "recap",
+      "concept_ids": [
+        "pydantic.domain_validation",
+        "fastapi.expected_http_errors"
+      ],
+      "title": "Keep these boundaries",
+      "lineage": {
+        "concept_ids": [
+          "pydantic.domain_validation",
+          "fastapi.expected_http_errors"
+        ],
+        "teaching_block_ids": [],
+        "fact_ids": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "A cross-field rule is not proved by an input that already fails individual field validation. Isolate the invariant with individually valid values.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "pydantic.domain_validation"
+            ],
+            "teaching_block_ids": [
+              "pydantic.domain_validation#tb5"
+            ],
+            "fact_ids": [
+              "pydantic.domain_validation#f4"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Raise HTTPException rather than returning it. The default body puts the supplied information under detail, not under an arbitrary invented key.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.expected_http_errors"
+            ],
+            "teaching_block_ids": [
+              "fastapi.expected_http_errors#tb6"
+            ],
+            "fact_ids": [
+              "fastapi.expected_http_errors#f1",
+              "fastapi.expected_http_errors#f3"
+            ]
+          }
+        },
+        {
+          "type": "up_next",
+          "title": "Choosing def versus async def from I/O behavior without blocking the event loop",
+          "text": "Next: Choosing def versus async def from I/O behavior without blocking the event loop."
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "tile_026.r01",
+      "type": "remediation",
+      "concept_ids": [
+        "pydantic.domain_validation"
+      ],
+      "title": "Try the contrast again: Custom validation for domain invariants",
+      "lineage": {
+        "concept_ids": [
+          "pydantic.domain_validation"
+        ],
+        "teaching_block_ids": [
+          "pydantic.domain_validation#tb2",
+          "pydantic.domain_validation#tb3",
+          "pydantic.domain_validation#tb4"
+        ],
+        "fact_ids": [
+          "pydantic.domain_validation#f1",
+          "pydantic.domain_validation#f3"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Use @model_validator(mode='after') on an instance method to check an invariant involving multiple already-validated fields. Use @field_validator('field', mode='after') with a classmethod for a custom check on one validated field, returning the validated value when accepted.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "pydantic.domain_validation"
+            ],
+            "teaching_block_ids": [
+              "pydantic.domain_validation#tb2",
+              "pydantic.domain_validation#tb3",
+              "pydantic.domain_validation#tb4"
+            ],
+            "fact_ids": [
+              "pydantic.domain_validation#f1",
+              "pydantic.domain_validation#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "The booking start/end relationship is a model invariant, not just a check on one field. A one-field after validator returns its accepted value; an after-model validator returns self.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "pydantic.domain_validation"
+            ],
+            "teaching_block_ids": [
+              "pydantic.domain_validation#tb2",
+              "pydantic.domain_validation#tb3",
+              "pydantic.domain_validation#tb4"
+            ],
+            "fact_ids": [
+              "pydantic.domain_validation#f1",
+              "pydantic.domain_validation#f3"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_026.r02",
+      "type": "remediation",
+      "concept_ids": [
+        "pydantic.domain_validation"
+      ],
+      "title": "Try the contrast again: Custom validation for domain invariants",
+      "lineage": {
+        "concept_ids": [
+          "pydantic.domain_validation"
+        ],
+        "teaching_block_ids": [
+          "pydantic.domain_validation#tb3",
+          "pydantic.domain_validation#tb4",
+          "pydantic.domain_validation#tb5"
+        ],
+        "fact_ids": [
+          "pydantic.domain_validation#f4"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Verify a cross-field rule with input that passes each individual field's validation but violates the model invariant, asserting that model construction raises ValidationError; also verify a consistent input is accepted.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "pydantic.domain_validation"
+            ],
+            "teaching_block_ids": [
+              "pydantic.domain_validation#tb3",
+              "pydantic.domain_validation#tb4",
+              "pydantic.domain_validation#tb5"
+            ],
+            "fact_ids": [
+              "pydantic.domain_validation#f4"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Compare a booking with end before start against one with end later than start; both inputs must first satisfy their field types.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "pydantic.domain_validation"
+            ],
+            "teaching_block_ids": [
+              "pydantic.domain_validation#tb3",
+              "pydantic.domain_validation#tb4",
+              "pydantic.domain_validation#tb5"
+            ],
+            "fact_ids": [
+              "pydantic.domain_validation#f4"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_026.r03",
+      "type": "remediation",
+      "concept_ids": [
+        "pydantic.domain_validation"
+      ],
+      "title": "Try the contrast again: Custom validation for domain invariants",
+      "lineage": {
+        "concept_ids": [
+          "pydantic.domain_validation"
+        ],
+        "teaching_block_ids": [
+          "pydantic.domain_validation#tb2",
+          "pydantic.domain_validation#tb3",
+          "pydantic.domain_validation#tb4"
+        ],
+        "fact_ids": [
+          "pydantic.domain_validation#f1",
+          "pydantic.domain_validation#f2"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Use @model_validator(mode='after') on an instance method to check an invariant involving multiple already-validated fields. An after-model validator raises ValueError when its invariant fails and returns self when validation succeeds.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "pydantic.domain_validation"
+            ],
+            "teaching_block_ids": [
+              "pydantic.domain_validation#tb2",
+              "pydantic.domain_validation#tb3",
+              "pydantic.domain_validation#tb4"
+            ],
+            "fact_ids": [
+              "pydantic.domain_validation#f1",
+              "pydantic.domain_validation#f2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "The booking start/end relationship is a model invariant, not just a check on one field. The failing booking branch raises ValueError; the successful branch returns self.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "pydantic.domain_validation"
+            ],
+            "teaching_block_ids": [
+              "pydantic.domain_validation#tb2",
+              "pydantic.domain_validation#tb3",
+              "pydantic.domain_validation#tb4"
+            ],
+            "fact_ids": [
+              "pydantic.domain_validation#f1",
+              "pydantic.domain_validation#f2"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_026.r04",
+      "type": "remediation",
+      "concept_ids": [
+        "fastapi.expected_http_errors"
+      ],
+      "title": "Try the contrast again: Expected API failures with HTTPException",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.expected_http_errors"
+        ],
+        "teaching_block_ids": [
+          "fastapi.expected_http_errors#tb2",
+          "fastapi.expected_http_errors#tb4",
+          "fastapi.expected_http_errors#tb5",
+          "fastapi.expected_http_errors#tb6"
+        ],
+        "fact_ids": [
+          "fastapi.expected_http_errors#f1"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Raise HTTPException(status_code=..., detail=...) to stop the operation and return a deliberate HTTP rejection rather than returning the exception object.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.expected_http_errors"
+            ],
+            "teaching_block_ids": [
+              "fastapi.expected_http_errors#tb2",
+              "fastapi.expected_http_errors#tb4",
+              "fastapi.expected_http_errors#tb5",
+              "fastapi.expected_http_errors#tb6"
+            ],
+            "fact_ids": [
+              "fastapi.expected_http_errors#f1"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Raise at the absent-order branch rather than returning the exception object.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.expected_http_errors"
+            ],
+            "teaching_block_ids": [
+              "fastapi.expected_http_errors#tb2",
+              "fastapi.expected_http_errors#tb4",
+              "fastapi.expected_http_errors#tb5",
+              "fastapi.expected_http_errors#tb6"
+            ],
+            "fact_ids": [
+              "fastapi.expected_http_errors#f1"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_026.r05",
+      "type": "remediation",
+      "concept_ids": [
+        "fastapi.expected_http_errors"
+      ],
+      "title": "Try the contrast again: Expected API failures with HTTPException",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.expected_http_errors"
+        ],
+        "teaching_block_ids": [
+          "fastapi.expected_http_errors#tb3",
+          "fastapi.expected_http_errors#tb4",
+          "fastapi.expected_http_errors#tb5"
+        ],
+        "fact_ids": [
+          "fastapi.expected_http_errors#f2"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "HTTPException accepts headers for required response metadata, such as an authentication challenge.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.expected_http_errors"
+            ],
+            "teaching_block_ids": [
+              "fastapi.expected_http_errors#tb3",
+              "fastapi.expected_http_errors#tb4",
+              "fastapi.expected_http_errors#tb5"
+            ],
+            "fact_ids": [
+              "fastapi.expected_http_errors#f2"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Put required rejection metadata in headers, not just in the detail message.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.expected_http_errors"
+            ],
+            "teaching_block_ids": [
+              "fastapi.expected_http_errors#tb3",
+              "fastapi.expected_http_errors#tb4",
+              "fastapi.expected_http_errors#tb5"
+            ],
+            "fact_ids": [
+              "fastapi.expected_http_errors#f2"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_026.r06",
+      "type": "remediation",
+      "concept_ids": [
+        "fastapi.expected_http_errors"
+      ],
+      "title": "Try the contrast again: Expected API failures with HTTPException",
+      "lineage": {
+        "concept_ids": [
+          "fastapi.expected_http_errors"
+        ],
+        "teaching_block_ids": [
+          "fastapi.expected_http_errors#tb3",
+          "fastapi.expected_http_errors#tb4",
+          "fastapi.expected_http_errors#tb5",
+          "fastapi.expected_http_errors#tb6"
+        ],
+        "fact_ids": [
+          "fastapi.expected_http_errors#f3"
+        ]
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "FastAPI's default HTTPException response contains the supplied detail under the JSON key detail.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.expected_http_errors"
+            ],
+            "teaching_block_ids": [
+              "fastapi.expected_http_errors#tb3",
+              "fastapi.expected_http_errors#tb4",
+              "fastapi.expected_http_errors#tb5",
+              "fastapi.expected_http_errors#tb6"
+            ],
+            "fact_ids": [
+              "fastapi.expected_http_errors#f3"
+            ]
+          }
+        },
+        {
+          "type": "prose",
+          "text": "For the absent-order rejection, the default body key is detail, not an invented key.",
+          "role": "example",
+          "lineage": {
+            "concept_ids": [
+              "fastapi.expected_http_errors"
+            ],
+            "teaching_block_ids": [
+              "fastapi.expected_http_errors#tb3",
+              "fastapi.expected_http_errors#tb4",
+              "fastapi.expected_http_errors#tb5",
+              "fastapi.expected_http_errors#tb6"
+            ],
+            "fact_ids": [
+              "fastapi.expected_http_errors#f3"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "tile_028"
+  },
+  "content_hash": "5ea0ebaae34d2cf4ef2f584dfecbfadb1ff94867763e7b302ecf0cb12239710a"
+}

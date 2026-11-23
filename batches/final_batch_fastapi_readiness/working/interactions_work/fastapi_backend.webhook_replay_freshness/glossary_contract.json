@@ -1,0 +1,119 @@
+{
+  "concept_id": "fastapi_backend.webhook_replay_freshness",
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "The situation",
+      "content": "A signed webhook can still be stale. Freshness concerns the authenticated delivery timestamp, which may be refreshed on a provider retry rather than equal the original event time.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "definition",
+      "title": "The rule and its boundary",
+      "content": "A replay freshness check uses a delivery timestamp authenticated by the provider's signature; providers can refresh that timestamp and signature for each retry, so it establishes delivery-timestamp freshness, not the original event's age, and an unsigned timestamp cannot establish authenticated delivery freshness.",
+      "fact_ids": [
+        "f1"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "How to use the rule",
+      "content": "After signature verification, parse the signed delivery timestamp and reject a delivery outside the configured acceptance window, including timestamps unacceptably far in the future under the provider's policy. Keep the receiver clock synchronized so comparing an authenticated timestamp with the local clock enforces the intended freshness window rather than a window distorted by clock drift. Test valid signatures for an in-window delivery timestamp, an expired delivery timestamp and an impermissibly future delivery timestamp, verifying that authenticity alone does not make every signed delivery fresh.",
+      "fact_ids": [
+        "f2",
+        "f3",
+        "f4"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "walkthrough",
+      "title": "Reason through an example",
+      "content": "After signature verification, parse the signed delivery timestamp and compare it with the local synchronized clock under the provider's acceptance window. Test valid signatures for in-window, expired and impermissibly future delivery timestamps. For a hypothetical five-minute policy, a timestamp clearly outside that policy should be rejected even with a valid signature; the actual permitted future tolerance comes from the provider contract. Providers can refresh timestamp and signature on retries, so this does not establish the original event's age. An unsigned timestamp cannot establish authenticated freshness. Keep signature validity, delivery freshness and clock accuracy as separate checks so authenticity is not mistaken for unlimited replay acceptance.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "misconception",
+      "title": "Keep this distinction",
+      "content": "Fresh delivery timestamp does not prove a fresh original event. A valid signature alone does not make every delivery timely.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f4"
+      ]
+    }
+  ],
+  "visual_anchor": {
+    "type": "data_table",
+    "purpose": "Show three deliveries with valid signatures: in-window, expired and impermissibly future. Display authenticated delivery timestamp, synchronized receiver time, signed time difference, configured limits and accept/reject outcome. State that the timestamp measures delivery freshness, not original event age."
+  },
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Implement a freshness function that parses one already-authenticated delivery timestamp and compares it with a supplied synchronized receiver time, acceptance window and provider-defined future tolerance.",
+    "success": "With valid signatures established beforehand, accept an in-window delivery and reject both an expired delivery and a delivery beyond the permitted future tolerance. Treat the result as delivery-timestamp freshness, not original event age.",
+    "live_code": {
+      "required_skill": "Parse an authenticated integer-seconds timestamp and return whether its signed difference from the receiver time lies within configured past and future limits.",
+      "allowed_syntax": [
+        "def",
+        "str, int and bool type annotations",
+        "integer and string literals",
+        "int(...)",
+        "variable assignment",
+        "subtraction",
+        "unary minus",
+        "comparison operators",
+        "and",
+        "return",
+        "function calls",
+        "assert"
+      ],
+      "blocked_syntax": [
+        "@tenacity.retry(...)",
+        "tenacity.Retrying(...)",
+        "tenacity.AsyncRetrying(...)"
+      ],
+      "starter_state_intent": "Provide a function stub receiving signed_delivery_timestamp, receiver_now, acceptance_window and future_tolerance. Signature verification is already complete; timestamp strings are valid integer seconds. Use a fixed synchronized receiver time and an explicitly hypothetical policy allowing 300 seconds of past age and 30 seconds of future tolerance.",
+      "observable_success": "Assertions accept a signed timestamp 60 seconds behind receiver_now, reject one 301 seconds behind, and reject one 31 seconds ahead. The function uses the supplied limits rather than hard-coded policy values, with boundary timestamps at 300 seconds behind and 30 seconds ahead accepted under this exercise's inclusive policy."
+    }
+  },
+  "required_facts": [
+    {
+      "id": "f1",
+      "statement": "A replay freshness check uses a delivery timestamp authenticated by the provider's signature; providers can refresh that timestamp and signature for each retry, so it establishes delivery-timestamp freshness, not the original event's age, and an unsigned timestamp cannot establish authenticated delivery freshness.",
+      "source_refs": [
+        "owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Webhook_Security_Cheat_Sheet.html#replay-attack-protection"
+      ]
+    },
+    {
+      "id": "f2",
+      "statement": "After signature verification, parse the signed delivery timestamp and reject a delivery outside the configured acceptance window, including timestamps unacceptably far in the future under the provider's policy.",
+      "source_refs": [
+        "owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Webhook_Security_Cheat_Sheet.html#replay-attack-protection"
+      ]
+    },
+    {
+      "id": "f3",
+      "statement": "Keep the receiver clock synchronized so comparing an authenticated timestamp with the local clock enforces the intended freshness window rather than a window distorted by clock drift.",
+      "source_refs": [
+        "owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Webhook_Security_Cheat_Sheet.html#replay-attack-protection"
+      ]
+    },
+    {
+      "id": "f4",
+      "statement": "Test valid signatures for an in-window delivery timestamp, an expired delivery timestamp and an impermissibly future delivery timestamp, verifying that authenticity alone does not make every signed delivery fresh.",
+      "source_refs": [
+        "owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Webhook_Security_Cheat_Sheet.html#security-testing",
+        "owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Webhook_Security_Cheat_Sheet.html#replay-attack-protection"
+      ]
+    }
+  ]
+}

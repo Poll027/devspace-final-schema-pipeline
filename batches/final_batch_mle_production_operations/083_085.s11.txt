@@ -1,0 +1,63 @@
+Complete only dump_operation=safe_dump_method and load_operation=safe_load_method, the supplied yaml.safe_dump/yaml.safe_load references. The visible supplied workflow adapter writes and inspects alert.yaml using your bound safe serialization functions; unsafe object constructors are forbidden. Do not change the adapter. This narrows learner work to supported syntax; wider replay/admission behavior is supplied, not independently implemented by the learner.  Supplied workflow specification (context only, not additional learner edits): Import NumPy and yaml. Compute baseline mean and ddof=0 standard deviation. Populate exactly the policy indicator, baseline_window, window_rule, ddof, owner and response fields, safely write alert.yaml and reload as resolved, then assert resolved fields and normal/boundary/breached predicates match policy. Calculate each window mean > baseline mean + 4 (strict). Call supplied replay only with those calculated decisions. report must contain mean, std, config and replays in normal,boundary,breached order. The helper emits owner/action only for a qualifying breach.
+
+if True:
+    import csv, json
+    from datetime import datetime, timedelta
+
+    def load(path):
+        with open(path) as f:
+            data = list(csv.DictReader(f))
+        for r in data:
+            for k,v in r.items():
+                if v == 'True': r[k] = True
+                elif v == 'False': r[k] = False
+        return data
+
+    def number(v):
+        return float(v)
+    import numpy as _np
+    policy = {'indicator': 'window_mean', 'baseline_window': 'baseline', 'window_rule': 'mean(window)>mean(baseline)+4', 'ddof': 0, 'owner': 'order_oncall', 'response': 'investigate_window', 'expected_replays': {'normal': False, 'boundary': False, 'breached': True}}
+    observations=load('alert_observations.csv')
+    baseline=_np.asarray([number(r['numeric_values']) for r in observations if r['window_id']=='baseline'])
+    windows={name:_np.asarray([number(r['numeric_values']) for r in observations if r['window_id']==name]) for name in ['normal','boundary','breached']}
+    # Existing runtime helper: consumes inspected config and a learner-computed predicate.
+    def replay(config, name, breached):
+        return {'window':name, 'breach':bool(breached), 'owner_action': {'owner':config['owner'],'action':config['response']} if breached else None}
+
+    import yaml
+    safe_dump_method=yaml.safe_dump
+    safe_load_method=yaml.safe_load
+
+dump_operation = safe_dump_method
+load_operation = safe_load_method
+
+if True:
+
+    import numpy as np
+    import yaml
+    mean = np.mean(baseline)
+    std = np.std(baseline, ddof=0)
+    config = {'indicator':policy['indicator'], 'baseline_window':policy['baseline_window'], 'window_rule':policy['window_rule'], 'ddof':policy['ddof'], 'owner':policy['owner'], 'response':policy['response']}
+    with open('alert.yaml','w') as file_handle:
+        dump_operation(config,file_handle)
+    with open('alert.yaml') as file_handle:
+        resolved = load_operation(file_handle)
+    assert resolved == config
+    normal = np.mean(windows['normal']) > mean + 4
+    boundary = np.mean(windows['boundary']) > mean + 4
+    breached = np.mean(windows['breached']) > mean + 4
+    assert normal == policy['expected_replays']['normal']
+    assert boundary == policy['expected_replays']['boundary']
+    assert breached == policy['expected_replays']['breached']
+    report = {'mean':mean, 'std':std, 'config':resolved, 'replays':[replay(resolved,'normal',normal), replay(resolved,'boundary',boundary), replay(resolved,'breached',breached)]}
+
+
+    def plain(v):
+        if isinstance(v,dict):return {k:plain(x) for k,x in v.items()}
+        if isinstance(v,list):return [plain(x) for x in v]
+        if hasattr(v,'tolist'):return v.tolist()
+        return v
+    report=plain(report)
+
+CONSTRAINTS
+{'allowed_syntax': ['import numpy as np', 'import yaml', 'variable assignment', 'numeric and string literals', 'mapping and list literals', 'mapping and list indexing', 'np.mean(numeric_values)', 'np.std(numeric_values, ddof=0)', 'np.std(numeric_values, ddof=1) only when the declared calculation requires the N−1 divisor', 'arithmetic operators', 'comparison operators', 'Boolean operators', 'with open(...) as file_handle', 'yaml.safe_dump(config, file_handle)', 'yaml.safe_load(file_handle)', 'assert predicate', 'calls to the supplied existing-runtime replay helper'], 'blocked_syntax': ['yaml.unsafe_load(...)', 'yaml.load(..., Loader=yaml.UnsafeLoader)', 'invoke_retraining(...)', 'promote_retrained_candidate(...)', 'delete_serving_resources(...)']}

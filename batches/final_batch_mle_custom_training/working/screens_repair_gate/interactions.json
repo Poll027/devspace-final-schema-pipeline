@@ -1,0 +1,3058 @@
+{
+  "schema_version": "0.1.0",
+  "path_id": "machine_learning_engineer",
+  "batch_id": "final_batch_mle.region.custom_training",
+  "kind": "interactions_part",
+  "tiles": [
+    {
+      "tile_id": "mle.tile.035_037",
+      "interactions": [
+        {
+          "step_id": "mle.tile.035_037.s04",
+          "interaction": {
+            "type": "choice",
+            "interaction_id": "ix.mle.tile.035_037.s04",
+            "difficulty": "intro",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.pytorch_input_tensors",
+                "capability": "assert_input_contract_and_return_aligned_tuple",
+                "fact_ids": [
+                  "f4",
+                  "f5"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.pytorch_input_tensors#assessment:assert_input_contract_and_return_aligned_tuple"
+            ],
+            "public": {
+              "prompt": "A conversion returned tensors, but features.shape is (4, 2) and targets.shape is (3,). What should an ordinary, non-optimized contract check do?",
+              "options": [
+                {
+                  "option_id": "o1",
+                  "text": "Reject the pair with a failed batch-alignment assertion before returning the tuple."
+                },
+                {
+                  "option_id": "o2",
+                  "text": "Return the tuple because construction succeeded."
+                },
+                {
+                  "option_id": "o3",
+                  "text": "Cast targets to the feature dtype and accept the pair."
+                }
+              ],
+              "selection": "single",
+              "shuffle": true
+            },
+            "grading": {
+              "correct_option_ids": [
+                "o1"
+              ],
+              "option_feedback": {
+                "o1": {
+                  "message": "This follows the stated contract."
+                },
+                "o2": {
+                  "message": "Construction does not establish common batch length."
+                },
+                "o3": {
+                  "message": "A dtype cast cannot repair missing corresponding observations."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. Reject the pair with a failed batch-alignment assertion before returning the tuple."
+              },
+              "incorrect": {
+                "message": "Recheck the stated contract. Construction does not establish common batch length. A dtype cast cannot repair missing corresponding observations."
+              },
+              "hints": [
+                "Compare the observation axes before treating conversion as acceptance."
+              ],
+              "remediation_step_id": "mle.tile.035_037.r01"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.035_037.s05",
+          "interaction": {
+            "type": "classify",
+            "interaction_id": "ix.mle.tile.035_037.s05",
+            "difficulty": "core",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.pytorch_input_tensors",
+                "capability": "construct_tensors_with_declared_dtypes",
+                "fact_ids": [
+                  "f1",
+                  "f2"
+                ]
+              },
+              {
+                "concept_id": "mle.pytorch_input_tensors",
+                "capability": "verify_tensor_shapes_and_row_alignment",
+                "fact_ids": [
+                  "f2",
+                  "f4"
+                ]
+              },
+              {
+                "concept_id": "mle.pytorch_input_tensors",
+                "capability": "assert_input_contract_and_return_aligned_tuple",
+                "fact_ids": [
+                  "f4",
+                  "f5"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.pytorch_input_tensors#practice",
+              "mle.pytorch_input_tensors#assessment:construct_tensors_with_declared_dtypes",
+              "mle.pytorch_input_tensors#assessment:verify_tensor_shapes_and_row_alignment",
+              "mle.pytorch_input_tensors#assessment:assert_input_contract_and_return_aligned_tuple"
+            ],
+            "public": {
+              "prompt": "Review a conversion function for numerical order arrays. The declared feature dtype is torch.float32 and target dtype is torch.long. Supplied arrays preserve observation order. Accepted fixtures are (4, 2)/(4,) and the declared empty boundary (0, 2)/(0,); a three-target fixture and wrong-width fixture must fail. Judge each independent proposal against this contract. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+              "buckets": [
+                {
+                  "bucket_id": "supported",
+                  "label": "Supported by the contract"
+                },
+                {
+                  "bucket_id": "defective",
+                  "label": "Defective claim or implementation"
+                }
+              ],
+              "items": [
+                {
+                  "item_id": "e1",
+                  "text": "import torch\ndef convert(features, targets, n, width):\n    f = torch.from_numpy(features).to(dtype=torch.float32)\n    t = torch.from_numpy(targets).to(dtype=torch.long)\n    assert f.shape == (n, width) and t.shape == (n,)\n    assert f.shape[0] == t.shape[0]\n    assert f.dtype == torch.float32 and t.dtype == torch.long\n    return f, t\n# Tests assert tuple shapes/dtypes for accepted and boundary fixtures,\n# verify supplied row identities, and expect AssertionError for three targets\n# and wrong feature width during ordinary non-optimized execution."
+                },
+                {
+                  "item_id": "e2",
+                  "text": "f = torch.from_numpy(features).to(dtype=torch.float32)\nt = torch.from_numpy(targets).to(dtype=torch.float32)\nassert f.shape == (4, 2) and t.shape == (4,)\nreturn f, t"
+                },
+                {
+                  "item_id": "e3",
+                  "text": "# Three-target trial\nf.shape = (4, 2); t.shape = (3,)\n# Conversion succeeded; skip assertions and return f, t."
+                }
+              ]
+            },
+            "grading": {
+              "assignments": {
+                "e1": "supported",
+                "e2": "defective",
+                "e3": "defective"
+              },
+              "item_feedback": {
+                "e1": {
+                  "message": "Separate declared dtypes, axes, common length and fixture correspondence are checked before returning the pair; both rejection fixtures are exercised."
+                },
+                "e2": {
+                  "message": "The target cast violates the separately declared long target representation even though the shapes match."
+                },
+                "e3": {
+                  "message": "Conversion success is not correspondence; the common observation length must be asserted and this trial rejected."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+              },
+              "incorrect": {
+                "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+              },
+              "hints": [
+                "Check representation and correspondence as separate requirements."
+              ],
+              "remediation_step_id": "mle.tile.035_037.r02"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.035_037.s09",
+          "interaction": {
+            "type": "choice",
+            "interaction_id": "ix.mle.tile.035_037.s09",
+            "difficulty": "core",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.dataset_minibatch_loader",
+                "capability": "yield_aligned_minibatches_under_declared_order_policy",
+                "fact_ids": [
+                  "f3",
+                  "f4"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.dataset_minibatch_loader#assessment:yield_aligned_minibatches_under_declared_order_policy"
+            ],
+            "public": {
+              "prompt": "With shuffle=True, which claim about a properly implemented Dataset and DataLoader is justified?",
+              "options": [
+                {
+                  "option_id": "o1",
+                  "text": "Shuffling can legitimately pair a feature with a different observation\u2019s target."
+                },
+                {
+                  "option_id": "o2",
+                  "text": "Each returned feature remains paired with the target from the same source observation."
+                },
+                {
+                  "option_id": "o3",
+                  "text": "The first yielded item must be the first source observation."
+                }
+              ],
+              "selection": "single",
+              "shuffle": true
+            },
+            "grading": {
+              "correct_option_ids": [
+                "o2"
+              ],
+              "option_feedback": {
+                "o1": {
+                  "message": "Order policy does not change the within-item correspondence contract."
+                },
+                "o2": {
+                  "message": "This follows the stated contract."
+                },
+                "o3": {
+                  "message": "Shuffling changes order; source-first position is not guaranteed."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. Each returned feature remains paired with the target from the same source observation."
+              },
+              "incorrect": {
+                "message": "Recheck the stated contract. Shuffling changes order; source-first position is not guaranteed. Order policy does not change the within-item correspondence contract."
+              },
+              "hints": [
+                "Separate item identity from the order in which items arrive."
+              ],
+              "remediation_step_id": "mle.tile.035_037.r03"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.035_037.s10",
+          "interaction": {
+            "type": "classify",
+            "interaction_id": "ix.mle.tile.035_037.s10",
+            "difficulty": "core",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.dataset_minibatch_loader",
+                "capability": "implement_index_aligned_dataset_items",
+                "fact_ids": [
+                  "f1",
+                  "f2"
+                ]
+              },
+              {
+                "concept_id": "mle.dataset_minibatch_loader",
+                "capability": "assert_expected_batch_boundaries_and_alignment",
+                "fact_ids": [
+                  "f5",
+                  "f6"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.dataset_minibatch_loader#practice",
+              "mle.dataset_minibatch_loader#assessment:implement_index_aligned_dataset_items",
+              "mle.dataset_minibatch_loader#assessment:assert_expected_batch_boundaries_and_alignment"
+            ],
+            "public": {
+              "prompt": "Inspect loader evidence for five indexed numerical order observations and batch_size=2. Feature and target IDs must match. Judge the entire excerpt, including its assertions. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+              "buckets": [
+                {
+                  "bucket_id": "supported",
+                  "label": "Supported by the contract"
+                },
+                {
+                  "bucket_id": "defective",
+                  "label": "Defective claim or implementation"
+                }
+              ],
+              "items": [
+                {
+                  "item_id": "e1",
+                  "text": "class Orders(Dataset):\n    def __len__(self): return 5\n    def __getitem__(self, index):\n        return features[index], targets[index]\n# shuffle=False: item-ID assertions match source order.\n# drop_last=False sizes: [2, 2, 1]; drop_last=True sizes: [2, 2].\n# shuffle=True: compare feature/target IDs within each item, not source positions.\n# Deliberately substituted wrong target ID fails an alignment assertion\n# with AssertionError in ordinary non-optimized execution."
+                },
+                {
+                  "item_id": "e2",
+                  "text": "def __getitem__(self, index):\n    return features[index], targets[(index + 1) % 5]\n# Shapes and batch-size assertions all pass."
+                },
+                {
+                  "item_id": "e3",
+                  "text": "# DataLoader: batch_size=2, shuffle=False, drop_last=False\nassert observed_batch_sizes == [2, 2, 2]"
+                }
+              ]
+            },
+            "grading": {
+              "assignments": {
+                "e1": "supported",
+                "e2": "defective",
+                "e3": "defective"
+              },
+              "item_feedback": {
+                "e1": {
+                  "message": "Same-index retrieval, sample count, both partial-batch policies and shuffle-independent identity checks satisfy the declared evidence."
+                },
+                "e2": {
+                  "message": "Well-shaped batches do not repair the shifted target index."
+                },
+                "e3": {
+                  "message": "The final incomplete batch is retained with one observation, not padded to two."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+              },
+              "incorrect": {
+                "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+              },
+              "hints": [
+                "Inspect how an item is formed before checking batch boundaries."
+              ],
+              "remediation_step_id": "mle.tile.035_037.r04"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.035_037.s14",
+          "interaction": {
+            "type": "choice",
+            "interaction_id": "ix.mle.tile.035_037.s14",
+            "difficulty": "core",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.neural_model_definition",
+                "capability": "verify_task_compatible_output_width_activation_and_shape",
+                "fact_ids": [
+                  "f5"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.neural_model_definition#assessment:verify_task_compatible_output_width_activation_and_shape"
+            ],
+            "public": {
+              "prompt": "The declared contract is unconstrained outputs of shape (4, 1) for a (4, 2) input through widths 2 \u2192 3 \u2192 1. Which final arrangement satisfies it?",
+              "options": [
+                {
+                  "option_id": "o1",
+                  "text": "Linear(2, 3), ReLU(), Linear(2, 1)."
+                },
+                {
+                  "option_id": "o2",
+                  "text": "Linear(2, 3), ReLU(), Linear(3, 1), ReLU()."
+                },
+                {
+                  "option_id": "o3",
+                  "text": "Linear(2, 3), ReLU(), Linear(3, 1), with no final activation."
+                }
+              ],
+              "selection": "single",
+              "shuffle": true
+            },
+            "grading": {
+              "correct_option_ids": [
+                "o3"
+              ],
+              "option_feedback": {
+                "o1": {
+                  "message": "The intermediate output width is three, but the next layer expects two."
+                },
+                "o2": {
+                  "message": "A final ReLU constrains outputs despite the stated unconstrained contract."
+                },
+                "o3": {
+                  "message": "This follows the stated contract."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. Linear(2, 3), ReLU(), Linear(3, 1), with no final activation."
+              },
+              "incorrect": {
+                "message": "Recheck the stated contract. The intermediate output width is three, but the next layer expects two. A final ReLU constrains outputs despite the stated unconstrained contract."
+              },
+              "hints": [
+                "Trace the intermediate width, then check the final value contract."
+              ],
+              "remediation_step_id": "mle.tile.035_037.r05"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.035_037.s15",
+          "interaction": {
+            "type": "classify",
+            "interaction_id": "ix.mle.tile.035_037.s15",
+            "difficulty": "stretch",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.neural_model_definition",
+                "capability": "verify_module_definition_and_layer_registration",
+                "fact_ids": [
+                  "f1"
+                ]
+              },
+              {
+                "concept_id": "mle.neural_model_definition",
+                "capability": "verify_layer_widths_and_intermediate_activation",
+                "fact_ids": [
+                  "f2",
+                  "f3",
+                  "f4"
+                ]
+              },
+              {
+                "concept_id": "mle.neural_model_definition",
+                "capability": "verify_task_compatible_output_width_activation_and_shape",
+                "fact_ids": [
+                  "f5"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.neural_model_definition#practice",
+              "mle.neural_model_definition#assessment:verify_module_definition_and_layer_registration",
+              "mle.neural_model_definition#assessment:verify_layer_widths_and_intermediate_activation",
+              "mle.neural_model_definition#assessment:verify_task_compatible_output_width_activation_and_shape"
+            ],
+            "public": {
+              "prompt": "For four two-feature observations, review model definitions against widths 2 \u2192 3 \u2192 1, ReLU between linear layers and an unconstrained final output. A builder must return a registered nn.Module with an implemented forward method. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+              "buckets": [
+                {
+                  "bucket_id": "supported",
+                  "label": "Supported by the contract"
+                },
+                {
+                  "bucket_id": "defective",
+                  "label": "Defective claim or implementation"
+                }
+              ],
+              "items": [
+                {
+                  "item_id": "e1",
+                  "text": "import torch.nn as nn\nclass OrderModel(nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.layers = nn.Sequential(nn.Linear(2, 3), nn.ReLU(), nn.Linear(3, 1))\n    def forward(self, x):\n        return self.layers(x)\ndef build_model():\n    return OrderModel()\n# Fixture assertion: model(features).shape == (4, 1)"
+                },
+                {
+                  "item_id": "e2",
+                  "text": "self.layers = nn.Sequential(nn.Linear(2, 3), nn.ReLU(), nn.Linear(2, 1))\n# All other subclass and builder details are as required."
+                },
+                {
+                  "item_id": "e3",
+                  "text": "self.layers = nn.Sequential(nn.Linear(2, 3), nn.Linear(3, 1))\n# All other subclass and builder details are as required."
+                }
+              ]
+            },
+            "grading": {
+              "assignments": {
+                "e1": "supported",
+                "e2": "defective",
+                "e3": "defective"
+              },
+              "item_feedback": {
+                "e1": {
+                  "message": "The subclass initializes its parent, registers its composition, implements forward and preserves the batch dimension with the required widths and final output."
+                },
+                "e2": {
+                  "message": "The second linear layer expects two inputs but receives three."
+                },
+                "e3": {
+                  "message": "This omits the required intermediate nonlinearity."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+              },
+              "incorrect": {
+                "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+              },
+              "hints": [
+                "Trace both registration and the dimension chain."
+              ],
+              "remediation_step_id": "mle.tile.035_037.r06"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "tile_id": "mle.tile.038_040",
+      "interactions": [
+        {
+          "step_id": "mle.tile.038_040.s05",
+          "interaction": {
+            "type": "choice",
+            "interaction_id": "ix.mle.tile.038_040.s05",
+            "difficulty": "intro",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.autograd_gradients",
+                "capability": "assert_gradient_agreement_with_explicit_tolerances",
+                "fact_ids": [
+                  "f5",
+                  "f6"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.autograd_gradients#assessment:assert_gradient_agreement_with_explicit_tolerances"
+            ],
+            "public": {
+              "prompt": "Which assertion is appropriate after a fresh backward computation for Z=XW+b with supplied D already including loss reduction?",
+              "options": [
+                {
+                  "option_id": "o1",
+                  "text": "Compare W.grad with X.T @ D and b.grad with D summed over rows, checking shapes and explicit rtol/atol."
+                },
+                {
+                  "option_id": "o2",
+                  "text": "Divide both reference gradients by batch size again before comparing."
+                },
+                {
+                  "option_id": "o3",
+                  "text": "Check only that backward completed without an exception."
+                }
+              ],
+              "selection": "single",
+              "shuffle": true
+            },
+            "grading": {
+              "correct_option_ids": [
+                "o1"
+              ],
+              "option_feedback": {
+                "o1": {
+                  "message": "This follows the stated contract."
+                },
+                "o2": {
+                  "message": "The supplied D already includes reduction, so another division changes the reference."
+                },
+                "o3": {
+                  "message": "Successful execution does not verify matrix-shaped gradient agreement."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. Compare W.grad with X.T @ D and b.grad with D summed over rows, checking shapes and explicit rtol/atol."
+              },
+              "incorrect": {
+                "message": "Recheck the stated contract. The supplied D already includes reduction, so another division changes the reference. Successful execution does not verify matrix-shaped gradient agreement."
+              },
+              "hints": [
+                "Keep the supplied reduction convention visible in the reference."
+              ],
+              "remediation_step_id": "mle.tile.038_040.r01"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.038_040.s06",
+          "interaction": {
+            "type": "classify",
+            "interaction_id": "ix.mle.tile.038_040.s06",
+            "difficulty": "core",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.autograd_gradients",
+                "capability": "verify_scalar_loss_gradient_tracking",
+                "fact_ids": [
+                  "f1",
+                  "f2"
+                ]
+              },
+              {
+                "concept_id": "mle.autograd_gradients",
+                "capability": "ensure_fresh_parameter_gradients",
+                "fact_ids": [
+                  "f3"
+                ]
+              },
+              {
+                "concept_id": "mle.autograd_gradients",
+                "capability": "derive_matrix_shaped_parameter_gradients",
+                "fact_ids": [
+                  "f4"
+                ]
+              },
+              {
+                "concept_id": "mle.autograd_gradients",
+                "capability": "assert_gradient_agreement_with_explicit_tolerances",
+                "fact_ids": [
+                  "f5",
+                  "f6"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.autograd_gradients#practice",
+              "mle.autograd_gradients#assessment:verify_scalar_loss_gradient_tracking",
+              "mle.autograd_gradients#assessment:ensure_fresh_parameter_gradients",
+              "mle.autograd_gradients#assessment:derive_matrix_shaped_parameter_gradients",
+              "mle.autograd_gradients#assessment:assert_gradient_agreement_with_explicit_tolerances"
+            ],
+            "public": {
+              "prompt": "Review gradient checks for X=[[1, 2], [3, 4]], D=[[0.1], [0.2]] and Z=XW+b. D already includes the scalar-loss reduction. The supplied tolerance is rtol=1e-5, atol=1e-8. Valid and zero-D boundary references must pass; a deliberately perturbed reference must fail. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+              "buckets": [
+                {
+                  "bucket_id": "supported",
+                  "label": "Supported by the contract"
+                },
+                {
+                  "bucket_id": "defective",
+                  "label": "Defective claim or implementation"
+                }
+              ],
+              "items": [
+                {
+                  "item_id": "e1",
+                  "text": "# Trainable leaf W and b have requires_grad=True.\nW.grad = None; b.grad = None\nloss = supplied_scalar_loss(X @ W + b)\nloss.backward()\nassert torch.allclose(W.grad, X.T @ D, rtol=1e-5, atol=1e-8)\nassert torch.allclose(b.grad, D.sum(dim=0), rtol=1e-5, atol=1e-8)\n# Observed gradient shapes: (2, 1), (1,); references: [[0.7], [1.0]], [0.3].\n# Valid and zero-D cases pass. A perturbed reference raises AssertionError."
+                },
+                {
+                  "item_id": "e2",
+                  "text": "# The same scalar loss is backpropagated twice without clearing W.grad or b.grad.\n# Compare the second accumulated gradients against the one-pass reference."
+                },
+                {
+                  "item_id": "e3",
+                  "text": "reference_W = (X.T @ D) / 2\nreference_b = D.sum(dim=0) / 2\n# Claim: the extra division is required by mean reduction."
+                }
+              ]
+            },
+            "grading": {
+              "assignments": {
+                "e1": "supported",
+                "e2": "defective",
+                "e3": "defective"
+              },
+              "item_feedback": {
+                "e1": {
+                  "message": "Fresh leaf gradients are compared with both correctly shaped references under explicit tolerances, including boundary and rejection checks."
+                },
+                "e2": {
+                  "message": "Backward accumulates gradients, so this is not a fresh single-pass comparison."
+                },
+                "e3": {
+                  "message": "D already carries the reduction; applying it again produces a different reference."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+              },
+              "incorrect": {
+                "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+              },
+              "hints": [
+                "Ask whether the gradient is fresh and whether reduction was applied exactly once."
+              ],
+              "remediation_step_id": "mle.tile.038_040.r02"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.038_040.s11",
+          "interaction": {
+            "type": "choice",
+            "interaction_id": "ix.mle.tile.038_040.s11",
+            "difficulty": "core",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.task_loss_selection",
+                "capability": "select_cross_entropy_for_class_index_targets_and_logits",
+                "fact_ids": [
+                  "f1",
+                  "f2"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.task_loss_selection#assessment:select_cross_entropy_for_class_index_targets_and_logits"
+            ],
+            "public": {
+              "prompt": "For a three-class task with unnormalized logits of shape (N, 3), which target contract fits class-index CrossEntropyLoss?",
+              "options": [
+                {
+                  "option_id": "o1",
+                  "text": "Apply sigmoid first and use same-shaped binary targets for this class-index contract."
+                },
+                {
+                  "option_id": "o2",
+                  "text": "Long targets of shape (N,) with indices in [0, 3)."
+                },
+                {
+                  "option_id": "o3",
+                  "text": "Long targets of shape (N,) allowing index 3."
+                }
+              ],
+              "selection": "single",
+              "shuffle": true
+            },
+            "grading": {
+              "correct_option_ids": [
+                "o2"
+              ],
+              "option_feedback": {
+                "o1": {
+                  "message": "That substitutes the binary-logit target contract for the declared class-index one."
+                },
+                "o2": {
+                  "message": "This follows the stated contract."
+                },
+                "o3": {
+                  "message": "The upper bound is exclusive; index 3 is outside a three-class mapping."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. Long targets of shape (N,) with indices in [0, 3)."
+              },
+              "incorrect": {
+                "message": "Recheck the stated contract. The upper bound is exclusive; index 3 is outside a three-class mapping. That substitutes the binary-logit target contract for the declared class-index one."
+              },
+              "hints": [
+                "Check the output width against the target-index range."
+              ],
+              "remediation_step_id": "mle.tile.038_040.r03"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.038_040.s12",
+          "interaction": {
+            "type": "choice",
+            "interaction_id": "ix.mle.tile.038_040.s12",
+            "difficulty": "core",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.task_loss_selection",
+                "capability": "select_binary_cross_entropy_with_logits_for_binary_targets",
+                "fact_ids": [
+                  "f1",
+                  "f4"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.task_loss_selection#assessment:select_binary_cross_entropy_with_logits_for_binary_targets"
+            ],
+            "public": {
+              "prompt": "Which input pair matches BCEWithLogitsLoss for the stated binary contract?",
+              "options": [
+                {
+                  "option_id": "o1",
+                  "text": "Raw logits and same-shaped targets in [0, 1]."
+                },
+                {
+                  "option_id": "o2",
+                  "text": "Already-sigmoid probabilities and same-shaped targets in [0, 1]."
+                },
+                {
+                  "option_id": "o3",
+                  "text": "Raw logits and binary targets with a different shape."
+                }
+              ],
+              "selection": "single",
+              "shuffle": true
+            },
+            "grading": {
+              "correct_option_ids": [
+                "o1"
+              ],
+              "option_feedback": {
+                "o1": {
+                  "message": "This follows the stated contract."
+                },
+                "o2": {
+                  "message": "BCEWithLogitsLoss combines sigmoid with binary cross-entropy and expects logits."
+                },
+                "o3": {
+                  "message": "The declared binary contract requires matching output and target shapes."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. Raw logits and same-shaped targets in [0, 1]."
+              },
+              "incorrect": {
+                "message": "Recheck the stated contract. BCEWithLogitsLoss combines sigmoid with binary cross-entropy and expects logits. The declared binary contract requires matching output and target shapes."
+              },
+              "hints": [
+                "Distinguish the raw score from its sigmoid probability."
+              ],
+              "remediation_step_id": "mle.tile.038_040.r04"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.038_040.s13",
+          "interaction": {
+            "type": "classify",
+            "interaction_id": "ix.mle.tile.038_040.s13",
+            "difficulty": "core",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.task_loss_selection",
+                "capability": "select_mean_squared_error_for_same_shaped_numerical_targets",
+                "fact_ids": [
+                  "f1",
+                  "f3"
+                ]
+              },
+              {
+                "concept_id": "mle.task_loss_selection",
+                "capability": "verify_loss_gradient_against_output_representation_and_mean_reduction",
+                "fact_ids": [
+                  "f5",
+                  "f6",
+                  "f7"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.task_loss_selection#practice",
+              "mle.task_loss_selection#assessment:select_mean_squared_error_for_same_shaped_numerical_targets",
+              "mle.task_loss_selection#assessment:verify_loss_gradient_against_output_representation_and_mean_reduction"
+            ],
+            "public": {
+              "prompt": "Inspect mean-MSE proposals for outputs [2, 4] and numerical targets [1, 2]. The function must verify equal shapes, choose mean MSE, check its loss and output derivatives, and interpret their signs. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+              "buckets": [
+                {
+                  "bucket_id": "supported",
+                  "label": "Supported by the contract"
+                },
+                {
+                  "bucket_id": "defective",
+                  "label": "Defective claim or implementation"
+                }
+              ],
+              "items": [
+                {
+                  "item_id": "e1",
+                  "text": "assert outputs.shape == targets.shape\nloss = nn.MSELoss(reduction=\"mean\")(outputs, targets)\nloss.backward()\n# Assert under supplied tolerances: loss.item() == 2.5; outputs.grad == [1.0, 2.0].\n# Each positive derivative means increasing that output farther above its\n# target increases loss."
+                },
+                {
+                  "item_id": "e2",
+                  "text": "# Same fixture and equal-shape assertion\nloss = nn.MSELoss(reduction=\"sum\")(outputs, targets)\n# Report this as the requested mean-reduced loss."
+                },
+                {
+                  "item_id": "e3",
+                  "text": "# Correct measured derivatives: [1.0, 2.0]\n# Report: increasing either output farther above its target decreases loss."
+                }
+              ]
+            },
+            "grading": {
+              "assignments": {
+                "e1": "supported",
+                "e2": "defective",
+                "e3": "defective"
+              },
+              "item_feedback": {
+                "e1": {
+                  "message": "Equal-shaped numerical targets, mean squared differences and the mean-reduced derivative reference agree; the sign interpretation is correct."
+                },
+                "e2": {
+                  "message": "Sum reduction is not the declared mean loss or mean derivative contract."
+                },
+                "e3": {
+                  "message": "Positive derivatives indicate increasing loss in the direction of increasing output here, not decreasing loss."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+              },
+              "incorrect": {
+                "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+              },
+              "hints": [
+                "Write the mean factor before interpreting a derivative sign."
+              ],
+              "remediation_step_id": "mle.tile.038_040.r05"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.038_040.s17",
+          "interaction": {
+            "type": "choice",
+            "interaction_id": "ix.mle.tile.038_040.s17",
+            "difficulty": "core",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.optimizer_configuration",
+                "capability": "assert_valid_boundary_and_failure_cases",
+                "fact_ids": [
+                  "f5"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.optimizer_configuration#assessment:assert_valid_boundary_and_failure_cases"
+            ],
+            "public": {
+              "prompt": "A plain-SGD fixture uses a separate zero-learning-rate boundary case and an intentionally wrong expected-update reference. Which test policy is correct?",
+              "options": [
+                {
+                  "option_id": "o1",
+                  "text": "Accept the incorrect reference whenever optimizer.step() runs."
+                },
+                {
+                  "option_id": "o2",
+                  "text": "Assert unchanged parameters at zero learning rate; require the incorrect reference to fail an assertion."
+                },
+                {
+                  "option_id": "o3",
+                  "text": "Require a nonzero change even when learning rate is zero."
+                }
+              ],
+              "selection": "single",
+              "shuffle": true
+            },
+            "grading": {
+              "correct_option_ids": [
+                "o2"
+              ],
+              "option_feedback": {
+                "o1": {
+                  "message": "Execution alone does not establish the declared update equation."
+                },
+                "o2": {
+                  "message": "This follows the stated contract."
+                },
+                "o3": {
+                  "message": "The plain-SGD change is minus learning rate times gradient, hence zero at that boundary."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. Assert unchanged parameters at zero learning rate; require the incorrect reference to fail an assertion."
+              },
+              "incorrect": {
+                "message": "Recheck the stated contract. The plain-SGD change is minus learning rate times gradient, hence zero at that boundary. Execution alone does not establish the declared update equation."
+              },
+              "hints": [
+                "Distinguish a valid boundary from a false expected-update predicate."
+              ],
+              "remediation_step_id": "mle.tile.038_040.r06"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.038_040.s18",
+          "interaction": {
+            "type": "classify",
+            "interaction_id": "ix.mle.tile.038_040.s18",
+            "difficulty": "stretch",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.optimizer_configuration",
+                "capability": "bind_baseline_optimizer_to_model_parameters",
+                "fact_ids": [
+                  "f1"
+                ]
+              },
+              {
+                "concept_id": "mle.optimizer_configuration",
+                "capability": "verify_declared_plain_sgd_update",
+                "fact_ids": [
+                  "f2",
+                  "f4"
+                ]
+              },
+              {
+                "concept_id": "mle.optimizer_configuration",
+                "capability": "apply_current_gradients_in_correct_order",
+                "fact_ids": [
+                  "f3"
+                ]
+              },
+              {
+                "concept_id": "mle.optimizer_configuration",
+                "capability": "assert_valid_boundary_and_failure_cases",
+                "fact_ids": [
+                  "f5"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.optimizer_configuration#practice",
+              "mle.optimizer_configuration#assessment:bind_baseline_optimizer_to_model_parameters",
+              "mle.optimizer_configuration#assessment:verify_declared_plain_sgd_update",
+              "mle.optimizer_configuration#assessment:apply_current_gradients_in_correct_order",
+              "mle.optimizer_configuration#assessment:assert_valid_boundary_and_failure_cases"
+            ],
+            "public": {
+              "prompt": "Inspect a baseline plain-SGD configuration: no momentum, weight decay or other modifications. The deterministic parameter is 2, its current gradient is 3 and learning rate is 0.1. Checks use supplied explicit tolerances. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+              "buckets": [
+                {
+                  "bucket_id": "supported",
+                  "label": "Supported by the contract"
+                },
+                {
+                  "bucket_id": "defective",
+                  "label": "Defective claim or implementation"
+                }
+              ],
+              "items": [
+                {
+                  "item_id": "e1",
+                  "text": "optimizer = torch.optim.SGD(model.parameters(), lr=0.1)\noptimizer.zero_grad()\nloss.backward()\n# Snapshot parameter_before and current gradient before step.\noptimizer.step()\n# Assert parameter_after == 1.7 and change == -0.3 within supplied tolerances.\n# Separate lr=0 boundary asserts parameter_after == 2.\n# Deliberately incorrect expected update raises AssertionError."
+                },
+                {
+                  "item_id": "e2",
+                  "text": "optimizer.zero_grad()\nloss.backward()\noptimizer.zero_grad()\noptimizer.step()\n# Expect the supplied nonzero current-gradient update."
+                },
+                {
+                  "item_id": "e3",
+                  "text": "optimizer = torch.optim.SGD(unrelated_parameters, lr=0.1)\n# unrelated_parameters are not any trainable model parameters.\n# Claim: this verifies the model parameter update."
+                }
+              ]
+            },
+            "grading": {
+              "assignments": {
+                "e1": "supported",
+                "e2": "defective",
+                "e3": "defective"
+              },
+              "item_feedback": {
+                "e1": {
+                  "message": "The optimizer is bound to model parameters and applies the current gradient in the right order; valid, zero-rate and false-reference tests distinguish the contract."
+                },
+                "e2": {
+                  "message": "Clearing after backward removes the gradient that the step is meant to apply."
+                },
+                "e3": {
+                  "message": "The optimizer must receive the trainable model parameters, not a separate parameter collection."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+              },
+              "incorrect": {
+                "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+              },
+              "hints": [
+                "Follow parameter identity and the gradient\u2019s lifetime through the update."
+              ],
+              "remediation_step_id": "mle.tile.038_040.r07"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "tile_id": "mle.tile.041_043",
+      "interactions": [
+        {
+          "step_id": "mle.tile.041_043.s04",
+          "interaction": {
+            "type": "choice",
+            "interaction_id": "ix.mle.tile.041_043.s04",
+            "difficulty": "intro",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.minibatch_training_loop",
+                "capability": "assert_loss_dependent_plain_sgd_parameter_changes",
+                "fact_ids": [
+                  "f4",
+                  "f5"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.minibatch_training_loop#assessment:assert_loss_dependent_plain_sgd_parameter_changes"
+            ],
+            "public": {
+              "prompt": "Which evidence verifies the declared loss-dependent plain-SGD change for each minibatch?",
+              "options": [
+                {
+                  "option_id": "o1",
+                  "text": "Retain before/after parameter values and the current gradient; assert their difference matches \u2212learning_rate \u00d7 current_gradient under tolerance."
+                },
+                {
+                  "option_id": "o2",
+                  "text": "Verify only that the epoch ended."
+                },
+                {
+                  "option_id": "o3",
+                  "text": "Compare every batch update with a gradient retained from the previous batch."
+                }
+              ],
+              "selection": "single",
+              "shuffle": true
+            },
+            "grading": {
+              "correct_option_ids": [
+                "o1"
+              ],
+              "option_feedback": {
+                "o1": {
+                  "message": "This follows the stated contract."
+                },
+                "o2": {
+                  "message": "Finishing an epoch does not prove any current-gradient update occurred."
+                },
+                "o3": {
+                  "message": "The update must be based on the intended current minibatch loss gradient."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. Retain before/after parameter values and the current gradient; assert their difference matches \u2212learning_rate \u00d7 current_gradient under tolerance."
+              },
+              "incorrect": {
+                "message": "Recheck the stated contract. Finishing an epoch does not prove any current-gradient update occurred. The update must be based on the intended current minibatch loss gradient."
+              },
+              "hints": [
+                "Link each before/after pair to the gradient for that same minibatch."
+              ],
+              "remediation_step_id": "mle.tile.041_043.r01"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.041_043.s05",
+          "interaction": {
+            "type": "classify",
+            "interaction_id": "ix.mle.tile.041_043.s05",
+            "difficulty": "core",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.minibatch_training_loop",
+                "capability": "execute_current_minibatch_update_in_correct_order",
+                "fact_ids": [
+                  "f1",
+                  "f2"
+                ]
+              },
+              {
+                "concept_id": "mle.minibatch_training_loop",
+                "capability": "retain_scalar_losses_and_batch_counts",
+                "fact_ids": [
+                  "f3"
+                ]
+              },
+              {
+                "concept_id": "mle.minibatch_training_loop",
+                "capability": "assert_loss_dependent_plain_sgd_parameter_changes",
+                "fact_ids": [
+                  "f4",
+                  "f5"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.minibatch_training_loop#practice",
+              "mle.minibatch_training_loop#assessment:execute_current_minibatch_update_in_correct_order",
+              "mle.minibatch_training_loop#assessment:retain_scalar_losses_and_batch_counts",
+              "mle.minibatch_training_loop#assessment:assert_loss_dependent_plain_sgd_parameter_changes"
+            ],
+            "public": {
+              "prompt": "Review one declared epoch over five aligned observations in batches of two, retaining the final incomplete batch. Plain SGD must apply exactly one current-loss update per minibatch, with explicit tolerance checks. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+              "buckets": [
+                {
+                  "bucket_id": "supported",
+                  "label": "Supported by the contract"
+                },
+                {
+                  "bucket_id": "defective",
+                  "label": "Defective claim or implementation"
+                }
+              ],
+              "items": [
+                {
+                  "item_id": "e1",
+                  "text": "for features, targets in loader:\n    predictions = model(features)\n    loss = loss_fn(predictions, targets)\n    optimizer.zero_grad()\n    loss.backward()\n    # Retain before parameter and current gradient.\n    optimizer.step()\n    # Assert after-before agrees with -learning_rate*current_gradient.\n    records.append((loss.item(), features.shape[0]))\n# Recorded counts: [2, 2, 1]; all three updates meet the equation and direction.\n# Valid and zero-rate boundary checks pass; a supplied false update\n# predicate raises AssertionError in ordinary non-optimized execution."
+                },
+                {
+                  "item_id": "e2",
+                  "text": "for features, targets in loader:\n    loss = loss_fn(model(features), targets)\n    optimizer.zero_grad()\n    loss.backward()\n    optimizer.step()\n    optimizer.step()\n# Claim: exactly one update per current minibatch."
+                },
+                {
+                  "item_id": "e3",
+                  "text": "# Valid single-step loop; record every batch count as configured batch_size.\n# Five observations, retained final batch: recorded counts [2, 2, 2]."
+                }
+              ]
+            },
+            "grading": {
+              "assignments": {
+                "e1": "supported",
+                "e2": "defective",
+                "e3": "defective"
+              },
+              "item_feedback": {
+                "e1": {
+                  "message": "Each minibatch has a current-loss update, scalar diagnostic and actual count; the equation and boundary/rejection checks substantiate the updates."
+                },
+                "e2": {
+                  "message": "This applies two steps for one minibatch, violating the one-update contract."
+                },
+                "e3": {
+                  "message": "Configured maximum is not the final batch\u2019s actual count; the epoch evidence invents an observation."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+              },
+              "incorrect": {
+                "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+              },
+              "hints": [
+                "Audit the step count and the actual number of examples in each record."
+              ],
+              "remediation_step_id": "mle.tile.041_043.r02"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.041_043.s11",
+          "interaction": {
+            "type": "choice",
+            "interaction_id": "ix.mle.tile.041_043.s11",
+            "difficulty": "core",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.training_evaluation_modes",
+                "capability": "assert_valid_dropout_identity_and_masking_outcomes",
+                "fact_ids": [
+                  "f5",
+                  "f6"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.training_evaluation_modes#assessment:assert_valid_dropout_identity_and_masking_outcomes"
+            ],
+            "public": {
+              "prompt": "For Dropout(p=0.5) in training mode, a random call retains every input element and scales each by two. Is this a valid boundary outcome?",
+              "options": [
+                {
+                  "option_id": "o1",
+                  "text": "No; training dropout must be the identity just as evaluation dropout is."
+                },
+                {
+                  "option_id": "o2",
+                  "text": "Yes; every element obeys the zero-or-twice-input rule even if none is masked."
+                },
+                {
+                  "option_id": "o3",
+                  "text": "No; every training call must mask at least one element."
+                }
+              ],
+              "selection": "single",
+              "shuffle": true
+            },
+            "grading": {
+              "correct_option_ids": [
+                "o2"
+              ],
+              "option_feedback": {
+                "o1": {
+                  "message": "Identity is the evaluation rule; retained training elements are scaled by 1/(1-p)."
+                },
+                "o2": {
+                  "message": "This follows the stated contract."
+                },
+                "o3": {
+                  "message": "Random masking does not guarantee at least one zero on each call."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. Yes; every element obeys the zero-or-twice-input rule even if none is masked."
+              },
+              "incorrect": {
+                "message": "Recheck the stated contract. Random masking does not guarantee at least one zero on each call. Identity is the evaluation rule; retained training elements are scaled by 1/(1-p)."
+              },
+              "hints": [
+                "Apply the elementwise rule without requiring a particular random mask."
+              ],
+              "remediation_step_id": "mle.tile.041_043.r03"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.041_043.s12",
+          "interaction": {
+            "type": "classify",
+            "interaction_id": "ix.mle.tile.041_043.s12",
+            "difficulty": "core",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.training_evaluation_modes",
+                "capability": "select_layer_mode_for_training_and_evaluation",
+                "fact_ids": [
+                  "f1",
+                  "f3"
+                ]
+              },
+              {
+                "concept_id": "mle.training_evaluation_modes",
+                "capability": "apply_forward_only_validation_and_restore_training_mode",
+                "fact_ids": [
+                  "f2",
+                  "f3",
+                  "f4"
+                ]
+              },
+              {
+                "concept_id": "mle.training_evaluation_modes",
+                "capability": "distinguish_dropout_mode_from_gradient_recording",
+                "fact_ids": [
+                  "f3",
+                  "f6"
+                ]
+              },
+              {
+                "concept_id": "mle.training_evaluation_modes",
+                "capability": "assert_valid_dropout_identity_and_masking_outcomes",
+                "fact_ids": [
+                  "f5",
+                  "f6"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.training_evaluation_modes#practice",
+              "mle.training_evaluation_modes#assessment:select_layer_mode_for_training_and_evaluation",
+              "mle.training_evaluation_modes#assessment:apply_forward_only_validation_and_restore_training_mode",
+              "mle.training_evaluation_modes#assessment:distinguish_dropout_mode_from_gradient_recording",
+              "mle.training_evaluation_modes#assessment:assert_valid_dropout_identity_and_masking_outcomes"
+            ],
+            "public": {
+              "prompt": "Inspect a Dropout(p=0.5) fixture and the validation phase. Inputs are nonzero. Judge whether each report meets its stated mode, graph and assertion contract. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+              "buckets": [
+                {
+                  "bucket_id": "supported",
+                  "label": "Supported by the contract"
+                },
+                {
+                  "bucket_id": "defective",
+                  "label": "Defective claim or implementation"
+                }
+              ],
+              "items": [
+                {
+                  "item_id": "e1",
+                  "text": "layer.eval()\nassert torch.equal(layer(x), x)\nlayer.train()\ntrain_output = layer(x)\nassert torch.all((train_output == 0) | (train_output == 2*x))\n# All-retained boundary output 2*x passes. Invalid output 3*x raises AssertionError.\nmodel.eval()\nwith torch.no_grad():\n    predictions = model(features)\n# Assert predictions have no recorded gradient graph; no optimizer step.\nmodel.train()\n# Final mode assertion passes."
+                },
+                {
+                  "item_id": "e2",
+                  "text": "model.train()\nwith torch.no_grad():\n    predictions = model(features)\n# Claim: no_grad switches dropout to evaluation behavior."
+                },
+                {
+                  "item_id": "e3",
+                  "text": "model.eval()\nwith torch.no_grad():\n    predictions = model(features)\noptimizer.step()\nmodel.train()\n# Claim: this is forward-only validation."
+                }
+              ]
+            },
+            "grading": {
+              "assignments": {
+                "e1": "supported",
+                "e2": "defective",
+                "e3": "defective"
+              },
+              "item_feedback": {
+                "e1": {
+                  "message": "The evaluation identity and probabilistic training rule are separate from graph control; validation is forward-only and training mode is restored."
+                },
+                "e2": {
+                  "message": "no_grad changes gradient recording, not the model\u2019s layer mode."
+                },
+                "e3": {
+                  "message": "An optimizer step violates forward-only validation even when prediction used eval and no_grad."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+              },
+              "incorrect": {
+                "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+              },
+              "hints": [
+                "Separate layer behavior, graph recording and parameter updates."
+              ],
+              "remediation_step_id": "mle.tile.041_043.r04"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.041_043.s16",
+          "interaction": {
+            "type": "choice",
+            "interaction_id": "ix.mle.tile.041_043.s16",
+            "difficulty": "core",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.weight_persistence",
+                "capability": "assert_declared_persistence_acceptance_conditions",
+                "fact_ids": [
+                  "f5"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.weight_persistence#assessment:assert_declared_persistence_acceptance_conditions"
+            ],
+            "public": {
+              "prompt": "What distinguishes a verified persistence check from merely successful loading?",
+              "options": [
+                {
+                  "option_id": "o1",
+                  "text": "Treat any successful torch.load call as complete verification."
+                },
+                {
+                  "option_id": "o2",
+                  "text": "Compare the restored model on a different fixture without matching the original inputs."
+                },
+                {
+                  "option_id": "o3",
+                  "text": "Assert corresponding parameter entries and same-fixture evaluation predictions agree under explicit tolerances, and exercise boundary and failing predicates."
+                }
+              ],
+              "selection": "single",
+              "shuffle": true
+            },
+            "grading": {
+              "correct_option_ids": [
+                "o3"
+              ],
+              "option_feedback": {
+                "o1": {
+                  "message": "Loading without an exception does not verify parameter preservation or predictions."
+                },
+                "o2": {
+                  "message": "Prediction equivalence must use the same fixed fixture."
+                },
+                "o3": {
+                  "message": "This follows the stated contract."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. Assert corresponding parameter entries and same-fixture evaluation predictions agree under explicit tolerances, and exercise boundary and failing predicates."
+              },
+              "incorrect": {
+                "message": "Recheck the stated contract. Loading without an exception does not verify parameter preservation or predictions. Prediction equivalence must use the same fixed fixture."
+              },
+              "hints": [
+                "Ask which observable equivalence the checkpoint round trip is supposed to preserve."
+              ],
+              "remediation_step_id": "mle.tile.041_043.r05"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.041_043.s17",
+          "interaction": {
+            "type": "classify",
+            "interaction_id": "ix.mle.tile.041_043.s17",
+            "difficulty": "stretch",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.weight_persistence",
+                "capability": "restore_saved_parameters_into_compatible_architecture",
+                "fact_ids": [
+                  "f1",
+                  "f2",
+                  "f6"
+                ]
+              },
+              {
+                "concept_id": "mle.weight_persistence",
+                "capability": "verify_fixed_input_prediction_equivalence_in_evaluation_mode",
+                "fact_ids": [
+                  "f3",
+                  "f4"
+                ]
+              },
+              {
+                "concept_id": "mle.weight_persistence",
+                "capability": "verify_corresponding_parameter_state",
+                "fact_ids": [
+                  "f7"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.weight_persistence#practice",
+              "mle.weight_persistence#assessment:restore_saved_parameters_into_compatible_architecture",
+              "mle.weight_persistence#assessment:verify_fixed_input_prediction_equivalence_in_evaluation_mode",
+              "mle.weight_persistence#assessment:verify_corresponding_parameter_state"
+            ],
+            "public": {
+              "prompt": "Review a checkpoint round trip for the bounded order-training model. A compatible architecture, corresponding parameter state and fixed-input evaluation predictions must be preserved under supplied tolerances. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+              "buckets": [
+                {
+                  "bucket_id": "supported",
+                  "label": "Supported by the contract"
+                },
+                {
+                  "bucket_id": "defective",
+                  "label": "Defective claim or implementation"
+                }
+              ],
+              "items": [
+                {
+                  "item_id": "e1",
+                  "text": "original.eval()\nreference = original(fixed_features)\nwith open(path, \"wb\") as handle:\n    torch.save(original.state_dict(), handle)\nrestored = build_same_architecture()\nwith open(path, \"rb\") as handle:\n    mapping = torch.load(handle, weights_only=True)\nrestored.load_state_dict(mapping)\nrestored.eval()\n# Assert corresponding state_dict entries match under supplied tolerances.\n# Assert restored(fixed_features) matches reference under those tolerances.\n# Valid and supplied boundary pass; deliberately false equality raises AssertionError."
+                },
+                {
+                  "item_id": "e2",
+                  "text": "# Same checkpoint and fixed input.\nrestored = build_incompatible_architecture()\nrestored.load_state_dict(mapping)\n# Claim: a parameter mapping supplies the missing architecture contract."
+                },
+                {
+                  "item_id": "e3",
+                  "text": "# Compatible restored model; matching entries.\n# Original predictions use fixed_features; restored predictions use different_features.\n# Claim equivalence from comparing those outputs."
+                }
+              ]
+            },
+            "grading": {
+              "assignments": {
+                "e1": "supported",
+                "e2": "defective",
+                "e3": "defective"
+              },
+              "item_feedback": {
+                "e1": {
+                  "message": "Binary handles and weights-only loading restore the compatible state; matching entries and fixed-input evaluation predictions provide explicit acceptance evidence."
+                },
+                "e2": {
+                  "message": "The architecture must already be compatible before applying the saved parameter mapping."
+                },
+                "e3": {
+                  "message": "Different input fixtures do not establish the required fixed-input prediction equivalence."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+              },
+              "incorrect": {
+                "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+              },
+              "hints": [
+                "Check both the restored state and the conditions of the prediction comparison."
+              ],
+              "remediation_step_id": "mle.tile.041_043.r06"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "tile_id": "mle.tile.044_045",
+      "interactions": [
+        {
+          "step_id": "mle.tile.044_045.s05",
+          "interaction": {
+            "type": "choice",
+            "interaction_id": "ix.mle.tile.044_045.s05",
+            "difficulty": "intro",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.validation_early_stopping",
+                "capability": "keep_protected_test_out_of_training_decisions",
+                "fact_ids": [
+                  "f5"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.validation_early_stopping#assessment:keep_protected_test_out_of_training_decisions"
+            ],
+            "public": {
+              "prompt": "The controller\u2019s validation rule is predeclared. Which use of protected test observations stays within the training-decision boundary?",
+              "options": [
+                {
+                  "option_id": "o1",
+                  "text": "Keep them entirely outside preprocessing fitting, checkpoint selection and stopping decisions."
+                },
+                {
+                  "option_id": "o2",
+                  "text": "Use their loss to break a tie between candidate checkpoints."
+                },
+                {
+                  "option_id": "o3",
+                  "text": "Use them to choose patience while still monitoring validation loss."
+                }
+              ],
+              "selection": "single",
+              "shuffle": true
+            },
+            "grading": {
+              "correct_option_ids": [
+                "o1"
+              ],
+              "option_feedback": {
+                "o1": {
+                  "message": "This follows the stated contract."
+                },
+                "o2": {
+                  "message": "A tie-break still chooses a model with protected test information."
+                },
+                "o3": {
+                  "message": "Tuning patience with protected test observations leaks information into training decisions."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. Keep them entirely outside preprocessing fitting, checkpoint selection and stopping decisions."
+              },
+              "incorrect": {
+                "message": "Recheck the stated contract. A tie-break still chooses a model with protected test information. Tuning patience with protected test observations leaks information into training decisions."
+              },
+              "hints": [
+                "Consider whether protected information can change the chosen system."
+              ],
+              "remediation_step_id": "mle.tile.044_045.r01"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.044_045.s06",
+          "interaction": {
+            "type": "classify",
+            "interaction_id": "ix.mle.tile.044_045.s06",
+            "difficulty": "core",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.validation_early_stopping",
+                "capability": "choose_stopping_point_by_declared_validation_rule",
+                "fact_ids": [
+                  "f1",
+                  "f2",
+                  "f6"
+                ]
+              },
+              {
+                "concept_id": "mle.validation_early_stopping",
+                "capability": "preserve_and_restore_accepted_best_checkpoint",
+                "fact_ids": [
+                  "f3",
+                  "f4"
+                ]
+              },
+              {
+                "concept_id": "mle.validation_early_stopping",
+                "capability": "keep_protected_test_out_of_training_decisions",
+                "fact_ids": [
+                  "f5"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.validation_early_stopping#practice",
+              "mle.validation_early_stopping#assessment:choose_stopping_point_by_declared_validation_rule",
+              "mle.validation_early_stopping#assessment:preserve_and_restore_accepted_best_checkpoint",
+              "mle.validation_early_stopping#assessment:keep_protected_test_out_of_training_decisions"
+            ],
+            "public": {
+              "prompt": "Inspect a minimized-validation-loss controller with min_delta=0.02, patience=2 and maximum_epochs=10. Losses at epochs 1\u20134 are [0.5, 0.44, 0.43, 0.45]. Only current < best \u2212 min_delta is an accepted improvement. Protected test data are unavailable to this controller. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+              "buckets": [
+                {
+                  "bucket_id": "supported",
+                  "label": "Supported by the contract"
+                },
+                {
+                  "bucket_id": "defective",
+                  "label": "Defective claim or implementation"
+                }
+              ],
+              "items": [
+                {
+                  "item_id": "e1",
+                  "text": "# Bounded while loop: epoch < maximum_epochs.\n# Improvement branch resets counter and saves an independent checkpoint.\n# Otherwise increment counter; break when counter >= patience.\n# Observed counters: [0, 0, 1, 2]. Stop after epoch 4.\n# Restore and report accepted epoch 2, loss 0.44.\n# Snapshot stored with a deep copy or file before later updates.\n# No protected-test access."
+                },
+                {
+                  "item_id": "e2",
+                  "text": "# Correct accepted epoch identified.\nbest_state = model.state_dict()\n# Keep only this live mapping while later updates modify model parameters.\n# At stopping, load best_state and claim the accepted weights were preserved."
+                },
+                {
+                  "item_id": "e3",
+                  "text": "# Select the lowest observed loss even if it fails min_delta.\n# Restore epoch 3 solely because its observed loss is lower than epoch 2."
+                }
+              ]
+            },
+            "grading": {
+              "assignments": {
+                "e1": "supported",
+                "e2": "defective",
+                "e3": "defective"
+              },
+              "item_feedback": {
+                "e1": {
+                  "message": "The strict improvement rule, consecutive counter, epoch bound and independent accepted snapshot determine the restored checkpoint."
+                },
+                "e2": {
+                  "message": "A live state_dict reference can change with later updates; preserve an independent snapshot."
+                },
+                "e3": {
+                  "message": "The accepted checkpoint follows the declared minimum-improvement rule, not an unrestricted minimum over observed losses."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+              },
+              "incorrect": {
+                "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+              },
+              "hints": [
+                "Track accepted improvements rather than every numerical decrease."
+              ],
+              "remediation_step_id": "mle.tile.044_045.r02"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.044_045.s10",
+          "interaction": {
+            "type": "choice",
+            "interaction_id": "ix.mle.tile.044_045.s10",
+            "difficulty": "core",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.training_failure_diagnosis",
+                "capability": "define_assertion_predicates_for_valid_boundary_and_failure_cases",
+                "fact_ids": [
+                  "f4"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.training_failure_diagnosis#assessment:define_assertion_predicates_for_valid_boundary_and_failure_cases"
+            ],
+            "public": {
+              "prompt": "How should assertion fixtures distinguish a corrected valid run, a declared boundary and a reproduced failure?",
+              "options": [
+                {
+                  "option_id": "o1",
+                  "text": "Declare every run valid if any gradient exists."
+                },
+                {
+                  "option_id": "o2",
+                  "text": "Use explicit predicates for each expected outcome, with a deliberately false predicate raising AssertionError in ordinary execution."
+                },
+                {
+                  "option_id": "o3",
+                  "text": "Remove all assertions so the failure can finish."
+                }
+              ],
+              "selection": "single",
+              "shuffle": true
+            },
+            "grading": {
+              "correct_option_ids": [
+                "o2"
+              ],
+              "option_feedback": {
+                "o1": {
+                  "message": "A gradient\u2019s existence alone does not verify declared loss, gradient and update expectations."
+                },
+                "o2": {
+                  "message": "This follows the stated contract."
+                },
+                "o3": {
+                  "message": "Finishing without assertions does not establish acceptance or rejection of the expected outcomes."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. Use explicit predicates for each expected outcome, with a deliberately false predicate raising AssertionError in ordinary execution."
+              },
+              "incorrect": {
+                "message": "Recheck the stated contract. Finishing without assertions does not establish acceptance or rejection of the expected outcomes. A gradient\u2019s existence alone does not verify declared loss, gradient and update expectations."
+              },
+              "hints": [
+                "Make each acceptance claim an explicit predicate, not just a completed call."
+              ],
+              "remediation_step_id": "mle.tile.044_045.r03"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.044_045.s11",
+          "interaction": {
+            "type": "classify",
+            "interaction_id": "ix.mle.tile.044_045.s11",
+            "difficulty": "stretch",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.training_failure_diagnosis",
+                "capability": "localize_failure_from_derivative_and_parameter_gradient_evidence",
+                "fact_ids": [
+                  "f1",
+                  "f5"
+                ]
+              },
+              {
+                "concept_id": "mle.training_failure_diagnosis",
+                "capability": "check_loss_target_and_learning_rate_contract",
+                "fact_ids": [
+                  "f2",
+                  "f5"
+                ]
+              },
+              {
+                "concept_id": "mle.training_failure_diagnosis",
+                "capability": "evaluate_one_correction_against_failing_loss_gradient_and_update_records",
+                "fact_ids": [
+                  "f3",
+                  "f5"
+                ]
+              },
+              {
+                "concept_id": "mle.training_failure_diagnosis",
+                "capability": "define_assertion_predicates_for_valid_boundary_and_failure_cases",
+                "fact_ids": [
+                  "f4"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.training_failure_diagnosis#practice",
+              "mle.training_failure_diagnosis#assessment:localize_failure_from_derivative_and_parameter_gradient_evidence",
+              "mle.training_failure_diagnosis#assessment:check_loss_target_and_learning_rate_contract",
+              "mle.training_failure_diagnosis#assessment:evaluate_one_correction_against_failing_loss_gradient_and_update_records",
+              "mle.training_failure_diagnosis#assessment:define_assertion_predicates_for_valid_boundary_and_failure_cases"
+            ],
+            "public": {
+              "prompt": "Review a reproduced plain-SGD failure: output/target contract and mean loss match the fixed reference; post-backward gradients match the reference before clearing, but parameters do not change. The run log shows optimizer.zero_grad() after backward and before step. Keep the fixture and failing record fixed. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+              "buckets": [
+                {
+                  "bucket_id": "supported",
+                  "label": "Supported by the contract"
+                },
+                {
+                  "bucket_id": "defective",
+                  "label": "Defective claim or implementation"
+                }
+              ],
+              "items": [
+                {
+                  "item_id": "e1",
+                  "text": "# Preserve failing fixture and reference.\n# Hypothesis: clearing after backward removes the intended update gradient.\n# Single correction: move zero_grad before backward; do not change loss or lr.\n# Rerun same bounded fixture; record loss, output derivatives, parameter.grad\n# after backward/before clearing, and before/after parameter values.\n# Loss/gradient references match; update matches -lr*current_gradient.\n# Valid and zero-lr boundary assertions pass; reproduced failure violates\n# the nonzero-update predicate; an intentionally false assertion raises AssertionError."
+                },
+                {
+                  "item_id": "e2",
+                  "text": "# Same recorded failure.\n# Change learning rate, loss function and gradient-clearing order together.\n# Rerun succeeds, so attribute the correction solely to learning rate."
+                },
+                {
+                  "item_id": "e3",
+                  "text": "loss.backward()\noptimizer.zero_grad()\n# Inspect parameter.grad only now and diagnose missing learning signal\n# as proof that backward never produced gradients."
+                }
+              ]
+            },
+            "grading": {
+              "assignments": {
+                "e1": "supported",
+                "e2": "defective",
+                "e3": "defective"
+              },
+              "item_feedback": {
+                "e1": {
+                  "message": "The evidence localizes the issue after gradient computation; one supported ordering correction is compared against unchanged loss, gradient and update references."
+                },
+                "e2": {
+                  "message": "Changing several factors cannot isolate the supported cause; the failure evidence specifically identifies gradient clearing before step."
+                },
+                "e3": {
+                  "message": "Inspection after clearing cannot show whether backward produced the expected signal; inspect before clearing."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+              },
+              "incorrect": {
+                "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+              },
+              "hints": [
+                "Locate where the observed derivative chain stops matching the fixed reference."
+              ],
+              "remediation_step_id": "mle.tile.044_045.r04"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "tile_id": "mle.tile.046_048",
+      "interactions": [
+        {
+          "step_id": "mle.tile.046_048.s05",
+          "interaction": {
+            "type": "choice",
+            "interaction_id": "ix.mle.tile.046_048.s05",
+            "difficulty": "intro",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.device_placement",
+                "capability": "select_device_from_measured_availability",
+                "fact_ids": [
+                  "f1"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.device_placement#assessment:select_device_from_measured_availability"
+            ],
+            "public": {
+              "prompt": "torch.cuda.is_available() reports False on the supplied supported CPU environment. What selection follows the availability rule?",
+              "options": [
+                {
+                  "option_id": "o1",
+                  "text": "Select torch.device(\"cpu\") and record that actual choice."
+                },
+                {
+                  "option_id": "o2",
+                  "text": "Select CUDA because the requested workload would be faster there."
+                },
+                {
+                  "option_id": "o3",
+                  "text": "Select CUDA because the VM is described informally as GPU-capable."
+                }
+              ],
+              "selection": "single",
+              "shuffle": true
+            },
+            "grading": {
+              "correct_option_ids": [
+                "o1"
+              ],
+              "option_feedback": {
+                "o1": {
+                  "message": "This follows the stated contract."
+                },
+                "o2": {
+                  "message": "A desired speedup does not establish CUDA availability."
+                },
+                "o3": {
+                  "message": "Actual measured availability governs the device choice, not an informal label."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. Select torch.device(\"cpu\") and record that actual choice."
+              },
+              "incorrect": {
+                "message": "Recheck the stated contract. A desired speedup does not establish CUDA availability. Actual measured availability governs the device choice, not an informal label."
+              },
+              "hints": [
+                "Use the measured availability, not the desired hardware."
+              ],
+              "remediation_step_id": "mle.tile.046_048.r01"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.046_048.s06",
+          "interaction": {
+            "type": "classify",
+            "interaction_id": "ix.mle.tile.046_048.s06",
+            "difficulty": "core",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.device_placement",
+                "capability": "detect_and_fix_model_input_target_device_mismatches",
+                "fact_ids": [
+                  "f2",
+                  "f3"
+                ]
+              },
+              {
+                "concept_id": "mle.device_placement",
+                "capability": "verify_compatible_placement_without_unnecessary_transfers",
+                "fact_ids": [
+                  "f2",
+                  "f3"
+                ]
+              },
+              {
+                "concept_id": "mle.device_placement",
+                "capability": "validate_placement_with_bounded_execution_and_assertions",
+                "fact_ids": [
+                  "f3",
+                  "f4"
+                ]
+              },
+              {
+                "concept_id": "mle.device_placement",
+                "capability": "execute_bounded_workload_on_authorized_instance_and_verify_shutdown",
+                "fact_ids": [
+                  "f5",
+                  "f6",
+                  "f7",
+                  "f8"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.device_placement#practice",
+              "mle.device_placement#assessment:detect_and_fix_model_input_target_device_mismatches",
+              "mle.device_placement#assessment:verify_compatible_placement_without_unnecessary_transfers",
+              "mle.device_placement#assessment:validate_placement_with_bounded_execution_and_assertions",
+              "mle.device_placement#assessment:execute_bounded_workload_on_authorized_instance_and_verify_shutdown"
+            ],
+            "public": {
+              "prompt": "Inspect a bounded workload on an already authorized supplied Compute Engine VM. INSTANCE and ZONE below refer only to that supplied VM. Judge compatible placement, valid/CPU-boundary/failure assertions and the complete lifecycle record. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+              "buckets": [
+                {
+                  "bucket_id": "supported",
+                  "label": "Supported by the contract"
+                },
+                {
+                  "bucket_id": "defective",
+                  "label": "Defective claim or implementation"
+                }
+              ],
+              "items": [
+                {
+                  "item_id": "e1",
+                  "text": "describe INSTANCE --zone=ZONE: identity matches authorization; initial status TERMINATED\nstart INSTANCE --zone=ZONE: operation completed\ndescribe: same identity, RUNNING\nssh INSTANCE --zone=ZONE: connected\n# torch.cuda.is_available() determines device; actual choice recorded.\n# model.to(device), features.to(device), targets.to(device) once per needed input.\n# Parameter/input/target devices asserted equal; bounded forward/backward\n# and prediction complete. Supported CPU boundary passes.\n# Deliberate incompatible-device predicate raises AssertionError.\nstop INSTANCE --zone=ZONE: operation completed\ndescribe: same identity, TERMINATED\n# Commands above use gcloud compute instances, except gcloud compute ssh."
+                },
+                {
+                  "item_id": "e2",
+                  "text": "# CUDA is available; model and features are on cuda, targets are on cpu.\n# A required computation consumes all three.\n# Claim that moving features alone establishes compatible placement."
+                },
+                {
+                  "item_id": "e3",
+                  "text": "# Correct compatible devices; bounded workload complete.\ngcloud compute instances stop INSTANCE --zone=ZONE\n# Do not wait or describe the resulting state; report shutdown verified."
+                }
+              ]
+            },
+            "grading": {
+              "assignments": {
+                "e1": "supported",
+                "e2": "defective",
+                "e3": "defective"
+              },
+              "item_feedback": {
+                "e1": {
+                  "message": "The authorized identity and lifecycle states are verified, actual availability guides compatible placement, and bounded execution plus assertion outcomes provide evidence."
+                },
+                "e2": {
+                  "message": "Targets and model state also need compatible placement; moving features alone is insufficient."
+                },
+                "e3": {
+                  "message": "Issuing stop is not verification; wait for completion and inspect the resulting authorized instance state."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+              },
+              "incorrect": {
+                "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+              },
+              "hints": [
+                "Inspect all participating tensors and both ends of the authorized lifecycle."
+              ],
+              "remediation_step_id": "mle.tile.046_048.r02"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.046_048.s10",
+          "interaction": {
+            "type": "choice",
+            "interaction_id": "ix.mle.tile.046_048.s10",
+            "difficulty": "core",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.training_batch_sizing",
+                "capability": "choose_batch_size_within_the_declared_measured_memory_bound",
+                "fact_ids": [
+                  "f4",
+                  "f5"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.training_batch_sizing#assessment:choose_batch_size_within_the_declared_measured_memory_bound"
+            ],
+            "public": {
+              "prompt": "A fast trial exceeds the supplied measured allocated-tensor memory bound; a slower completed trial meets all declared requirements. Which choice is eligible?",
+              "options": [
+                {
+                  "option_id": "o1",
+                  "text": "The faster trial if its feature-plus-target byte estimate is below the bound."
+                },
+                {
+                  "option_id": "o2",
+                  "text": "The completed trial that meets the memory and performance requirements."
+                },
+                {
+                  "option_id": "o3",
+                  "text": "The faster trial, because throughput overrides the bound."
+                }
+              ],
+              "selection": "single",
+              "shuffle": true
+            },
+            "grading": {
+              "correct_option_ids": [
+                "o2"
+              ],
+              "option_feedback": {
+                "o1": {
+                  "message": "Input estimates do not replace the measured training-memory quantity governed by this bound."
+                },
+                "o2": {
+                  "message": "This follows the stated contract."
+                },
+                "o3": {
+                  "message": "Higher throughput does not excuse violating the declared memory bound."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. The completed trial that meets the memory and performance requirements."
+              },
+              "incorrect": {
+                "message": "Recheck the stated contract. Higher throughput does not excuse violating the declared memory bound. Input estimates do not replace the measured training-memory quantity governed by this bound."
+              },
+              "hints": [
+                "Apply eligibility requirements before ranking performance."
+              ],
+              "remediation_step_id": "mle.tile.046_048.r03"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.046_048.s11",
+          "interaction": {
+            "type": "classify",
+            "interaction_id": "ix.mle.tile.046_048.s11",
+            "difficulty": "core",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.training_batch_sizing",
+                "capability": "distinguish_batch_allocation_estimates_from_measured_training_memory",
+                "fact_ids": [
+                  "f1",
+                  "f4",
+                  "f6"
+                ]
+              },
+              {
+                "concept_id": "mle.training_batch_sizing",
+                "capability": "measure_peak_allocated_tensor_memory_for_controlled_batch_size_trials",
+                "fact_ids": [
+                  "f2",
+                  "f3"
+                ]
+              },
+              {
+                "concept_id": "mle.training_batch_sizing",
+                "capability": "choose_batch_size_within_the_declared_measured_memory_bound",
+                "fact_ids": [
+                  "f4",
+                  "f5"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.training_batch_sizing#practice",
+              "mle.training_batch_sizing#assessment:distinguish_batch_allocation_estimates_from_measured_training_memory",
+              "mle.training_batch_sizing#assessment:measure_peak_allocated_tensor_memory_for_controlled_batch_size_trials",
+              "mle.training_batch_sizing#assessment:choose_batch_size_within_the_declared_measured_memory_bound"
+            ],
+            "public": {
+              "prompt": "Inspect otherwise matched CUDA DataLoader trials. The budget governs peak allocated tensor bytes, not reserved or total GPU usage. For the illustrative 100-row, 20-feature, four-byte-feature/four-byte-target batch, input estimates must be reported separately: features 8000, targets 400, combined 8400 bytes. Additional fixed trial limits: allocated-tensor peak <= 20000 bytes and throughput >= 1 completed example/s. Each trial resets CUDA peak stats; alignment/task/other settings are unchanged. All five examples finish, including the last partial batch. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+              "buckets": [
+                {
+                  "bucket_id": "supported",
+                  "label": "Supported by the contract"
+                },
+                {
+                  "bucket_id": "defective",
+                  "label": "Defective claim or implementation"
+                }
+              ],
+              "items": [
+                {
+                  "item_id": "e1",
+                  "text": "# Recorded controlled comparison\nbatch_size=2; actual counts=[2, 2, 1]; completed=5; elapsed=5 s; peak_allocated=8000 bytes; completed/s=1.000000; eligible=True\nbatch_size=4; actual counts=[4, 1]; completed=5; elapsed=3 s; peak_allocated=16000 bytes; completed/s=1.666667; eligible=True\nbatch_size=8; actual counts=[5]; completed=5; elapsed=2 s; peak_allocated=32000 bytes; completed/s=2.500000; eligible=False\n# Features have 20 four-byte columns; targets are four bytes each.\n# Report estimates from each actual batch row count separately from peaks.\n# Selection: batch_size=4, highest throughput among eligible settings.\n# The larger, faster trial exceeds the allocated-tensor budget."
+                },
+                {
+                  "item_id": "e2",
+                  "text": "# Input estimate: 8400 bytes.\n# Report this as total peak training memory without measuring activations\n# or other live training allocations."
+                },
+                {
+                  "item_id": "e3",
+                  "text": "# Previous large-batch trial established a high peak.\n# Run smaller batch without resetting peak statistics.\n# Treat max_memory_allocated() as the new trial-only peak."
+                }
+              ]
+            },
+            "grading": {
+              "assignments": {
+                "e1": "supported",
+                "e2": "defective",
+                "e3": "defective"
+              },
+              "item_feedback": {
+                "e1": {
+                  "message": "The actual partial-batch counts and completed-work rates support selecting the fastest eligible completed setting; the peak bound excludes the larger trial."
+                },
+                "e2": {
+                  "message": "Feature and target storage do not define peak training memory."
+                },
+                "e3": {
+                  "message": "The previous peak may persist; reset the peak statistic before each measured workload."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+              },
+              "incorrect": {
+                "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+              },
+              "hints": [
+                "Separate input estimates, measured peaks and completed-example counts."
+              ],
+              "remediation_step_id": "mle.tile.046_048.r04"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.046_048.s16",
+          "interaction": {
+            "type": "choice",
+            "interaction_id": "ix.mle.tile.046_048.s16",
+            "difficulty": "core",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.training_memory_diagnosis",
+                "capability": "identify_graph_connected_diagnostic_retention",
+                "fact_ids": [
+                  "f3"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.training_memory_diagnosis#assessment:identify_graph_connected_diagnostic_retention"
+            ],
+            "public": {
+              "prompt": "Diagnostics save each loss tensor with its graph even though no future derivative through the saved values is needed. Which isolated change addresses this evidence?",
+              "options": [
+                {
+                  "option_id": "o1",
+                  "text": "Call empty_cache while retaining all graph-connected losses and claim live tensors were freed."
+                },
+                {
+                  "option_id": "o2",
+                  "text": "Keep the graph-connected losses and relabel reserved memory as unused tensor-free memory."
+                },
+                {
+                  "option_id": "o3",
+                  "text": "Save scalar or detached diagnostic values instead, then rerun the same bounded workload and compare measured peaks."
+                }
+              ],
+              "selection": "single",
+              "shuffle": true
+            },
+            "grading": {
+              "correct_option_ids": [
+                "o3"
+              ],
+              "option_feedback": {
+                "o1": {
+                  "message": "empty_cache cannot release storage still occupied by live tensors."
+                },
+                "o2": {
+                  "message": "Reserved and allocated quantities are distinct; relabeling does not remove live graph references."
+                },
+                "o3": {
+                  "message": "This follows the stated contract."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. Save scalar or detached diagnostic values instead, then rerun the same bounded workload and compare measured peaks."
+              },
+              "incorrect": {
+                "message": "Recheck the stated contract. empty_cache cannot release storage still occupied by live tensors. Reserved and allocated quantities are distinct; relabeling does not remove live graph references."
+              },
+              "hints": [
+                "Ask whether the diagnostic really needs a gradient connection."
+              ],
+              "remediation_step_id": "mle.tile.046_048.r05"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.046_048.s17",
+          "interaction": {
+            "type": "classify",
+            "interaction_id": "ix.mle.tile.046_048.s17",
+            "difficulty": "stretch",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.training_memory_diagnosis",
+                "capability": "distinguish_live_tensor_allocations_from_reserved_memory",
+                "fact_ids": [
+                  "f1",
+                  "f2",
+                  "f4"
+                ]
+              },
+              {
+                "concept_id": "mle.training_memory_diagnosis",
+                "capability": "attribute_memory_exhaustion_using_simultaneously_live_allocation_sizes",
+                "fact_ids": [
+                  "f6",
+                  "f7"
+                ]
+              },
+              {
+                "concept_id": "mle.training_memory_diagnosis",
+                "capability": "verify_a_single_memory_correction_against_failure_evidence",
+                "fact_ids": [
+                  "f2",
+                  "f5"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.training_memory_diagnosis#practice",
+              "mle.training_memory_diagnosis#assessment:distinguish_live_tensor_allocations_from_reserved_memory",
+              "mle.training_memory_diagnosis#assessment:attribute_memory_exhaustion_using_simultaneously_live_allocation_sizes",
+              "mle.training_memory_diagnosis#assessment:verify_a_single_memory_correction_against_failure_evidence"
+            ],
+            "public": {
+              "prompt": "Review memory-exhaustion evidence for a 20-input, 10-output linear layer with four-byte parameters. Its parameter reference is 840 bytes before gradients, activations and batch matrices. The failed bounded run accumulates graph-connected loss diagnostics not needed for later differentiation. At the reproduced failure point, the supplied simultaneous-live ledger is {'parameters': 840, 'gradients': 840, 'batch_features': 8000, 'batch_targets': 400, 'activations': 4000, 'retained_graphs': 20000} bytes; the allocator rejects a further required allocation under a 20000-byte allocated-tensor bound. Failed allocated/reserved peaks and the point of failure are retained. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+              "buckets": [
+                {
+                  "bucket_id": "supported",
+                  "label": "Supported by the contract"
+                },
+                {
+                  "bucket_id": "defective",
+                  "label": "Defective claim or implementation"
+                }
+              ],
+              "items": [
+                {
+                  "item_id": "e1",
+                  "text": "# Sum the supplied simultaneous-live ledger: 34080 bytes.\n# Parameter reference is (20*10+10)*4 = 840 bytes.\n# Failed peak allocated=34080; reserved=38080 bytes.\n# Graph-connected saved diagnostics require no future derivatives.\n# Single correction: store loss.item() instead of the graph-connected loss.\n# Same bounded task completes; corrected allocated peak=14080,\n# corrected reserved peak=18080 bytes.\n# Retain both records; corrected allocated peak meets the 20000-byte bound."
+                },
+                {
+                  "item_id": "e2",
+                  "text": "# Large live-tensor allocation remains referenced.\ntorch.cuda.empty_cache()\n# Claim: the still-live tensor storage must now be released."
+                },
+                {
+                  "item_id": "e3",
+                  "text": "# Linear-layer reference counts only 20 input values: 20*4 bytes.\n# Declare this the entire parameter allocation and ignore the bias."
+                }
+              ]
+            },
+            "grading": {
+              "assignments": {
+                "e1": "supported",
+                "e2": "defective",
+                "e3": "defective"
+              },
+              "item_feedback": {
+                "e1": {
+                  "message": "The ledger includes parameters, gradients, batch storage, activations and retained graphs at the same instant; removing only unnecessary diagnostic graph retention is supported by completion and the corrected allocated peak."
+                },
+                "e2": {
+                  "message": "empty_cache releases unused cache, not memory occupied by live tensors."
+                },
+                "e3": {
+                  "message": "Weight storage depends on input times output width; the bias adds output-width elements. Counting only the input vector is not a parameter reference."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+              },
+              "incorrect": {
+                "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+              },
+              "hints": [
+                "Count simultaneously live objects and distinguish them from unused cache."
+              ],
+              "remediation_step_id": "mle.tile.046_048.r06"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "tile_id": "mle.tile.049_050",
+      "interactions": [
+        {
+          "step_id": "mle.tile.049_050.s04",
+          "interaction": {
+            "type": "choice",
+            "interaction_id": "ix.mle.tile.049_050.s04",
+            "difficulty": "intro",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.training_bottleneck_profiling",
+                "capability": "distinguish_steady_state_timing_from_measurement_artifacts",
+                "fact_ids": [
+                  "f3",
+                  "f4"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.training_bottleneck_profiling#assessment:distinguish_steady_state_timing_from_measurement_artifacts"
+            ],
+            "public": {
+              "prompt": "Which final timing comparison supports a steady-state CUDA performance claim?",
+              "options": [
+                {
+                  "option_id": "o1",
+                  "text": "Warm up both runs, time the same workload without profiler overhead, and synchronize accelerator completion at both measurement boundaries."
+                },
+                {
+                  "option_id": "o2",
+                  "text": "Time only CPU submission of CUDA work without synchronization."
+                },
+                {
+                  "option_id": "o3",
+                  "text": "Compare a cold profiled baseline with a warm unprofiled changed run."
+                }
+              ],
+              "selection": "single",
+              "shuffle": true
+            },
+            "grading": {
+              "correct_option_ids": [
+                "o1"
+              ],
+              "option_feedback": {
+                "o1": {
+                  "message": "This follows the stated contract."
+                },
+                "o2": {
+                  "message": "Asynchronous submission timing can omit accelerator completion."
+                },
+                "o3": {
+                  "message": "Warm-up and profiler overhead differences confound the effect of the isolated change."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. Warm up both runs, time the same workload without profiler overhead, and synchronize accelerator completion at both measurement boundaries."
+              },
+              "incorrect": {
+                "message": "Recheck the stated contract. Asynchronous submission timing can omit accelerator completion. Warm-up and profiler overhead differences confound the effect of the isolated change."
+              },
+              "hints": [
+                "Match measurement conditions as carefully as workload conditions."
+              ],
+              "remediation_step_id": "mle.tile.049_050.r01"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.049_050.s05",
+          "interaction": {
+            "type": "classify",
+            "interaction_id": "ix.mle.tile.049_050.s05",
+            "difficulty": "core",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.training_bottleneck_profiling",
+                "capability": "localize_loading_compute_or_transfer_bottleneck",
+                "fact_ids": [
+                  "f1",
+                  "f2"
+                ]
+              },
+              {
+                "concept_id": "mle.training_bottleneck_profiling",
+                "capability": "corroborate_stage_attribution_with_process_resource_evidence",
+                "fact_ids": [
+                  "f6"
+                ]
+              },
+              {
+                "concept_id": "mle.training_bottleneck_profiling",
+                "capability": "verify_dominant_stage_diagnosis_with_one_factor_comparison",
+                "fact_ids": [
+                  "f5"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.training_bottleneck_profiling#practice",
+              "mle.training_bottleneck_profiling#assessment:localize_loading_compute_or_transfer_bottleneck",
+              "mle.training_bottleneck_profiling#assessment:corroborate_stage_attribution_with_process_resource_evidence",
+              "mle.training_bottleneck_profiling#assessment:verify_dominant_stage_diagnosis_with_one_factor_comparison"
+            ],
+            "public": {
+              "prompt": "Inspect evidence for the same bounded containerized order-training workload. Attribute the dominant stage from labeled profiler work with contemporaneous process evidence, then judge an isolated change using steady-state completion timings. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+              "buckets": [
+                {
+                  "bucket_id": "supported",
+                  "label": "Supported by the contract"
+                },
+                {
+                  "bucket_id": "defective",
+                  "label": "Defective claim or implementation"
+                }
+              ],
+              "items": [
+                {
+                  "item_id": "e1",
+                  "text": "# Warm-up complete; non-overlapping profiler labeled-region milliseconds:\n# {'loading': 60, 'transfer': 10, 'compute': 20}. Loading region encloses only loading, compute only computation.\n# Loading share of attributed region time=0.666667.\n# Same-window docker stats: loader process saturates its allotted CPU;\n# docker top confirms that process was running throughout the loading interval.\n# Reproduce the limitation; change only the supported loading factor.\n# Same bounded unprofiled CUDA work after warm-up on both runs, synchronized\n# at start/end: completed elapsed before=100 ms, after=80 ms.\n# Report loading as dominant; measured elapsed reduction=0.200000."
+                },
+                {
+                  "item_id": "e2",
+                  "text": "# Profile labels show loading dominates; process evidence agrees.\n# Change loading and model architecture together.\n# Attribute any faster result solely to loading."
+                },
+                {
+                  "item_id": "e3",
+                  "text": "# CPU timer starts, submits CUDA work, then stops immediately.\n# No synchronize at either boundary.\n# Claim: the elapsed interval is completed accelerator computation."
+                }
+              ]
+            },
+            "grading": {
+              "assignments": {
+                "e1": "supported",
+                "e2": "defective",
+                "e3": "defective"
+              },
+              "item_feedback": {
+                "e1": {
+                  "message": "The loading-region attribution and contemporaneous loader CPU/process evidence agree. A one-factor matched unprofiled completion measurement supports the reported improvement."
+                },
+                "e2": {
+                  "message": "The diagnosis must be checked with one isolated supported change, not two simultaneous changes."
+                },
+                "e3": {
+                  "message": "CPU submission without completion boundaries does not measure completed asynchronous CUDA work."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+              },
+              "incorrect": {
+                "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+              },
+              "hints": [
+                "Use profiling for attribution and a matched unprofiled rerun for the performance comparison."
+              ],
+              "remediation_step_id": "mle.tile.049_050.r02"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.049_050.s09",
+          "interaction": {
+            "type": "choice",
+            "interaction_id": "ix.mle.tile.049_050.s09",
+            "difficulty": "core",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.training_hardware_selection",
+                "capability": "verify_both_instances_stopped_and_retain_billing_evidence",
+                "fact_ids": [
+                  "f3",
+                  "f7",
+                  "f8",
+                  "f10"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.training_hardware_selection#assessment:verify_both_instances_stopped_and_retain_billing_evidence"
+            ],
+            "public": {
+              "prompt": "Both authorized options finish benchmarking. Which record establishes the required shutdown and billing interpretation?",
+              "options": [
+                {
+                  "option_id": "o1",
+                  "text": "Stop the chosen option only, leaving the rejected benchmark VM running."
+                },
+                {
+                  "option_id": "o2",
+                  "text": "Verify both resulting stopped states; retain measured lifecycle durations and compute billing scope, acknowledging possible continuing disk charges."
+                },
+                {
+                  "option_id": "o3",
+                  "text": "Retain only bounded execution times and assume all charges stopped."
+                }
+              ],
+              "selection": "single",
+              "shuffle": true
+            },
+            "grading": {
+              "correct_option_ids": [
+                "o2"
+              ],
+              "option_feedback": {
+                "o1": {
+                  "message": "Both authorized benchmark options must be stopped and their resulting states verified."
+                },
+                "o2": {
+                  "message": "This follows the stated contract."
+                },
+                "o3": {
+                  "message": "Execution time is not lifecycle-billed duration, and persistent disks or other charges may remain."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. Verify both resulting stopped states; retain measured lifecycle durations and compute billing scope, acknowledging possible continuing disk charges."
+              },
+              "incorrect": {
+                "message": "Recheck the stated contract. Execution time is not lifecycle-billed duration, and persistent disks or other charges may remain. Both authorized benchmark options must be stopped and their resulting states verified."
+              },
+              "hints": [
+                "A rejected option still has a lifecycle and billing record."
+              ],
+              "remediation_step_id": "mle.tile.049_050.r03"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.049_050.s10",
+          "interaction": {
+            "type": "classify",
+            "interaction_id": "ix.mle.tile.049_050.s10",
+            "difficulty": "stretch",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "mle.training_hardware_selection",
+                "capability": "establish_a_matched_device_benchmark",
+                "fact_ids": [
+                  "f1",
+                  "f2"
+                ]
+              },
+              {
+                "concept_id": "mle.training_hardware_selection",
+                "capability": "choose_feasible_capacity_under_memory_time_and_cost_limits",
+                "fact_ids": [
+                  "f2",
+                  "f4",
+                  "f9",
+                  "f10"
+                ]
+              },
+              {
+                "concept_id": "mle.training_hardware_selection",
+                "capability": "start_inspect_and_connect_to_authorized_instances",
+                "fact_ids": [
+                  "f5",
+                  "f6",
+                  "f8"
+                ]
+              },
+              {
+                "concept_id": "mle.training_hardware_selection",
+                "capability": "verify_both_instances_stopped_and_retain_billing_evidence",
+                "fact_ids": [
+                  "f3",
+                  "f7",
+                  "f8",
+                  "f10"
+                ]
+              }
+            ],
+            "anchors": [
+              "mle.training_hardware_selection#practice",
+              "mle.training_hardware_selection#assessment:establish_a_matched_device_benchmark",
+              "mle.training_hardware_selection#assessment:choose_feasible_capacity_under_memory_time_and_cost_limits",
+              "mle.training_hardware_selection#assessment:start_inspect_and_connect_to_authorized_instances",
+              "mle.training_hardware_selection#assessment:verify_both_instances_stopped_and_retain_billing_evidence"
+            ],
+            "public": {
+              "prompt": "Review CPU/GPU capacity selection on two already authorized supplied VMs. Both must use the same bounded matrix workload, meet fixed completion/quality/memory/time/cost limits and finish in verified stopped states. Keep execution cost distinct from lifecycle-billed compute cost. The fixed limits are {'memory': 20000, 'execution_seconds': 70, 'lifecycle_compute_cost': 2}. Both complete the same quality-accepted workload. Select the eligible option with minimum lifecycle-billed compute cost under the supplied per-second rates; billable lifecycle durations are given below. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+              "buckets": [
+                {
+                  "bucket_id": "supported",
+                  "label": "Supported by the contract"
+                },
+                {
+                  "bucket_id": "defective",
+                  "label": "Defective claim or implementation"
+                }
+              ],
+              "items": [
+                {
+                  "item_id": "e1",
+                  "text": "# Each supplied authorized identity/zone is confirmed by describe.\n# Both initially TERMINATED; start operations complete; describe RUNNING;\n# authorized gcloud compute ssh connects. Availability and compatible\n# model/input/target placement checked; matched task and quality criterion.\n# Warm-up and relevant movement included per fixed execution protocol.\n# CPU: execution=60 s, billable lifecycle=100 s, rate=0.01 currency/s, observed memory=8000 bytes, execution cost=0.6, lifecycle compute cost=1.0, eligible=True\n# GPU: execution=20 s, billable lifecycle=40 s, rate=0.04 currency/s, observed memory=12000 bytes, execution cost=0.8, lifecycle compute cost=1.6, eligible=True\n# Choose CPU by the declared lifecycle-cost rule.\n# Stop BOTH authorized VMs, wait for completion; describe confirms matching\n# identities in TERMINATED state. Retain lifecycle/cost records and continuing\n# disk/other charge scope separately."
+                },
+                {
+                  "item_id": "e2",
+                  "text": "# GPU execution is faster but its measured memory exceeds the fixed bound.\n# CPU completes and meets all fixed requirements.\n# Select GPU solely because execution is faster."
+                },
+                {
+                  "item_id": "e3",
+                  "text": "# Both options completed. Use execution_seconds*rate as the full\n# lifecycle-billed compute cost, although measured running lifecycle\n# durations are longer; declare all disk charges ended after stop."
+                }
+              ]
+            },
+            "grading": {
+              "assignments": {
+                "e1": "supported",
+                "e2": "defective",
+                "e3": "defective"
+              },
+              "item_feedback": {
+                "e1": {
+                  "message": "Both options satisfy the fixed eligibility checks; the CPU has the lower lifecycle compute cost under the supplied durations and rates. Both authorized VM states are verified stopped without claiming all other charges ended."
+                },
+                "e2": {
+                  "message": "Speed does not make an over-bound option eligible."
+                },
+                "e3": {
+                  "message": "Billing uses the measured lifecycle scope, not just execution, and stopped compute does not establish that disk or other charges ended."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+              },
+              "incorrect": {
+                "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+              },
+              "hints": [
+                "Separate eligibility, execution performance and billed lifecycle scope."
+              ],
+              "remediation_step_id": "mle.tile.049_050.r04"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "tile_id": "mle.tile.051_051",
+      "interactions": [
+        {
+          "step_id": "mle.tile.051_051.s05",
+          "interaction": {
+            "type": "choice",
+            "interaction_id": "ix.mle.tile.051_051.s05",
+            "difficulty": "intro",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "ml.task_specific_pretrained_weight_fine_tuning",
+                "capability": "justify_adapted_model_improvement_or_non_improvement",
+                "fact_ids": [
+                  "f5",
+                  "f6",
+                  "f7",
+                  "f8"
+                ]
+              }
+            ],
+            "anchors": [
+              "ml.task_specific_pretrained_weight_fine_tuning#assessment:justify_adapted_model_improvement_or_non_improvement"
+            ],
+            "public": {
+              "prompt": "What supports a justified improvement or non-improvement claim for the adapted two-class model?",
+              "options": [
+                {
+                  "option_id": "o1",
+                  "text": "Compare with the frozen pretrained reference on the same validation cohort using the fixed conditional-rate and expected-cost rules, excluding protected tests."
+                },
+                {
+                  "option_id": "o2",
+                  "text": "Use protected test errors to choose whether to retain the adapted model."
+                },
+                {
+                  "option_id": "o3",
+                  "text": "Claim improvement from changed head weights without a matched validation comparison."
+                }
+              ],
+              "selection": "single",
+              "shuffle": true
+            },
+            "grading": {
+              "correct_option_ids": [
+                "o1"
+              ],
+              "option_feedback": {
+                "o1": {
+                  "message": "This follows the stated contract."
+                },
+                "o2": {
+                  "message": "Using protected observations to choose a model leaks information into the selected system."
+                },
+                "o3": {
+                  "message": "Changed weights alone do not establish an improved result under the supplied acceptance and cost rules."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. Compare with the frozen pretrained reference on the same validation cohort using the fixed conditional-rate and expected-cost rules, excluding protected tests."
+              },
+              "incorrect": {
+                "message": "Recheck the stated contract. Using protected observations to choose a model leaks information into the selected system. Changed weights alone do not establish an improved result under the supplied acceptance and cost rules."
+              },
+              "hints": [
+                "Separate evidence of learning from evidence of a better matched validation result."
+              ],
+              "remediation_step_id": "mle.tile.051_051.r01"
+            }
+          }
+        },
+        {
+          "step_id": "mle.tile.051_051.s06",
+          "interaction": {
+            "type": "classify",
+            "interaction_id": "ix.mle.tile.051_051.s06",
+            "difficulty": "stretch",
+            "grading_mode": "client",
+            "standalone": true,
+            "measures": [
+              {
+                "concept_id": "ml.task_specific_pretrained_weight_fine_tuning",
+                "capability": "establish_matched_pretrained_validation_reference",
+                "fact_ids": [
+                  "f1",
+                  "f2",
+                  "f5",
+                  "f8"
+                ]
+              },
+              {
+                "concept_id": "ml.task_specific_pretrained_weight_fine_tuning",
+                "capability": "verify_classifier_only_supervised_adaptation",
+                "fact_ids": [
+                  "f3",
+                  "f4"
+                ]
+              },
+              {
+                "concept_id": "ml.task_specific_pretrained_weight_fine_tuning",
+                "capability": "verify_task_head_shapes_and_chain_rule_gradient",
+                "fact_ids": [
+                  "f9",
+                  "f10"
+                ]
+              },
+              {
+                "concept_id": "ml.task_specific_pretrained_weight_fine_tuning",
+                "capability": "compute_conditional_validation_error_and_expected_cost",
+                "fact_ids": [
+                  "f6",
+                  "f7"
+                ]
+              },
+              {
+                "concept_id": "ml.task_specific_pretrained_weight_fine_tuning",
+                "capability": "justify_adapted_model_improvement_or_non_improvement",
+                "fact_ids": [
+                  "f5",
+                  "f6",
+                  "f7",
+                  "f8"
+                ]
+              }
+            ],
+            "anchors": [
+              "ml.task_specific_pretrained_weight_fine_tuning#practice",
+              "ml.task_specific_pretrained_weight_fine_tuning#assessment:establish_matched_pretrained_validation_reference",
+              "ml.task_specific_pretrained_weight_fine_tuning#assessment:verify_classifier_only_supervised_adaptation",
+              "ml.task_specific_pretrained_weight_fine_tuning#assessment:verify_task_head_shapes_and_chain_rule_gradient",
+              "ml.task_specific_pretrained_weight_fine_tuning#assessment:compute_conditional_validation_error_and_expected_cost",
+              "ml.task_specific_pretrained_weight_fine_tuning#assessment:justify_adapted_model_improvement_or_non_improvement"
+            ],
+            "public": {
+              "prompt": "Inspect independent excerpts from a bounded two-class ViT supervised adaptation. Judge whether each excerpt supports its stated claim. Supplied training/validation images and scaffold are fixed; protected test observations must not enter adaptation or selection. No execution is requested. The comparison cohort has ten actual negatives and ten actual positives. Fixed deployment probabilities are P(Y=0)=0.5, P(Y=1)=0.5, error costs cost_FP=1, cost_FN=4, and correct predictions cost zero. The acceptance rule declares improvement only when all adaptation checks pass and expected error cost decreases. Sort every excerpt into Supported (all stated contract claims hold) or Defective (at least one stated claim violates the contract). Each excerpt is independent; comments describe recorded fixture evidence.",
+              "buckets": [
+                {
+                  "bucket_id": "supported",
+                  "label": "Supported by the contract"
+                },
+                {
+                  "bucket_id": "defective",
+                  "label": "Defective claim or implementation"
+                }
+              ],
+              "items": [
+                {
+                  "item_id": "e1",
+                  "text": "# Compatible supplied checkpoint loaded; original label mapping retained\n# for frozen pretrained validation reference. Same checkpoint processor\n# used for training/validation pixel_values and model(**inputs).logits.\n# Freeze existing parameters, replace classifier with\n# nn.Linear(model.config.hidden_size, 2); set both num_labels fields and\n# matching id2label/label2id maps. TrainingArguments uses supplied epoch,\n# batch and learning-rate bounds, eval_strategy=\"epoch\", remove_unused_columns=False.\n# Trainer receives supplied datasets/collator and processing_class=processor; train().\n# Post-run: head values changed; every frozen backbone value unchanged."
+                },
+                {
+                  "item_id": "e2",
+                  "text": "# Adaptation-run logits shape (N, 2); targets shape (N,), torch.long,\n# all indices in [0, 2), matching the two-class maps.\n# Compute task loss; backward; before clearing, compare selected head\n# gradient with its supplied chain-rule reference under explicit tolerances.\n# Assertion passes with matching gradient shape and values."
+                },
+                {
+                  "item_id": "e3",
+                  "text": "# Frozen pretrained and adapted predictions refer to exactly the same\n# validation observations, retained task mapping and checkpoint processor.\n# reference: FP=2, TN=8, FN=3, TP=7; FPR=0.2, FNR=0.3, expected error cost=0.7\n# adapted: FP=1, TN=9, FN=2, TP=8; FPR=0.1, FNR=0.2, expected error cost=0.45\n# FPR denominator is actual negatives; FNR denominator is actual positives.\n# Both conditioning groups exist here. For supplied no-positive boundary,\n# FNR is explicitly undefined, not zero, and full cost is not claimed.\n# All head/backbone/shape/gradient checks passed as recorded. Expected error\n# cost decreases by 0.25; conclude improvement under the fixed rule.\n# Protected test observations never accessed."
+                },
+                {
+                  "item_id": "e4",
+                  "text": "# Head weights changed but frozen backbone values also changed.\n# Report successful classifier-only adaptation because a new head exists."
+                },
+                {
+                  "item_id": "e5",
+                  "text": "# Same validation cohort, but compute FPR=FP/(FP+TP) and\n# substitute zero for FNR whenever there are no actual positives.\n# Use these numbers to claim lower expected cost."
+                }
+              ]
+            },
+            "grading": {
+              "assignments": {
+                "e1": "supported",
+                "e2": "supported",
+                "e3": "supported",
+                "e4": "defective",
+                "e5": "defective"
+              },
+              "item_feedback": {
+                "e1": {
+                  "message": "Compatible pretrained representation and mapping are retained; a new trainable two-class head receives the bounded supervised training while frozen backbone values remain unchanged."
+                },
+                "e2": {
+                  "message": "The task label contract and selected head-gradient reference substantiate the intended supervised signal."
+                },
+                "e3": {
+                  "message": "Both models use matched validation evidence. The correctly conditioned rates and supplied deployment-cost calculation show a cost decrease; undefined boundary rates are explicitly handled rather than replaced with zero."
+                },
+                "e4": {
+                  "message": "Classifier-only adaptation requires unchanged frozen backbone values as well as changed head weights."
+                },
+                "e5": {
+                  "message": "FPR conditions on actual negatives, not predicted positives; an empty actual-positive group makes FNR undefined, not zero."
+                }
+              }
+            },
+            "feedback": {
+              "correct": {
+                "message": "Correct. You distinguished the contract-satisfying evidence from the defective excerpts."
+              },
+              "incorrect": {
+                "message": "Recheck each excerpt against its declared contract; successful execution or a plausible shape alone does not establish every acceptance claim."
+              },
+              "hints": [
+                "Audit frozen state, label/gradient contracts and matched conditional-cost evidence separately."
+              ],
+              "remediation_step_id": "mle.tile.051_051.r02"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

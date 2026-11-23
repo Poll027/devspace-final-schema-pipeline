@@ -1,0 +1,47 @@
+# Supplied implementation, fixtures and verification harness; complete only the marked assignments and assertions.
+group_records = [{'order_key': 'A', 'customer_group': 'G1', 'target': 1}, {'order_key': 'B', 'customer_group': 'G1', 'target': 0}, {'order_key': 'C', 'customer_group': 'G2', 'target': 1}]
+
+time_records = [{'order_key': 'T1', 'observation_timestamp': '2024-12-29T09:00:00', 'target': 0}, {'order_key': 'T2', 'observation_timestamp': '2024-12-30T09:00:00', 'target': 0}, {'order_key': 'T3', 'observation_timestamp': '2024-12-31T09:00:00', 'target': 0}, {'order_key': 'T4', 'observation_timestamp': '2025-01-01T09:00:00', 'target': 1}, {'order_key': 'T5', 'observation_timestamp': '2025-01-02T09:00:00', 'target': 1}, {'order_key': 'T6', 'observation_timestamp': '2025-01-03T09:00:00', 'target': 1}, {'order_key': 'T7', 'observation_timestamp': '2025-01-04T09:00:00', 'target': 1}, {'order_key': 'T8', 'observation_timestamp': '2025-01-05T09:00:00', 'target': 0}, {'order_key': 'T9', 'observation_timestamp': '2025-01-06T09:00:00', 'target': 0}, {'order_key': 'T10', 'observation_timestamp': '2025-01-07T09:00:00', 'target': 0}, {'order_key': 'T11', 'observation_timestamp': '2025-01-08T09:00:00', 'target': 0}, {'order_key': 'T12', 'observation_timestamp': '2025-01-09T09:00:00', 'target': 0}, {'order_key': 'T13', 'observation_timestamp': '2025-01-10T09:00:00', 'target': 0}]
+
+training_groups = ['G1']
+
+cutoff = '2025-01-01T09:00:00'
+
+evaluation_end = '2025-01-11T09:00:00'
+
+invalid_training_keys = ['A']
+
+invalid_validation_keys = ['B', 'C']
+
+if True:
+
+    def supplied_partition(records, scenario, training_groups, cutoff, evaluation_end):
+        if scenario == 'group':
+            train = [r for r in records if r['customer_group'] in training_groups]
+            validation = [r for r in records if r['customer_group'] not in training_groups]
+            train_groups = {r['customer_group'] for r in train}
+            validation_groups = {r['customer_group'] for r in validation}
+            assert not train_groups & validation_groups
+        else:
+            train = [r for r in records if r['observation_timestamp'] < cutoff]
+            validation = [r for r in records if cutoff <= r['observation_timestamp'] < evaluation_end]
+            assert max([r['observation_timestamp'] for r in train]) < cutoff
+            assert min([r['observation_timestamp'] for r in validation]) >= cutoff
+            assert max([r['observation_timestamp'] for r in validation]) < evaluation_end
+        train_proportion = sum([r['target'] for r in train]) / len(train)
+        validation_proportion = sum([r['target'] for r in validation]) / len(validation)
+        return {'train': train, 'validation': validation, 'train_proportion': train_proportion, 'validation_proportion': validation_proportion}
+
+# TODO: complete the required partition assignment.
+partition = None
+
+group_result = partition(group_records, 'group', training_groups, cutoff, evaluation_end)
+
+time_result = partition(time_records, 'time', training_groups, cutoff, evaluation_end)
+
+try:
+    assert not {r['customer_group'] for r in group_records if r['order_key'] in invalid_training_keys} & {r['customer_group'] for r in group_records if r['order_key'] in invalid_validation_keys}
+except AssertionError:
+    invalid_assignment_caught = True
+
+# TODO: assert the supplied check outcome.

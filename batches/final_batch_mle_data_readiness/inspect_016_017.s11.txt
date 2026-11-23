@@ -1,0 +1,124 @@
+PROMPT In the supplied workflow, replace only `learner_operation = None` with a binding of `learner_operation` to `supplied_operation` (without calling it). The helper implements `row['available_at'] <= prediction_time`. Leave the inputs, helper and verification scaffolding unchanged. This is a scaffolded operation-binding task; the remaining implementation is supplied. The completed workflow must meet the following output contract: Implement feature(records, prediction_time). The supplied harness converts ISO times to datetime. Accept records with available_at <= prediction_time, iterate accepted records and return their value total. Implement verify(records, prediction_time) to call feature and assert invariance when the supplied later record is appended. Return the total. The tests include the exact-boundary, empty and augmented fixtures.
+SOLUTION
+# Supplied inputs and operation; do not edit.
+FIXTURES = {'records': [{'available_at': '2025-01-01T09:00:00', 'value': 2}, {'available_at': '2025-01-01T09:30:00', 'value': 3}], 'augmented_records': [{'available_at': '2025-01-01T09:00:00', 'value': 2}, {'available_at': '2025-01-01T09:30:00', 'value': 3}, {'available_at': '2025-01-01T09:30:01', 'value': 7}], 'prediction_time': '2025-01-01T09:30:00', 'empty': [], 'policy': 'available_at <= prediction_time; timestamps are ISO strings converted with datetime.fromisoformat'}
+if True:
+
+    def supplied_operation(prediction_time, row):
+        return row['available_at'] <= prediction_time
+
+learner_operation = supplied_operation
+
+# Supplied workflow and verification scaffolding; do not edit.
+if True:
+    from datetime import datetime
+    if True:
+
+        def supplied_dates(rows):
+            return [{'available_at': datetime.fromisoformat(row['available_at']), 'value': row['value']} for row in rows]
+    if True:
+
+        def supplied_time(value):
+            return datetime.fromisoformat(value)
+    from datetime import datetime
+
+    def feature(records, prediction_time):
+        accepted = [row for row in records if learner_operation(prediction_time, row)]
+        total = 0
+        for record in accepted:
+            total += record['value']
+        return total
+
+    def verify(records, prediction_time):
+        records = supplied_dates(records)
+        prediction_time = supplied_time(prediction_time)
+        actual = feature(records, prediction_time)
+        later = supplied_dates([FIXTURES['augmented_records'][-1]])
+        expected = feature(records + later, prediction_time)
+        assert actual == expected
+        return actual
+
+TESTS
+[
+  {
+    "test_id": "case_1",
+    "kind": "function_call",
+    "spec": {
+      "function": "verify",
+      "args": [
+        [
+          {
+            "available_at": "2025-01-01T09:00:00",
+            "value": 2
+          },
+          {
+            "available_at": "2025-01-01T09:30:00",
+            "value": 3
+          }
+        ],
+        "2025-01-01T09:30:00"
+      ],
+      "expected": 5
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  },
+  {
+    "test_id": "case_2",
+    "kind": "function_call",
+    "spec": {
+      "function": "verify",
+      "args": [
+        [
+          {
+            "available_at": "2025-01-01T09:00:00",
+            "value": 2
+          },
+          {
+            "available_at": "2025-01-01T09:30:00",
+            "value": 3
+          },
+          {
+            "available_at": "2025-01-01T09:30:01",
+            "value": 7
+          }
+        ],
+        "2025-01-01T09:30:00"
+      ],
+      "expected": 5
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  },
+  {
+    "test_id": "case_3",
+    "kind": "function_call",
+    "spec": {
+      "function": "verify",
+      "args": [
+        [],
+        "2025-01-01T09:30:00"
+      ],
+      "expected": 0
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  },
+  {
+    "test_id": "case_4",
+    "kind": "function_call",
+    "spec": {
+      "function": "verify",
+      "args": [
+        [
+          {
+            "available_at": "2025-01-01T09:30:00",
+            "value": 3
+          }
+        ],
+        "2025-01-01T09:30:00"
+      ],
+      "expected": 3
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  }
+]
+CONSTRAINTS
+{"allowed_syntax": ["from datetime import datetime", "def function_name(records, prediction_time):", "return total", "variable assignment", "integer literals", "datetime(...)", "list literals", "dictionary literals with available_at and value keys", "row[\"available_at\"]", "record[\"value\"]", "[row for row in records if row[\"available_at\"] <= prediction_time]", "total = 0", "for record in accepted:", "total += record[\"value\"]", "list concatenation with +", "function calls", "assert actual == expected"], "blocked_syntax": ["model.fit(...)", "model.predict(...)", "model.predict_proba(...)", "torch.tensor(...)", "loss.backward()", "optimizer.step()", "mlflow.start_run(...)"]}

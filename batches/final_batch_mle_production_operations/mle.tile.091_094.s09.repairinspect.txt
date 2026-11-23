@@ -1,0 +1,265 @@
+{
+  "type": "code_exercise",
+  "public": {
+    "prompt": "Complete the operation bindings marked TODO. Bind each name to the NumPy operation for its role: mean_operation (mean), std_operation (std). The supplied orchestration applies these operations to the mounted data, supplies the declared eligibility rules and denominators, and constructs the existing report. Keep population standard deviations (ddof=0) and the supplied record fields and ordering. Do not replace the report with constants. The supplied allocation follows the declared shared-cost rule and retains unallocated rows and lifecycle evidence; summarize each workload\u2019s window costs. The graded output remains `report`, with the supplied structure and ordering.",
+    "runtime": {
+      "kind": "python",
+      "version": "0.29.5",
+      "packages": [
+        "numpy"
+      ]
+    },
+    "workspace": {
+      "entry": "main.py",
+      "files": [
+        {
+          "path": "main.py",
+          "role": "editable",
+          "language": "python",
+          "content": "# Complete only the TODO operation/calculation/serialization lines described in the prompt.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'lifecycle': {'INSTANCE': 'string', 'ZONE': 'string', 'workload': 'string', 'reporting_window': 'string', 'start': 'datetime', 'stop': 'datetime', 'before_state': 'string', 'after_state': 'string', 'completed_work': 'integer'}, 'billing_export': {'charge_id': 'string', 'reporting_window': 'string', 'resource_id': 'string', 'charge_category': 'string', 'amount': 'number'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\ndef verified_lifecycles(data):\\n    records=[]\\n    for r in data:\\n        if r['before_state']!='TERMINATED' or r['after_state']!='TERMINATED':raise ValueError('lifecycle not stopped')\\n        records.append({'identity':r['INSTANCE'],'ZONE':r['ZONE'],'window':r['reporting_window'],'start':r['start'],'stop':r['stop'],'work':r['completed_work'],'trace':['describe before','start and wait running','ssh and bounded workload','stop and wait stopped','describe after']})\\n    return records\\npolicy = {'authorized_identity': 'lab.operator', 'resource_mapping': {'training-lab': 'training', 'inference-lab': 'inference', 'training-disk': 'training'}, 'shared_rule': {'training': 0.5, 'inference': 0.5}, 'unmatched_rule': 'explicitly unallocated', 'unusual_rule': 'per-workload per-window allocation >10', 'unit': 'fictional credits', 'reporting_windows': {'w1': ['2026-01-02T00:00:00Z', '2026-01-03T00:00:00Z'], 'w2': ['2026-01-03T00:00:00Z', '2026-01-04T00:00:00Z']}, 'direct_interval_rule': 'direct_compute rows correspond to the named resource lifecycle/work interval; persistent_disk spans reporting window even after stop', 'numeric_values': 'Select per-window attributed costs for each workload; do not mix workload series', 'ddof': 0}\\n\\n\\n# Supplied orchestration; operations are selected by the learner.\\ndef allocation_report(data, policy, lifecycles):\\n    charges = data\\n    unusual_threshold = 10.0\\n    allocated = {'training': {'w1': 0, 'w2': 0}, 'inference': {'w1': 0, 'w2': 0}}\\n    unallocated = []\\n    eligible_total = 0\\n    for r in charges:\\n        eligible_total = eligible_total + r['amount']\\n        if r['resource_id'] in policy['resource_mapping']:\\n            workload = policy['resource_mapping'][r['resource_id']]\\n            allocated[workload][r['reporting_window']] = allocated[workload][r['reporting_window']] + r['amount']\\n        elif r['charge_category'] == 'shared':\\n            for workload in ['training', 'inference']:\\n                allocated[workload][r['reporting_window']] = allocated[workload][r['reporting_window']] + r['amount'] * policy['shared_rule'][workload]\\n        else:\\n            unallocated.append(r)\\n    summary = {}\\n    unusual = []\\n    allocated_total = 0\\n    for workload in ['training', 'inference']:\\n        numeric_values = np.array([allocated[workload]['w1'], allocated[workload]['w2']])\\n        works = []\\n        unit_costs = []\\n        for window in ['w1', 'w2']:\\n            amount = allocated[workload][window]\\n            allocated_total = allocated_total + amount\\n            if amount > unusual_threshold:\\n                unusual.append({'workload': workload, 'window': window, 'amount': amount})\\n            completed = 0\\n            for l in lifecycles:\\n                if l['identity'] == workload + '-lab' and l['window'] == window:\\n                    completed = completed + l['work']\\n            works.append(completed)\\n            unit = None\\n            if completed > 0:\\n                unit = amount / completed\\n            unit_costs.append(unit)\\n        summary[workload] = {'window_costs': numeric_values, 'mean': mean_operation(numeric_values), 'std': std_operation(numeric_values, ddof=0), 'work': works, 'unit_costs': unit_costs}\\n    unallocated_amounts = []\\n    for unallocated_row in unallocated:\\n        unallocated_amounts.append(unallocated_row['amount'])\\n    unallocated_total = sum(unallocated_amounts)\\n    assert allocated_total + unallocated_total == eligible_total\\n    result = {'lifecycle_evidence': lifecycles, 'allocations': allocated, 'summaries': summary, 'unallocated': unallocated, 'unusual': unusual, 'allocated_total': allocated_total, 'unallocated_total': unallocated_total, 'eligible_export_total': eligible_total, 'unit': policy['unit']}\\n    return result\\n\"\nexec(_fixture_support)\nmean_operation = None  # TODO: complete this binding or calculation\nstd_operation = None  # TODO: complete this binding or calculation\nlifecycles = verified_lifecycles(load('lifecycle'))\nreport = allocation_report(load('billing_export'), policy, lifecycles)\nemit(report)\n"
+        }
+      ],
+      "asset_mounts": [
+        {
+          "asset_id": "ds.lifecycle",
+          "mount_path": "lifecycle.csv"
+        },
+        {
+          "asset_id": "ds.billing_export",
+          "mount_path": "billing_export.csv"
+        }
+      ]
+    },
+    "constraints": {
+      "allowed_syntax": [
+        "gcloud compute instances describe INSTANCE --zone=ZONE",
+        "gcloud compute instances start INSTANCE --zone=ZONE",
+        "gcloud compute ssh INSTANCE --zone=ZONE",
+        "gcloud compute instances stop INSTANCE --zone=ZONE",
+        "import numpy as np",
+        "Variable assignment",
+        "Numeric and string literals",
+        "Lists and dictionaries",
+        "Indexing",
+        "For loops and conditional comparisons",
+        "Arithmetic operators",
+        "sum(numeric_values)",
+        "np.array(numeric_values)",
+        "np.mean(numeric_values)",
+        "np.std(numeric_values, ddof=0)",
+        "np.std(numeric_values, ddof=1) only when the supplied calculation requires the N\u22121 divisor"
+      ],
+      "blocked_syntax": [
+        "gcloud compute instances delete",
+        "gcloud compute disks delete",
+        "gcloud billing budgets create",
+        "gcloud billing budgets update"
+      ]
+    }
+  },
+  "grading": {
+    "solution_files": [
+      {
+        "path": "main.py",
+        "content": "_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'lifecycle': {'INSTANCE': 'string', 'ZONE': 'string', 'workload': 'string', 'reporting_window': 'string', 'start': 'datetime', 'stop': 'datetime', 'before_state': 'string', 'after_state': 'string', 'completed_work': 'integer'}, 'billing_export': {'charge_id': 'string', 'reporting_window': 'string', 'resource_id': 'string', 'charge_category': 'string', 'amount': 'number'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\ndef verified_lifecycles(data):\\n    records=[]\\n    for r in data:\\n        if r['before_state']!='TERMINATED' or r['after_state']!='TERMINATED':raise ValueError('lifecycle not stopped')\\n        records.append({'identity':r['INSTANCE'],'ZONE':r['ZONE'],'window':r['reporting_window'],'start':r['start'],'stop':r['stop'],'work':r['completed_work'],'trace':['describe before','start and wait running','ssh and bounded workload','stop and wait stopped','describe after']})\\n    return records\\npolicy = {'authorized_identity': 'lab.operator', 'resource_mapping': {'training-lab': 'training', 'inference-lab': 'inference', 'training-disk': 'training'}, 'shared_rule': {'training': 0.5, 'inference': 0.5}, 'unmatched_rule': 'explicitly unallocated', 'unusual_rule': 'per-workload per-window allocation >10', 'unit': 'fictional credits', 'reporting_windows': {'w1': ['2026-01-02T00:00:00Z', '2026-01-03T00:00:00Z'], 'w2': ['2026-01-03T00:00:00Z', '2026-01-04T00:00:00Z']}, 'direct_interval_rule': 'direct_compute rows correspond to the named resource lifecycle/work interval; persistent_disk spans reporting window even after stop', 'numeric_values': 'Select per-window attributed costs for each workload; do not mix workload series', 'ddof': 0}\\n\\n\\n# Supplied orchestration; operations are selected by the learner.\\ndef allocation_report(data, policy, lifecycles):\\n    charges = data\\n    unusual_threshold = 10.0\\n    allocated = {'training': {'w1': 0, 'w2': 0}, 'inference': {'w1': 0, 'w2': 0}}\\n    unallocated = []\\n    eligible_total = 0\\n    for r in charges:\\n        eligible_total = eligible_total + r['amount']\\n        if r['resource_id'] in policy['resource_mapping']:\\n            workload = policy['resource_mapping'][r['resource_id']]\\n            allocated[workload][r['reporting_window']] = allocated[workload][r['reporting_window']] + r['amount']\\n        elif r['charge_category'] == 'shared':\\n            for workload in ['training', 'inference']:\\n                allocated[workload][r['reporting_window']] = allocated[workload][r['reporting_window']] + r['amount'] * policy['shared_rule'][workload]\\n        else:\\n            unallocated.append(r)\\n    summary = {}\\n    unusual = []\\n    allocated_total = 0\\n    for workload in ['training', 'inference']:\\n        numeric_values = np.array([allocated[workload]['w1'], allocated[workload]['w2']])\\n        works = []\\n        unit_costs = []\\n        for window in ['w1', 'w2']:\\n            amount = allocated[workload][window]\\n            allocated_total = allocated_total + amount\\n            if amount > unusual_threshold:\\n                unusual.append({'workload': workload, 'window': window, 'amount': amount})\\n            completed = 0\\n            for l in lifecycles:\\n                if l['identity'] == workload + '-lab' and l['window'] == window:\\n                    completed = completed + l['work']\\n            works.append(completed)\\n            unit = None\\n            if completed > 0:\\n                unit = amount / completed\\n            unit_costs.append(unit)\\n        summary[workload] = {'window_costs': numeric_values, 'mean': mean_operation(numeric_values), 'std': std_operation(numeric_values, ddof=0), 'work': works, 'unit_costs': unit_costs}\\n    unallocated_amounts = []\\n    for unallocated_row in unallocated:\\n        unallocated_amounts.append(unallocated_row['amount'])\\n    unallocated_total = sum(unallocated_amounts)\\n    assert allocated_total + unallocated_total == eligible_total\\n    result = {'lifecycle_evidence': lifecycles, 'allocations': allocated, 'summaries': summary, 'unallocated': unallocated, 'unusual': unusual, 'allocated_total': allocated_total, 'unallocated_total': unallocated_total, 'eligible_export_total': eligible_total, 'unit': policy['unit']}\\n    return result\\n\"\nexec(_fixture_support)\nmean_operation = np.mean\nstd_operation = np.std\nlifecycles = verified_lifecycles(load('lifecycle'))\nreport = allocation_report(load('billing_export'), policy, lifecycles)\nemit(report)\n"
+      }
+    ],
+    "tests": [
+      {
+        "test_id": "report",
+        "kind": "value_equals",
+        "spec": {
+          "expr": "report",
+          "expected": {
+            "lifecycle_evidence": [
+              {
+                "identity": "training-lab",
+                "ZONE": "lab-zone-a",
+                "window": "w1",
+                "start": "2026-01-02T10:00:00Z",
+                "stop": "2026-01-02T10:10:00Z",
+                "work": 1,
+                "trace": [
+                  "describe before",
+                  "start and wait running",
+                  "ssh and bounded workload",
+                  "stop and wait stopped",
+                  "describe after"
+                ]
+              },
+              {
+                "identity": "inference-lab",
+                "ZONE": "lab-zone-a",
+                "window": "w1",
+                "start": "2026-01-02T10:02:00Z",
+                "stop": "2026-01-02T10:08:00Z",
+                "work": 100,
+                "trace": [
+                  "describe before",
+                  "start and wait running",
+                  "ssh and bounded workload",
+                  "stop and wait stopped",
+                  "describe after"
+                ]
+              },
+              {
+                "identity": "training-lab",
+                "ZONE": "lab-zone-a",
+                "window": "w2",
+                "start": "2026-01-03T10:00:00Z",
+                "stop": "2026-01-03T10:10:00Z",
+                "work": 1,
+                "trace": [
+                  "describe before",
+                  "start and wait running",
+                  "ssh and bounded workload",
+                  "stop and wait stopped",
+                  "describe after"
+                ]
+              },
+              {
+                "identity": "inference-lab",
+                "ZONE": "lab-zone-a",
+                "window": "w2",
+                "start": "2026-01-03T10:02:00Z",
+                "stop": "2026-01-03T10:08:00Z",
+                "work": 120,
+                "trace": [
+                  "describe before",
+                  "start and wait running",
+                  "ssh and bounded workload",
+                  "stop and wait stopped",
+                  "describe after"
+                ]
+              }
+            ],
+            "allocations": {
+              "training": {
+                "w1": 7,
+                "w2": 11
+              },
+              "inference": {
+                "w1": 5,
+                "w2": 8
+              }
+            },
+            "summaries": {
+              "training": {
+                "window_costs": [
+                  7,
+                  11
+                ],
+                "mean": 9,
+                "std": 2,
+                "work": [
+                  1,
+                  1
+                ],
+                "unit_costs": [
+                  7,
+                  11
+                ]
+              },
+              "inference": {
+                "window_costs": [
+                  5,
+                  8
+                ],
+                "mean": 6.5,
+                "std": 1.5,
+                "work": [
+                  100,
+                  120
+                ],
+                "unit_costs": [
+                  0.05,
+                  0.06666666666666667
+                ]
+              }
+            },
+            "unallocated": [
+              {
+                "charge_id": "w1.unmapped-lab",
+                "reporting_window": "w1",
+                "resource_id": "unmapped-lab",
+                "charge_category": "unmatched",
+                "amount": 0
+              },
+              {
+                "charge_id": "w2.unmapped-lab",
+                "reporting_window": "w2",
+                "resource_id": "unmapped-lab",
+                "charge_category": "unmatched",
+                "amount": 3
+              }
+            ],
+            "unusual": [
+              {
+                "workload": "training",
+                "window": "w2",
+                "amount": 11
+              }
+            ],
+            "allocated_total": 31,
+            "unallocated_total": 3,
+            "eligible_export_total": 34,
+            "unit": "fictional credits"
+          }
+        },
+        "message_on_fail": "The report differs from the declared fixture contract. Recheck execution order, scope, definitions and required evidence."
+      }
+    ]
+  },
+  "interaction_id": "ix.mle.tile.091_094.s09",
+  "difficulty": "core",
+  "grading_mode": "client",
+  "standalone": true,
+  "measures": [
+    {
+      "concept_id": "mle.ml_workload_cost_attribution",
+      "capability": "identify_workload_and_reporting_window",
+      "fact_ids": [
+        "f1",
+        "f2"
+      ]
+    },
+    {
+      "concept_id": "mle.ml_workload_cost_attribution",
+      "capability": "distinguish_lifecycle_windows_from_total_billable_usage",
+      "fact_ids": [
+        "f3",
+        "f6",
+        "f9",
+        "f10",
+        "f11"
+      ]
+    },
+    {
+      "concept_id": "mle.ml_workload_cost_attribution",
+      "capability": "allocate_and_reconcile_workload_charges",
+      "fact_ids": [
+        "f4",
+        "f7",
+        "f8"
+      ]
+    }
+  ],
+  "anchors": [
+    "mle.ml_workload_cost_attribution#practice",
+    "mle.ml_workload_cost_attribution#assessment:identify_workload_and_reporting_window",
+    "mle.ml_workload_cost_attribution#assessment:distinguish_lifecycle_windows_from_total_billable_usage",
+    "mle.ml_workload_cost_attribution#assessment:allocate_and_reconcile_workload_charges"
+  ],
+  "feedback": {
+    "correct": {
+      "message": "The workload series retain declared sharing, completed-work alignment and reconciliation."
+    },
+    "incorrect": {
+      "message": "Recheck direct mapping, shared splits, unmatched charges and the strict unusually-large rule."
+    },
+    "hints": [
+      "Reconcile shared and explicitly unallocated rows, not only direct compute.",
+      "Divide each workload/window cost by corresponding completed work."
+    ]
+  }
+}

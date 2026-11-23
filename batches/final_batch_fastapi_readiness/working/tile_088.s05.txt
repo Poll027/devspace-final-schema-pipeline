@@ -1,0 +1,217 @@
+PRACTICE {
+  "type": "live_code",
+  "objective": "Apply supplied resource budgets to one costly batch endpoint: configure maintained body-byte middleware, bound batch size with Field, configure a finite outbound dependency timeout, and apply the supplied Uvicorn concurrency setting. Verify accepted and over-budget requests.",
+  "success": "An input within the supplied budgets retains the endpoint's intended response contract. Oversized bodies and excessive batch sizes are rejected without invoking the expensive dependency. The dependency timeout and Uvicorn concurrency setting match the supplied finite budgets.",
+  "live_code": {
+    "required_skill": "Configure resource boundaries using existing middleware, declarative input constraints, dependency timeouts and server settings; verify the endpoint boundary with integration tests.",
+    "allowed_syntax": [
+      "Python imports, assignments and function calls",
+      "class declarations inheriting from BaseModel",
+      "Python type annotations",
+      "Field with ge, le and max_length constraints",
+      "FastAPI path-operation decorators",
+      "async def and await",
+      "Depends and app.dependency_overrides",
+      "app.add_middleware with a supplied maintained body-byte limiter",
+      "httpx.Timeout and async HTTPX client configuration",
+      "TestClient requests using json or content",
+      "assert statements checking status codes, response bodies and dependency call counts",
+      "Uvicorn command-line --limit-concurrency"
+    ],
+    "blocked_syntax": [
+      "ORM relationship eager-loading options",
+      "Database fixture setup and teardown for state isolation",
+      "Authorization-code and PKCE integration",
+      "Security dependencies with permission or scope requirements",
+      "Webhook deduplication and replay-freshness handlers",
+      "Automatic retry loops",
+      "Object-ownership authorization checks"
+    ],
+    "starter_state_intent": "Provide one costly batch endpoint with its existing request and response contracts, a replaceable expensive dependency, maintained body-byte middleware with documented configuration, and explicit body-byte, batch-size, timeout and concurrency budgets. Include an observable dependency call counter and request fixtures containing only fields from the supplied endpoint.",
+    "observable_success": "Integration assertions show that an accepted batch preserves the response contract and invokes the expensive dependency, while a body exceeding the byte budget and a batch exceeding the Field bound are rejected with no additional dependency calls. Configuration inspection confirms finite dependency timeouts and the supplied --limit-concurrency value."
+  }
+}
+SOLUTION
+#!/usr/bin/env bash
+set -euo pipefail
+# Requires the supplied native workspace dependencies and any provisioned service.
+cat > 'starter.py' <<'DEVSPACE_FILE_0'
+from pydantic import BaseModel, Field
+class BatchInput(BaseModel):
+    order_ids: list[int] = Field(max_length=3)
+DEVSPACE_FILE_0
+cat > 'application.py' <<'DEVSPACE_FILE_1'
+import json
+from pathlib import Path
+import httpx
+from fastapi import FastAPI, Depends
+from starlette.middleware.body_limit import RequestBodyLimitMiddleware
+from starter import BatchInput
+budgets = json.loads(Path('fixtures.json').read_text())['hypothetical_budgets']
+app = FastAPI()
+app.add_middleware(RequestBodyLimitMiddleware, max_body_size=budgets['body_bytes'])
+expensive_calls = 0
+outbound_timeout = httpx.Timeout(budgets['dependency_timeout_seconds'])  # TODO: supplied finite timeout
+async def expensive_dependency(value: BatchInput):
+    global expensive_calls
+    expensive_calls += 1
+    transport=httpx.MockTransport(lambda request:httpx.Response(200,json={'available':True}))
+    async with httpx.AsyncClient(transport=transport,timeout=outbound_timeout) as http:
+        response=await http.get('http://controlled-dependency.invalid/lookup')
+        return response.json()['available']
+@app.post('/orders/batch')
+async def batch(value: BatchInput, available=Depends(expensive_dependency)):
+    return {'accepted':len(value.order_ids)}
+# TODO: immediately after app construction and before requests, configure
+# app.add_middleware(RequestBodyLimitMiddleware, max_body_size=...)
+# Use budgets['body_bytes']; middleware_verification.json supplies the measured
+# rejection contract. Leave the dependency counter intact.
+DEVSPACE_FILE_1
+cat > 'test_boundaries.py' <<'DEVSPACE_FILE_2'
+import json
+from pathlib import Path
+import application
+from fastapi.testclient import TestClient
+import pytest
+fixtures = json.loads(Path('fixtures.json').read_text())
+@pytest.mark.parametrize('condition', ['within_batch','beyond_batch','within_body','beyond_body'])
+def test_boundary(condition):
+    calls = []
+    async def counted(value: application.BatchInput):
+        calls.append(True)
+        return True
+    previous = application.app.dependency_overrides.copy()
+    application.app.dependency_overrides[application.expensive_dependency] = counted
+    try:
+        with TestClient(application.app) as client:
+            if condition == 'beyond_body':
+                response = client.post('/orders/batch', content=fixtures[condition], headers={'Content-Type':'application/json'})
+            else:
+                response = client.post('/orders/batch', json=fixtures[condition])
+            if condition in ('within_batch', 'within_body'):
+                assert response.status_code == 200
+                assert response.json() == {'accepted': len(fixtures[condition]['order_ids'])}
+                assert calls == [True]
+            else:
+                assert response.status_code == (413 if condition == 'beyond_body' else 422)
+                assert calls == []
+    finally:
+        application.app.dependency_overrides.clear()
+        application.app.dependency_overrides.update(previous)
+DEVSPACE_FILE_2
+cat > 'launch.sh' <<'DEVSPACE_FILE_3'
+#!/usr/bin/env bash
+exec uvicorn application:app --host 127.0.0.1 --port 8000 --limit-concurrency 8
+DEVSPACE_FILE_3
+cat > 'check_config.py' <<'DEVSPACE_FILE_4'
+from application import outbound_timeout, budgets
+assert outbound_timeout.connect == budgets['dependency_timeout_seconds']
+assert outbound_timeout.read == budgets['dependency_timeout_seconds']
+from pathlib import Path
+assert '--limit-concurrency '+str(budgets['limit_concurrency']) in Path('launch.sh').read_text()
+DEVSPACE_FILE_4
+python install_middleware.py
+python check_config.py
+python -m pytest -q test_boundaries.py
+
+
+FILE starter.py
+from pydantic import BaseModel, Field
+class BatchInput(BaseModel):
+    order_ids: list[int]  # TODO: Field(max_length=3), from supplied budget
+
+FILE fixtures.json
+{
+  "hypothetical_budgets": {
+    "body_bytes": 256,
+    "batch_size": 3,
+    "dependency_timeout_seconds": 2,
+    "limit_concurrency": 8
+  },
+  "within_batch": {
+    "order_ids": [
+      101,
+      202
+    ]
+  },
+  "beyond_batch": {
+    "order_ids": [
+      101,
+      202,
+      303,
+      404
+    ]
+  },
+  "within_body": {
+    "order_ids": [
+      101
+    ]
+  },
+  "beyond_body": "{\"order_ids\":[101]}                                                                                                                                                                                                                                                                 ",
+  "public_success": {
+    "accepted": 2
+  },
+  "note": "Local fixture budgets; maintained middleware distribution and supplier verification are bundled. Learner budget configuration and assertions remain unfinished."
+}
+
+FILE application.py
+import json
+from pathlib import Path
+import httpx
+from fastapi import FastAPI, Depends
+from starlette.middleware.body_limit import RequestBodyLimitMiddleware
+from starter import BatchInput
+budgets = json.loads(Path('fixtures.json').read_text())['hypothetical_budgets']
+app = FastAPI()
+expensive_calls = 0
+outbound_timeout = httpx.Timeout(None)  # TODO: supplied finite timeout
+async def expensive_dependency(value: BatchInput):
+    global expensive_calls
+    expensive_calls += 1
+    transport=httpx.MockTransport(lambda request:httpx.Response(200,json={'available':True}))
+    async with httpx.AsyncClient(transport=transport,timeout=outbound_timeout) as http:
+        response=await http.get('http://controlled-dependency.invalid/lookup')
+        return response.json()['available']
+@app.post('/orders/batch')
+async def batch(value: BatchInput, available=Depends(expensive_dependency)):
+    return {'accepted':len(value.order_ids)}
+# TODO: immediately after app construction and before requests, configure
+# app.add_middleware(RequestBodyLimitMiddleware, max_body_size=...)
+# Use budgets['body_bytes']; middleware_verification.json supplies the measured
+# rejection contract. Leave the dependency counter intact.
+
+FILE test_boundaries.py
+import json
+from pathlib import Path
+import application
+from fastapi.testclient import TestClient
+import pytest
+fixtures = json.loads(Path('fixtures.json').read_text())
+@pytest.mark.parametrize('condition', ['within_batch','beyond_batch','within_body','beyond_body'])
+def test_boundary(condition):
+    calls = []
+    async def counted(value: application.BatchInput):
+        calls.append(True)
+        return True
+    previous = application.app.dependency_overrides.copy()
+    application.app.dependency_overrides[application.expensive_dependency] = counted
+    try:
+        with TestClient(application.app) as client:
+            if condition == 'beyond_body':
+                response = client.post('/orders/batch', content=fixtures[condition], headers={'Content-Type':'application/json'})
+            else:
+                response = client.post('/orders/batch', json=fixtures[condition])
+            # TODO: assert exact accepted contract or independent byte/batch
+            # rejection, plus counted invocation for accepted requests only.
+    finally:
+        application.app.dependency_overrides.clear()
+        application.app.dependency_overrides.update(previous)
+
+FILE install_middleware.py
+import base64,hashlib,json,subprocess,sys
+from pathlib import Path
+m=json.loads(Path('middleware_distribution.json').read_text())
+p=Path('vendor')/m['wheel_filename']
+p.write_bytes(base64.b64decode(Path(str(p)+'.b64').read_text()))
+assert hashlib.sha256(p.read_bytes()).hexdigest()==m['wheel_sha256']
+subprocess.run([sys.executable,'-m','pip','install','--no-index','--no-deps',str(p)],check=True)

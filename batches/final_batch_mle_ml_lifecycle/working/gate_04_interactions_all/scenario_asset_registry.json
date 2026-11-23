@@ -1,0 +1,1321 @@
+{
+  "schema_version": "1.0",
+  "kind": "scenario_asset_registry",
+  "path_id": "machine_learning_engineer",
+  "batch_id": "final_batch_mle.region.ml_lifecycle",
+  "scenarios": [
+    {
+      "scenario_id": "scenario.ml_lifecycle",
+      "name": "Fictional classification release pipeline",
+      "summary": "A fictional internal ML team validates a binary classifier, carries immutable named artifacts A and B through a configured local lifecycle fixture, and audits code, data, configuration and approval links. All records and limits are authored examples. Cloud and trigger interfaces are bounded simulations; hosted runs require the existing authorized runtime.",
+      "domain": "machine-learning lifecycle",
+      "glossary_example_vocab": [
+        "Cloud Build",
+        "YAML",
+        "JSON",
+        "steps",
+        "name",
+        "args",
+        "script",
+        "id",
+        "waitFor",
+        "allowFailure",
+        "allowExitCodes",
+        "PyYAML",
+        "yaml.safe_dump",
+        "yaml.safe_load",
+        "assert",
+        "AssertionError",
+        "NumPy",
+        "np.testing.assert_allclose",
+        "rtol",
+        "atol",
+        "FP",
+        "TN",
+        "FN",
+        "TP",
+        "FPR",
+        "FNR",
+        "cost_FP",
+        "cost_FN",
+        "P(Y=0)",
+        "P(Y=1)",
+        "Pub/Sub",
+        "A",
+        "B",
+        "Secret Manager",
+        "availableSecrets.secretManager",
+        "secretEnv",
+        "Cloud Storage",
+        "blob.exists()",
+        "blob.reload()",
+        "blob.generation",
+        "if_generation_match=0",
+        "412",
+        "hashlib.sha256",
+        "git rev-parse",
+        "git show",
+        "deployment",
+        "registry",
+        "run",
+        "approval",
+        "dataset",
+        "configuration",
+        "artifact",
+        "code",
+        "generation",
+        "snapshot",
+        "branch filter",
+        "commit trigger",
+        "latency"
+      ]
+    }
+  ],
+  "assets": [
+    {
+      "asset_id": "ds.dataset_snapshot",
+      "asset_kind": "dataset",
+      "scenario_id": "scenario.ml_lifecycle",
+      "title": "Dataset snapshot with feature and aligned binary target",
+      "description": "Authored fictional fixtures, not observed production data.",
+      "columns": [
+        {
+          "name": "sample_id",
+          "type": "string",
+          "semantic_role": "identifier"
+        },
+        {
+          "name": "feature",
+          "type": "number",
+          "semantic_role": "numerical"
+        },
+        {
+          "name": "label",
+          "type": "integer",
+          "semantic_role": "categorical"
+        }
+      ],
+      "rows": [
+        [
+          "sample.101",
+          0,
+          0
+        ],
+        [
+          "sample.102",
+          1,
+          0
+        ],
+        [
+          "sample.103",
+          2,
+          1
+        ],
+        [
+          "sample.104",
+          3,
+          1
+        ],
+        [
+          "sample.105",
+          4,
+          1
+        ],
+        [
+          "sample.106",
+          5,
+          1
+        ]
+      ],
+      "provenance": "authored",
+      "variants": [
+        {
+          "variant_id": "missing_feature",
+          "derived_from": "ds.dataset_snapshot",
+          "purpose": "Required feature is absent; required schema check must fail.",
+          "ops": [
+            {
+              "op": "drop_columns",
+              "columns": [
+                "feature"
+              ]
+            }
+          ],
+          "planted_issues": []
+        },
+        {
+          "variant_id": "missing_target",
+          "derived_from": "ds.dataset_snapshot",
+          "purpose": "Missing target schema failure; unexpected feature fixture is supplied in workspace JSON.",
+          "ops": [
+            {
+              "op": "drop_columns",
+              "columns": [
+                "label"
+              ]
+            }
+          ],
+          "planted_issues": []
+        },
+        {
+          "variant_id": "invalid_feature",
+          "derived_from": "ds.dataset_snapshot",
+          "purpose": "Declared edge fixture",
+          "ops": [
+            {
+              "op": "set_cell",
+              "where": {
+                "sample_id": "sample.103"
+              },
+              "column": "feature",
+              "value": -1
+            }
+          ],
+          "planted_issues": [
+            {
+              "issue_id": "issue.negative_feature",
+              "kind": "impossible_value",
+              "locations": [
+                {
+                  "where": {
+                    "sample_id": "sample.103"
+                  },
+                  "occurrence": 0,
+                  "column": "feature"
+                }
+              ],
+              "description": "Feature violates the declared nonnegative fixture contract.",
+              "rule": {
+                "column": "feature",
+                "op": "lt",
+                "value": 0
+              }
+            }
+          ]
+        },
+        {
+          "variant_id": "missing_value",
+          "derived_from": "ds.dataset_snapshot",
+          "purpose": "Declared edge fixture",
+          "ops": [
+            {
+              "op": "set_cell",
+              "where": {
+                "sample_id": "sample.104"
+              },
+              "column": "feature",
+              "value": null
+            }
+          ],
+          "planted_issues": [
+            {
+              "issue_id": "issue.missing_feature_value",
+              "kind": "missing_value",
+              "locations": [
+                {
+                  "where": {
+                    "sample_id": "sample.104"
+                  },
+                  "occurrence": 0,
+                  "column": "feature"
+                }
+              ],
+              "description": "Required feature value is missing."
+            }
+          ]
+        },
+        {
+          "variant_id": "duplicate_sample",
+          "derived_from": "ds.dataset_snapshot",
+          "purpose": "Declared edge fixture",
+          "ops": [
+            {
+              "op": "duplicate_row",
+              "where": {
+                "sample_id": "sample.102"
+              },
+              "insert": "end"
+            }
+          ],
+          "planted_issues": [
+            {
+              "issue_id": "issue.duplicate_sample",
+              "kind": "duplicate_row",
+              "locations": [
+                {
+                  "where": {
+                    "sample_id": "sample.102"
+                  },
+                  "occurrence": 1,
+                  "column": "sample_id"
+                }
+              ],
+              "description": "Second occurrence duplicates the complete sample row."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "asset_id": "ds.behavior_inputs",
+      "asset_kind": "dataset",
+      "scenario_id": "scenario.ml_lifecycle",
+      "title": "Packaged inference fixtures",
+      "description": "Authored fictional fixtures, not observed production data.",
+      "columns": [
+        {
+          "name": "sample_id",
+          "type": "string",
+          "semantic_role": "identifier"
+        },
+        {
+          "name": "feature",
+          "type": "number",
+          "semantic_role": "numerical"
+        },
+        {
+          "name": "target",
+          "type": "integer",
+          "semantic_role": "categorical"
+        }
+      ],
+      "rows": [
+        [
+          "sample.201",
+          0,
+          0
+        ],
+        [
+          "sample.202",
+          1,
+          0
+        ],
+        [
+          "sample.203",
+          2,
+          1
+        ],
+        [
+          "sample.204",
+          5,
+          1
+        ]
+      ],
+      "provenance": "authored",
+      "variants": [
+        {
+          "variant_id": "boundary",
+          "derived_from": "ds.behavior_inputs",
+          "purpose": "Declared edge fixture",
+          "ops": [
+            {
+              "op": "drop_rows",
+              "where": {
+                "sample_id": "sample.202"
+              }
+            },
+            {
+              "op": "drop_rows",
+              "where": {
+                "sample_id": "sample.203"
+              }
+            },
+            {
+              "op": "drop_rows",
+              "where": {
+                "sample_id": "sample.204"
+              }
+            }
+          ],
+          "planted_issues": []
+        },
+        {
+          "variant_id": "malformed",
+          "derived_from": "ds.behavior_inputs",
+          "purpose": "Declared edge fixture",
+          "ops": [
+            {
+              "op": "set_cell",
+              "where": {
+                "sample_id": "sample.203"
+              },
+              "column": "feature",
+              "value": "bad"
+            }
+          ],
+          "planted_issues": [
+            {
+              "issue_id": "issue.behavior_type",
+              "kind": "wrong_type",
+              "locations": [
+                {
+                  "where": {
+                    "sample_id": "sample.203"
+                  },
+                  "occurrence": 0,
+                  "column": "feature"
+                }
+              ],
+              "description": "The packaged contract requires a number.",
+              "rule": {
+                "column": "feature",
+                "op": "eq",
+                "value": "bad"
+              }
+            }
+          ]
+        },
+        {
+          "variant_id": "negative",
+          "derived_from": "ds.behavior_inputs",
+          "purpose": "Declared edge fixture",
+          "ops": [
+            {
+              "op": "set_cell",
+              "where": {
+                "sample_id": "sample.202"
+              },
+              "column": "feature",
+              "value": -1
+            }
+          ],
+          "planted_issues": [
+            {
+              "issue_id": "issue.behavior_negative",
+              "kind": "impossible_value",
+              "locations": [
+                {
+                  "where": {
+                    "sample_id": "sample.202"
+                  },
+                  "occurrence": 0,
+                  "column": "feature"
+                }
+              ],
+              "description": "Input is outside the declared boundary.",
+              "rule": {
+                "column": "feature",
+                "op": "lt",
+                "value": 0
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "asset_id": "ds.release_evidence",
+      "asset_kind": "dataset",
+      "scenario_id": "scenario.ml_lifecycle",
+      "title": "Binary validation and fixed operating evidence",
+      "description": "Authored fictional fixtures, not observed production data.",
+      "columns": [
+        {
+          "name": "candidate_id",
+          "type": "string",
+          "semantic_role": "identifier"
+        },
+        {
+          "name": "FP",
+          "type": "integer",
+          "semantic_role": "numerical"
+        },
+        {
+          "name": "TN",
+          "type": "integer",
+          "semantic_role": "numerical"
+        },
+        {
+          "name": "FN",
+          "type": "integer",
+          "semantic_role": "numerical"
+        },
+        {
+          "name": "TP",
+          "type": "integer",
+          "semantic_role": "numerical"
+        },
+        {
+          "name": "latency_ms",
+          "type": "number",
+          "semantic_role": "numerical"
+        },
+        {
+          "name": "operating_ok",
+          "type": "boolean",
+          "semantic_role": "categorical"
+        },
+        {
+          "name": "evidence_complete",
+          "type": "boolean",
+          "semantic_role": "categorical"
+        }
+      ],
+      "rows": [
+        [
+          "reference",
+          10,
+          90,
+          10,
+          90,
+          18,
+          true,
+          true
+        ],
+        [
+          "A",
+          5,
+          95,
+          5,
+          95,
+          20,
+          true,
+          true
+        ],
+        [
+          "B",
+          4,
+          96,
+          4,
+          96,
+          21,
+          true,
+          true
+        ],
+        [
+          "boundary",
+          10,
+          90,
+          10,
+          90,
+          20,
+          true,
+          true
+        ],
+        [
+          "empty_negatives",
+          0,
+          0,
+          5,
+          95,
+          15,
+          true,
+          true
+        ],
+        [
+          "empty_positives",
+          5,
+          95,
+          0,
+          0,
+          15,
+          true,
+          true
+        ],
+        [
+          "incomplete",
+          5,
+          95,
+          5,
+          95,
+          null,
+          true,
+          false
+        ],
+        [
+          "cost_failure",
+          40,
+          60,
+          40,
+          60,
+          15,
+          true,
+          true
+        ],
+        [
+          "operating_failure",
+          5,
+          95,
+          5,
+          95,
+          15,
+          false,
+          true
+        ]
+      ],
+      "provenance": "authored",
+      "variants": [
+        {
+          "variant_id": "failed_latency",
+          "derived_from": "ds.release_evidence",
+          "purpose": "Declared edge fixture",
+          "ops": [
+            {
+              "op": "set_cell",
+              "where": {
+                "candidate_id": "A"
+              },
+              "column": "latency_ms",
+              "value": 21
+            }
+          ],
+          "planted_issues": []
+        }
+      ]
+    },
+    {
+      "asset_id": "ds.artifact_records",
+      "asset_kind": "dataset",
+      "scenario_id": "scenario.ml_lifecycle",
+      "title": "Immutable named output records",
+      "description": "Authored fictional fixtures, not observed production data.",
+      "columns": [
+        {
+          "name": "artifact_id",
+          "type": "string",
+          "semantic_role": "identifier"
+        },
+        {
+          "name": "uri",
+          "type": "string",
+          "semantic_role": "identifier"
+        },
+        {
+          "name": "generation",
+          "type": "integer",
+          "semantic_role": "identifier",
+          "numeric_looking_label": true
+        },
+        {
+          "name": "sha256",
+          "type": "string",
+          "semantic_role": "identifier"
+        },
+        {
+          "name": "validation_ok",
+          "type": "boolean",
+          "semantic_role": "categorical"
+        }
+      ],
+      "rows": [
+        [
+          "A",
+          "gs://fixture-artifacts/A.txt",
+          1,
+          "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+          true
+        ],
+        [
+          "B",
+          "gs://fixture-artifacts/B.txt",
+          1,
+          "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+          true
+        ]
+      ],
+      "provenance": "authored",
+      "variants": [
+        {
+          "variant_id": "invalid_existing",
+          "derived_from": "ds.artifact_records",
+          "purpose": "Existing output has failed validation and cannot be reused.",
+          "ops": [
+            {
+              "op": "set_cell",
+              "where": {
+                "artifact_id": "A"
+              },
+              "column": "validation_ok",
+              "value": false
+            }
+          ],
+          "planted_issues": []
+        }
+      ]
+    },
+    {
+      "asset_id": "ds.lineage_links",
+      "asset_kind": "dataset",
+      "scenario_id": "scenario.ml_lifecycle",
+      "title": "Deployment, approval and run identity links",
+      "description": "Authored fictional fixtures, not observed production data. This table is a compact identity summary, not a complete audit fixture. Generation and content-identity failures, and the second-version boundary, are represented in ws.deployed_model_lineage_audit/fixtures/lineage_cases.json.",
+      "columns": [
+        {
+          "name": "case_id",
+          "type": "string",
+          "semantic_role": "identifier"
+        },
+        {
+          "name": "deployment_artifact",
+          "type": "string",
+          "semantic_role": "identifier"
+        },
+        {
+          "name": "approved_artifact",
+          "type": "string",
+          "semantic_role": "identifier"
+        },
+        {
+          "name": "registry_version",
+          "type": "integer",
+          "semantic_role": "identifier",
+          "numeric_looking_label": true
+        },
+        {
+          "name": "run_id",
+          "type": "string",
+          "semantic_role": "identifier"
+        },
+        {
+          "name": "dataset_id",
+          "type": "string",
+          "semantic_role": "identifier"
+        },
+        {
+          "name": "configuration_id",
+          "type": "string",
+          "semantic_role": "identifier"
+        },
+        {
+          "name": "code_revision",
+          "type": "string",
+          "semantic_role": "identifier"
+        }
+      ],
+      "rows": [
+        [
+          "valid",
+          "A",
+          "A",
+          1,
+          "run.A",
+          "snapshot.A",
+          "config.A",
+          "da89ee877040e427fd3de821dffbdc0abd82017b"
+        ],
+        [
+          "boundary_same_name_other_version",
+          "A",
+          "A",
+          1,
+          "run.A",
+          "snapshot.A",
+          "config.A",
+          "da89ee877040e427fd3de821dffbdc0abd82017b"
+        ],
+        [
+          "approval_A_deployment_B",
+          "B",
+          "A",
+          1,
+          "run.A",
+          "snapshot.A",
+          "config.A",
+          "da89ee877040e427fd3de821dffbdc0abd82017b"
+        ],
+        [
+          "missing_run_link",
+          "A",
+          "A",
+          1,
+          null,
+          "snapshot.A",
+          "config.A",
+          "da89ee877040e427fd3de821dffbdc0abd82017b"
+        ],
+        [
+          "wrong_generation",
+          "A",
+          "A",
+          1,
+          "run.A",
+          "snapshot.A",
+          "config.A",
+          "da89ee877040e427fd3de821dffbdc0abd82017b"
+        ],
+        [
+          "missing_code_revision",
+          "A",
+          "A",
+          1,
+          "run.A",
+          "snapshot.A",
+          "config.A",
+          "refs/heads/not-present"
+        ],
+        [
+          "configuration_mismatch",
+          "A",
+          "A",
+          1,
+          "run.A",
+          "snapshot.A",
+          "config.A",
+          "da89ee877040e427fd3de821dffbdc0abd82017b"
+        ],
+        [
+          "dataset_mismatch",
+          "A",
+          "A",
+          1,
+          "run.A",
+          "snapshot.A",
+          "config.A",
+          "da89ee877040e427fd3de821dffbdc0abd82017b"
+        ]
+      ],
+      "provenance": "authored"
+    },
+    {
+      "asset_id": "ws.dataset_quality_gate",
+      "asset_kind": "code_workspace",
+      "scenario_id": "scenario.ml_lifecycle",
+      "title": "Gate pipeline execution on dataset-quality tests — local fixture workspace",
+      "runtime": "python",
+      "files": [
+        {
+          "path": "README.md",
+          "content": "# Fictional lifecycle fixture runtime\nAll rows, limits, identities, bucket/project names and events here are authored examples, not production claims. This is a bounded local simulator of an existing configured pipeline; no cloud requests or policy changes are authorized. A hosted exercise must replace the simulator adapter with its existing authorized runtime before describing results as actual Cloud Build results.\n\nPython 3, numpy and PyYAML are declared dependencies. Files under fixtures/ are inputs and contracts, not answer implementations. learner.py deliberately contains no imports, assertions or gate implementation. Keep protected-test observations out of fitting and tuning. Do not introduce hard-coded fixture verdicts.\n\nExisting build configuration uses the declared step IDs, execution images and entry points. Learners wire the assigned entry point, waitFor edges and fatal gate handling, then safe_dump/safe_load and inspect resolved fields. Existing triggers.json supplies bounded repository-commit and Pub/Sub bindings/filters: do not create triggers or alter filters. Accepted/rejected events are inputs, never captured run output. runtime_sim.py executes Python entry points and captures statuses, resolved args and output; results must be produced by running it, not invented. Required stages cannot use allowFailure or allowed failing exit codes.\n\nObject storage is explicitly simulated by storage_sim.py. It supports exists/reload/generation/download_as_bytes(if_generation_match=...) and upload_from_filename(if_generation_match=0), raises PreconditionFailed with status 412, and records uploads. Injected 412 is a race that creates an output before the failing call returns; recovery must reload and verify. Required validation is supplied per artifact in fixture records; a hash match does not imply a validation pass. No credential values are stored here.\n"
+        },
+        {
+          "path": "requirements.txt",
+          "content": "numpy\nPyYAML\n"
+        },
+        {
+          "path": "learner.py",
+          "content": "\"\"\"Assignment: Wire a fail-closed data-quality function into an existing commit-triggered pipeline.\"\"\"\n# Write the required imports, implementation, assertions and fatal CLI entry point.\nraise NotImplementedError(\"Learner entry point is intentionally unwritten\")\n"
+        },
+        {
+          "path": "cloudbuild.yaml",
+          "content": "{\n  \"steps\": [\n    {\n      \"id\": \"quality\",\n      \"name\": \"python:3.11\",\n      \"args\": [\n        \"python\",\n        \"learner.py\",\n        \"${_SNAPSHOT}\"\n      ],\n      \"waitFor\": [\n        \"-\"\n      ]\n    },\n    {\n      \"id\": \"training\",\n      \"name\": \"python:3.11\",\n      \"args\": [\n        \"python\",\n        \"training_entry.py\",\n        \"${_SNAPSHOT}\"\n      ],\n      \"waitFor\": []\n    }\n  ],\n  \"substitutions\": {\n    \"_SNAPSHOT\": \"valid\",\n    \"_CASE\": \"accepted\",\n    \"_ARTIFACT\": \"A\"\n  },\n  \"serviceAccount\": \"projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com\"\n}\n"
+        },
+        {
+          "path": "triggers.json",
+          "content": "{\n  \"repository_commit\": {\n    \"id\": \"fixture-commit-trigger\",\n    \"repository\": \"local_repo\",\n    \"branch_filter\": \"^main$\",\n    \"bindings\": {\n      \"_SNAPSHOT\": \"snapshot_id\"\n    },\n    \"fixtures\": [\n      {\n        \"branch\": \"main\",\n        \"snapshot_id\": \"valid\"\n      },\n      {\n        \"branch\": \"main\",\n        \"snapshot_id\": \"missing_required_feature\"\n      },\n      {\n        \"branch\": \"other\",\n        \"snapshot_id\": \"valid\"\n      }\n    ]\n  },\n  \"pubsub\": {\n    \"id\": \"fixture-artifact-trigger\",\n    \"topic\": \"projects/fixture-project/topics/artifacts\",\n    \"bindings\": {\n      \"_CASE\": \"case_id\",\n      \"_ARTIFACT\": \"artifact_id\"\n    },\n    \"filters\": {\n      \"event_type\": \"artifact_ready\"\n    },\n    \"fixtures\": [\n      {\n        \"event_type\": \"artifact_ready\",\n        \"case_id\": \"accepted\",\n        \"artifact_id\": \"A\"\n      },\n      {\n        \"event_type\": \"artifact_ready\",\n        \"case_id\": \"rejected\",\n        \"artifact_id\": \"B\"\n      },\n      {\n        \"event_type\": \"unrelated\",\n        \"case_id\": \"accepted\",\n        \"artifact_id\": \"A\"\n      }\n    ]\n  }\n}\n"
+        },
+        {
+          "path": "runtime_sim.py",
+          "content": "\"\"\"Offline execution adapter. Statuses are generated, never fixture answers.\"\"\"\nimport json\nimport subprocess\nimport sys\nimport yaml\nfrom pathlib import Path\n\ndef run_build(config_path, trigger_kind, event):\n    config = yaml.safe_load(Path(config_path).read_text())\n    triggers = json.loads(Path(\"triggers.json\").read_text())\n    trigger = triggers[trigger_kind]\n    if trigger_kind == \"repository_commit\":\n        import re\n        if re.fullmatch(trigger[\"branch_filter\"], event.get(\"branch\", \"\")) is None:\n            return {\"triggered\": False, \"steps\": []}\n    elif any(event.get(k) != v for k, v in trigger[\"filters\"].items()):\n        return {\"triggered\": False, \"steps\": []}\n    bindings = dict(config.get(\"substitutions\", {}))\n    bindings.update({k: event[field] for k, field in trigger[\"bindings\"].items()})\n    results, by_id = [], {}\n    pending = list(config[\"steps\"])\n    while pending:\n        progress = False\n        for step in list(pending):\n            i = config[\"steps\"].index(step)\n            dependencies = step.get(\"waitFor\") or [s[\"id\"] for s in config[\"steps\"][:i]]\n            dependencies = [d for d in dependencies if d != \"-\"]\n            if any(d not in by_id for d in dependencies):\n                continue\n            args = [str(a) for a in step.get(\"args\", [])]\n            for j, arg in enumerate(args):\n                for key, value in bindings.items():\n                    arg = arg.replace(\"${\" + key + \"}\", str(value)).replace(key, str(value))\n                args[j] = arg\n            record = {\"id\": step[\"id\"], \"name\": step[\"name\"], \"resolved_args\": args, \"waitFor\": dependencies}\n            if any(by_id[d][\"status\"] != \"SUCCESS\" for d in dependencies):\n                record.update(status=\"NOT_STARTED\", exit_code=None, output=\"\")\n            else:\n                if step.get(\"allowFailure\") or any(x != 0 for x in step.get(\"allowExitCodes\", [])):\n                    raise ValueError(\"required gate failures must be fatal\")\n                if not args or args[0] != \"python\":\n                    raise ValueError(\"bounded adapter only supports declared Python entry points\")\n                p = subprocess.run([sys.executable] + args[1:], text=True, capture_output=True)\n                record.update(status=\"SUCCESS\" if p.returncode == 0 else \"FAILURE\", exit_code=p.returncode, output=p.stdout+p.stderr)\n            results.append(record); by_id[step[\"id\"]] = record\n            pending.remove(step); progress = True\n        if not progress:\n            raise ValueError(\"missing dependency or cycle\")\n    return {\"triggered\": True, \"resolved_inputs\": bindings, \"steps\": results}\n"
+        },
+        {
+          "path": "storage_sim.py",
+          "content": "\"\"\"Bounded local Cloud Storage interface, never a real cloud client.\"\"\"\nfrom pathlib import Path\nclass PreconditionFailed(Exception):\n    status_code = 412\nclass RecoverableFailure(Exception):\n    pass\nclass StorageClient:\n    def __init__(self, initial=None, race=None):\n        self.objects = dict(initial or {})\n        self.race = dict(race or {})\n        self.uploads = []\n        self.requests = []\n    def blob(self, name):\n        return Blob(self, name)\nclass Blob:\n    def __init__(self, client, name):\n        self.client, self.name = client, name\n        self.generation = None\n    def exists(self):\n        return self.name in self.client.objects\n    def reload(self):\n        self.generation = self.client.objects[self.name][\"generation\"]\n    def download_as_bytes(self, if_generation_match):\n        self.client.requests.append((self.name, if_generation_match))\n        obj = self.client.objects[self.name]\n        if obj[\"generation\"] != if_generation_match:\n            raise PreconditionFailed(\"generation mismatch\")\n        return obj[\"data\"]\n    def upload_from_filename(self, path, if_generation_match):\n        if if_generation_match != 0:\n            raise ValueError(\"fixture contract permits create-only upload\")\n        if self.name in self.client.race:\n            self.client.objects[self.name] = self.client.race.pop(self.name)\n            raise PreconditionFailed(\"412 concurrent creation\")\n        if self.exists():\n            raise PreconditionFailed(\"412 already exists\")\n        self.client.objects[self.name] = {\"generation\": 1, \"data\": Path(path).read_bytes()}\n        self.client.uploads.append(self.name)\n        self.reload()\n"
+        },
+        {
+          "path": "fixtures/anchor_contract.json",
+          "content": "{\n  \"type\": \"live_code\",\n  \"objective\": \"Implement a learner-defined Python dataset-gate function and write its required imports in the supplied pipeline's test stage. Author named contract checks and assertions for valid, boundary and invalid fixtures, including a fixture missing a required feature. Preserve tested snapshot identities and failure evidence. Write and reload the existing Cloud Build configuration with PyYAML, inspect its resolved fields, and wire fatal gate execution and explicit training dependencies. Use the configured repository commit trigger and branch filter to run accepted and rejected fixtures.\",\n  \"success\": \"The declared valid and acceptable boundary fixtures pass; invalid fixtures produce named failure evidence and an unsuccessful gate-process exit. Reloaded configuration retains the required image, command, step IDs and waitFor dependencies without permitting required gate failures. Actual triggered-run results show training starts only after an accepted quality stage and never starts after a rejected quality stage. Tested snapshots and failed checks remain available for validation of a repaired dataset against the same contract.\",\n  \"live_code\": {\n    \"required_skill\": \"Write a dataset-gate function that aggregates named checks under the supplied policy, test it with assert predicates, and connect its fatal result to the existing Cloud Build test stage.\",\n    \"allowed_syntax\": [\n      \"import yaml\",\n      \"import sys\",\n      \"Learner-written imports for declared dataset-reading and validation dependencies\",\n      \"def function_name(...):\",\n      \"Function calls and local variable assignment\",\n      \"Dictionary and list literals\",\n      \"Dictionary and list access\",\n      \"for loops\",\n      \"if/else conditionals\",\n      \"Boolean expressions and comparisons\",\n      \"assert predicate\",\n      \"return\",\n      \"raise\",\n      \"try/except AssertionError\",\n      \"with open(...) as file_handle:\",\n      \"yaml.safe_dump(config, file_handle)\",\n      \"yaml.safe_load(file_handle)\",\n      \"sys.exit(nonzero_status)\"\n    ],\n    \"blocked_syntax\": [],\n    \"starter_state_intent\": \"Provide the existing authorized repository, commit trigger and branch filter, Cloud Build configuration, declared dependencies, dataset contract, gate policy and dataset snapshot. Include the missing-required-feature fixture described in the example and locations for learner-authored valid, boundary and invalid fixtures. Leave the gate function, imports and assertions unwritten. Retain the existing training entry point without requiring changes to its implementation.\",\n    \"observable_success\": \"Assertions distinguish the declared fixture cases in ordinary non-optimized execution. Named results determine an explicit gate decision, rejected execution exits unsuccessfully, and saved evidence identifies the tested snapshot and failed requirements. Resolved configuration fields and actual triggered stage results establish that a successful gate permits training while a failed required check prevents training from starting.\"\n  }\n}\n"
+        },
+        {
+          "path": "fixtures/visual_intent.json",
+          "content": "{\n  \"type\": \"UI_state\",\n  \"purpose\": \"Make actual accepted and rejected pipeline runs visible alongside their resolved input snapshot identities and named check evidence. Show the accepted quality stage followed by training, and the failed quality stage with downstream training not started.\"\n}\n"
+        },
+        {
+          "path": "training_entry.py",
+          "content": "\"\"\"Existing training entry point, kept unchanged by dataset-gate exercises.\"\"\"\nimport json\nimport sys\nfrom pathlib import Path\nif __name__ == \"__main__\":\n    snapshot_id = sys.argv[1]\n    Path(\"training_invocation.json\").write_text(json.dumps({\"snapshot_id\": snapshot_id, \"started\": True}))\n"
+        },
+        {
+          "path": "downstream_entry.py",
+          "content": "\"\"\"Supplied downstream execution marker; no gate bypass.\"\"\"\nimport json\nimport sys\nfrom pathlib import Path\nif __name__ == \"__main__\":\n    Path(\"downstream_invocation.json\").write_text(json.dumps({\"artifact_id\": sys.argv[1], \"started\": True}))\n"
+        },
+        {
+          "path": "outputs/A.txt",
+          "content": "fictional fitted package A\npreprocess: divide feature by 5\nthreshold: 0.4\n"
+        },
+        {
+          "path": "outputs/B.txt",
+          "content": "fictional fitted package B\npreprocess: divide feature by 5\nthreshold: 0.5\n"
+        },
+        {
+          "path": "fixtures/artifacts.json",
+          "content": "{\n  \"A\": {\n    \"artifact_id\": \"A\",\n    \"uri\": \"gs://fixture-artifacts/A.txt\",\n    \"generation\": 1,\n    \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n    \"validation_ok\": true\n  },\n  \"B\": {\n    \"artifact_id\": \"B\",\n    \"uri\": \"gs://fixture-artifacts/B.txt\",\n    \"generation\": 1,\n    \"sha256\": \"6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a\",\n    \"validation_ok\": true\n  }\n}\n"
+        },
+        {
+          "path": "dataset.csv",
+          "content": "sample_id,feature,label\nsample.101,0,0\nsample.102,1,0\nsample.103,2,1\nsample.104,3,1\nsample.105,4,1\nsample.106,5,1\n"
+        },
+        {
+          "path": "fixtures/dataset_cases.json",
+          "content": "{\n  \"valid\": {\n    \"snapshot_id\": \"snapshot.valid\",\n    \"sha256\": \"9a80d8aba1a479286779fd296606d795b9d7b91cfc0feaceacddeaffa24b8572\",\n    \"rows\": [\n      {\n        \"sample_id\": \"sample.101\",\n        \"feature\": 0,\n        \"label\": 0\n      },\n      {\n        \"sample_id\": \"sample.102\",\n        \"feature\": 1,\n        \"label\": 0\n      },\n      {\n        \"sample_id\": \"sample.103\",\n        \"feature\": 2,\n        \"label\": 1\n      },\n      {\n        \"sample_id\": \"sample.104\",\n        \"feature\": 3,\n        \"label\": 1\n      },\n      {\n        \"sample_id\": \"sample.105\",\n        \"feature\": 4,\n        \"label\": 1\n      },\n      {\n        \"sample_id\": \"sample.106\",\n        \"feature\": 5,\n        \"label\": 1\n      }\n    ]\n  },\n  \"boundary\": {\n    \"snapshot_id\": \"snapshot.boundary\",\n    \"sha256\": \"c81549aaab713d3575bd3451098b0ab3ee279d25cbb02cae30cad01b31e868a7\",\n    \"rows\": [\n      {\n        \"sample_id\": \"sample.101\",\n        \"feature\": 0,\n        \"label\": 0\n      },\n      {\n        \"sample_id\": \"sample.106\",\n        \"feature\": 5,\n        \"label\": 1\n      }\n    ]\n  },\n  \"missing_required_feature\": {\n    \"snapshot_id\": \"snapshot.missing_required_feature\",\n    \"sha256\": \"09398d2fd8847ec08e07b24bc0cd5cfc4f10e9f7ac6c9bc3e6c507ad8f8e1257\",\n    \"rows\": [\n      {\n        \"sample_id\": \"sample.101\",\n        \"label\": 0\n      },\n      {\n        \"sample_id\": \"sample.102\",\n        \"label\": 0\n      },\n      {\n        \"sample_id\": \"sample.103\",\n        \"label\": 1\n      },\n      {\n        \"sample_id\": \"sample.104\",\n        \"label\": 1\n      },\n      {\n        \"sample_id\": \"sample.105\",\n        \"label\": 1\n      },\n      {\n        \"sample_id\": \"sample.106\",\n        \"label\": 1\n      }\n    ]\n  },\n  \"unexpected_feature\": {\n    \"snapshot_id\": \"snapshot.unexpected_feature\",\n    \"sha256\": \"057671d877a61bee1e3aee03fba3b290deab50f1a6de31d4793382768386af90\",\n    \"rows\": [\n      {\n        \"sample_id\": \"sample.101\",\n        \"feature\": 0,\n        \"label\": 0,\n        \"extra\": 1\n      },\n      {\n        \"sample_id\": \"sample.102\",\n        \"feature\": 1,\n        \"label\": 0,\n        \"extra\": 1\n      },\n      {\n        \"sample_id\": \"sample.103\",\n        \"feature\": 2,\n        \"label\": 1,\n        \"extra\": 1\n      },\n      {\n        \"sample_id\": \"sample.104\",\n        \"feature\": 3,\n        \"label\": 1,\n        \"extra\": 1\n      },\n      {\n        \"sample_id\": \"sample.105\",\n        \"feature\": 4,\n        \"label\": 1,\n        \"extra\": 1\n      },\n      {\n        \"sample_id\": \"sample.106\",\n        \"feature\": 5,\n        \"label\": 1,\n        \"extra\": 1\n      }\n    ]\n  },\n  \"invalid_feature\": {\n    \"snapshot_id\": \"snapshot.invalid_feature\",\n    \"sha256\": \"56bae9661e829f0a8aca48f80561bdeb123014f4f5994765a853a98bc6894984\",\n    \"rows\": [\n      {\n        \"sample_id\": \"sample.101\",\n        \"feature\": 0,\n        \"label\": 0\n      },\n      {\n        \"sample_id\": \"sample.102\",\n        \"feature\": 1,\n        \"label\": 0\n      },\n      {\n        \"sample_id\": \"sample.103\",\n        \"feature\": -1,\n        \"label\": 1\n      },\n      {\n        \"sample_id\": \"sample.104\",\n        \"feature\": 3,\n        \"label\": 1\n      },\n      {\n        \"sample_id\": \"sample.105\",\n        \"feature\": 4,\n        \"label\": 1\n      },\n      {\n        \"sample_id\": \"sample.106\",\n        \"feature\": 5,\n        \"label\": 1\n      }\n    ]\n  },\n  \"missing_value\": {\n    \"snapshot_id\": \"snapshot.missing_value\",\n    \"sha256\": \"d94863c4f043e3bd39e094416882b06d61af509d5ad40d905dab17604f9e8bec\",\n    \"rows\": [\n      {\n        \"sample_id\": \"sample.101\",\n        \"feature\": 0,\n        \"label\": 0\n      },\n      {\n        \"sample_id\": \"sample.102\",\n        \"feature\": 1,\n        \"label\": 0\n      },\n      {\n        \"sample_id\": \"sample.103\",\n        \"feature\": 2,\n        \"label\": 1\n      },\n      {\n        \"sample_id\": \"sample.104\",\n        \"feature\": null,\n        \"label\": 1\n      },\n      {\n        \"sample_id\": \"sample.105\",\n        \"feature\": 4,\n        \"label\": 1\n      },\n      {\n        \"sample_id\": \"sample.106\",\n        \"feature\": 5,\n        \"label\": 1\n      }\n    ]\n  },\n  \"duplicate_sample\": {\n    \"snapshot_id\": \"snapshot.duplicate_sample\",\n    \"sha256\": \"7e1e2cd307a9d9c17f1a84ec4b93d807206deeeab580a7c0d35a9c63af7d9597\",\n    \"rows\": [\n      {\n        \"sample_id\": \"sample.101\",\n        \"feature\": 0,\n        \"label\": 0\n      },\n      {\n        \"sample_id\": \"sample.102\",\n        \"feature\": 1,\n        \"label\": 0\n      },\n      {\n        \"sample_id\": \"sample.103\",\n        \"feature\": 2,\n        \"label\": 1\n      },\n      {\n        \"sample_id\": \"sample.104\",\n        \"feature\": 3,\n        \"label\": 1\n      },\n      {\n        \"sample_id\": \"sample.105\",\n        \"feature\": 4,\n        \"label\": 1\n      },\n      {\n        \"sample_id\": \"sample.106\",\n        \"feature\": 5,\n        \"label\": 1\n      },\n      {\n        \"sample_id\": \"sample.102\",\n        \"feature\": 1,\n        \"label\": 0\n      }\n    ]\n  }\n}\n"
+        },
+        {
+          "path": "fixtures/dataset_contract.json",
+          "content": "{\n  \"columns\": {\n    \"sample_id\": \"unique nonempty string label\",\n    \"feature\": \"finite number in [0,5], inclusive\",\n    \"label\": \"integer category 0 or 1\"\n  },\n  \"schema_policy\": \"exactly declared columns\",\n  \"required_checks\": [\n    \"schema\",\n    \"feature_values\",\n    \"label_values\",\n    \"unique_sample_id\"\n  ],\n  \"gate_policy\": \"all required named checks must be present and true; otherwise raise or exit nonzero\",\n  \"evidence\": \"retain snapshot_id, sha256, named results and failed checks; repaired inputs use unchanged requirements\"\n}\n"
+        }
+      ]
+    },
+    {
+      "asset_id": "ws.model_behavior_tests",
+      "asset_kind": "code_workspace",
+      "scenario_id": "scenario.ml_lifecycle",
+      "title": "Test preprocessing and model inference behavior — local fixture workspace",
+      "runtime": "python",
+      "files": [
+        {
+          "path": "README.md",
+          "content": "# Fictional lifecycle fixture runtime\nAll rows, limits, identities, bucket/project names and events here are authored examples, not production claims. This is a bounded local simulator of an existing configured pipeline; no cloud requests or policy changes are authorized. A hosted exercise must replace the simulator adapter with its existing authorized runtime before describing results as actual Cloud Build results.\n\nPython 3, numpy and PyYAML are declared dependencies. Files under fixtures/ are inputs and contracts, not answer implementations. learner.py deliberately contains no imports, assertions or gate implementation. Keep protected-test observations out of fitting and tuning. Do not introduce hard-coded fixture verdicts.\n\nExisting build configuration uses the declared step IDs, execution images and entry points. Learners wire the assigned entry point, waitFor edges and fatal gate handling, then safe_dump/safe_load and inspect resolved fields. Existing triggers.json supplies bounded repository-commit and Pub/Sub bindings/filters: do not create triggers or alter filters. Accepted/rejected events are inputs, never captured run output. runtime_sim.py executes Python entry points and captures statuses, resolved args and output; results must be produced by running it, not invented. Required stages cannot use allowFailure or allowed failing exit codes.\n\nObject storage is explicitly simulated by storage_sim.py. It supports exists/reload/generation/download_as_bytes(if_generation_match=...) and upload_from_filename(if_generation_match=0), raises PreconditionFailed with status 412, and records uploads. Injected 412 is a race that creates an output before the failing call returns; recovery must reload and verify. Required validation is supplied per artifact in fixture records; a hash match does not imply a validation pass. No credential values are stored here.\n\nFor the behavior-test learner CLI, select the event-resolved case from fixtures/behavior_execution_cases.json, construct FittedPackage(regression=record[\"regression\"]), and compare its behavior against the fixture referenced by record[\"fixture_id\"] in fixtures/behavior_cases.json.\n"
+        },
+        {
+          "path": "requirements.txt",
+          "content": "numpy\nPyYAML\n"
+        },
+        {
+          "path": "learner.py",
+          "content": "\"\"\"Assignment: Connect behavior assertions to a pipeline gate that blocks dependent stages on failure.\"\"\"\n# Write the required imports, implementation, assertions and fatal CLI entry point.\nraise NotImplementedError(\"Learner entry point is intentionally unwritten\")\n"
+        },
+        {
+          "path": "cloudbuild.yaml",
+          "content": "{\n  \"steps\": [\n    {\n      \"id\": \"behavior_tests\",\n      \"name\": \"python:3.11\",\n      \"args\": [\n        \"python\",\n        \"learner.py\",\n        \"${_CASE}\"\n      ],\n      \"waitFor\": [\n        \"-\"\n      ]\n    },\n    {\n      \"id\": \"release_gate\",\n      \"name\": \"python:3.11\",\n      \"args\": [\n        \"python\",\n        \"downstream_entry.py\",\n        \"${_ARTIFACT}\"\n      ],\n      \"waitFor\": []\n    }\n  ],\n  \"substitutions\": {\n    \"_SNAPSHOT\": \"valid\",\n    \"_CASE\": \"accepted\",\n    \"_ARTIFACT\": \"A\"\n  },\n  \"serviceAccount\": \"projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com\"\n}\n"
+        },
+        {
+          "path": "triggers.json",
+          "content": "{\n  \"repository_commit\": {\n    \"id\": \"fixture-commit-trigger\",\n    \"repository\": \"local_repo\",\n    \"branch_filter\": \"^main$\",\n    \"bindings\": {\n      \"_SNAPSHOT\": \"snapshot_id\",\n      \"_CASE\": \"case_id\"\n    },\n    \"fixtures\": [\n      {\n        \"branch\": \"main\",\n        \"snapshot_id\": \"valid\",\n        \"case_id\": \"accepted\"\n      },\n      {\n        \"branch\": \"main\",\n        \"snapshot_id\": \"missing_required_feature\",\n        \"case_id\": \"regressed\"\n      },\n      {\n        \"branch\": \"other\",\n        \"snapshot_id\": \"valid\"\n      }\n    ]\n  },\n  \"pubsub\": {\n    \"id\": \"fixture-artifact-trigger\",\n    \"topic\": \"projects/fixture-project/topics/artifacts\",\n    \"bindings\": {\n      \"_CASE\": \"case_id\",\n      \"_ARTIFACT\": \"artifact_id\"\n    },\n    \"filters\": {\n      \"event_type\": \"artifact_ready\"\n    },\n    \"fixtures\": [\n      {\n        \"event_type\": \"artifact_ready\",\n        \"case_id\": \"accepted\",\n        \"artifact_id\": \"A\"\n      },\n      {\n        \"event_type\": \"artifact_ready\",\n        \"case_id\": \"rejected\",\n        \"artifact_id\": \"B\"\n      },\n      {\n        \"event_type\": \"unrelated\",\n        \"case_id\": \"accepted\",\n        \"artifact_id\": \"A\"\n      }\n    ]\n  }\n}\n"
+        },
+        {
+          "path": "runtime_sim.py",
+          "content": "\"\"\"Offline execution adapter. Statuses are generated, never fixture answers.\"\"\"\nimport json\nimport subprocess\nimport sys\nimport yaml\nfrom pathlib import Path\n\ndef run_build(config_path, trigger_kind, event):\n    config = yaml.safe_load(Path(config_path).read_text())\n    triggers = json.loads(Path(\"triggers.json\").read_text())\n    trigger = triggers[trigger_kind]\n    if trigger_kind == \"repository_commit\":\n        import re\n        if re.fullmatch(trigger[\"branch_filter\"], event.get(\"branch\", \"\")) is None:\n            return {\"triggered\": False, \"steps\": []}\n    elif any(event.get(k) != v for k, v in trigger[\"filters\"].items()):\n        return {\"triggered\": False, \"steps\": []}\n    bindings = dict(config.get(\"substitutions\", {}))\n    bindings.update({k: event[field] for k, field in trigger[\"bindings\"].items()})\n    results, by_id = [], {}\n    pending = list(config[\"steps\"])\n    while pending:\n        progress = False\n        for step in list(pending):\n            i = config[\"steps\"].index(step)\n            dependencies = step.get(\"waitFor\") or [s[\"id\"] for s in config[\"steps\"][:i]]\n            dependencies = [d for d in dependencies if d != \"-\"]\n            if any(d not in by_id for d in dependencies):\n                continue\n            args = [str(a) for a in step.get(\"args\", [])]\n            for j, arg in enumerate(args):\n                for key, value in bindings.items():\n                    arg = arg.replace(\"${\" + key + \"}\", str(value)).replace(key, str(value))\n                args[j] = arg\n            record = {\"id\": step[\"id\"], \"name\": step[\"name\"], \"resolved_args\": args, \"waitFor\": dependencies}\n            if any(by_id[d][\"status\"] != \"SUCCESS\" for d in dependencies):\n                record.update(status=\"NOT_STARTED\", exit_code=None, output=\"\")\n            else:\n                if step.get(\"allowFailure\") or any(x != 0 for x in step.get(\"allowExitCodes\", [])):\n                    raise ValueError(\"required gate failures must be fatal\")\n                if not args or args[0] != \"python\":\n                    raise ValueError(\"bounded adapter only supports declared Python entry points\")\n                p = subprocess.run([sys.executable] + args[1:], text=True, capture_output=True)\n                record.update(status=\"SUCCESS\" if p.returncode == 0 else \"FAILURE\", exit_code=p.returncode, output=p.stdout+p.stderr)\n            results.append(record); by_id[step[\"id\"]] = record\n            pending.remove(step); progress = True\n        if not progress:\n            raise ValueError(\"missing dependency or cycle\")\n    return {\"triggered\": True, \"resolved_inputs\": bindings, \"steps\": results}\n"
+        },
+        {
+          "path": "storage_sim.py",
+          "content": "\"\"\"Bounded local Cloud Storage interface, never a real cloud client.\"\"\"\nfrom pathlib import Path\nclass PreconditionFailed(Exception):\n    status_code = 412\nclass RecoverableFailure(Exception):\n    pass\nclass StorageClient:\n    def __init__(self, initial=None, race=None):\n        self.objects = dict(initial or {})\n        self.race = dict(race or {})\n        self.uploads = []\n        self.requests = []\n    def blob(self, name):\n        return Blob(self, name)\nclass Blob:\n    def __init__(self, client, name):\n        self.client, self.name = client, name\n        self.generation = None\n    def exists(self):\n        return self.name in self.client.objects\n    def reload(self):\n        self.generation = self.client.objects[self.name][\"generation\"]\n    def download_as_bytes(self, if_generation_match):\n        self.client.requests.append((self.name, if_generation_match))\n        obj = self.client.objects[self.name]\n        if obj[\"generation\"] != if_generation_match:\n            raise PreconditionFailed(\"generation mismatch\")\n        return obj[\"data\"]\n    def upload_from_filename(self, path, if_generation_match):\n        if if_generation_match != 0:\n            raise ValueError(\"fixture contract permits create-only upload\")\n        if self.name in self.client.race:\n            self.client.objects[self.name] = self.client.race.pop(self.name)\n            raise PreconditionFailed(\"412 concurrent creation\")\n        if self.exists():\n            raise PreconditionFailed(\"412 already exists\")\n        self.client.objects[self.name] = {\"generation\": 1, \"data\": Path(path).read_bytes()}\n        self.client.uploads.append(self.name)\n        self.reload()\n"
+        },
+        {
+          "path": "fixtures/anchor_contract.json",
+          "content": "{\n  \"type\": \"live_code\",\n  \"objective\": \"Write a learner-defined Python test function, with learner-written imports, that uses reusable valid, boundary and malformed fixtures to exercise the supplied packaged prediction function. Assert row count, feature/target correspondence and output shape before numerical comparisons with explicit tolerances, and test the declared exception path. Safely write and reload the supplied Cloud Build configuration, connect the test entry point to its assigned stage, and verify accepted and deliberately regressed runs through the configured repository commit trigger and branch filter.\",\n  \"success\": \"The accepted fixtures pass all structural and numerical checks, and contract-prohibited inputs produce the declared exception. The reloaded configuration has the required execution image, command, step IDs and waitFor dependencies without failure allowances. A deliberate behavior regression produces an unsuccessful test-stage exit in an actual triggered run, and dependent later stages do not execute.\",\n  \"live_code\": {\n    \"required_skill\": \"Author reusable fixture-based assertions against a fitted prediction package and connect their executable entry point to an existing fatal test stage.\",\n    \"allowed_syntax\": [\n      \"import numpy as np\",\n      \"import yaml\",\n      \"imports for the supplied prediction package\",\n      \"def\",\n      \"function calls\",\n      \"return\",\n      \"variable assignment\",\n      \"numeric and string literals\",\n      \"lists and dictionaries\",\n      \"for\",\n      \"if\",\n      \"assert\",\n      \"try\",\n      \"except\",\n      \"else\",\n      \"raise\",\n      \"AssertionError\",\n      \"the supplied contract's exception type\",\n      \"np.array\",\n      \"array indexing\",\n      \"array.shape\",\n      \"len\",\n      \"comparison and Boolean operators\",\n      \"np.testing.assert_allclose with explicit rtol and atol\",\n      \"with open\",\n      \"yaml.safe_dump\",\n      \"yaml.safe_load\",\n      \"if __name__ == \\\"__main__\\\"\"\n    ],\n    \"blocked_syntax\": [],\n    \"starter_state_intent\": \"Provide the supplied packaged prediction callable, its declared contract, fixture inputs and expected outputs using only the supplied example's existing names, the declared NumPy and PyYAML dependencies, and an existing authorized Cloud Build configuration and repository trigger. Leave the test function, imports, assertions and assigned-stage wiring for the learner to implement.\",\n    \"observable_success\": \"Execution demonstrates structure checks before numerical comparisons, explicit tolerances, and assertions for valid, boundary and failure cases. Configuration inspection after safe reloading confirms the required resolved fields. Actual triggered stage results show an accepted run succeeding and an injected regression failing the test stage with dependent stages unexecuted.\"\n  }\n}\n"
+        },
+        {
+          "path": "fixtures/visual_intent.json",
+          "content": "{\n  \"type\": \"comparison\",\n  \"purpose\": \"Make accepted and regressed fixture results visible side by side: row count, feature/target correspondence, output shape, numerical tolerance checks and expected rejection. Pair these with resolved test-stage configuration fields and actual stage statuses showing that a fatal regression prevents dependent execution.\"\n}\n"
+        },
+        {
+          "path": "training_entry.py",
+          "content": "\"\"\"Existing training entry point, kept unchanged by dataset-gate exercises.\"\"\"\nimport json\nimport sys\nfrom pathlib import Path\nif __name__ == \"__main__\":\n    snapshot_id = sys.argv[1]\n    Path(\"training_invocation.json\").write_text(json.dumps({\"snapshot_id\": snapshot_id, \"started\": True}))\n"
+        },
+        {
+          "path": "downstream_entry.py",
+          "content": "\"\"\"Supplied downstream execution marker; no gate bypass.\"\"\"\nimport json\nimport sys\nfrom pathlib import Path\nif __name__ == \"__main__\":\n    Path(\"downstream_invocation.json\").write_text(json.dumps({\"artifact_id\": sys.argv[1], \"started\": True}))\n"
+        },
+        {
+          "path": "outputs/A.txt",
+          "content": "fictional fitted package A\npreprocess: divide feature by 5\nthreshold: 0.4\n"
+        },
+        {
+          "path": "outputs/B.txt",
+          "content": "fictional fitted package B\npreprocess: divide feature by 5\nthreshold: 0.5\n"
+        },
+        {
+          "path": "fixtures/artifacts.json",
+          "content": "{\n  \"A\": {\n    \"artifact_id\": \"A\",\n    \"uri\": \"gs://fixture-artifacts/A.txt\",\n    \"generation\": 1,\n    \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n    \"validation_ok\": true\n  },\n  \"B\": {\n    \"artifact_id\": \"B\",\n    \"uri\": \"gs://fixture-artifacts/B.txt\",\n    \"generation\": 1,\n    \"sha256\": \"6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a\",\n    \"validation_ok\": true\n  }\n}\n"
+        },
+        {
+          "path": "behavior.csv",
+          "content": "sample_id,feature,target\nsample.201,0,0\nsample.202,1,0\nsample.203,2,1\nsample.204,5,1\n"
+        },
+        {
+          "path": "prediction_package.py",
+          "content": "\"\"\"Supplied fitted package, including preprocessing through its inference path.\"\"\"\nimport numpy as np\nfrom prediction_reference import predict_records, InputContractError\nclass FittedPackage:\n    def __init__(self, regression=None):\n        self.regression = regression\n    def predict(self, records):\n        result = predict_records(records)\n        ids = result[\"sample_ids\"]\n        values = np.array(result[\"values\"], dtype=float).reshape((-1,1))\n        if self.regression == \"reverse_rows\":\n            ids, values = ids[::-1], values[::-1]\n        elif self.regression == \"wrong_shape\":\n            values = values.ravel()\n        elif self.regression == \"wrong_values\":\n            values = values + 0.1\n        elif self.regression == \"drops_row\":\n            ids, values = ids[:-1], values[:-1]\n        return {\"sample_ids\": ids, \"values\": values}\npredict = FittedPackage().predict\n"
+        },
+        {
+          "path": "prediction_reference.py",
+          "content": "\"\"\"Underlying fitted preprocessing and inference, shared by the supplied package.\"\"\"\nimport math\nclass InputContractError(ValueError):\n    pass\ndef predict_records(records):\n    ids, values = [], []\n    for row in records:\n        if set(row) != {\"sample_id\", \"feature\"}:\n            raise InputContractError(\"required input columns\")\n        x = row[\"feature\"]\n        if isinstance(x, bool) or not isinstance(x, (int,float)) or not math.isfinite(x) or not 0 <= x <= 5:\n            raise InputContractError(\"feature must be finite in [0,5]\")\n        ids.append(row[\"sample_id\"])\n        values.append([float(x / 5.0 >= 0.4)])\n    return {\"sample_ids\": ids, \"values\": values}\n"
+        },
+        {
+          "path": "fixtures/behavior_cases.json",
+          "content": "{\n  \"valid\": {\n    \"inputs\": [\n      {\n        \"sample_id\": \"sample.201\",\n        \"feature\": 0\n      },\n      {\n        \"sample_id\": \"sample.202\",\n        \"feature\": 1\n      },\n      {\n        \"sample_id\": \"sample.203\",\n        \"feature\": 2\n      },\n      {\n        \"sample_id\": \"sample.204\",\n        \"feature\": 5\n      }\n    ],\n    \"expected_sample_ids\": [\n      \"sample.201\",\n      \"sample.202\",\n      \"sample.203\",\n      \"sample.204\"\n    ],\n    \"expected_values\": [\n      [\n        0.0\n      ],\n      [\n        0.0\n      ],\n      [\n        1.0\n      ],\n      [\n        1.0\n      ]\n    ],\n    \"expected_shape\": [\n      4,\n      1\n    ]\n  },\n  \"boundary_low\": {\n    \"inputs\": [\n      {\n        \"sample_id\": \"sample.201\",\n        \"feature\": 0\n      }\n    ],\n    \"expected_sample_ids\": [\n      \"sample.201\"\n    ],\n    \"expected_values\": [\n      [\n        0.0\n      ]\n    ],\n    \"expected_shape\": [\n      1,\n      1\n    ]\n  },\n  \"boundary_high\": {\n    \"inputs\": [\n      {\n        \"sample_id\": \"sample.204\",\n        \"feature\": 5\n      }\n    ],\n    \"expected_sample_ids\": [\n      \"sample.204\"\n    ],\n    \"expected_values\": [\n      [\n        1.0\n      ]\n    ],\n    \"expected_shape\": [\n      1,\n      1\n    ]\n  },\n  \"empty\": {\n    \"inputs\": [],\n    \"expected_sample_ids\": [],\n    \"expected_values\": [],\n    \"expected_shape\": [\n      0,\n      1\n    ]\n  },\n  \"malformed\": {\n    \"inputs\": [\n      {\n        \"sample_id\": \"sample.203\",\n        \"feature\": \"bad\"\n      }\n    ],\n    \"expected_exception\": \"InputContractError\"\n  },\n  \"missing_feature\": {\n    \"inputs\": [\n      {\n        \"sample_id\": \"sample.203\"\n      }\n    ],\n    \"expected_exception\": \"InputContractError\"\n  },\n  \"out_of_bounds\": {\n    \"inputs\": [\n      {\n        \"sample_id\": \"sample.203\",\n        \"feature\": -1\n      }\n    ],\n    \"expected_exception\": \"InputContractError\"\n  }\n}\n"
+        },
+        {
+          "path": "fixtures/behavior_contract.json",
+          "content": "{\n  \"rtol\": 1e-07,\n  \"atol\": 1e-08,\n  \"output_shape\": \"(n,1)\",\n  \"expected_correspondence\": \"returned sample_ids exactly match fixture input order\",\n  \"empty_input\": \"permitted with shape (0,1)\",\n  \"regressions\": [\n    \"reverse_rows\",\n    \"wrong_shape\",\n    \"wrong_values\",\n    \"drops_row\"\n  ],\n  \"exception\": \"prediction_package.InputContractError\",\n  \"order\": \"check count, alignment and shape before assert_allclose\"\n}\n"
+        },
+        {
+          "path": "fixtures/behavior_execution_cases.json",
+          "content": "{\n  \"accepted\": {\n    \"fixture_id\": \"valid\",\n    \"regression\": null\n  },\n  \"regressed\": {\n    \"fixture_id\": \"valid\",\n    \"regression\": \"reverse_rows\"\n  }\n}\n"
+        }
+      ]
+    },
+    {
+      "asset_id": "ws.model_release_quality_gate",
+      "asset_kind": "code_workspace",
+      "scenario_id": "scenario.ml_lifecycle",
+      "title": "Block release promotion when model acceptance gates fail — local fixture workspace",
+      "runtime": "python",
+      "files": [
+        {
+          "path": "README.md",
+          "content": "# Fictional lifecycle fixture runtime\nAll rows, limits, identities, bucket/project names and events here are authored examples, not production claims. This is a bounded local simulator of an existing configured pipeline; no cloud requests or policy changes are authorized. A hosted exercise must replace the simulator adapter with its existing authorized runtime before describing results as actual Cloud Build results.\n\nPython 3, numpy and PyYAML are declared dependencies. Files under fixtures/ are inputs and contracts, not answer implementations. learner.py deliberately contains no imports, assertions or gate implementation. Keep protected-test observations out of fitting and tuning. Do not introduce hard-coded fixture verdicts.\n\nExisting build configuration uses the declared step IDs, execution images and entry points. Learners wire the assigned entry point, waitFor edges and fatal gate handling, then safe_dump/safe_load and inspect resolved fields. Existing triggers.json supplies bounded repository-commit and Pub/Sub bindings/filters: do not create triggers or alter filters. Accepted/rejected events are inputs, never captured run output. runtime_sim.py executes Python entry points and captures statuses, resolved args and output; results must be produced by running it, not invented. Required stages cannot use allowFailure or allowed failing exit codes.\n\nObject storage is explicitly simulated by storage_sim.py. It supports exists/reload/generation/download_as_bytes(if_generation_match=...) and upload_from_filename(if_generation_match=0), raises PreconditionFailed with status 412, and records uploads. Injected 412 is a race that creates an output before the failing call returns; recovery must reload and verify. Required validation is supplied per artifact in fixture records; a hash match does not imply a validation pass. No credential values are stored here.\n"
+        },
+        {
+          "path": "requirements.txt",
+          "content": "numpy\nPyYAML\n"
+        },
+        {
+          "path": "learner.py",
+          "content": "\"\"\"Assignment: Implement a fail-closed, event-triggered candidate release gate from fixed validation and operating evidence.\"\"\"\n# Write the required imports, implementation, assertions and fatal CLI entry point.\nraise NotImplementedError(\"Learner entry point is intentionally unwritten\")\n"
+        },
+        {
+          "path": "cloudbuild.yaml",
+          "content": "{\n  \"steps\": [\n    {\n      \"id\": \"release_gate\",\n      \"name\": \"python:3.11\",\n      \"args\": [\n        \"python\",\n        \"learner.py\",\n        \"${_CASE}\",\n        \"${_ARTIFACT}\"\n      ],\n      \"waitFor\": [\n        \"-\"\n      ]\n    },\n    {\n      \"id\": \"promotion\",\n      \"name\": \"python:3.11\",\n      \"args\": [\n        \"python\",\n        \"downstream_entry.py\",\n        \"${_ARTIFACT}\"\n      ],\n      \"waitFor\": []\n    }\n  ],\n  \"substitutions\": {\n    \"_SNAPSHOT\": \"valid\",\n    \"_CASE\": \"A\",\n    \"_ARTIFACT\": \"A\"\n  },\n  \"serviceAccount\": \"projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com\"\n}\n"
+        },
+        {
+          "path": "triggers.json",
+          "content": "{\n  \"repository_commit\": {\n    \"id\": \"fixture-commit-trigger\",\n    \"repository\": \"local_repo\",\n    \"branch_filter\": \"^main$\",\n    \"bindings\": {\n      \"_SNAPSHOT\": \"snapshot_id\"\n    },\n    \"fixtures\": [\n      {\n        \"branch\": \"main\",\n        \"snapshot_id\": \"valid\"\n      },\n      {\n        \"branch\": \"main\",\n        \"snapshot_id\": \"missing_required_feature\"\n      },\n      {\n        \"branch\": \"other\",\n        \"snapshot_id\": \"valid\"\n      }\n    ]\n  },\n  \"pubsub\": {\n    \"id\": \"fixture-artifact-trigger\",\n    \"topic\": \"projects/fixture-project/topics/artifacts\",\n    \"bindings\": {\n      \"_CASE\": \"case_id\",\n      \"_ARTIFACT\": \"artifact_id\"\n    },\n    \"filters\": {\n      \"event_type\": \"artifact_ready\"\n    },\n    \"fixtures\": [\n      {\n        \"event_type\": \"artifact_ready\",\n        \"case_id\": \"A\",\n        \"artifact_id\": \"A\"\n      },\n      {\n        \"event_type\": \"artifact_ready\",\n        \"case_id\": \"B\",\n        \"artifact_id\": \"B\"\n      },\n      {\n        \"event_type\": \"unrelated\",\n        \"case_id\": \"A\",\n        \"artifact_id\": \"A\"\n      }\n    ]\n  }\n}\n"
+        },
+        {
+          "path": "runtime_sim.py",
+          "content": "\"\"\"Offline execution adapter. Statuses are generated, never fixture answers.\"\"\"\nimport json\nimport subprocess\nimport sys\nimport yaml\nfrom pathlib import Path\n\ndef run_build(config_path, trigger_kind, event):\n    config = yaml.safe_load(Path(config_path).read_text())\n    triggers = json.loads(Path(\"triggers.json\").read_text())\n    trigger = triggers[trigger_kind]\n    if trigger_kind == \"repository_commit\":\n        import re\n        if re.fullmatch(trigger[\"branch_filter\"], event.get(\"branch\", \"\")) is None:\n            return {\"triggered\": False, \"steps\": []}\n    elif any(event.get(k) != v for k, v in trigger[\"filters\"].items()):\n        return {\"triggered\": False, \"steps\": []}\n    bindings = dict(config.get(\"substitutions\", {}))\n    bindings.update({k: event[field] for k, field in trigger[\"bindings\"].items()})\n    results, by_id = [], {}\n    pending = list(config[\"steps\"])\n    while pending:\n        progress = False\n        for step in list(pending):\n            i = config[\"steps\"].index(step)\n            dependencies = step.get(\"waitFor\") or [s[\"id\"] for s in config[\"steps\"][:i]]\n            dependencies = [d for d in dependencies if d != \"-\"]\n            if any(d not in by_id for d in dependencies):\n                continue\n            args = [str(a) for a in step.get(\"args\", [])]\n            for j, arg in enumerate(args):\n                for key, value in bindings.items():\n                    arg = arg.replace(\"${\" + key + \"}\", str(value)).replace(key, str(value))\n                args[j] = arg\n            record = {\"id\": step[\"id\"], \"name\": step[\"name\"], \"resolved_args\": args, \"waitFor\": dependencies}\n            if any(by_id[d][\"status\"] != \"SUCCESS\" for d in dependencies):\n                record.update(status=\"NOT_STARTED\", exit_code=None, output=\"\")\n            else:\n                if step.get(\"allowFailure\") or any(x != 0 for x in step.get(\"allowExitCodes\", [])):\n                    raise ValueError(\"required gate failures must be fatal\")\n                if not args or args[0] != \"python\":\n                    raise ValueError(\"bounded adapter only supports declared Python entry points\")\n                p = subprocess.run([sys.executable] + args[1:], text=True, capture_output=True)\n                record.update(status=\"SUCCESS\" if p.returncode == 0 else \"FAILURE\", exit_code=p.returncode, output=p.stdout+p.stderr)\n            results.append(record); by_id[step[\"id\"]] = record\n            pending.remove(step); progress = True\n        if not progress:\n            raise ValueError(\"missing dependency or cycle\")\n    return {\"triggered\": True, \"resolved_inputs\": bindings, \"steps\": results}\n"
+        },
+        {
+          "path": "storage_sim.py",
+          "content": "\"\"\"Bounded local Cloud Storage interface, never a real cloud client.\"\"\"\nfrom pathlib import Path\nclass PreconditionFailed(Exception):\n    status_code = 412\nclass RecoverableFailure(Exception):\n    pass\nclass StorageClient:\n    def __init__(self, initial=None, race=None):\n        self.objects = dict(initial or {})\n        self.race = dict(race or {})\n        self.uploads = []\n        self.requests = []\n    def blob(self, name):\n        return Blob(self, name)\nclass Blob:\n    def __init__(self, client, name):\n        self.client, self.name = client, name\n        self.generation = None\n    def exists(self):\n        return self.name in self.client.objects\n    def reload(self):\n        self.generation = self.client.objects[self.name][\"generation\"]\n    def download_as_bytes(self, if_generation_match):\n        self.client.requests.append((self.name, if_generation_match))\n        obj = self.client.objects[self.name]\n        if obj[\"generation\"] != if_generation_match:\n            raise PreconditionFailed(\"generation mismatch\")\n        return obj[\"data\"]\n    def upload_from_filename(self, path, if_generation_match):\n        if if_generation_match != 0:\n            raise ValueError(\"fixture contract permits create-only upload\")\n        if self.name in self.client.race:\n            self.client.objects[self.name] = self.client.race.pop(self.name)\n            raise PreconditionFailed(\"412 concurrent creation\")\n        if self.exists():\n            raise PreconditionFailed(\"412 already exists\")\n        self.client.objects[self.name] = {\"generation\": 1, \"data\": Path(path).read_bytes()}\n        self.client.uploads.append(self.name)\n        self.reload()\n"
+        },
+        {
+          "path": "fixtures/anchor_contract.json",
+          "content": "{\n  \"type\": \"live_code\",\n  \"objective\": \"Implement a learner-defined Python acceptance function in the supplied artifact-triggered Cloud Build pipeline, writing the required imports yourself. Read the supplied candidate and accepted-reference evidence, calculate validation expected error cost from the declared probabilities and costs, and evaluate every required quality and operating predicate. Reject failed or incomplete evidence with explicit exceptions identifying the affected predicates. Write assertions for passing and failing evidence, safely write and reload the existing configuration, wire the assigned gate entry point and required step dependencies, and trigger accepted and rejected fixtures through the configured Pub/Sub event trigger.\",\n  \"success\": \"Assertions confirm acceptance only when all required predicates are complete and passing, and confirm explicit rejection for failed or incomplete evidence, including undefined rates from empty conditioning groups. The reloaded configuration retains the required image, command, step IDs and waitFor dependencies without failure-tolerant gate settings. Actual resolved inputs identify the intended candidate fixtures. The accepted run passes the gate and reaches promotion; the rejected run exits unsuccessfully at the gate and does not execute promotion.\",\n  \"live_code\": {\n    \"required_skill\": \"Implement and test a fail-closed Python acceptance function, then connect its entry point to the assigned stage of an existing event-triggered release pipeline.\",\n    \"allowed_syntax\": [\n      \"import statements for yaml and required supplied-runtime library or client dependencies\",\n      \"def statements, parameters, function calls and return statements\",\n      \"dictionary and list literals, indexing and membership checks\",\n      \"variable assignment and arithmetic expressions\",\n      \"comparison operators and Boolean expressions\",\n      \"if, elif and else statements\",\n      \"for loops over required acceptance predicates\",\n      \"raise statements with explicit exception messages\",\n      \"try and except statements for asserting expected rejection without suppressing runtime gate failures\",\n      \"assert statements\",\n      \"with open(...) as file_handle\",\n      \"yaml.safe_dump(config, file_handle)\",\n      \"yaml.safe_load(file_handle)\",\n      \"existing pipeline mapping/list fields: steps, name, args or script, id and waitFor\"\n    ],\n    \"blocked_syntax\": [],\n    \"starter_state_intent\": \"Provide incomplete function and test entry points, the supplied candidate and accepted-reference evidence fixtures, predeclared acceptance requirements, deployment class probabilities, error costs and fixed operating limits. Include the existing Cloud Build configuration, declared PyYAML dependency, assigned gate and promotion stages, and configured event payload bindings and filters. Retain only the supplied fixture field names; do not provide a complete implementation or require creation of a new pipeline or trigger.\",\n    \"observable_success\": \"The learner's assertions distinguish accepted, failed and incomplete evidence. Configuration inspection confirms the required resolved fields and fatal dependency chain. Recorded results from both configured event-triggered runs show the intended inputs, successful gate execution for accepted evidence, and unsuccessful gate execution with an identified predicate and blocked promotion for rejected evidence.\"\n  }\n}\n"
+        },
+        {
+          "path": "fixtures/visual_intent.json",
+          "content": "{\n  \"type\": \"comparison\",\n  \"purpose\": \"Make accepted and rejected fixture runs visible side by side: candidate identity, required predicate results, calculated expected error cost, fixed operating checks, gate exit status, resolved stage inputs and whether promotion executed. Show that a passing cost check cannot compensate for a failed latency check.\"\n}\n"
+        },
+        {
+          "path": "training_entry.py",
+          "content": "\"\"\"Existing training entry point, kept unchanged by dataset-gate exercises.\"\"\"\nimport json\nimport sys\nfrom pathlib import Path\nif __name__ == \"__main__\":\n    snapshot_id = sys.argv[1]\n    Path(\"training_invocation.json\").write_text(json.dumps({\"snapshot_id\": snapshot_id, \"started\": True}))\n"
+        },
+        {
+          "path": "downstream_entry.py",
+          "content": "\"\"\"Supplied downstream execution marker; no gate bypass.\"\"\"\nimport json\nimport sys\nfrom pathlib import Path\nif __name__ == \"__main__\":\n    Path(\"downstream_invocation.json\").write_text(json.dumps({\"artifact_id\": sys.argv[1], \"started\": True}))\n"
+        },
+        {
+          "path": "outputs/A.txt",
+          "content": "fictional fitted package A\npreprocess: divide feature by 5\nthreshold: 0.4\n"
+        },
+        {
+          "path": "outputs/B.txt",
+          "content": "fictional fitted package B\npreprocess: divide feature by 5\nthreshold: 0.5\n"
+        },
+        {
+          "path": "fixtures/artifacts.json",
+          "content": "{\n  \"A\": {\n    \"artifact_id\": \"A\",\n    \"uri\": \"gs://fixture-artifacts/A.txt\",\n    \"generation\": 1,\n    \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n    \"validation_ok\": true\n  },\n  \"B\": {\n    \"artifact_id\": \"B\",\n    \"uri\": \"gs://fixture-artifacts/B.txt\",\n    \"generation\": 1,\n    \"sha256\": \"6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a\",\n    \"validation_ok\": true\n  }\n}\n"
+        },
+        {
+          "path": "release_evidence.csv",
+          "content": "candidate_id,FP,TN,FN,TP,latency_ms,operating_ok,evidence_complete\nreference,10,90,10,90,18,True,True\nA,5,95,5,95,20,True,True\nB,4,96,4,96,21,True,True\nboundary,10,90,10,90,20,True,True\nempty_negatives,0,0,5,95,15,True,True\nempty_positives,5,95,0,0,15,True,True\nincomplete,5,95,5,95,,True,False\ncost_failure,40,60,40,60,15,True,True\noperating_failure,5,95,5,95,15,False,True\n"
+        },
+        {
+          "path": "fixtures/release_cases.json",
+          "content": "{\n  \"reference\": {\n    \"candidate_id\": \"reference\",\n    \"FP\": 10,\n    \"TN\": 90,\n    \"FN\": 10,\n    \"TP\": 90,\n    \"latency_ms\": 18,\n    \"operating_ok\": true,\n    \"evidence_complete\": true\n  },\n  \"A\": {\n    \"candidate_id\": \"A\",\n    \"FP\": 5,\n    \"TN\": 95,\n    \"FN\": 5,\n    \"TP\": 95,\n    \"latency_ms\": 20,\n    \"operating_ok\": true,\n    \"evidence_complete\": true\n  },\n  \"B\": {\n    \"candidate_id\": \"B\",\n    \"FP\": 4,\n    \"TN\": 96,\n    \"FN\": 4,\n    \"TP\": 96,\n    \"latency_ms\": 21,\n    \"operating_ok\": true,\n    \"evidence_complete\": true\n  },\n  \"boundary\": {\n    \"candidate_id\": \"boundary\",\n    \"FP\": 10,\n    \"TN\": 90,\n    \"FN\": 10,\n    \"TP\": 90,\n    \"latency_ms\": 20,\n    \"operating_ok\": true,\n    \"evidence_complete\": true\n  },\n  \"empty_negatives\": {\n    \"candidate_id\": \"empty_negatives\",\n    \"FP\": 0,\n    \"TN\": 0,\n    \"FN\": 5,\n    \"TP\": 95,\n    \"latency_ms\": 15,\n    \"operating_ok\": true,\n    \"evidence_complete\": true\n  },\n  \"empty_positives\": {\n    \"candidate_id\": \"empty_positives\",\n    \"FP\": 5,\n    \"TN\": 95,\n    \"FN\": 0,\n    \"TP\": 0,\n    \"latency_ms\": 15,\n    \"operating_ok\": true,\n    \"evidence_complete\": true\n  },\n  \"incomplete\": {\n    \"candidate_id\": \"incomplete\",\n    \"FP\": 5,\n    \"TN\": 95,\n    \"FN\": 5,\n    \"TP\": 95,\n    \"latency_ms\": null,\n    \"operating_ok\": true,\n    \"evidence_complete\": false\n  },\n  \"cost_failure\": {\n    \"candidate_id\": \"cost_failure\",\n    \"FP\": 40,\n    \"TN\": 60,\n    \"FN\": 40,\n    \"TP\": 60,\n    \"latency_ms\": 15,\n    \"operating_ok\": true,\n    \"evidence_complete\": true\n  },\n  \"operating_failure\": {\n    \"candidate_id\": \"operating_failure\",\n    \"FP\": 5,\n    \"TN\": 95,\n    \"FN\": 5,\n    \"TP\": 95,\n    \"latency_ms\": 15,\n    \"operating_ok\": false,\n    \"evidence_complete\": true\n  }\n}\n"
+        },
+        {
+          "path": "fixtures/release_contract.json",
+          "content": "{\n  \"probabilities\": {\n    \"P(Y=0)\": 0.8,\n    \"P(Y=1)\": 0.2\n  },\n  \"costs\": {\n    \"cost_FP\": 1,\n    \"cost_FN\": 4,\n    \"correct_prediction\": 0\n  },\n  \"max_expected_error_cost\": 0.16,\n  \"max_latency_ms\": 20,\n  \"accepted_reference\": \"reference\",\n  \"requirements\": [\n    \"all evidence fields present\",\n    \"nonnegative integer counts\",\n    \"both actual-class denominators nonempty\",\n    \"candidate identity matches event\",\n    \"expected error cost <= fixed maximum and <= accepted reference cost\",\n    \"latency_ms <= fixed maximum\",\n    \"operating_ok is True\",\n    \"evidence_complete is True\"\n  ],\n  \"protected_test_use\": \"Never fit, select, or tune using protected-test observations.\"\n}\n"
+        }
+      ]
+    },
+    {
+      "asset_id": "ws.pipeline_artifact_dependencies",
+      "asset_kind": "code_workspace",
+      "scenario_id": "scenario.ml_lifecycle",
+      "title": "Define artifact dependencies between ML pipeline stages — local fixture workspace",
+      "runtime": "python",
+      "files": [
+        {
+          "path": "README.md",
+          "content": "# Fictional lifecycle fixture runtime\nAll rows, limits, identities, bucket/project names and events here are authored examples, not production claims. This is a bounded local simulator of an existing configured pipeline; no cloud requests or policy changes are authorized. A hosted exercise must replace the simulator adapter with its existing authorized runtime before describing results as actual Cloud Build results.\n\nPython 3, numpy and PyYAML are declared dependencies. Files under fixtures/ are inputs and contracts, not answer implementations. learner.py deliberately contains no imports, assertions or gate implementation. Keep protected-test observations out of fitting and tuning. Do not introduce hard-coded fixture verdicts.\n\nExisting build configuration uses the declared step IDs, execution images and entry points. Learners wire the assigned entry point, waitFor edges and fatal gate handling, then safe_dump/safe_load and inspect resolved fields. Existing triggers.json supplies bounded repository-commit and Pub/Sub bindings/filters: do not create triggers or alter filters. Accepted/rejected events are inputs, never captured run output. runtime_sim.py executes Python entry points and captures statuses, resolved args and output; results must be produced by running it, not invented. Required stages cannot use allowFailure or allowed failing exit codes.\n\nObject storage is explicitly simulated by storage_sim.py. It supports exists/reload/generation/download_as_bytes(if_generation_match=...) and upload_from_filename(if_generation_match=0), raises PreconditionFailed with status 412, and records uploads. Injected 412 is a race that creates an output before the failing call returns; recovery must reload and verify. Required validation is supplied per artifact in fixture records; a hash match does not imply a validation pass. No credential values are stored here.\n"
+        },
+        {
+          "path": "requirements.txt",
+          "content": "numpy\nPyYAML\n"
+        },
+        {
+          "path": "learner.py",
+          "content": "\"\"\"Assignment: Encode and verify immutable artifact dependencies between pipeline stages.\"\"\"\n# Write the required imports, implementation, assertions and fatal CLI entry point.\nraise NotImplementedError(\"Learner entry point is intentionally unwritten\")\n"
+        },
+        {
+          "path": "cloudbuild.yaml",
+          "content": "{\n  \"steps\": [\n    {\n      \"id\": \"data_validation\",\n      \"name\": \"python:3.11\",\n      \"args\": [\n        \"python\",\n        \"learner.py\",\n        \"${_CASE}\"\n      ],\n      \"waitFor\": [\n        \"-\"\n      ]\n    },\n    {\n      \"id\": \"training\",\n      \"name\": \"python:3.11\",\n      \"args\": [\n        \"python\",\n        \"downstream_entry.py\",\n        \"${_ARTIFACT}\"\n      ],\n      \"waitFor\": []\n    },\n    {\n      \"id\": \"model_validation\",\n      \"name\": \"python:3.11\",\n      \"args\": [\n        \"python\",\n        \"learner.py\",\n        \"${_CASE}\",\n        \"B\"\n      ],\n      \"waitFor\": []\n    }\n  ],\n  \"substitutions\": {\n    \"_SNAPSHOT\": \"valid\",\n    \"_CASE\": \"valid\",\n    \"_ARTIFACT\": \"A\"\n  },\n  \"serviceAccount\": \"projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com\"\n}\n"
+        },
+        {
+          "path": "triggers.json",
+          "content": "{\n  \"repository_commit\": {\n    \"id\": \"fixture-commit-trigger\",\n    \"repository\": \"local_repo\",\n    \"branch_filter\": \"^main$\",\n    \"bindings\": {\n      \"_SNAPSHOT\": \"snapshot_id\"\n    },\n    \"fixtures\": [\n      {\n        \"branch\": \"main\",\n        \"snapshot_id\": \"valid\"\n      },\n      {\n        \"branch\": \"main\",\n        \"snapshot_id\": \"missing_required_feature\"\n      },\n      {\n        \"branch\": \"other\",\n        \"snapshot_id\": \"valid\"\n      }\n    ]\n  },\n  \"pubsub\": {\n    \"id\": \"fixture-artifact-trigger\",\n    \"topic\": \"projects/fixture-project/topics/artifacts\",\n    \"bindings\": {\n      \"_CASE\": \"case_id\",\n      \"_ARTIFACT\": \"artifact_id\"\n    },\n    \"filters\": {\n      \"event_type\": \"artifact_ready\"\n    },\n    \"fixtures\": [\n      {\n        \"event_type\": \"artifact_ready\",\n        \"case_id\": \"valid\",\n        \"artifact_id\": \"A\"\n      },\n      {\n        \"event_type\": \"artifact_ready\",\n        \"case_id\": \"mismatch\",\n        \"artifact_id\": \"B\"\n      },\n      {\n        \"event_type\": \"unrelated\",\n        \"case_id\": \"valid\",\n        \"artifact_id\": \"A\"\n      }\n    ]\n  }\n}\n"
+        },
+        {
+          "path": "runtime_sim.py",
+          "content": "\"\"\"Offline execution adapter. Statuses are generated, never fixture answers.\"\"\"\nimport json\nimport subprocess\nimport sys\nimport yaml\nfrom pathlib import Path\n\ndef run_build(config_path, trigger_kind, event):\n    config = yaml.safe_load(Path(config_path).read_text())\n    triggers = json.loads(Path(\"triggers.json\").read_text())\n    trigger = triggers[trigger_kind]\n    if trigger_kind == \"repository_commit\":\n        import re\n        if re.fullmatch(trigger[\"branch_filter\"], event.get(\"branch\", \"\")) is None:\n            return {\"triggered\": False, \"steps\": []}\n    elif any(event.get(k) != v for k, v in trigger[\"filters\"].items()):\n        return {\"triggered\": False, \"steps\": []}\n    bindings = dict(config.get(\"substitutions\", {}))\n    bindings.update({k: event[field] for k, field in trigger[\"bindings\"].items()})\n    results, by_id = [], {}\n    pending = list(config[\"steps\"])\n    while pending:\n        progress = False\n        for step in list(pending):\n            i = config[\"steps\"].index(step)\n            dependencies = step.get(\"waitFor\") or [s[\"id\"] for s in config[\"steps\"][:i]]\n            dependencies = [d for d in dependencies if d != \"-\"]\n            if any(d not in by_id for d in dependencies):\n                continue\n            args = [str(a) for a in step.get(\"args\", [])]\n            for j, arg in enumerate(args):\n                for key, value in bindings.items():\n                    arg = arg.replace(\"${\" + key + \"}\", str(value)).replace(key, str(value))\n                args[j] = arg\n            record = {\"id\": step[\"id\"], \"name\": step[\"name\"], \"resolved_args\": args, \"waitFor\": dependencies}\n            if any(by_id[d][\"status\"] != \"SUCCESS\" for d in dependencies):\n                record.update(status=\"NOT_STARTED\", exit_code=None, output=\"\")\n            else:\n                if step.get(\"allowFailure\") or any(x != 0 for x in step.get(\"allowExitCodes\", [])):\n                    raise ValueError(\"required gate failures must be fatal\")\n                if not args or args[0] != \"python\":\n                    raise ValueError(\"bounded adapter only supports declared Python entry points\")\n                p = subprocess.run([sys.executable] + args[1:], text=True, capture_output=True)\n                record.update(status=\"SUCCESS\" if p.returncode == 0 else \"FAILURE\", exit_code=p.returncode, output=p.stdout+p.stderr)\n            results.append(record); by_id[step[\"id\"]] = record\n            pending.remove(step); progress = True\n        if not progress:\n            raise ValueError(\"missing dependency or cycle\")\n    return {\"triggered\": True, \"resolved_inputs\": bindings, \"steps\": results}\n"
+        },
+        {
+          "path": "storage_sim.py",
+          "content": "\"\"\"Bounded local Cloud Storage interface, never a real cloud client.\"\"\"\nfrom pathlib import Path\nclass PreconditionFailed(Exception):\n    status_code = 412\nclass RecoverableFailure(Exception):\n    pass\nclass StorageClient:\n    def __init__(self, initial=None, race=None):\n        self.objects = dict(initial or {})\n        self.race = dict(race or {})\n        self.uploads = []\n        self.requests = []\n    def blob(self, name):\n        return Blob(self, name)\nclass Blob:\n    def __init__(self, client, name):\n        self.client, self.name = client, name\n        self.generation = None\n    def exists(self):\n        return self.name in self.client.objects\n    def reload(self):\n        self.generation = self.client.objects[self.name][\"generation\"]\n    def download_as_bytes(self, if_generation_match):\n        self.client.requests.append((self.name, if_generation_match))\n        obj = self.client.objects[self.name]\n        if obj[\"generation\"] != if_generation_match:\n            raise PreconditionFailed(\"generation mismatch\")\n        return obj[\"data\"]\n    def upload_from_filename(self, path, if_generation_match):\n        if if_generation_match != 0:\n            raise ValueError(\"fixture contract permits create-only upload\")\n        if self.name in self.client.race:\n            self.client.objects[self.name] = self.client.race.pop(self.name)\n            raise PreconditionFailed(\"412 concurrent creation\")\n        if self.exists():\n            raise PreconditionFailed(\"412 already exists\")\n        self.client.objects[self.name] = {\"generation\": 1, \"data\": Path(path).read_bytes()}\n        self.client.uploads.append(self.name)\n        self.reload()\n"
+        },
+        {
+          "path": "fixtures/anchor_contract.json",
+          "content": "{\n  \"type\": \"live_code\",\n  \"objective\": \"Edit the supplied Cloud Build YAML configuration and dependency-map checks to connect data validation, training and model validation through immutable artifact references. Preserve required fatal gates, serialize and reload the configuration, then exercise the existing configured Pub/Sub trigger with bounded accepted and rejected fixtures and inspect resolved stage inputs.\",\n  \"success\": \"The reloaded configuration has the required execution images, entry points, step IDs, waitFor edges and immutable consumer references. Predicate checks distinguish the declared valid, boundary and failure cases, including training output A incorrectly referenced as B. Accepted fixture results confirm the actual producer-consumer identities; rejected fixture results show unsuccessful required gates and no execution of their dependent stages.\",\n  \"live_code\": {\n    \"required_skill\": \"Edit a supplied pipeline configuration and Python dependency dictionary, assert artifact-identity and validation predicates, and verify configured edges against bounded runtime results.\",\n    \"allowed_syntax\": [\n      \"Python dictionary and list literals\",\n      \"String, numeric and Boolean literals\",\n      \"Variable assignment\",\n      \"Dictionary and list indexing\",\n      \"Equality comparisons and Boolean predicates\",\n      \"assert predicate\",\n      \"Existing function and test entry-point calls\",\n      \"import yaml\",\n      \"with open(...) as file_handle\",\n      \"yaml.safe_dump(config, file_handle)\",\n      \"yaml.safe_load(file_handle)\",\n      \"YAML mappings and sequences\",\n      \"Cloud Build steps, name, args and script fields\",\n      \"Cloud Build id and waitFor fields\",\n      \"Existing Cloud Build substitutions and immutable artifact references\"\n    ],\n    \"blocked_syntax\": [],\n    \"starter_state_intent\": \"Supply the existing authorized pipeline, configured event bindings and filters, declared PyYAML dependency, and valid, boundary and failure fixtures. Include a dependency dictionary and a consumer reference to B where training produces A, so the learner must repair the identity mismatch as well as configure explicit execution dependencies.\",\n    \"observable_success\": \"Saved and reloaded fields match the declared contract; assertions detect the A-to-B mismatch before repair and accept the corrected edge. Bounded accepted and rejected runs expose resolved artifact inputs and stage outcomes demonstrating both correct identity binding and fatal required validation gates.\"\n  }\n}\n"
+        },
+        {
+          "path": "fixtures/visual_intent.json",
+          "content": "{\n  \"type\": \"code\",\n  \"purpose\": \"Make the dependency dictionary and supplied YAML configuration visible alongside resolved stage inputs and gate outcomes, distinguishing successful predecessor completion from agreement between training output A and the model-validation input.\"\n}\n"
+        },
+        {
+          "path": "training_entry.py",
+          "content": "\"\"\"Existing training entry point, kept unchanged by dataset-gate exercises.\"\"\"\nimport json\nimport sys\nfrom pathlib import Path\nif __name__ == \"__main__\":\n    snapshot_id = sys.argv[1]\n    Path(\"training_invocation.json\").write_text(json.dumps({\"snapshot_id\": snapshot_id, \"started\": True}))\n"
+        },
+        {
+          "path": "downstream_entry.py",
+          "content": "\"\"\"Supplied downstream execution marker; no gate bypass.\"\"\"\nimport json\nimport sys\nfrom pathlib import Path\nif __name__ == \"__main__\":\n    Path(\"downstream_invocation.json\").write_text(json.dumps({\"artifact_id\": sys.argv[1], \"started\": True}))\n"
+        },
+        {
+          "path": "outputs/A.txt",
+          "content": "fictional fitted package A\npreprocess: divide feature by 5\nthreshold: 0.4\n"
+        },
+        {
+          "path": "outputs/B.txt",
+          "content": "fictional fitted package B\npreprocess: divide feature by 5\nthreshold: 0.5\n"
+        },
+        {
+          "path": "fixtures/artifacts.json",
+          "content": "{\n  \"A\": {\n    \"artifact_id\": \"A\",\n    \"uri\": \"gs://fixture-artifacts/A.txt\",\n    \"generation\": 1,\n    \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n    \"validation_ok\": true\n  },\n  \"B\": {\n    \"artifact_id\": \"B\",\n    \"uri\": \"gs://fixture-artifacts/B.txt\",\n    \"generation\": 1,\n    \"sha256\": \"6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a\",\n    \"validation_ok\": true\n  }\n}\n"
+        },
+        {
+          "path": "fixtures/dependency_cases.json",
+          "content": "{\n  \"valid\": {\n    \"data_validation\": {\n      \"consumed\": \"snapshot.A\",\n      \"parameters\": {\n        \"contract\": \"dataset_contract\"\n      },\n      \"produced\": \"validated.snapshot.A\",\n      \"validation_ok\": true\n    },\n    \"training\": {\n      \"consumed\": \"validated.snapshot.A\",\n      \"parameters\": {\n        \"feature_scale\": 5.0,\n        \"threshold\": 0.4,\n        \"package\": \"A\"\n      },\n      \"produced\": \"A\"\n    },\n    \"model_validation\": {\n      \"consumed\": \"A\",\n      \"parameters\": {\n        \"rtol\": 1e-07,\n        \"atol\": 1e-08\n      },\n      \"produced\": \"validated.A\",\n      \"validation_ok\": true\n    }\n  },\n  \"mismatch\": {\n    \"data_validation\": {\n      \"consumed\": \"snapshot.A\",\n      \"parameters\": {\n        \"contract\": \"dataset_contract\"\n      },\n      \"produced\": \"validated.snapshot.A\",\n      \"validation_ok\": true\n    },\n    \"training\": {\n      \"consumed\": \"validated.snapshot.A\",\n      \"parameters\": {\n        \"feature_scale\": 5.0,\n        \"threshold\": 0.4,\n        \"package\": \"A\"\n      },\n      \"produced\": \"A\"\n    },\n    \"model_validation\": {\n      \"consumed\": \"B\",\n      \"parameters\": {\n        \"rtol\": 1e-07,\n        \"atol\": 1e-08\n      },\n      \"produced\": \"validated.A\",\n      \"validation_ok\": true\n    }\n  },\n  \"rejected_data\": {\n    \"data_validation\": {\n      \"consumed\": \"snapshot.A\",\n      \"parameters\": {\n        \"contract\": \"dataset_contract\"\n      },\n      \"produced\": \"validated.snapshot.A\",\n      \"validation_ok\": false\n    },\n    \"training\": {\n      \"consumed\": \"validated.snapshot.A\",\n      \"parameters\": {\n        \"feature_scale\": 5.0,\n        \"threshold\": 0.4,\n        \"package\": \"A\"\n      },\n      \"produced\": \"A\"\n    },\n    \"model_validation\": {\n      \"consumed\": \"A\",\n      \"parameters\": {\n        \"rtol\": 1e-07,\n        \"atol\": 1e-08\n      },\n      \"produced\": \"validated.A\",\n      \"validation_ok\": true\n    }\n  },\n  \"boundary\": {\n    \"data_validation\": {\n      \"consumed\": \"snapshot.A\",\n      \"parameters\": {\n        \"contract\": \"dataset_contract\"\n      },\n      \"produced\": \"validated.snapshot.A\",\n      \"validation_ok\": true\n    },\n    \"training\": {\n      \"consumed\": \"validated.snapshot.A\",\n      \"parameters\": {\n        \"feature_scale\": 5.0,\n        \"threshold\": 0.4,\n        \"package\": \"A\"\n      },\n      \"produced\": \"A\"\n    },\n    \"model_validation\": {\n      \"consumed\": \"A\",\n      \"parameters\": {\n        \"rtol\": 1e-07,\n        \"atol\": 1e-08\n      },\n      \"produced\": \"validated.A\",\n      \"validation_ok\": true\n    }\n  }\n}\n"
+        },
+        {
+          "path": "fixtures/dependency_contract.json",
+          "content": "{\n  \"required_edges\": [\n    [\n      \"data_validation\",\n      \"training\"\n    ],\n    [\n      \"training\",\n      \"model_validation\"\n    ]\n  ],\n  \"checks\": [\n    \"producer immutable identity equals consumer reference\",\n    \"validation result before dependent execution\",\n    \"resolved run args agree with dependency dictionary\"\n  ],\n  \"assignment\": \"repair training A / model-validation B mismatch and configure explicit waitFor edges\"\n}\n"
+        }
+      ]
+    },
+    {
+      "asset_id": "ws.staged_ml_promotion",
+      "asset_kind": "code_workspace",
+      "scenario_id": "scenario.ml_lifecycle",
+      "title": "Promote an approved registry version through accountable staged ML release gates — local fixture workspace",
+      "runtime": "python",
+      "files": [
+        {
+          "path": "README.md",
+          "content": "# Fictional lifecycle fixture runtime\nAll rows, limits, identities, bucket/project names and events here are authored examples, not production claims. This is a bounded local simulator of an existing configured pipeline; no cloud requests or policy changes are authorized. A hosted exercise must replace the simulator adapter with its existing authorized runtime before describing results as actual Cloud Build results.\n\nPython 3, numpy and PyYAML are declared dependencies. Files under fixtures/ are inputs and contracts, not answer implementations. learner.py deliberately contains no imports, assertions or gate implementation. Keep protected-test observations out of fitting and tuning. Do not introduce hard-coded fixture verdicts.\n\nExisting build configuration uses the declared step IDs, execution images and entry points. Learners wire the assigned entry point, waitFor edges and fatal gate handling, then safe_dump/safe_load and inspect resolved fields. Existing triggers.json supplies bounded repository-commit and Pub/Sub bindings/filters: do not create triggers or alter filters. Accepted/rejected events are inputs, never captured run output. runtime_sim.py executes Python entry points and captures statuses, resolved args and output; results must be produced by running it, not invented. Required stages cannot use allowFailure or allowed failing exit codes.\n\nObject storage is explicitly simulated by storage_sim.py. It supports exists/reload/generation/download_as_bytes(if_generation_match=...) and upload_from_filename(if_generation_match=0), raises PreconditionFailed with status 412, and records uploads. Injected 412 is a race that creates an output before the failing call returns; recovery must reload and verify. Required validation is supplied per artifact in fixture records; a hash match does not imply a validation pass. No credential values are stored here.\n"
+        },
+        {
+          "path": "requirements.txt",
+          "content": "numpy\nPyYAML\n"
+        },
+        {
+          "path": "learner.py",
+          "content": "\"\"\"Assignment: Gate an existing staging-to-production handoff on artifact-specific approval, quality and protected identity.\"\"\"\n# Write the required imports, implementation, assertions and fatal CLI entry point.\nraise NotImplementedError(\"Learner entry point is intentionally unwritten\")\n"
+        },
+        {
+          "path": "cloudbuild.yaml",
+          "content": "{\n  \"steps\": [\n    {\n      \"id\": \"compatibility\",\n      \"name\": \"python:3.11\",\n      \"args\": [\n        \"python\",\n        \"learner.py\",\n        \"${_CASE}\"\n      ],\n      \"waitFor\": [\n        \"-\"\n      ]\n    },\n    {\n      \"id\": \"staging_quality\",\n      \"name\": \"python:3.11\",\n      \"args\": [\n        \"python\",\n        \"learner.py\",\n        \"${_CASE}\"\n      ],\n      \"waitFor\": []\n    },\n    {\n      \"id\": \"authorization\",\n      \"name\": \"python:3.11\",\n      \"args\": [\n        \"python\",\n        \"learner.py\",\n        \"${_CASE}\"\n      ],\n      \"waitFor\": []\n    },\n    {\n      \"id\": \"production\",\n      \"name\": \"python:3.11\",\n      \"args\": [\n        \"python\",\n        \"downstream_entry.py\",\n        \"${_ARTIFACT}\"\n      ],\n      \"waitFor\": [],\n      \"secretEnv\": [\n        \"PROMOTION_TOKEN\"\n      ]\n    }\n  ],\n  \"substitutions\": {\n    \"_SNAPSHOT\": \"valid\",\n    \"_CASE\": \"accepted\",\n    \"_ARTIFACT\": \"A\"\n  },\n  \"serviceAccount\": \"projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com\",\n  \"availableSecrets\": {\n    \"secretManager\": [\n      {\n        \"versionName\": \"projects/fixture-project/secrets/promotion-token/versions/1\",\n        \"env\": \"PROMOTION_TOKEN\"\n      }\n    ]\n  }\n}\n"
+        },
+        {
+          "path": "triggers.json",
+          "content": "{\n  \"repository_commit\": {\n    \"id\": \"fixture-commit-trigger\",\n    \"repository\": \"local_repo\",\n    \"branch_filter\": \"^main$\",\n    \"bindings\": {\n      \"_SNAPSHOT\": \"snapshot_id\"\n    },\n    \"fixtures\": [\n      {\n        \"branch\": \"main\",\n        \"snapshot_id\": \"valid\"\n      },\n      {\n        \"branch\": \"main\",\n        \"snapshot_id\": \"missing_required_feature\"\n      },\n      {\n        \"branch\": \"other\",\n        \"snapshot_id\": \"valid\"\n      }\n    ]\n  },\n  \"pubsub\": {\n    \"id\": \"fixture-artifact-trigger\",\n    \"topic\": \"projects/fixture-project/topics/artifacts\",\n    \"bindings\": {\n      \"_CASE\": \"case_id\",\n      \"_ARTIFACT\": \"artifact_id\"\n    },\n    \"filters\": {\n      \"event_type\": \"artifact_ready\"\n    },\n    \"fixtures\": [\n      {\n        \"event_type\": \"artifact_ready\",\n        \"case_id\": \"accepted\",\n        \"artifact_id\": \"A\"\n      },\n      {\n        \"event_type\": \"artifact_ready\",\n        \"case_id\": \"unauthorized\",\n        \"artifact_id\": \"A\"\n      },\n      {\n        \"event_type\": \"unrelated\",\n        \"case_id\": \"accepted\",\n        \"artifact_id\": \"A\"\n      }\n    ]\n  }\n}\n"
+        },
+        {
+          "path": "runtime_sim.py",
+          "content": "\"\"\"Offline execution adapter. Statuses are generated, never fixture answers.\"\"\"\nimport json\nimport subprocess\nimport sys\nimport yaml\nfrom pathlib import Path\n\ndef run_build(config_path, trigger_kind, event):\n    config = yaml.safe_load(Path(config_path).read_text())\n    triggers = json.loads(Path(\"triggers.json\").read_text())\n    trigger = triggers[trigger_kind]\n    if trigger_kind == \"repository_commit\":\n        import re\n        if re.fullmatch(trigger[\"branch_filter\"], event.get(\"branch\", \"\")) is None:\n            return {\"triggered\": False, \"steps\": []}\n    elif any(event.get(k) != v for k, v in trigger[\"filters\"].items()):\n        return {\"triggered\": False, \"steps\": []}\n    bindings = dict(config.get(\"substitutions\", {}))\n    bindings.update({k: event[field] for k, field in trigger[\"bindings\"].items()})\n    results, by_id = [], {}\n    pending = list(config[\"steps\"])\n    while pending:\n        progress = False\n        for step in list(pending):\n            i = config[\"steps\"].index(step)\n            dependencies = step.get(\"waitFor\") or [s[\"id\"] for s in config[\"steps\"][:i]]\n            dependencies = [d for d in dependencies if d != \"-\"]\n            if any(d not in by_id for d in dependencies):\n                continue\n            args = [str(a) for a in step.get(\"args\", [])]\n            for j, arg in enumerate(args):\n                for key, value in bindings.items():\n                    arg = arg.replace(\"${\" + key + \"}\", str(value)).replace(key, str(value))\n                args[j] = arg\n            record = {\"id\": step[\"id\"], \"name\": step[\"name\"], \"resolved_args\": args, \"waitFor\": dependencies}\n            if any(by_id[d][\"status\"] != \"SUCCESS\" for d in dependencies):\n                record.update(status=\"NOT_STARTED\", exit_code=None, output=\"\")\n            else:\n                if step.get(\"allowFailure\") or any(x != 0 for x in step.get(\"allowExitCodes\", [])):\n                    raise ValueError(\"required gate failures must be fatal\")\n                if not args or args[0] != \"python\":\n                    raise ValueError(\"bounded adapter only supports declared Python entry points\")\n                p = subprocess.run([sys.executable] + args[1:], text=True, capture_output=True)\n                record.update(status=\"SUCCESS\" if p.returncode == 0 else \"FAILURE\", exit_code=p.returncode, output=p.stdout+p.stderr)\n            results.append(record); by_id[step[\"id\"]] = record\n            pending.remove(step); progress = True\n        if not progress:\n            raise ValueError(\"missing dependency or cycle\")\n    return {\"triggered\": True, \"resolved_inputs\": bindings, \"steps\": results}\n"
+        },
+        {
+          "path": "storage_sim.py",
+          "content": "\"\"\"Bounded local Cloud Storage interface, never a real cloud client.\"\"\"\nfrom pathlib import Path\nclass PreconditionFailed(Exception):\n    status_code = 412\nclass RecoverableFailure(Exception):\n    pass\nclass StorageClient:\n    def __init__(self, initial=None, race=None):\n        self.objects = dict(initial or {})\n        self.race = dict(race or {})\n        self.uploads = []\n        self.requests = []\n    def blob(self, name):\n        return Blob(self, name)\nclass Blob:\n    def __init__(self, client, name):\n        self.client, self.name = client, name\n        self.generation = None\n    def exists(self):\n        return self.name in self.client.objects\n    def reload(self):\n        self.generation = self.client.objects[self.name][\"generation\"]\n    def download_as_bytes(self, if_generation_match):\n        self.client.requests.append((self.name, if_generation_match))\n        obj = self.client.objects[self.name]\n        if obj[\"generation\"] != if_generation_match:\n            raise PreconditionFailed(\"generation mismatch\")\n        return obj[\"data\"]\n    def upload_from_filename(self, path, if_generation_match):\n        if if_generation_match != 0:\n            raise ValueError(\"fixture contract permits create-only upload\")\n        if self.name in self.client.race:\n            self.client.objects[self.name] = self.client.race.pop(self.name)\n            raise PreconditionFailed(\"412 concurrent creation\")\n        if self.exists():\n            raise PreconditionFailed(\"412 already exists\")\n        self.client.objects[self.name] = {\"generation\": 1, \"data\": Path(path).read_bytes()}\n        self.client.uploads.append(self.name)\n        self.reload()\n"
+        },
+        {
+          "path": "fixtures/anchor_contract.json",
+          "content": "{\n  \"type\": \"live_code\",\n  \"objective\": \"Edit and safely parse the supplied staging/production configuration to promote one approved immutable registry version through staging quality and separate authorization gates. Use the configured event trigger and approved credential references, then inspect accepted and unauthorized fixture results without changing the permission policy.\",\n  \"success\": \"The reloaded configuration preserves the approved registry version and artifact identity, wires the supplied entry points into explicit stage dependencies, and keeps required gate failures fatal. The accepted fixture reaches production only after compatibility, validation and authorization succeed. The unauthorized fixture does not execute production. The promotion record retains the approval, exact artifact, validation evidence and per-stage results. Credentials are scoped to the needed step, and neither configuration nor captured output contains their values.\",\n  \"live_code\": {\n    \"required_skill\": \"Modify an existing Cloud Build configuration, round-trip it with PyYAML, and verify artifact-bound quality and authorization gates using supplied runtime fixtures.\",\n    \"allowed_syntax\": [\n      \"import yaml\",\n      \"with open(...) as file_handle\",\n      \"Python mapping and list literals\",\n      \"String, numeric, Boolean and None literals\",\n      \"Mapping key access and assignment\",\n      \"List indexing and iteration\",\n      \"Function calls to supplied test and gate entry points\",\n      \"Conditional statements\",\n      \"Assertions\",\n      \"import sys\",\n      \"sys.exit(1)\",\n      \"yaml.safe_dump(config, file_handle)\",\n      \"yaml.safe_load(file_handle)\",\n      \"Cloud Build steps, name, args and script fields\",\n      \"Cloud Build id and waitFor fields\",\n      \"availableSecrets.secretManager and secretEnv fields\"\n    ],\n    \"blocked_syntax\": [],\n    \"starter_state_intent\": \"Provide the existing staging/production configuration, declared PyYAML dependency, approved registry name/version and run/artifact link, supplied offline requirements and staged evaluation evidence, gate entry points, authorized build identity, Secret Manager version references, and configured event bindings and filters. Include accepted and unauthorized promotion fixtures and access to captured stage results and output; do not supply literal credential values in the configuration.\",\n    \"observable_success\": \"Inspect the safely reloaded fields and actual event-resolved inputs. Confirm that production depends on successful staging quality and separate authorization for the same immutable artifact, with no gate failure exemptions. Verify production executes for the accepted fixture but not the unauthorized fixture, the accountable promotion record is complete, and captured output and serialized configuration disclose no credential values.\"\n  }\n}\n"
+        },
+        {
+          "path": "fixtures/visual_intent.json",
+          "content": "{\n  \"type\": \"code\",\n  \"purpose\": \"Make the staging/production configuration and its parsed fields visible beside accepted and unauthorized stage results: explicit step IDs and dependencies, the unchanged immutable artifact reference, scoped secret references, and production not executed after rejected authorization. Show the promotion record and non-disclosure check results without displaying credential values.\"\n}\n"
+        },
+        {
+          "path": "training_entry.py",
+          "content": "\"\"\"Existing training entry point, kept unchanged by dataset-gate exercises.\"\"\"\nimport json\nimport sys\nfrom pathlib import Path\nif __name__ == \"__main__\":\n    snapshot_id = sys.argv[1]\n    Path(\"training_invocation.json\").write_text(json.dumps({\"snapshot_id\": snapshot_id, \"started\": True}))\n"
+        },
+        {
+          "path": "downstream_entry.py",
+          "content": "\"\"\"Supplied downstream execution marker; no gate bypass.\"\"\"\nimport json\nimport sys\nfrom pathlib import Path\nif __name__ == \"__main__\":\n    Path(\"downstream_invocation.json\").write_text(json.dumps({\"artifact_id\": sys.argv[1], \"started\": True}))\n"
+        },
+        {
+          "path": "outputs/A.txt",
+          "content": "fictional fitted package A\npreprocess: divide feature by 5\nthreshold: 0.4\n"
+        },
+        {
+          "path": "outputs/B.txt",
+          "content": "fictional fitted package B\npreprocess: divide feature by 5\nthreshold: 0.5\n"
+        },
+        {
+          "path": "fixtures/artifacts.json",
+          "content": "{\n  \"A\": {\n    \"artifact_id\": \"A\",\n    \"uri\": \"gs://fixture-artifacts/A.txt\",\n    \"generation\": 1,\n    \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n    \"validation_ok\": true\n  },\n  \"B\": {\n    \"artifact_id\": \"B\",\n    \"uri\": \"gs://fixture-artifacts/B.txt\",\n    \"generation\": 1,\n    \"sha256\": \"6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a\",\n    \"validation_ok\": true\n  }\n}\n"
+        },
+        {
+          "path": "fixtures/promotion_cases.json",
+          "content": "{\n  \"accepted\": {\n    \"registry_version\": \"1\",\n    \"artifact_id\": \"A\",\n    \"run_id\": \"run.A\",\n    \"approval\": {\n      \"approval_id\": \"approval.A\",\n      \"registry_version\": \"1\",\n      \"artifact_id\": \"A\",\n      \"authorized\": true,\n      \"accountable_identity\": \"fixture-promoter\"\n    },\n    \"compatibility_ok\": true,\n    \"offline_validation_ok\": true,\n    \"staged_validation_ok\": true,\n    \"staged_artifact_id\": \"A\"\n  },\n  \"unauthorized\": {\n    \"registry_version\": \"1\",\n    \"artifact_id\": \"A\",\n    \"run_id\": \"run.A\",\n    \"approval\": {\n      \"approval_id\": \"approval.A\",\n      \"registry_version\": \"1\",\n      \"artifact_id\": \"A\",\n      \"authorized\": false,\n      \"accountable_identity\": \"fixture-promoter\"\n    },\n    \"compatibility_ok\": true,\n    \"offline_validation_ok\": true,\n    \"staged_validation_ok\": true,\n    \"staged_artifact_id\": \"A\"\n  },\n  \"wrong_artifact\": {\n    \"registry_version\": \"1\",\n    \"artifact_id\": \"B\",\n    \"run_id\": \"run.A\",\n    \"approval\": {\n      \"approval_id\": \"approval.A\",\n      \"registry_version\": \"1\",\n      \"artifact_id\": \"A\",\n      \"authorized\": true,\n      \"accountable_identity\": \"fixture-promoter\"\n    },\n    \"compatibility_ok\": true,\n    \"offline_validation_ok\": true,\n    \"staged_validation_ok\": true,\n    \"staged_artifact_id\": \"A\"\n  },\n  \"failed_staging\": {\n    \"registry_version\": \"1\",\n    \"artifact_id\": \"A\",\n    \"run_id\": \"run.A\",\n    \"approval\": {\n      \"approval_id\": \"approval.A\",\n      \"registry_version\": \"1\",\n      \"artifact_id\": \"A\",\n      \"authorized\": true,\n      \"accountable_identity\": \"fixture-promoter\"\n    },\n    \"compatibility_ok\": true,\n    \"offline_validation_ok\": true,\n    \"staged_validation_ok\": false,\n    \"staged_artifact_id\": \"A\"\n  }\n}\n"
+        },
+        {
+          "path": "fixtures/registry.json",
+          "content": "{\n  \"1\": {\n    \"model_name\": \"fixture_model\",\n    \"version\": \"1\",\n    \"artifact_id\": \"A\",\n    \"artifact_source\": \"gs://fixture-artifacts/A.txt\",\n    \"generation\": 1,\n    \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n    \"run_id\": \"run.A\"\n  }\n}\n"
+        },
+        {
+          "path": "fixtures/promotion_contract.json",
+          "content": "{\n  \"scope\": \"fixture-promoter may promote approved artifact A, registry version 1, only\",\n  \"required_results\": [\n    \"compatibility\",\n    \"offline_validation\",\n    \"staged_validation\",\n    \"authorization\"\n  ],\n  \"record_fields\": [\n    \"approval\",\n    \"accountable_identity\",\n    \"registry_version\",\n    \"run_id\",\n    \"artifact_id\",\n    \"per_stage_results\"\n  ],\n  \"secret_reference_only\": \"PROMOTION_TOKEN is provided only by the authorized runtime to production. Do not serialize or echo it; inspect captured output without displaying its value. The local adapter never supplies real credentials.\"\n}\n"
+        }
+      ]
+    },
+    {
+      "asset_id": "ws.pipeline_failure_recovery",
+      "asset_kind": "code_workspace",
+      "scenario_id": "scenario.ml_lifecycle",
+      "title": "Recover a failed ML pipeline run without bypassing quality gates — local fixture workspace",
+      "runtime": "python",
+      "files": [
+        {
+          "path": "README.md",
+          "content": "# Fictional lifecycle fixture runtime\nAll rows, limits, identities, bucket/project names and events here are authored examples, not production claims. This is a bounded local simulator of an existing configured pipeline; no cloud requests or policy changes are authorized. A hosted exercise must replace the simulator adapter with its existing authorized runtime before describing results as actual Cloud Build results.\n\nPython 3, numpy and PyYAML are declared dependencies. Files under fixtures/ are inputs and contracts, not answer implementations. learner.py deliberately contains no imports, assertions or gate implementation. Keep protected-test observations out of fitting and tuning. Do not introduce hard-coded fixture verdicts.\n\nExisting build configuration uses the declared step IDs, execution images and entry points. Learners wire the assigned entry point, waitFor edges and fatal gate handling, then safe_dump/safe_load and inspect resolved fields. Existing triggers.json supplies bounded repository-commit and Pub/Sub bindings/filters: do not create triggers or alter filters. Accepted/rejected events are inputs, never captured run output. runtime_sim.py executes Python entry points and captures statuses, resolved args and output; results must be produced by running it, not invented. Required stages cannot use allowFailure or allowed failing exit codes.\n\nObject storage is explicitly simulated by storage_sim.py. It supports exists/reload/generation/download_as_bytes(if_generation_match=...) and upload_from_filename(if_generation_match=0), raises PreconditionFailed with status 412, and records uploads. Injected 412 is a race that creates an output before the failing call returns; recovery must reload and verify. Required validation is supplied per artifact in fixture records; a hash match does not imply a validation pass. No credential values are stored here.\n"
+        },
+        {
+          "path": "requirements.txt",
+          "content": "numpy\nPyYAML\n"
+        },
+        {
+          "path": "learner.py",
+          "content": "\"\"\"Assignment: Recover an injected stage failure through verified artifact boundaries without bypassing gates.\"\"\"\n# Write the required imports, implementation, assertions and fatal CLI entry point.\nraise NotImplementedError(\"Learner entry point is intentionally unwritten\")\n"
+        },
+        {
+          "path": "cloudbuild.yaml",
+          "content": "{\n  \"steps\": [\n    {\n      \"id\": \"recovery\",\n      \"name\": \"python:3.11\",\n      \"args\": [\n        \"python\",\n        \"learner.py\",\n        \"${_CASE}\"\n      ],\n      \"waitFor\": [\n        \"-\"\n      ]\n    },\n    {\n      \"id\": \"required_validation\",\n      \"name\": \"python:3.11\",\n      \"args\": [\n        \"python\",\n        \"learner.py\",\n        \"${_CASE}\"\n      ],\n      \"waitFor\": []\n    },\n    {\n      \"id\": \"promotion\",\n      \"name\": \"python:3.11\",\n      \"args\": [\n        \"python\",\n        \"downstream_entry.py\",\n        \"${_ARTIFACT}\"\n      ],\n      \"waitFor\": []\n    }\n  ],\n  \"substitutions\": {\n    \"_SNAPSHOT\": \"valid\",\n    \"_CASE\": \"accepted\",\n    \"_ARTIFACT\": \"A\"\n  },\n  \"serviceAccount\": \"projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com\"\n}\n"
+        },
+        {
+          "path": "triggers.json",
+          "content": "{\n  \"repository_commit\": {\n    \"id\": \"fixture-commit-trigger\",\n    \"repository\": \"local_repo\",\n    \"branch_filter\": \"^main$\",\n    \"bindings\": {\n      \"_SNAPSHOT\": \"snapshot_id\"\n    },\n    \"fixtures\": [\n      {\n        \"branch\": \"main\",\n        \"snapshot_id\": \"valid\"\n      },\n      {\n        \"branch\": \"main\",\n        \"snapshot_id\": \"missing_required_feature\"\n      },\n      {\n        \"branch\": \"other\",\n        \"snapshot_id\": \"valid\"\n      }\n    ]\n  },\n  \"pubsub\": {\n    \"id\": \"fixture-artifact-trigger\",\n    \"topic\": \"projects/fixture-project/topics/artifacts\",\n    \"bindings\": {\n      \"_CASE\": \"case_id\",\n      \"_ARTIFACT\": \"artifact_id\"\n    },\n    \"filters\": {\n      \"event_type\": \"artifact_ready\"\n    },\n    \"fixtures\": [\n      {\n        \"event_type\": \"artifact_ready\",\n        \"case_id\": \"accepted\",\n        \"artifact_id\": \"A\"\n      },\n      {\n        \"event_type\": \"artifact_ready\",\n        \"case_id\": \"rejected_gate\",\n        \"artifact_id\": \"A\"\n      },\n      {\n        \"event_type\": \"unrelated\",\n        \"case_id\": \"accepted\",\n        \"artifact_id\": \"A\"\n      }\n    ]\n  }\n}\n"
+        },
+        {
+          "path": "runtime_sim.py",
+          "content": "\"\"\"Offline execution adapter. Statuses are generated, never fixture answers.\"\"\"\nimport json\nimport subprocess\nimport sys\nimport yaml\nfrom pathlib import Path\n\ndef run_build(config_path, trigger_kind, event):\n    config = yaml.safe_load(Path(config_path).read_text())\n    triggers = json.loads(Path(\"triggers.json\").read_text())\n    trigger = triggers[trigger_kind]\n    if trigger_kind == \"repository_commit\":\n        import re\n        if re.fullmatch(trigger[\"branch_filter\"], event.get(\"branch\", \"\")) is None:\n            return {\"triggered\": False, \"steps\": []}\n    elif any(event.get(k) != v for k, v in trigger[\"filters\"].items()):\n        return {\"triggered\": False, \"steps\": []}\n    bindings = dict(config.get(\"substitutions\", {}))\n    bindings.update({k: event[field] for k, field in trigger[\"bindings\"].items()})\n    results, by_id = [], {}\n    pending = list(config[\"steps\"])\n    while pending:\n        progress = False\n        for step in list(pending):\n            i = config[\"steps\"].index(step)\n            dependencies = step.get(\"waitFor\") or [s[\"id\"] for s in config[\"steps\"][:i]]\n            dependencies = [d for d in dependencies if d != \"-\"]\n            if any(d not in by_id for d in dependencies):\n                continue\n            args = [str(a) for a in step.get(\"args\", [])]\n            for j, arg in enumerate(args):\n                for key, value in bindings.items():\n                    arg = arg.replace(\"${\" + key + \"}\", str(value)).replace(key, str(value))\n                args[j] = arg\n            record = {\"id\": step[\"id\"], \"name\": step[\"name\"], \"resolved_args\": args, \"waitFor\": dependencies}\n            if any(by_id[d][\"status\"] != \"SUCCESS\" for d in dependencies):\n                record.update(status=\"NOT_STARTED\", exit_code=None, output=\"\")\n            else:\n                if step.get(\"allowFailure\") or any(x != 0 for x in step.get(\"allowExitCodes\", [])):\n                    raise ValueError(\"required gate failures must be fatal\")\n                if not args or args[0] != \"python\":\n                    raise ValueError(\"bounded adapter only supports declared Python entry points\")\n                p = subprocess.run([sys.executable] + args[1:], text=True, capture_output=True)\n                record.update(status=\"SUCCESS\" if p.returncode == 0 else \"FAILURE\", exit_code=p.returncode, output=p.stdout+p.stderr)\n            results.append(record); by_id[step[\"id\"]] = record\n            pending.remove(step); progress = True\n        if not progress:\n            raise ValueError(\"missing dependency or cycle\")\n    return {\"triggered\": True, \"resolved_inputs\": bindings, \"steps\": results}\n"
+        },
+        {
+          "path": "storage_sim.py",
+          "content": "\"\"\"Bounded local Cloud Storage interface, never a real cloud client.\"\"\"\nfrom pathlib import Path\nclass PreconditionFailed(Exception):\n    status_code = 412\nclass RecoverableFailure(Exception):\n    pass\nclass StorageClient:\n    def __init__(self, initial=None, race=None):\n        self.objects = dict(initial or {})\n        self.race = dict(race or {})\n        self.uploads = []\n        self.requests = []\n    def blob(self, name):\n        return Blob(self, name)\nclass Blob:\n    def __init__(self, client, name):\n        self.client, self.name = client, name\n        self.generation = None\n    def exists(self):\n        return self.name in self.client.objects\n    def reload(self):\n        self.generation = self.client.objects[self.name][\"generation\"]\n    def download_as_bytes(self, if_generation_match):\n        self.client.requests.append((self.name, if_generation_match))\n        obj = self.client.objects[self.name]\n        if obj[\"generation\"] != if_generation_match:\n            raise PreconditionFailed(\"generation mismatch\")\n        return obj[\"data\"]\n    def upload_from_filename(self, path, if_generation_match):\n        if if_generation_match != 0:\n            raise ValueError(\"fixture contract permits create-only upload\")\n        if self.name in self.client.race:\n            self.client.objects[self.name] = self.client.race.pop(self.name)\n            raise PreconditionFailed(\"412 concurrent creation\")\n        if self.exists():\n            raise PreconditionFailed(\"412 already exists\")\n        self.client.objects[self.name] = {\"generation\": 1, \"data\": Path(path).read_bytes()}\n        self.client.uploads.append(self.name)\n        self.reload()\n"
+        },
+        {
+          "path": "fixtures/anchor_contract.json",
+          "content": "{\n  \"type\": \"live_code\",\n  \"objective\": \"Write a Python recovery function and its required imports for the supplied event-triggered pipeline. Inject the declared recoverable failure after output A uploads but before B, record and isolate the failure, reconcile declared outputs, and resume from a verified artifact boundary. Wire the function/test entry point into the assigned Cloud Build stage, round-trip its configuration through PyYAML, and exercise accepted and rejected fixtures through the configured Pub/Sub trigger without changing its bindings or filters.\",\n  \"success\": \"Recovery preserves A's generation and hash, creates only missing B, and verifies an existing output after a 412 response instead of overwriting it. Conflicting content, invalid artifacts, unrelated exceptions and rejected gates remain failures. Actual results show the retried stage and subsequent required gates executed. A second recovery invocation creates no additional uploads or generations while required validation remains enforced.\",\n  \"live_code\": {\n    \"required_skill\": \"Implement bounded exception handling, generation-aware artifact reconciliation, configuration verification and execution assertions within the supplied recovery contract.\",\n    \"allowed_syntax\": [\n      \"Learner-written imports for yaml, hashlib, the declared Cloud Storage client and the supplied fixture dependencies\",\n      \"def, function parameters, return and calls to supplied fixture helpers\",\n      \"Local assignments, string and numeric literals, dictionaries and lists\",\n      \"if/elif/else and for loops over declared outputs\",\n      \"try/except for the declared recoverable exception and declared client precondition exception\",\n      \"raise to preserve unrelated failures, content conflicts and validation failures\",\n      \"assert for fixture acceptance checks\",\n      \"with open(...) as file_handle\",\n      \"yaml.safe_dump(config, file_handle)\",\n      \"yaml.safe_load(file_handle)\",\n      \"Dictionary access and inspection of steps, name, args or script, id and waitFor\",\n      \"blob.exists(), blob.reload() and blob.generation\",\n      \"blob.download_as_bytes(if_generation_match=recorded_generation)\",\n      \"hashlib.sha256(data).hexdigest()\",\n      \"blob.upload_from_filename(path, if_generation_match=0)\",\n      \"Calls to supplied failure-recording, recovery-action, artifact-validation, trigger and execution-inspection helpers\",\n      \"A nonzero Python process exit for a rejected required gate\"\n    ],\n    \"blocked_syntax\": [],\n    \"starter_state_intent\": \"Supply the existing authorized pipeline configuration, configured Pub/Sub trigger, declared dependencies and helper interfaces, retained stage/artifact records, and local files for named outputs A and B with expected hashes and validation requirements. Include accepted, rejected and invalid-existing-output fixtures plus an injection point after A uploads. Provide no completed recovery function or imports; the learner writes them.\",\n    \"observable_success\": \"Assertions compare A's generation/hash before and after recovery, verify B's content and validation, and inspect actual stage statuses and resolved inputs. Tests establish safe reconciliation after a 412 response, fatal rejection of invalid existing output and unrelated failures, successful execution of the retried stage and later gates for the accepted fixture, and fatal gate failure for the rejected fixture. Configuration checks confirm explicit dependencies and no gate-failure allowances. Repeating recovery on the completed fixture leaves upload counts and generations unchanged without bypassing validation.\"\n  }\n}\n"
+        },
+        {
+          "path": "fixtures/visual_intent.json",
+          "content": "{\n  \"type\": \"before_after\",\n  \"purpose\": \"Make the failure boundary and recovery effects visible: show A and B existence, generations, hashes and validation results alongside stage statuses before failure, after recovery and after a second invocation. Include a rejected fixture whose failed required gate stops downstream execution.\"\n}\n"
+        },
+        {
+          "path": "training_entry.py",
+          "content": "\"\"\"Existing training entry point, kept unchanged by dataset-gate exercises.\"\"\"\nimport json\nimport sys\nfrom pathlib import Path\nif __name__ == \"__main__\":\n    snapshot_id = sys.argv[1]\n    Path(\"training_invocation.json\").write_text(json.dumps({\"snapshot_id\": snapshot_id, \"started\": True}))\n"
+        },
+        {
+          "path": "downstream_entry.py",
+          "content": "\"\"\"Supplied downstream execution marker; no gate bypass.\"\"\"\nimport json\nimport sys\nfrom pathlib import Path\nif __name__ == \"__main__\":\n    Path(\"downstream_invocation.json\").write_text(json.dumps({\"artifact_id\": sys.argv[1], \"started\": True}))\n"
+        },
+        {
+          "path": "outputs/A.txt",
+          "content": "fictional fitted package A\npreprocess: divide feature by 5\nthreshold: 0.4\n"
+        },
+        {
+          "path": "outputs/B.txt",
+          "content": "fictional fitted package B\npreprocess: divide feature by 5\nthreshold: 0.5\n"
+        },
+        {
+          "path": "fixtures/artifacts.json",
+          "content": "{\n  \"A\": {\n    \"artifact_id\": \"A\",\n    \"uri\": \"gs://fixture-artifacts/A.txt\",\n    \"generation\": 1,\n    \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n    \"validation_ok\": true\n  },\n  \"B\": {\n    \"artifact_id\": \"B\",\n    \"uri\": \"gs://fixture-artifacts/B.txt\",\n    \"generation\": 1,\n    \"sha256\": \"6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a\",\n    \"validation_ok\": true\n  }\n}\n"
+        },
+        {
+          "path": "fixtures/recovery_cases.json",
+          "content": "{\n  \"accepted\": {\n    \"initial_outputs\": [\n      \"A\"\n    ],\n    \"race_outputs\": [],\n    \"invalid_outputs\": [],\n    \"gate_ok\": true,\n    \"exception\": \"RecoverableFailure\"\n  },\n  \"boundary_completed\": {\n    \"initial_outputs\": [\n      \"A\",\n      \"B\"\n    ],\n    \"race_outputs\": [],\n    \"invalid_outputs\": [],\n    \"gate_ok\": true,\n    \"exception\": null\n  },\n  \"race_412\": {\n    \"initial_outputs\": [\n      \"A\"\n    ],\n    \"race_outputs\": [\n      \"B\"\n    ],\n    \"invalid_outputs\": [],\n    \"gate_ok\": true,\n    \"exception\": \"RecoverableFailure\"\n  },\n  \"invalid_existing\": {\n    \"initial_outputs\": [\n      \"A\"\n    ],\n    \"race_outputs\": [],\n    \"invalid_outputs\": [\n      \"A\"\n    ],\n    \"gate_ok\": true,\n    \"exception\": \"RecoverableFailure\"\n  },\n  \"conflicting_content\": {\n    \"initial_outputs\": [\n      \"A\"\n    ],\n    \"race_outputs\": [],\n    \"invalid_outputs\": [],\n    \"conflicting_outputs\": [\n      \"A\"\n    ],\n    \"gate_ok\": true,\n    \"exception\": \"RecoverableFailure\"\n  },\n  \"rejected_gate\": {\n    \"initial_outputs\": [\n      \"A\"\n    ],\n    \"race_outputs\": [],\n    \"invalid_outputs\": [],\n    \"gate_ok\": false,\n    \"exception\": \"RecoverableFailure\"\n  },\n  \"unrelated_failure\": {\n    \"initial_outputs\": [\n      \"A\"\n    ],\n    \"race_outputs\": [],\n    \"invalid_outputs\": [],\n    \"gate_ok\": true,\n    \"exception\": \"ValueError\"\n  }\n}\n"
+        },
+        {
+          "path": "fixtures/recovery_contract.json",
+          "content": "{\n  \"injection_point\": \"after A upload before B\",\n  \"recoverable_exception\": \"storage_sim.RecoverableFailure\",\n  \"precondition_exception\": \"storage_sim.PreconditionFailed\",\n  \"outputs\": {\n    \"A\": {\n      \"artifact_id\": \"A\",\n      \"uri\": \"gs://fixture-artifacts/A.txt\",\n      \"generation\": 1,\n      \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n      \"validation_ok\": true\n    },\n    \"B\": {\n      \"artifact_id\": \"B\",\n      \"uri\": \"gs://fixture-artifacts/B.txt\",\n      \"generation\": 1,\n      \"sha256\": \"6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a\",\n      \"validation_ok\": true\n    }\n  },\n  \"requirements\": [\n    \"record and isolate failure\",\n    \"verify exact existing generation bytes/hash and validation\",\n    \"skip only verified completed upload\",\n    \"create missing output with if_generation_match=0\",\n    \"on 412 reload and verify, never overwrite\",\n    \"unrelated exceptions remain fatal\",\n    \"run retried stage and downstream required gates\",\n    \"second call preserves generations and upload counts but revalidates\"\n  ],\n  \"evidence_fields\": [\n    \"initial_and_final_generations\",\n    \"hashes\",\n    \"validation_results\",\n    \"upload_counts\",\n    \"retry_status\",\n    \"downstream_status\",\n    \"resolved_inputs\"\n  ]\n}\n"
+        }
+      ]
+    },
+    {
+      "asset_id": "ws.deployed_model_lineage_audit",
+      "asset_kind": "code_workspace",
+      "scenario_id": "scenario.ml_lifecycle",
+      "title": "Audit dataset, code, run and artifact lineage of a deployed model — local fixture workspace",
+      "runtime": "python",
+      "files": [
+        {
+          "path": "README.md",
+          "content": "# Fictional lifecycle fixture runtime\nAll rows, limits, identities, bucket/project names and events here are authored examples, not production claims. This is a bounded local simulator of an existing configured pipeline; no cloud requests or policy changes are authorized. A hosted exercise must replace the simulator adapter with its existing authorized runtime before describing results as actual Cloud Build results.\n\nPython 3, numpy and PyYAML are declared dependencies. Files under fixtures/ are inputs and contracts, not answer implementations. learner.py deliberately contains no imports, assertions or gate implementation. Keep protected-test observations out of fitting and tuning. Do not introduce hard-coded fixture verdicts.\n\nExisting build configuration uses the declared step IDs, execution images and entry points. Learners wire the assigned entry point, waitFor edges and fatal gate handling, then safe_dump/safe_load and inspect resolved fields. Existing triggers.json supplies bounded repository-commit and Pub/Sub bindings/filters: do not create triggers or alter filters. Accepted/rejected events are inputs, never captured run output. runtime_sim.py executes Python entry points and captures statuses, resolved args and output; results must be produced by running it, not invented. Required stages cannot use allowFailure or allowed failing exit codes.\n\nObject storage is explicitly simulated by storage_sim.py. It supports exists/reload/generation/download_as_bytes(if_generation_match=...) and upload_from_filename(if_generation_match=0), raises PreconditionFailed with status 412, and records uploads. Injected 412 is a race that creates an output before the failing call returns; recovery must reload and verify. Required validation is supplied per artifact in fixture records; a hash match does not imply a validation pass. No credential values are stored here.\n"
+        },
+        {
+          "path": "requirements.txt",
+          "content": "numpy\nPyYAML\n"
+        },
+        {
+          "path": "learner.py",
+          "content": "\"\"\"Assignment: Audit the served artifact’s registry, run, input, revision and configuration lineage.\"\"\"\n# Write the required imports, implementation, assertions and fatal CLI entry point.\nraise NotImplementedError(\"Learner entry point is intentionally unwritten\")\n"
+        },
+        {
+          "path": "cloudbuild.yaml",
+          "content": "{\n  \"steps\": [\n    {\n      \"id\": \"lineage_audit\",\n      \"name\": \"python:3.11\",\n      \"args\": [\n        \"python\",\n        \"learner.py\",\n        \"${_CASE}\"\n      ],\n      \"waitFor\": [\n        \"-\"\n      ]\n    }\n  ],\n  \"substitutions\": {\n    \"_SNAPSHOT\": \"valid\",\n    \"_CASE\": \"valid\",\n    \"_ARTIFACT\": \"A\"\n  },\n  \"serviceAccount\": \"projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com\"\n}\n"
+        },
+        {
+          "path": "triggers.json",
+          "content": "{\n  \"repository_commit\": {\n    \"id\": \"fixture-commit-trigger\",\n    \"repository\": \"local_repo\",\n    \"branch_filter\": \"^main$\",\n    \"bindings\": {\n      \"_SNAPSHOT\": \"snapshot_id\"\n    },\n    \"fixtures\": [\n      {\n        \"branch\": \"main\",\n        \"snapshot_id\": \"valid\"\n      },\n      {\n        \"branch\": \"main\",\n        \"snapshot_id\": \"missing_required_feature\"\n      },\n      {\n        \"branch\": \"other\",\n        \"snapshot_id\": \"valid\"\n      }\n    ]\n  },\n  \"pubsub\": {\n    \"id\": \"fixture-artifact-trigger\",\n    \"topic\": \"projects/fixture-project/topics/artifacts\",\n    \"bindings\": {\n      \"_CASE\": \"case_id\",\n      \"_ARTIFACT\": \"artifact_id\"\n    },\n    \"filters\": {\n      \"event_type\": \"artifact_ready\"\n    },\n    \"fixtures\": [\n      {\n        \"event_type\": \"artifact_ready\",\n        \"case_id\": \"valid\",\n        \"artifact_id\": \"A\"\n      },\n      {\n        \"event_type\": \"artifact_ready\",\n        \"case_id\": \"approval_A_deployment_B\",\n        \"artifact_id\": \"B\"\n      },\n      {\n        \"event_type\": \"unrelated\",\n        \"case_id\": \"valid\",\n        \"artifact_id\": \"A\"\n      }\n    ]\n  }\n}\n"
+        },
+        {
+          "path": "runtime_sim.py",
+          "content": "\"\"\"Offline execution adapter. Statuses are generated, never fixture answers.\"\"\"\nimport json\nimport subprocess\nimport sys\nimport yaml\nfrom pathlib import Path\n\ndef run_build(config_path, trigger_kind, event):\n    config = yaml.safe_load(Path(config_path).read_text())\n    triggers = json.loads(Path(\"triggers.json\").read_text())\n    trigger = triggers[trigger_kind]\n    if trigger_kind == \"repository_commit\":\n        import re\n        if re.fullmatch(trigger[\"branch_filter\"], event.get(\"branch\", \"\")) is None:\n            return {\"triggered\": False, \"steps\": []}\n    elif any(event.get(k) != v for k, v in trigger[\"filters\"].items()):\n        return {\"triggered\": False, \"steps\": []}\n    bindings = dict(config.get(\"substitutions\", {}))\n    bindings.update({k: event[field] for k, field in trigger[\"bindings\"].items()})\n    results, by_id = [], {}\n    pending = list(config[\"steps\"])\n    while pending:\n        progress = False\n        for step in list(pending):\n            i = config[\"steps\"].index(step)\n            dependencies = step.get(\"waitFor\") or [s[\"id\"] for s in config[\"steps\"][:i]]\n            dependencies = [d for d in dependencies if d != \"-\"]\n            if any(d not in by_id for d in dependencies):\n                continue\n            args = [str(a) for a in step.get(\"args\", [])]\n            for j, arg in enumerate(args):\n                for key, value in bindings.items():\n                    arg = arg.replace(\"${\" + key + \"}\", str(value)).replace(key, str(value))\n                args[j] = arg\n            record = {\"id\": step[\"id\"], \"name\": step[\"name\"], \"resolved_args\": args, \"waitFor\": dependencies}\n            if any(by_id[d][\"status\"] != \"SUCCESS\" for d in dependencies):\n                record.update(status=\"NOT_STARTED\", exit_code=None, output=\"\")\n            else:\n                if step.get(\"allowFailure\") or any(x != 0 for x in step.get(\"allowExitCodes\", [])):\n                    raise ValueError(\"required gate failures must be fatal\")\n                if not args or args[0] != \"python\":\n                    raise ValueError(\"bounded adapter only supports declared Python entry points\")\n                p = subprocess.run([sys.executable] + args[1:], text=True, capture_output=True)\n                record.update(status=\"SUCCESS\" if p.returncode == 0 else \"FAILURE\", exit_code=p.returncode, output=p.stdout+p.stderr)\n            results.append(record); by_id[step[\"id\"]] = record\n            pending.remove(step); progress = True\n        if not progress:\n            raise ValueError(\"missing dependency or cycle\")\n    return {\"triggered\": True, \"resolved_inputs\": bindings, \"steps\": results}\n"
+        },
+        {
+          "path": "storage_sim.py",
+          "content": "\"\"\"Bounded local Cloud Storage interface, never a real cloud client.\"\"\"\nfrom pathlib import Path\nclass PreconditionFailed(Exception):\n    status_code = 412\nclass RecoverableFailure(Exception):\n    pass\nclass StorageClient:\n    def __init__(self, initial=None, race=None):\n        self.objects = dict(initial or {})\n        self.race = dict(race or {})\n        self.uploads = []\n        self.requests = []\n    def blob(self, name):\n        return Blob(self, name)\nclass Blob:\n    def __init__(self, client, name):\n        self.client, self.name = client, name\n        self.generation = None\n    def exists(self):\n        return self.name in self.client.objects\n    def reload(self):\n        self.generation = self.client.objects[self.name][\"generation\"]\n    def download_as_bytes(self, if_generation_match):\n        self.client.requests.append((self.name, if_generation_match))\n        obj = self.client.objects[self.name]\n        if obj[\"generation\"] != if_generation_match:\n            raise PreconditionFailed(\"generation mismatch\")\n        return obj[\"data\"]\n    def upload_from_filename(self, path, if_generation_match):\n        if if_generation_match != 0:\n            raise ValueError(\"fixture contract permits create-only upload\")\n        if self.name in self.client.race:\n            self.client.objects[self.name] = self.client.race.pop(self.name)\n            raise PreconditionFailed(\"412 concurrent creation\")\n        if self.exists():\n            raise PreconditionFailed(\"412 already exists\")\n        self.client.objects[self.name] = {\"generation\": 1, \"data\": Path(path).read_bytes()}\n        self.client.uploads.append(self.name)\n        self.reload()\n"
+        },
+        {
+          "path": "fixtures/anchor_contract.json",
+          "content": "{\n  \"type\": \"live_code\",\n  \"objective\": \"Implement a learner-defined Python function with learner-written dependency imports that audits the supplied deployment, registry, run, approval, dataset, configuration, artifact and code records. Resolve dictionary links, compare identities pairwise, download the exact recorded artifact generation, verify its content identity, and inspect the recorded revision in the supplied local repository. Return the verified lineage chain or an explicit missing or mismatched link.\",\n  \"success\": \"The function reports a verified chain only when the supplied identity links, downloaded artifact content and local commit checks agree. It explicitly reports missing links and identity mismatches without relying on similar names. Learner-written assert predicates pass for the declared valid, boundary and failure fixtures; a deliberately false predicate raises AssertionError during ordinary non-optimized execution.\",\n  \"live_code\": {\n    \"required_skill\": \"Resolve supplied provenance records and validate their pairwise identities using dictionary lookup, exact-generation object retrieval, content verification and local Git inspection.\",\n    \"allowed_syntax\": [\n      \"import statements for required library and storage-client dependencies\",\n      \"def with parameters and return\",\n      \"variable assignment\",\n      \"dictionary literals, key lookup and dict.get()\",\n      \"list and tuple literals\",\n      \"if, elif and else\",\n      \"for loops over supplied records\",\n      \"equality, inequality, membership and Boolean predicates\",\n      \"assert predicate\",\n      \"function and method calls\",\n      \"the supplied storage client's version-qualified artifact download interface\",\n      \"file byte reads and the supplied content-identity hashing method\",\n      \"subprocess.run() with argument lists, a local repository working directory and captured command results\",\n      \"git rev-parse --verify REVISION and git show REVISION invoked through subprocess\",\n      \"command return-code and output inspection\"\n    ],\n    \"blocked_syntax\": [],\n    \"starter_state_intent\": \"Provide dictionary fixtures for deployment, registry, run, approval, dataset, configuration, artifact and code records; authorized object-storage references with an exact artifact generation and expected content identity; and a local repository containing the referenced revision. Include declared valid, boundary and failure cases, including approval for artifact A paired with deployment artifact B and a missing lineage link. Supply client-interface documentation and case contracts, but no complete function or dependency imports.\",\n    \"observable_success\": \"The returned result identifies the checked lineage edges. The artifact request uses the registry's recorded generation, and the downloaded content is compared with the recorded identity. The recorded revision is inspected with both required Git commands, with unsuccessful command results preventing a verified-chain report. Assertions check the declared case outcomes, including explicit missing-link and mismatch results.\"\n  }\n}\n"
+        },
+        {
+          "path": "fixtures/visual_intent.json",
+          "content": "{\n  \"type\": \"code\",\n  \"purpose\": \"Make the supplied records, intermediate pairwise identity checks, exact-generation artifact request, content comparison, local Git inspection results and final audit result visible alongside the declared case assertions.\"\n}\n"
+        },
+        {
+          "path": "training_entry.py",
+          "content": "\"\"\"Existing training entry point, kept unchanged by dataset-gate exercises.\"\"\"\nimport json\nimport sys\nfrom pathlib import Path\nif __name__ == \"__main__\":\n    snapshot_id = sys.argv[1]\n    Path(\"training_invocation.json\").write_text(json.dumps({\"snapshot_id\": snapshot_id, \"started\": True}))\n"
+        },
+        {
+          "path": "downstream_entry.py",
+          "content": "\"\"\"Supplied downstream execution marker; no gate bypass.\"\"\"\nimport json\nimport sys\nfrom pathlib import Path\nif __name__ == \"__main__\":\n    Path(\"downstream_invocation.json\").write_text(json.dumps({\"artifact_id\": sys.argv[1], \"started\": True}))\n"
+        },
+        {
+          "path": "outputs/A.txt",
+          "content": "fictional fitted package A\npreprocess: divide feature by 5\nthreshold: 0.4\n"
+        },
+        {
+          "path": "outputs/B.txt",
+          "content": "fictional fitted package B\npreprocess: divide feature by 5\nthreshold: 0.5\n"
+        },
+        {
+          "path": "fixtures/artifacts.json",
+          "content": "{\n  \"A\": {\n    \"artifact_id\": \"A\",\n    \"uri\": \"gs://fixture-artifacts/A.txt\",\n    \"generation\": 1,\n    \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n    \"validation_ok\": true\n  },\n  \"B\": {\n    \"artifact_id\": \"B\",\n    \"uri\": \"gs://fixture-artifacts/B.txt\",\n    \"generation\": 1,\n    \"sha256\": \"6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a\",\n    \"validation_ok\": true\n  }\n}\n"
+        },
+        {
+          "path": "dataset.csv",
+          "content": "sample_id,feature,label\nsample.101,0,0\nsample.102,1,0\nsample.103,2,1\nsample.104,3,1\nsample.105,4,1\nsample.106,5,1\n"
+        },
+        {
+          "path": "fixtures/lineage_cases.json",
+          "content": "{\n  \"valid\": {\n    \"deployment\": {\n      \"deployment_id\": \"deployment.A\",\n      \"registry_version\": \"1\",\n      \"artifact_id\": \"A\"\n    },\n    \"registry\": {\n      \"1\": {\n        \"model_name\": \"fixture_model\",\n        \"version\": \"1\",\n        \"artifact_id\": \"A\",\n        \"artifact_source\": \"gs://fixture-artifacts/A.txt\",\n        \"generation\": 1,\n        \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n        \"run_id\": \"run.A\"\n      }\n    },\n    \"runs\": {\n      \"run.A\": {\n        \"run_id\": \"run.A\",\n        \"artifact_id\": \"A\",\n        \"artifact_sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n        \"dataset_id\": \"snapshot.A\",\n        \"configuration_id\": \"config.A\",\n        \"code_id\": \"code.A\"\n      }\n    },\n    \"approval\": {\n      \"approval_id\": \"approval.A\",\n      \"registry_version\": \"1\",\n      \"artifact_id\": \"A\",\n      \"authorized\": true,\n      \"accountable_identity\": \"fixture-promoter\"\n    },\n    \"datasets\": {\n      \"snapshot.A\": {\n        \"sha256\": \"94d86c2f748dbd3ec7fb8e27dded66533bde22a109a97d9fde2191d96b831d61\",\n        \"file\": \"dataset.csv\"\n      }\n    },\n    \"configurations\": {\n      \"config.A\": {\n        \"sha256\": \"75bc2039e3a69484813ab3b30218dba912ae9ecc3f03a7087a068915072e8e4a\",\n        \"resolved\": {\n          \"feature_scale\": 5.0,\n          \"threshold\": 0.4,\n          \"package\": \"A\"\n        }\n      }\n    },\n    \"artifacts\": {\n      \"A\": {\n        \"artifact_id\": \"A\",\n        \"uri\": \"gs://fixture-artifacts/A.txt\",\n        \"generation\": 1,\n        \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n        \"validation_ok\": true\n      },\n      \"B\": {\n        \"artifact_id\": \"B\",\n        \"uri\": \"gs://fixture-artifacts/B.txt\",\n        \"generation\": 1,\n        \"sha256\": \"6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a\",\n        \"validation_ok\": true\n      }\n    },\n    \"code\": {\n      \"code.A\": {\n        \"revision\": \"da89ee877040e427fd3de821dffbdc0abd82017b\",\n        \"repository\": \"local_repo\"\n      }\n    }\n  },\n  \"boundary_same_name_other_version\": {\n    \"deployment\": {\n      \"deployment_id\": \"deployment.A\",\n      \"registry_version\": \"1\",\n      \"artifact_id\": \"A\"\n    },\n    \"registry\": {\n      \"1\": {\n        \"model_name\": \"fixture_model\",\n        \"version\": \"1\",\n        \"artifact_id\": \"A\",\n        \"artifact_source\": \"gs://fixture-artifacts/A.txt\",\n        \"generation\": 1,\n        \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n        \"run_id\": \"run.A\"\n      },\n      \"2\": {\n        \"model_name\": \"fixture_model\",\n        \"version\": \"2\",\n        \"artifact_id\": \"A\",\n        \"artifact_source\": \"gs://fixture-artifacts/A.txt\",\n        \"generation\": 1,\n        \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n        \"run_id\": \"run.A\"\n      }\n    },\n    \"runs\": {\n      \"run.A\": {\n        \"run_id\": \"run.A\",\n        \"artifact_id\": \"A\",\n        \"artifact_sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n        \"dataset_id\": \"snapshot.A\",\n        \"configuration_id\": \"config.A\",\n        \"code_id\": \"code.A\"\n      }\n    },\n    \"approval\": {\n      \"approval_id\": \"approval.A\",\n      \"registry_version\": \"1\",\n      \"artifact_id\": \"A\",\n      \"authorized\": true,\n      \"accountable_identity\": \"fixture-promoter\"\n    },\n    \"datasets\": {\n      \"snapshot.A\": {\n        \"sha256\": \"94d86c2f748dbd3ec7fb8e27dded66533bde22a109a97d9fde2191d96b831d61\",\n        \"file\": \"dataset.csv\"\n      }\n    },\n    \"configurations\": {\n      \"config.A\": {\n        \"sha256\": \"75bc2039e3a69484813ab3b30218dba912ae9ecc3f03a7087a068915072e8e4a\",\n        \"resolved\": {\n          \"feature_scale\": 5.0,\n          \"threshold\": 0.4,\n          \"package\": \"A\"\n        }\n      }\n    },\n    \"artifacts\": {\n      \"A\": {\n        \"artifact_id\": \"A\",\n        \"uri\": \"gs://fixture-artifacts/A.txt\",\n        \"generation\": 1,\n        \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n        \"validation_ok\": true\n      },\n      \"B\": {\n        \"artifact_id\": \"B\",\n        \"uri\": \"gs://fixture-artifacts/B.txt\",\n        \"generation\": 1,\n        \"sha256\": \"6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a\",\n        \"validation_ok\": true\n      }\n    },\n    \"code\": {\n      \"code.A\": {\n        \"revision\": \"da89ee877040e427fd3de821dffbdc0abd82017b\",\n        \"repository\": \"local_repo\"\n      }\n    }\n  },\n  \"approval_A_deployment_B\": {\n    \"deployment\": {\n      \"deployment_id\": \"deployment.A\",\n      \"registry_version\": \"1\",\n      \"artifact_id\": \"B\"\n    },\n    \"registry\": {\n      \"1\": {\n        \"model_name\": \"fixture_model\",\n        \"version\": \"1\",\n        \"artifact_id\": \"A\",\n        \"artifact_source\": \"gs://fixture-artifacts/A.txt\",\n        \"generation\": 1,\n        \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n        \"run_id\": \"run.A\"\n      }\n    },\n    \"runs\": {\n      \"run.A\": {\n        \"run_id\": \"run.A\",\n        \"artifact_id\": \"A\",\n        \"artifact_sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n        \"dataset_id\": \"snapshot.A\",\n        \"configuration_id\": \"config.A\",\n        \"code_id\": \"code.A\"\n      }\n    },\n    \"approval\": {\n      \"approval_id\": \"approval.A\",\n      \"registry_version\": \"1\",\n      \"artifact_id\": \"A\",\n      \"authorized\": true,\n      \"accountable_identity\": \"fixture-promoter\"\n    },\n    \"datasets\": {\n      \"snapshot.A\": {\n        \"sha256\": \"94d86c2f748dbd3ec7fb8e27dded66533bde22a109a97d9fde2191d96b831d61\",\n        \"file\": \"dataset.csv\"\n      }\n    },\n    \"configurations\": {\n      \"config.A\": {\n        \"sha256\": \"75bc2039e3a69484813ab3b30218dba912ae9ecc3f03a7087a068915072e8e4a\",\n        \"resolved\": {\n          \"feature_scale\": 5.0,\n          \"threshold\": 0.4,\n          \"package\": \"A\"\n        }\n      }\n    },\n    \"artifacts\": {\n      \"A\": {\n        \"artifact_id\": \"A\",\n        \"uri\": \"gs://fixture-artifacts/A.txt\",\n        \"generation\": 1,\n        \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n        \"validation_ok\": true\n      },\n      \"B\": {\n        \"artifact_id\": \"B\",\n        \"uri\": \"gs://fixture-artifacts/B.txt\",\n        \"generation\": 1,\n        \"sha256\": \"6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a\",\n        \"validation_ok\": true\n      }\n    },\n    \"code\": {\n      \"code.A\": {\n        \"revision\": \"da89ee877040e427fd3de821dffbdc0abd82017b\",\n        \"repository\": \"local_repo\"\n      }\n    }\n  },\n  \"missing_run_link\": {\n    \"deployment\": {\n      \"deployment_id\": \"deployment.A\",\n      \"registry_version\": \"1\",\n      \"artifact_id\": \"A\"\n    },\n    \"registry\": {\n      \"1\": {\n        \"model_name\": \"fixture_model\",\n        \"version\": \"1\",\n        \"artifact_id\": \"A\",\n        \"artifact_source\": \"gs://fixture-artifacts/A.txt\",\n        \"generation\": 1,\n        \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\"\n      }\n    },\n    \"runs\": {\n      \"run.A\": {\n        \"run_id\": \"run.A\",\n        \"artifact_id\": \"A\",\n        \"artifact_sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n        \"dataset_id\": \"snapshot.A\",\n        \"configuration_id\": \"config.A\",\n        \"code_id\": \"code.A\"\n      }\n    },\n    \"approval\": {\n      \"approval_id\": \"approval.A\",\n      \"registry_version\": \"1\",\n      \"artifact_id\": \"A\",\n      \"authorized\": true,\n      \"accountable_identity\": \"fixture-promoter\"\n    },\n    \"datasets\": {\n      \"snapshot.A\": {\n        \"sha256\": \"94d86c2f748dbd3ec7fb8e27dded66533bde22a109a97d9fde2191d96b831d61\",\n        \"file\": \"dataset.csv\"\n      }\n    },\n    \"configurations\": {\n      \"config.A\": {\n        \"sha256\": \"75bc2039e3a69484813ab3b30218dba912ae9ecc3f03a7087a068915072e8e4a\",\n        \"resolved\": {\n          \"feature_scale\": 5.0,\n          \"threshold\": 0.4,\n          \"package\": \"A\"\n        }\n      }\n    },\n    \"artifacts\": {\n      \"A\": {\n        \"artifact_id\": \"A\",\n        \"uri\": \"gs://fixture-artifacts/A.txt\",\n        \"generation\": 1,\n        \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n        \"validation_ok\": true\n      },\n      \"B\": {\n        \"artifact_id\": \"B\",\n        \"uri\": \"gs://fixture-artifacts/B.txt\",\n        \"generation\": 1,\n        \"sha256\": \"6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a\",\n        \"validation_ok\": true\n      }\n    },\n    \"code\": {\n      \"code.A\": {\n        \"revision\": \"da89ee877040e427fd3de821dffbdc0abd82017b\",\n        \"repository\": \"local_repo\"\n      }\n    }\n  },\n  \"wrong_generation\": {\n    \"deployment\": {\n      \"deployment_id\": \"deployment.A\",\n      \"registry_version\": \"1\",\n      \"artifact_id\": \"A\"\n    },\n    \"registry\": {\n      \"1\": {\n        \"model_name\": \"fixture_model\",\n        \"version\": \"1\",\n        \"artifact_id\": \"A\",\n        \"artifact_source\": \"gs://fixture-artifacts/A.txt\",\n        \"generation\": 2,\n        \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n        \"run_id\": \"run.A\"\n      }\n    },\n    \"runs\": {\n      \"run.A\": {\n        \"run_id\": \"run.A\",\n        \"artifact_id\": \"A\",\n        \"artifact_sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n        \"dataset_id\": \"snapshot.A\",\n        \"configuration_id\": \"config.A\",\n        \"code_id\": \"code.A\"\n      }\n    },\n    \"approval\": {\n      \"approval_id\": \"approval.A\",\n      \"registry_version\": \"1\",\n      \"artifact_id\": \"A\",\n      \"authorized\": true,\n      \"accountable_identity\": \"fixture-promoter\"\n    },\n    \"datasets\": {\n      \"snapshot.A\": {\n        \"sha256\": \"94d86c2f748dbd3ec7fb8e27dded66533bde22a109a97d9fde2191d96b831d61\",\n        \"file\": \"dataset.csv\"\n      }\n    },\n    \"configurations\": {\n      \"config.A\": {\n        \"sha256\": \"75bc2039e3a69484813ab3b30218dba912ae9ecc3f03a7087a068915072e8e4a\",\n        \"resolved\": {\n          \"feature_scale\": 5.0,\n          \"threshold\": 0.4,\n          \"package\": \"A\"\n        }\n      }\n    },\n    \"artifacts\": {\n      \"A\": {\n        \"artifact_id\": \"A\",\n        \"uri\": \"gs://fixture-artifacts/A.txt\",\n        \"generation\": 1,\n        \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n        \"validation_ok\": true\n      },\n      \"B\": {\n        \"artifact_id\": \"B\",\n        \"uri\": \"gs://fixture-artifacts/B.txt\",\n        \"generation\": 1,\n        \"sha256\": \"6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a\",\n        \"validation_ok\": true\n      }\n    },\n    \"code\": {\n      \"code.A\": {\n        \"revision\": \"da89ee877040e427fd3de821dffbdc0abd82017b\",\n        \"repository\": \"local_repo\"\n      }\n    }\n  },\n  \"missing_code_revision\": {\n    \"deployment\": {\n      \"deployment_id\": \"deployment.A\",\n      \"registry_version\": \"1\",\n      \"artifact_id\": \"A\"\n    },\n    \"registry\": {\n      \"1\": {\n        \"model_name\": \"fixture_model\",\n        \"version\": \"1\",\n        \"artifact_id\": \"A\",\n        \"artifact_source\": \"gs://fixture-artifacts/A.txt\",\n        \"generation\": 1,\n        \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n        \"run_id\": \"run.A\"\n      }\n    },\n    \"runs\": {\n      \"run.A\": {\n        \"run_id\": \"run.A\",\n        \"artifact_id\": \"A\",\n        \"artifact_sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n        \"dataset_id\": \"snapshot.A\",\n        \"configuration_id\": \"config.A\",\n        \"code_id\": \"code.A\"\n      }\n    },\n    \"approval\": {\n      \"approval_id\": \"approval.A\",\n      \"registry_version\": \"1\",\n      \"artifact_id\": \"A\",\n      \"authorized\": true,\n      \"accountable_identity\": \"fixture-promoter\"\n    },\n    \"datasets\": {\n      \"snapshot.A\": {\n        \"sha256\": \"94d86c2f748dbd3ec7fb8e27dded66533bde22a109a97d9fde2191d96b831d61\",\n        \"file\": \"dataset.csv\"\n      }\n    },\n    \"configurations\": {\n      \"config.A\": {\n        \"sha256\": \"75bc2039e3a69484813ab3b30218dba912ae9ecc3f03a7087a068915072e8e4a\",\n        \"resolved\": {\n          \"feature_scale\": 5.0,\n          \"threshold\": 0.4,\n          \"package\": \"A\"\n        }\n      }\n    },\n    \"artifacts\": {\n      \"A\": {\n        \"artifact_id\": \"A\",\n        \"uri\": \"gs://fixture-artifacts/A.txt\",\n        \"generation\": 1,\n        \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n        \"validation_ok\": true\n      },\n      \"B\": {\n        \"artifact_id\": \"B\",\n        \"uri\": \"gs://fixture-artifacts/B.txt\",\n        \"generation\": 1,\n        \"sha256\": \"6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a\",\n        \"validation_ok\": true\n      }\n    },\n    \"code\": {\n      \"code.A\": {\n        \"revision\": \"refs/heads/not-present\",\n        \"repository\": \"local_repo\"\n      }\n    }\n  },\n  \"configuration_mismatch\": {\n    \"deployment\": {\n      \"deployment_id\": \"deployment.A\",\n      \"registry_version\": \"1\",\n      \"artifact_id\": \"A\"\n    },\n    \"registry\": {\n      \"1\": {\n        \"model_name\": \"fixture_model\",\n        \"version\": \"1\",\n        \"artifact_id\": \"A\",\n        \"artifact_source\": \"gs://fixture-artifacts/A.txt\",\n        \"generation\": 1,\n        \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n        \"run_id\": \"run.A\"\n      }\n    },\n    \"runs\": {\n      \"run.A\": {\n        \"run_id\": \"run.A\",\n        \"artifact_id\": \"A\",\n        \"artifact_sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n        \"dataset_id\": \"snapshot.A\",\n        \"configuration_id\": \"config.A\",\n        \"code_id\": \"code.A\"\n      }\n    },\n    \"approval\": {\n      \"approval_id\": \"approval.A\",\n      \"registry_version\": \"1\",\n      \"artifact_id\": \"A\",\n      \"authorized\": true,\n      \"accountable_identity\": \"fixture-promoter\"\n    },\n    \"datasets\": {\n      \"snapshot.A\": {\n        \"sha256\": \"94d86c2f748dbd3ec7fb8e27dded66533bde22a109a97d9fde2191d96b831d61\",\n        \"file\": \"dataset.csv\"\n      }\n    },\n    \"configurations\": {\n      \"config.A\": {\n        \"sha256\": \"8c33410a780a94782ddb3fb52ce48f2a640b6a9c9b2994dd26da2d7090267a29\",\n        \"resolved\": {\n          \"feature_scale\": 5.0,\n          \"threshold\": 0.4,\n          \"package\": \"A\"\n        }\n      }\n    },\n    \"artifacts\": {\n      \"A\": {\n        \"artifact_id\": \"A\",\n        \"uri\": \"gs://fixture-artifacts/A.txt\",\n        \"generation\": 1,\n        \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n        \"validation_ok\": true\n      },\n      \"B\": {\n        \"artifact_id\": \"B\",\n        \"uri\": \"gs://fixture-artifacts/B.txt\",\n        \"generation\": 1,\n        \"sha256\": \"6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a\",\n        \"validation_ok\": true\n      }\n    },\n    \"code\": {\n      \"code.A\": {\n        \"revision\": \"da89ee877040e427fd3de821dffbdc0abd82017b\",\n        \"repository\": \"local_repo\"\n      }\n    }\n  },\n  \"dataset_mismatch\": {\n    \"deployment\": {\n      \"deployment_id\": \"deployment.A\",\n      \"registry_version\": \"1\",\n      \"artifact_id\": \"A\"\n    },\n    \"registry\": {\n      \"1\": {\n        \"model_name\": \"fixture_model\",\n        \"version\": \"1\",\n        \"artifact_id\": \"A\",\n        \"artifact_source\": \"gs://fixture-artifacts/A.txt\",\n        \"generation\": 1,\n        \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n        \"run_id\": \"run.A\"\n      }\n    },\n    \"runs\": {\n      \"run.A\": {\n        \"run_id\": \"run.A\",\n        \"artifact_id\": \"A\",\n        \"artifact_sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n        \"dataset_id\": \"snapshot.A\",\n        \"configuration_id\": \"config.A\",\n        \"code_id\": \"code.A\"\n      }\n    },\n    \"approval\": {\n      \"approval_id\": \"approval.A\",\n      \"registry_version\": \"1\",\n      \"artifact_id\": \"A\",\n      \"authorized\": true,\n      \"accountable_identity\": \"fixture-promoter\"\n    },\n    \"datasets\": {\n      \"snapshot.A\": {\n        \"sha256\": \"44b492d1f805be945fa7b81e144b75bd5cbf16bfa5ff01a00e8e2d526c53a82f\",\n        \"file\": \"dataset.csv\"\n      }\n    },\n    \"configurations\": {\n      \"config.A\": {\n        \"sha256\": \"75bc2039e3a69484813ab3b30218dba912ae9ecc3f03a7087a068915072e8e4a\",\n        \"resolved\": {\n          \"feature_scale\": 5.0,\n          \"threshold\": 0.4,\n          \"package\": \"A\"\n        }\n      }\n    },\n    \"artifacts\": {\n      \"A\": {\n        \"artifact_id\": \"A\",\n        \"uri\": \"gs://fixture-artifacts/A.txt\",\n        \"generation\": 1,\n        \"sha256\": \"9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6\",\n        \"validation_ok\": true\n      },\n      \"B\": {\n        \"artifact_id\": \"B\",\n        \"uri\": \"gs://fixture-artifacts/B.txt\",\n        \"generation\": 1,\n        \"sha256\": \"6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a\",\n        \"validation_ok\": true\n      }\n    },\n    \"code\": {\n      \"code.A\": {\n        \"revision\": \"da89ee877040e427fd3de821dffbdc0abd82017b\",\n        \"repository\": \"local_repo\"\n      }\n    }\n  }\n}\n"
+        },
+        {
+          "path": "bootstrap_local_repo.py",
+          "content": "\"\"\"Run in the exercise runtime only; creates the supplied local repo fixture.\"\"\"\nfrom pathlib import Path\nimport subprocess\nimport os\nroot = Path(\"local_repo\")\nroot.mkdir(exist_ok=True)\n(root / \"model_source.py\").write_text('\"\"\"Fictional package source retained for lineage inspection.\"\"\"\\ndef transform(feature):\\n    return feature / 5.0\\n')\nenv = dict(os.environ, GIT_AUTHOR_DATE=\"1700000000 +0000\", GIT_COMMITTER_DATE=\"1700000000 +0000\", GIT_CONFIG_NOSYSTEM=\"1\")\ndef run(*args):\n    return subprocess.run([\"git\", *args], cwd=root, env=env, check=True, capture_output=True, text=True).stdout.strip()\nrun(\"init\", \"--initial-branch=main\")\nrun(\"config\", \"user.name\", \"Fixture Author\")\nrun(\"config\", \"user.email\", \"fixture@example.invalid\")\nrun(\"config\", \"core.autocrlf\", \"false\")\nrun(\"add\", \"model_source.py\")\nrun(\"-c\", \"commit.gpgsign=false\", \"commit\", \"-m\", \"Authored lineage fixture\")\nassert run(\"rev-parse\", \"HEAD\") == 'da89ee877040e427fd3de821dffbdc0abd82017b'\n"
+        },
+        {
+          "path": "model_source.py",
+          "content": "\"\"\"Fictional package source retained for lineage inspection.\"\"\"\ndef transform(feature):\n    return feature / 5.0\n"
+        },
+        {
+          "path": "fixtures/lineage_contract.json",
+          "content": "{\n  \"repository_setup\": \"Run bootstrap_local_repo.py once in the exercise runtime; audit must independently inspect the recorded revision with both required git commands. No local repository was created by this stage.\",\n  \"hash_algorithm\": \"sha256\",\n  \"configuration_serialization\": \"json.dumps(resolved,sort_keys=True,separators=(comma,colon)).encode()\",\n  \"edge_checks\": [\n    \"deployment to registry\",\n    \"approval to deployed artifact/version\",\n    \"registry to artifact exact source/generation/hash and originating run\",\n    \"run to dataset content identity\",\n    \"run to resolved configuration identity\",\n    \"run to artifact identity\",\n    \"code revision to existing local commit\"\n  ],\n  \"failure_handling\": \"report the explicit missing or mismatched edge, never infer links from names\",\n  \"boundary_case\": \"a second unselected registry version with the same model name does not invalidate the selected exact version\"\n}\n"
+        }
+      ]
+    }
+  ]
+}

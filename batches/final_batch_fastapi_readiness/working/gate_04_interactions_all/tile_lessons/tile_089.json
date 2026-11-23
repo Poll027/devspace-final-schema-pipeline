@@ -1,0 +1,1114 @@
+{
+  "schema_version": "0.1.0",
+  "kind": "tile_lesson",
+  "path_id": "python_fastapi_backend_developer",
+  "tile_id": "tile_089",
+  "toc_location": {
+    "region_id": "region_readiness",
+    "terrain_id": "terrain_verified_controls"
+  },
+  "title": "Recognizing and avoiding redundant ORM queries",
+  "summary": "",
+  "concept_ids": [
+    "sqlalchemy.redundant_queries"
+  ],
+  "source": {
+    "glossary_batch_id": "glossary_batch_python_fastapi_backend_developer",
+    "toc_freeze_hash": "96d245a8da4552263398bda220dd1f88774cc30045abdf029e8d40064881cb7e",
+    "glossary_bundle_hashes": {
+      "sqlalchemy.redundant_queries": "e11bb1ab88b5c8d137337a36c21abb0532fa953e93e551192d25f08f70406b09"
+    },
+    "scenario_registry_hash": "8457b835acb638f3087af0988b1e25455e51b5c8a0efda9e9bd119a35f922ffe"
+  },
+  "requires": {
+    "min_player_version": "0.1.0",
+    "packs": [
+      "core",
+      "data"
+    ],
+    "block_types": [
+      "code_walkthrough",
+      "comparison",
+      "data_table",
+      "media_group",
+      "prose",
+      "side_by_side",
+      "up_next"
+    ],
+    "interaction_types": [
+      "choice",
+      "code_exercise"
+    ],
+    "runtimes": [
+      "python_asgi"
+    ],
+    "asset_ids": []
+  },
+  "pacing": {
+    "estimated_minutes": 12.0
+  },
+  "steps": [
+    {
+      "step_id": "tile_089.s01",
+      "type": "explainer",
+      "concept_ids": [
+        "sqlalchemy.redundant_queries"
+      ],
+      "title": "Recognizing and avoiding redundant ORM queries",
+      "lineage": {
+        "teaching_block_ids": [
+          "sqlalchemy.redundant_queries#tb1",
+          "sqlalchemy.redundant_queries#tb2",
+          "sqlalchemy.redundant_queries#tb3"
+        ],
+        "fact_ids": [
+          "sqlalchemy.redundant_queries#f1",
+          "sqlalchemy.redundant_queries#f2",
+          "sqlalchemy.redundant_queries#f3",
+          "sqlalchemy.redundant_queries#f4"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "sqlalchemy.redundant_queries#visual"
+        ]
+      },
+      "eyebrow": "Learn the rule",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Lazy relationship access can emit extra SELECTs. Loading a relationship separately for each parent can produce N+1 queries.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.redundant_queries"
+            ],
+            "fact_ids": [
+              "sqlalchemy.redundant_queries#f1"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.redundant_queries#tb2"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Use statement.options(selectinload(Entity.relationship_attribute)) to fetch the selected parents’ collection with an additional batched query, not one per parent.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.redundant_queries"
+            ],
+            "fact_ids": [
+              "sqlalchemy.redundant_queries#f2"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.redundant_queries#tb3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "joinedload(...) instead uses a join. For collection loading, apply Result.unique() as required to deduplicate parents.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.redundant_queries"
+            ],
+            "fact_ids": [
+              "sqlalchemy.redundant_queries#f3"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.redundant_queries#tb3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Compare emitted SQL before and after with engine echo=True; confirm fewer relationship queries and unchanged returned entity data.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.redundant_queries"
+            ],
+            "fact_ids": [
+              "sqlalchemy.redundant_queries#f4"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.redundant_queries#tb3"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "side_by_side",
+          "left": {
+            "type": "code_walkthrough",
+            "language": "python",
+            "code": "from sqlalchemy import ForeignKey, create_engine, select\nfrom sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, Session, selectinload\nclass Base(DeclarativeBase):\n    pass\nclass Entity(Base):\n    __tablename__ = 'Entity'\n    id: Mapped[int] = mapped_column(primary_key=True)\n    relationship_attribute: Mapped[list['Child']] = relationship(back_populates='parent')\nclass Child(Base):\n    __tablename__ = 'relationship_attribute'\n    id: Mapped[int] = mapped_column(primary_key=True)\n    parent_id: Mapped[int] = mapped_column(ForeignKey('Entity.id'))\n    parent: Mapped[Entity] = relationship(back_populates='relationship_attribute')\nengine = create_engine('sqlite://', echo=True)\nBase.metadata.create_all(engine)\nwith Session(engine) as session:\n    session.add_all([Entity(id=11),Entity(id=22),Entity(id=33),\n                     Child(id=111,parent_id=11),Child(id=112,parent_id=11),Child(id=221,parent_id=22)])\n    session.commit()\ndef listing(session):\n    statement = select(Entity).order_by(Entity.id).limit(3)\n    # TODO: statement.options(selectinload(Entity.relationship_attribute))\n    parents = session.execute(statement).scalars().all()\n    return [{'id':p.id, 'children':[c.id for c in p.relationship_attribute]} for p in parents]\n# Run baseline and changed listing in separate fresh sessions and capture echo\n# output; do not reuse already-loaded relationships when measuring the change.\nif __name__ == '__main__':\n    with Session(engine) as session:\n        print(listing(session))\n",
+            "reveal": "all",
+            "lineage": {
+              "concept_ids": [
+                "sqlalchemy.redundant_queries"
+              ],
+              "fact_ids": [
+                "sqlalchemy.redundant_queries#f1",
+                "sqlalchemy.redundant_queries#f2",
+                "sqlalchemy.redundant_queries#f3",
+                "sqlalchemy.redundant_queries#f4"
+              ],
+              "teaching_block_ids": [
+                "sqlalchemy.redundant_queries#tb2",
+                "sqlalchemy.redundant_queries#tb3",
+                "sqlalchemy.redundant_queries#tb4",
+                "sqlalchemy.redundant_queries#tb5"
+              ],
+              "anchors": [
+                "sqlalchemy.redundant_queries#visual"
+              ]
+            }
+          },
+          "right": {
+            "type": "code_walkthrough",
+            "language": "python",
+            "code": "from sqlalchemy import ForeignKey, create_engine, select\nfrom sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, Session, selectinload\nclass Base(DeclarativeBase):\n    pass\nclass Entity(Base):\n    __tablename__ = 'Entity'\n    id: Mapped[int] = mapped_column(primary_key=True)\n    relationship_attribute: Mapped[list['Child']] = relationship(back_populates='parent')\nclass Child(Base):\n    __tablename__ = 'relationship_attribute'\n    id: Mapped[int] = mapped_column(primary_key=True)\n    parent_id: Mapped[int] = mapped_column(ForeignKey('Entity.id'))\n    parent: Mapped[Entity] = relationship(back_populates='relationship_attribute')\nengine = create_engine('sqlite://', echo=True)\nBase.metadata.create_all(engine)\nwith Session(engine) as session:\n    session.add_all([Entity(id=11),Entity(id=22),Entity(id=33),\n                     Child(id=111,parent_id=11),Child(id=112,parent_id=11),Child(id=221,parent_id=22)])\n    session.commit()\ndef listing(session):\n    statement = select(Entity).order_by(Entity.id).limit(3)\n    statement = statement.options(selectinload(Entity.relationship_attribute))\n    parents = session.execute(statement).scalars().all()\n    return [{'id':p.id, 'children':[c.id for c in p.relationship_attribute]} for p in parents]\n# Run baseline and changed listing in separate fresh sessions and capture echo\n# output; do not reuse already-loaded relationships when measuring the change.\nif __name__ == '__main__':\n    with Session(engine) as session:\n        print(listing(session))\n",
+            "reveal": "all",
+            "lineage": {
+              "concept_ids": [
+                "sqlalchemy.redundant_queries"
+              ],
+              "fact_ids": [
+                "sqlalchemy.redundant_queries#f1",
+                "sqlalchemy.redundant_queries#f2",
+                "sqlalchemy.redundant_queries#f3",
+                "sqlalchemy.redundant_queries#f4"
+              ],
+              "teaching_block_ids": [
+                "sqlalchemy.redundant_queries#tb2",
+                "sqlalchemy.redundant_queries#tb3",
+                "sqlalchemy.redundant_queries#tb4",
+                "sqlalchemy.redundant_queries#tb5"
+              ],
+              "anchors": [
+                "sqlalchemy.redundant_queries#visual"
+              ]
+            }
+          },
+          "left_label": "Before: lazy per-parent access",
+          "right_label": "After: batched collection loading",
+          "takeaway": "Capture emitted SQL in fresh sessions with echo=True; compare fewer relationship queries and identical entity data. Outputs belong to execution.",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.redundant_queries"
+            ],
+            "fact_ids": [
+              "sqlalchemy.redundant_queries#f1",
+              "sqlalchemy.redundant_queries#f2",
+              "sqlalchemy.redundant_queries#f3",
+              "sqlalchemy.redundant_queries#f4"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.redundant_queries#tb2",
+              "sqlalchemy.redundant_queries#tb3",
+              "sqlalchemy.redundant_queries#tb4",
+              "sqlalchemy.redundant_queries#tb5"
+            ],
+            "anchors": [
+              "sqlalchemy.redundant_queries#visual"
+            ]
+          }
+        },
+        {
+          "type": "comparison",
+          "title": "SQL query pattern and returned collections",
+          "columns": [
+            {
+              "id": "baseline",
+              "label": "Captured baseline SQL and results"
+            },
+            {
+              "id": "revised",
+              "label": "Expected illustration — not captured execution evidence"
+            }
+          ],
+          "rows": [
+            {
+              "criterion": "Query-pattern summary",
+              "cells": {
+                "baseline": "Captured baseline: one parent SELECT, then relationship SELECTs with parent parameters (11,), (22,), and (33,). Returned data: [{\"id\":11,\"children\":[111,112]},{\"id\":22,\"children\":[221]},{\"id\":33,\"children\":[]}].",
+                "revised": "Expected selectinload pattern for these three parents: the same parent SELECT, then one relationship SELECT using WHERE relationship_attribute.parent_id IN (?, ?, ?) with parameters (11,22,33). Expected returned data are identical."
+              }
+            },
+            {
+              "criterion": "SQL panel",
+              "cells": {
+                "baseline": "BEGIN (implicit)\nSELECT \"Entity\".id \nFROM \"Entity\" ORDER BY \"Entity\".id\n LIMIT ? OFFSET ?\n[generated in 0.00006s] (3, 0)\nSELECT relationship_attribute.id, relationship_attribute.parent_id \nFROM relationship_attribute \nWHERE ? = relationship_attribute.parent_id\n[generated in 0.00006s] (11,)\nSELECT relationship_attribute.id, relationship_attribute.parent_id \nFROM relationship_attribute \nWHERE ? = relationship_attribute.parent_id\n[cached since 0.0003609s ago] (22,)\nSELECT relationship_attribute.id, relationship_attribute.parent_id \nFROM relationship_attribute \nWHERE ? = relationship_attribute.parent_id\n[cached since 0.0005504s ago] (33,)\nROLLBACK\n",
+                "revised": "Expected illustration: same parent SELECT; then SELECT relationship_attribute.parent_id, relationship_attribute.id FROM relationship_attribute WHERE relationship_attribute.parent_id IN (?, ?, ?) with parameters (11,22,33)."
+              }
+            },
+            {
+              "criterion": "Returned collections",
+              "cells": {
+                "baseline": "[{\"id\":11,\"children\":[111,112]},{\"id\":22,\"children\":[221]},{\"id\":33,\"children\":[]}]",
+                "revised": "Expected identical returned data: [{\"id\":11,\"children\":[111,112]},{\"id\":22,\"children\":[221]},{\"id\":33,\"children\":[]}]"
+              }
+            }
+          ],
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.redundant_queries"
+            ],
+            "fact_ids": [
+              "sqlalchemy.redundant_queries#f1",
+              "sqlalchemy.redundant_queries#f2",
+              "sqlalchemy.redundant_queries#f3",
+              "sqlalchemy.redundant_queries#f4"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.redundant_queries#tb2",
+              "sqlalchemy.redundant_queries#tb3",
+              "sqlalchemy.redundant_queries#tb4",
+              "sqlalchemy.redundant_queries#tb5"
+            ],
+            "anchors": [
+              "sqlalchemy.redundant_queries#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_089.s02",
+      "type": "explainer",
+      "concept_ids": [
+        "sqlalchemy.redundant_queries"
+      ],
+      "title": "Keep the boundary clear",
+      "lineage": {
+        "teaching_block_ids": [
+          "sqlalchemy.redundant_queries#tb4",
+          "sqlalchemy.redundant_queries#tb5"
+        ],
+        "fact_ids": [
+          "sqlalchemy.redundant_queries#f1",
+          "sqlalchemy.redundant_queries#f2",
+          "sqlalchemy.redundant_queries#f3",
+          "sqlalchemy.redundant_queries#f4"
+        ],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "eyebrow": "Work the boundary",
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Unchanged entity data does not prove unchanged database work. Check emitted SQL as well as the returned collections.",
+          "role": "walkthrough",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.redundant_queries"
+            ],
+            "fact_ids": [
+              "sqlalchemy.redundant_queries#f4"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.redundant_queries#tb4",
+              "sqlalchemy.redundant_queries#tb5"
+            ],
+            "anchors": []
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_089.s03",
+      "type": "video",
+      "concept_ids": [
+        "sqlalchemy.redundant_queries"
+      ],
+      "title": "Recognizing and avoiding redundant ORM queries",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "sqlalchemy.redundant_queries#f1",
+          "sqlalchemy.redundant_queries#f2"
+        ],
+        "segment_ids": [
+          "seg_sqlalchemy.redundant_queries_RzkD8hIDbkk_0_471"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "media_group",
+          "segment_ids": [
+            "seg_sqlalchemy.redundant_queries_RzkD8hIDbkk_0_471"
+          ],
+          "segments": [
+            {
+              "segment_id": "seg_sqlalchemy.redundant_queries_RzkD8hIDbkk_0_471",
+              "video_id": "RzkD8hIDbkk",
+              "youtube_url": "https://www.youtube.com/watch?v=RzkD8hIDbkk",
+              "review_url": "https://www.youtube.com/watch?v=RzkD8hIDbkk&t=0s",
+              "start_seconds": 0,
+              "end_seconds": 471,
+              "label": "Replace per-movie review queries with selectinload",
+              "summary": "Accessing a movie's reviews can issue a separate SELECT because the relationship is loaded lazily. Listing eight movies and accessing each collection produces nine queries: one for the movies and eight for their reviews. With engine echo logging enabled, the demonstration exposes these repeated queries, then imports selectinload from sqlalchemy.orm and adds options(selectinload(Movie.reviews)) to the statement. The resulting SQL retrieves the movies first, then fetches their reviews together using the selected movie IDs in an IN clause. For this listing, the query count falls from nine to two without introducing a join. The demonstration uses synchronous session execution.",
+              "fact_ids": [
+                "f1",
+                "f2"
+              ],
+              "transcript_ref": "RzkD8hIDbkk:0-471"
+            }
+          ],
+          "group_title": "Recognize N+1 queries and batch collection loading",
+          "bridge": {
+            "before": "Watch for relationship SELECTs and the selectinload option. The clip uses synchronous execution; with AsyncSession, await execution and do not assume implicit lazy I/O works the same way.",
+            "after": "The clip shows nine queries becoming two. The text also covers joinedload with Result.unique() and explicitly checking unchanged returned entity data, which the clip does not fully verify."
+          },
+          "default_mode": "video"
+        }
+      ]
+    },
+    {
+      "step_id": "tile_089.s04",
+      "type": "check",
+      "concept_ids": [
+        "sqlalchemy.redundant_queries"
+      ],
+      "title": "Choose the boundary",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "sqlalchemy.redundant_queries#f1",
+          "sqlalchemy.redundant_queries#f2"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "sqlalchemy.redundant_queries#assessment:distinguish_per_parent_queries_from_batched_collection_loading"
+        ]
+      },
+      "eyebrow": "Check",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_089.s04",
+        "difficulty": "intro",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "sqlalchemy.redundant_queries",
+            "capability": "distinguish_per_parent_queries_from_batched_collection_loading",
+            "fact_ids": [
+              "f1",
+              "f2"
+            ]
+          }
+        ],
+        "anchors": [
+          "sqlalchemy.redundant_queries#assessment:distinguish_per_parent_queries_from_batched_collection_loading"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Lazy relationship access can emit additional SELECT statements; iterating parent entities and loading each parent's relationship separately can produce an N+1 query pattern. Add selectinload(Entity.relationship_attribute) through statement.options(...) to fetch a collection relationship for the selected parents with an additional batched query rather than one query per parent."
+          },
+          "incorrect": {
+            "message": "Check this rule: Lazy relationship access can emit additional SELECT statements; iterating parent entities and loading each parent's relationship separately can produce an N+1 query pattern. Add selectinload(Entity.relationship_attribute) through statement.options(...) to fetch a collection relationship for the selected parents with an additional batched query rather than one query per parent."
+          },
+          "hints": [
+            "Trace the inputs, the decision boundary, and the observable output separately."
+          ],
+          "remediation_step_id": "tile_089.r01"
+        },
+        "public": {
+          "prompt": "A listing lazily accesses each selected parent collection, emitting one relationship SELECT per parent. Which change batches collection loading?",
+          "selection": "single",
+          "shuffle": true,
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Apply statement.options(selectinload(Entity.relationship_attribute))."
+            },
+            {
+              "option_id": "o2",
+              "text": "Keep lazy access and describe each SELECT as a batched query."
+            },
+            {
+              "option_id": "o3",
+              "text": "Remove the collection contents from the returned result."
+            }
+          ]
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "This option applies the taught boundary to the evidence."
+            },
+            "o2": {
+              "message": "One SELECT per parent is the per-parent pattern, not batched loading."
+            },
+            "o3": {
+              "message": "Removing required data changes the listing rather than preserving it while reducing queries."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_089.s05",
+      "type": "check",
+      "concept_ids": [
+        "sqlalchemy.redundant_queries"
+      ],
+      "title": "Choose the boundary",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "sqlalchemy.redundant_queries#f4"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "sqlalchemy.redundant_queries#assessment:verify_query_reduction_without_changing_returned_data"
+        ]
+      },
+      "eyebrow": "Check",
+      "interaction": {
+        "type": "choice",
+        "interaction_id": "ix.tile_089.s05",
+        "difficulty": "core",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "sqlalchemy.redundant_queries",
+            "capability": "verify_query_reduction_without_changing_returned_data",
+            "fact_ids": [
+              "f4"
+            ]
+          }
+        ],
+        "anchors": [
+          "sqlalchemy.redundant_queries#assessment:verify_query_reduction_without_changing_returned_data"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Compare emitted SQL before and after the loading change with engine echo=True logging enabled, confirming both reduced relationship queries and unchanged returned entity data."
+          },
+          "incorrect": {
+            "message": "Check this rule: Compare emitted SQL before and after the loading change with engine echo=True logging enabled, confirming both reduced relationship queries and unchanged returned entity data."
+          },
+          "hints": [
+            "Trace the inputs, the decision boundary, and the observable output separately."
+          ]
+        },
+        "public": {
+          "prompt": "What evidence verifies the relationship-loading improvement?",
+          "selection": "single",
+          "shuffle": true,
+          "options": [
+            {
+              "option_id": "o1",
+              "text": "Compare echo SQL in fresh sessions before and after; confirm fewer relationship SELECTs and identical parent/collection results."
+            },
+            {
+              "option_id": "o2",
+              "text": "Run twice in one session with already-loaded relationships and only compare elapsed time."
+            },
+            {
+              "option_id": "o3",
+              "text": "Count fewer SELECTs after deleting parents from the listing."
+            }
+          ]
+        },
+        "grading": {
+          "correct_option_ids": [
+            "o1"
+          ],
+          "option_feedback": {
+            "o1": {
+              "message": "This option applies the taught boundary to the evidence."
+            },
+            "o2": {
+              "message": "Already-loaded relationships can hide queries; elapsed time alone does not verify the loading change."
+            },
+            "o3": {
+              "message": "Changing returned entities is not the required unchanged-data improvement."
+            }
+          }
+        }
+      }
+    },
+    {
+      "step_id": "tile_089.s06",
+      "type": "hands_on",
+      "concept_ids": [
+        "sqlalchemy.redundant_queries"
+      ],
+      "title": "Apply the contract",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [
+          "sqlalchemy.redundant_queries#f1"
+        ],
+        "segment_ids": [],
+        "anchors": [
+          "sqlalchemy.redundant_queries#practice",
+          "sqlalchemy.redundant_queries#assessment:identify_repeated_relationship_selects"
+        ]
+      },
+      "eyebrow": "Practice",
+      "interaction": {
+        "type": "code_exercise",
+        "interaction_id": "ix.tile_089.s06",
+        "difficulty": "stretch",
+        "grading_mode": "client",
+        "standalone": true,
+        "measures": [
+          {
+            "concept_id": "sqlalchemy.redundant_queries",
+            "capability": "identify_repeated_relationship_selects",
+            "fact_ids": [
+              "f1"
+            ]
+          }
+        ],
+        "anchors": [
+          "sqlalchemy.redundant_queries#practice",
+          "sqlalchemy.redundant_queries#assessment:identify_repeated_relationship_selects"
+        ],
+        "feedback": {
+          "correct": {
+            "message": "Your response respects the stated boundary and the supplied evidence."
+          },
+          "incorrect": {
+            "message": "Recheck which evidence establishes the boundary; a declaration or successful single case is not a substitute for the required checks."
+          },
+          "hints": [
+            "Trace the inputs, the decision boundary, and the observable output separately."
+          ]
+        },
+        "public": {
+          "prompt": "Complete listing(session, parent_limit) with statement.options(selectinload(Entity.relationship_attribute)). Preserve the ordered selection of the requested parent_limit Entity parents (tests request three and two) and the supplied {id, children} projection, including empty collections. GET /compare?parent_limit=... runs the unchanged and completed versions in separate fresh sessions with echo=True and captures real emitted SELECTs. It grades identical before/after data, same_result=true, and reduced relationship SELECT counts; do not edit the supplied capture or projection.",
+          "runtime": {
+            "kind": "python_asgi",
+            "version": "0.29.5",
+            "packages": [
+              "fastapi",
+              "sqlalchemy"
+            ]
+          },
+          "workspace": {
+            "entry": "main.py",
+            "files": [
+              {
+                "path": "main.py",
+                "role": "editable",
+                "language": "python",
+                "content": "from fastapi import FastAPI\nfrom sqlalchemy import ForeignKey, create_engine, select, event\nfrom sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, Session, selectinload\nfrom sqlalchemy.pool import StaticPool\napp = FastAPI()\nfixture = {'parent_ids': [11, 22, 33], 'children': [{'id': 111, 'parent_id': 11}, {'id': 112, 'parent_id': 11}, {'id': 221, 'parent_id': 22}], 'baseline_capture_required': False, 'note': 'Captured unchanged listing in a provisioned SQLAlchemy runtime and fresh Session; compare baseline_sql.txt and baseline_result.json.'}\nclass Base(DeclarativeBase): pass\nclass Entity(Base):\n    __tablename__ = 'Entity'\n    id: Mapped[int] = mapped_column(primary_key=True)\n    relationship_attribute: Mapped[list['Child']] = relationship(back_populates='parent', order_by='Child.id')\nclass Child(Base):\n    __tablename__ = 'relationship_attribute'\n    id: Mapped[int] = mapped_column(primary_key=True)\n    parent_id: Mapped[int] = mapped_column(ForeignKey('Entity.id'))\n    parent: Mapped[Entity] = relationship(back_populates='relationship_attribute')\nengine = create_engine('sqlite://', echo=True, poolclass=StaticPool, connect_args={'check_same_thread':False})\nBase.metadata.create_all(engine)\nwith Session(engine) as session:\n    session.add_all([Entity(id=i) for i in fixture['parent_ids']] + [Child(**x) for x in fixture['children']])\n    session.commit()\nsql_capture = []\n@event.listens_for(engine, 'before_cursor_execute')\ndef capture(conn, cursor, statement, parameters, context, executemany):\n    if statement.lstrip().upper().startswith('SELECT'): sql_capture.append(statement)\ndef projection(parents):\n    return [{'id':p.id, 'children':[c.id for c in p.relationship_attribute]} for p in parents]\ndef baseline(session, parent_limit):\n    return projection(session.execute(select(Entity).order_by(Entity.id).limit(parent_limit)).scalars().all())\n@app.get('/compare')\ndef compare(parent_limit:int=3):\n    sql_capture.clear()\n    with Session(engine) as session: before = baseline(session, parent_limit)\n    before_sql = list(sql_capture)\n    sql_capture.clear()\n    with Session(engine) as session: after = listing(session, parent_limit)\n    after_sql = list(sql_capture)\n    return {'before':before, 'after':after, 'before_relationship_selects':sum('FROM relationship_attribute' in x for x in before_sql), 'after_relationship_selects':sum('FROM relationship_attribute' in x for x in after_sql), 'same_result':before == after}\n# Complete listing using the same ordered parent selection and the supplied parent_limit.\ndef listing(session, parent_limit):\n    statement = select(Entity).order_by(Entity.id).limit(parent_limit)\n    parents = session.execute(statement).scalars().all()\n    return projection(parents)\n"
+              }
+            ],
+            "asset_mounts": []
+          },
+          "constraints": {
+            "allowed_syntax": [
+              "from sqlalchemy.orm import selectinload",
+              "select(Entity)",
+              "statement.options(selectinload(Entity.relationship_attribute))",
+              "await session.execute(statement)",
+              "result.scalars().all()",
+              "entity.relationship_attribute",
+              "for entity in entities:",
+              "echo=True"
+            ],
+            "blocked_syntax": [
+              "begin_nested()",
+              "SAVEPOINT",
+              "ROLLBACK TO SAVEPOINT"
+            ]
+          }
+        },
+        "grading": {
+          "solution_files": [
+            {
+              "path": "main.py",
+              "content": "from fastapi import FastAPI\nfrom sqlalchemy import ForeignKey, create_engine, select, event\nfrom sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, Session, selectinload\nfrom sqlalchemy.pool import StaticPool\napp = FastAPI()\nfixture = {'parent_ids': [11, 22, 33], 'children': [{'id': 111, 'parent_id': 11}, {'id': 112, 'parent_id': 11}, {'id': 221, 'parent_id': 22}], 'baseline_capture_required': False, 'note': 'Captured unchanged listing in a provisioned SQLAlchemy runtime and fresh Session; compare baseline_sql.txt and baseline_result.json.'}\nclass Base(DeclarativeBase): pass\nclass Entity(Base):\n    __tablename__ = 'Entity'\n    id: Mapped[int] = mapped_column(primary_key=True)\n    relationship_attribute: Mapped[list['Child']] = relationship(back_populates='parent', order_by='Child.id')\nclass Child(Base):\n    __tablename__ = 'relationship_attribute'\n    id: Mapped[int] = mapped_column(primary_key=True)\n    parent_id: Mapped[int] = mapped_column(ForeignKey('Entity.id'))\n    parent: Mapped[Entity] = relationship(back_populates='relationship_attribute')\nengine = create_engine('sqlite://', echo=True, poolclass=StaticPool, connect_args={'check_same_thread':False})\nBase.metadata.create_all(engine)\nwith Session(engine) as session:\n    session.add_all([Entity(id=i) for i in fixture['parent_ids']] + [Child(**x) for x in fixture['children']])\n    session.commit()\nsql_capture = []\n@event.listens_for(engine, 'before_cursor_execute')\ndef capture(conn, cursor, statement, parameters, context, executemany):\n    if statement.lstrip().upper().startswith('SELECT'): sql_capture.append(statement)\ndef projection(parents):\n    return [{'id':p.id, 'children':[c.id for c in p.relationship_attribute]} for p in parents]\ndef baseline(session, parent_limit):\n    return projection(session.execute(select(Entity).order_by(Entity.id).limit(parent_limit)).scalars().all())\n@app.get('/compare')\ndef compare(parent_limit:int=3):\n    sql_capture.clear()\n    with Session(engine) as session: before = baseline(session, parent_limit)\n    before_sql = list(sql_capture)\n    sql_capture.clear()\n    with Session(engine) as session: after = listing(session, parent_limit)\n    after_sql = list(sql_capture)\n    return {'before':before, 'after':after, 'before_relationship_selects':sum('FROM relationship_attribute' in x for x in before_sql), 'after_relationship_selects':sum('FROM relationship_attribute' in x for x in after_sql), 'same_result':before == after}\n# Complete listing using the same ordered parent selection, limiting to three.\ndef listing(session, parent_limit):\n    statement = select(Entity).order_by(Entity.id).limit(parent_limit)\n    statement = statement.options(selectinload(Entity.relationship_attribute))\n    parents = session.execute(statement).scalars().all()\n    return projection(parents)\n"
+            }
+          ],
+          "tests": [
+            {
+              "test_id": "compare_3",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "GET",
+                    "path": "/compare",
+                    "params": {
+                      "parent_limit": 3
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "before": [
+                      {
+                        "id": 11,
+                        "children": [
+                          111,
+                          112
+                        ]
+                      },
+                      {
+                        "id": 22,
+                        "children": [
+                          221
+                        ]
+                      },
+                      {
+                        "id": 33,
+                        "children": []
+                      }
+                    ],
+                    "after": [
+                      {
+                        "id": 11,
+                        "children": [
+                          111,
+                          112
+                        ]
+                      },
+                      {
+                        "id": 22,
+                        "children": [
+                          221
+                        ]
+                      },
+                      {
+                        "id": 33,
+                        "children": []
+                      }
+                    ],
+                    "before_relationship_selects": 3,
+                    "after_relationship_selects": 1,
+                    "same_result": true
+                  }
+                }
+              },
+              "message_on_fail": "The compare_3 case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            },
+            {
+              "test_id": "compare_2",
+              "kind": "http_equals",
+              "spec": {
+                "requests": [
+                  {
+                    "method": "GET",
+                    "path": "/compare",
+                    "params": {
+                      "parent_limit": 2
+                    }
+                  }
+                ],
+                "expected": {
+                  "status": 200,
+                  "json": {
+                    "before": [
+                      {
+                        "id": 11,
+                        "children": [
+                          111,
+                          112
+                        ]
+                      },
+                      {
+                        "id": 22,
+                        "children": [
+                          221
+                        ]
+                      }
+                    ],
+                    "after": [
+                      {
+                        "id": 11,
+                        "children": [
+                          111,
+                          112
+                        ]
+                      },
+                      {
+                        "id": 22,
+                        "children": [
+                          221
+                        ]
+                      }
+                    ],
+                    "before_relationship_selects": 2,
+                    "after_relationship_selects": 1,
+                    "same_result": true
+                  }
+                }
+              },
+              "message_on_fail": "The compare_2 case does not match the prompt contract. Recheck the learner-completed boundary without changing the supplied harness."
+            }
+          ],
+          "execution_provenance": {
+            "runtime": "pyodide",
+            "runtime_version": "0.29.5",
+            "solution_sha256": "30dcb6c64214f357809b5876ac6a4d8362f07eeacc8e063a7dfca2679f692dd7",
+            "tests_passed": 2
+          },
+          "hidden_checks": []
+        }
+      }
+    },
+    {
+      "step_id": "tile_089.s07",
+      "type": "recap",
+      "concept_ids": [
+        "sqlalchemy.redundant_queries"
+      ],
+      "title": "Take the rule with you",
+      "lineage": {
+        "teaching_block_ids": [],
+        "fact_ids": [],
+        "segment_ids": [],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Unchanged entity data does not prove unchanged database work. Check emitted SQL as well as the returned collections.",
+          "role": "takeaway",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.redundant_queries"
+            ],
+            "fact_ids": [
+              "sqlalchemy.redundant_queries#f1"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.redundant_queries#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "up_next",
+          "title": "Database test-state isolation",
+          "text": "A database test must see its own writes without leaving them behind for the next test. The fixture, session override and transaction boundary should form one isolated setup."
+        }
+      ]
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step_id": "tile_089.r01",
+      "type": "remediation",
+      "title": "Review: Recognizing and avoiding redundant ORM queries",
+      "concept_ids": [
+        "sqlalchemy.redundant_queries"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "sqlalchemy.redundant_queries"
+        ],
+        "fact_ids": [
+          "sqlalchemy.redundant_queries#f1",
+          "sqlalchemy.redundant_queries#f2"
+        ],
+        "teaching_block_ids": [
+          "sqlalchemy.redundant_queries#tb2",
+          "sqlalchemy.redundant_queries#tb3",
+          "sqlalchemy.redundant_queries#tb4",
+          "sqlalchemy.redundant_queries#tb5"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Lazy relationship access can emit extra SELECTs. Loading a relationship separately for each parent can produce N+1 queries.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.redundant_queries"
+            ],
+            "fact_ids": [
+              "sqlalchemy.redundant_queries#f1"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.redundant_queries#tb2",
+              "sqlalchemy.redundant_queries#tb4",
+              "sqlalchemy.redundant_queries#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Use statement.options(selectinload(Entity.relationship_attribute)) to fetch the selected parents’ collection with an additional batched query, not one per parent.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.redundant_queries"
+            ],
+            "fact_ids": [
+              "sqlalchemy.redundant_queries#f2"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.redundant_queries#tb3",
+              "sqlalchemy.redundant_queries#tb4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Unchanged entity data does not prove unchanged database work. Check emitted SQL as well as the returned collections.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.redundant_queries"
+            ],
+            "fact_ids": [
+              "sqlalchemy.redundant_queries#f1",
+              "sqlalchemy.redundant_queries#f2"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.redundant_queries#tb2",
+              "sqlalchemy.redundant_queries#tb3",
+              "sqlalchemy.redundant_queries#tb4",
+              "sqlalchemy.redundant_queries#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.Entity",
+            "columns": [
+              "id"
+            ]
+          },
+          "caption": "Parent entities",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.redundant_queries"
+            ],
+            "fact_ids": [
+              "sqlalchemy.redundant_queries#f1",
+              "sqlalchemy.redundant_queries#f2",
+              "sqlalchemy.redundant_queries#f3",
+              "sqlalchemy.redundant_queries#f4"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.redundant_queries#tb2",
+              "sqlalchemy.redundant_queries#tb3",
+              "sqlalchemy.redundant_queries#tb4",
+              "sqlalchemy.redundant_queries#tb5"
+            ],
+            "anchors": [
+              "sqlalchemy.redundant_queries#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_089.r02",
+      "type": "remediation",
+      "title": "Review: Recognizing and avoiding redundant ORM queries",
+      "concept_ids": [
+        "sqlalchemy.redundant_queries"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "sqlalchemy.redundant_queries"
+        ],
+        "fact_ids": [
+          "sqlalchemy.redundant_queries#f4"
+        ],
+        "teaching_block_ids": [
+          "sqlalchemy.redundant_queries#tb3",
+          "sqlalchemy.redundant_queries#tb4"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Compare emitted SQL before and after with engine echo=True; confirm fewer relationship queries and unchanged returned entity data.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.redundant_queries"
+            ],
+            "fact_ids": [
+              "sqlalchemy.redundant_queries#f4"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.redundant_queries#tb3",
+              "sqlalchemy.redundant_queries#tb4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Unchanged entity data does not prove unchanged database work. Check emitted SQL as well as the returned collections.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.redundant_queries"
+            ],
+            "fact_ids": [
+              "sqlalchemy.redundant_queries#f4"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.redundant_queries#tb3",
+              "sqlalchemy.redundant_queries#tb4"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.Entity",
+            "columns": [
+              "id"
+            ]
+          },
+          "caption": "Parent entities",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.redundant_queries"
+            ],
+            "fact_ids": [
+              "sqlalchemy.redundant_queries#f1",
+              "sqlalchemy.redundant_queries#f2",
+              "sqlalchemy.redundant_queries#f3",
+              "sqlalchemy.redundant_queries#f4"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.redundant_queries#tb2",
+              "sqlalchemy.redundant_queries#tb3",
+              "sqlalchemy.redundant_queries#tb4",
+              "sqlalchemy.redundant_queries#tb5"
+            ],
+            "anchors": [
+              "sqlalchemy.redundant_queries#visual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_id": "tile_089.r03",
+      "type": "remediation",
+      "title": "Review: Recognizing and avoiding redundant ORM queries",
+      "concept_ids": [
+        "sqlalchemy.redundant_queries"
+      ],
+      "lineage": {
+        "concept_ids": [
+          "sqlalchemy.redundant_queries"
+        ],
+        "fact_ids": [
+          "sqlalchemy.redundant_queries#f1"
+        ],
+        "teaching_block_ids": [
+          "sqlalchemy.redundant_queries#tb2",
+          "sqlalchemy.redundant_queries#tb4",
+          "sqlalchemy.redundant_queries#tb5"
+        ],
+        "anchors": []
+      },
+      "blocks": [
+        {
+          "type": "prose",
+          "text": "Lazy relationship access can emit extra SELECTs. Loading a relationship separately for each parent can produce N+1 queries.",
+          "role": "definition",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.redundant_queries"
+            ],
+            "fact_ids": [
+              "sqlalchemy.redundant_queries#f1"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.redundant_queries#tb2",
+              "sqlalchemy.redundant_queries#tb4",
+              "sqlalchemy.redundant_queries#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "prose",
+          "text": "Unchanged entity data does not prove unchanged database work. Check emitted SQL as well as the returned collections.",
+          "role": "misconception",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.redundant_queries"
+            ],
+            "fact_ids": [
+              "sqlalchemy.redundant_queries#f1"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.redundant_queries#tb2",
+              "sqlalchemy.redundant_queries#tb4",
+              "sqlalchemy.redundant_queries#tb5"
+            ],
+            "anchors": []
+          }
+        },
+        {
+          "type": "data_table",
+          "asset_ref": {
+            "asset_id": "ds.Entity",
+            "columns": [
+              "id"
+            ]
+          },
+          "caption": "Parent entities",
+          "lineage": {
+            "concept_ids": [
+              "sqlalchemy.redundant_queries"
+            ],
+            "fact_ids": [
+              "sqlalchemy.redundant_queries#f1",
+              "sqlalchemy.redundant_queries#f2",
+              "sqlalchemy.redundant_queries#f3",
+              "sqlalchemy.redundant_queries#f4"
+            ],
+            "teaching_block_ids": [
+              "sqlalchemy.redundant_queries#tb2",
+              "sqlalchemy.redundant_queries#tb3",
+              "sqlalchemy.redundant_queries#tb4",
+              "sqlalchemy.redundant_queries#tb5"
+            ],
+            "anchors": [
+              "sqlalchemy.redundant_queries#visual"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "completion": {
+    "rule": "all_required_steps_complete",
+    "reward": {
+      "gems": 0
+    },
+    "next_tile_id": "tile_090"
+  },
+  "content_hash": "1d2753ee1834ab9fb89c2dbbbef31f751d68130d40244dd01ee5da695c04de8c"
+}

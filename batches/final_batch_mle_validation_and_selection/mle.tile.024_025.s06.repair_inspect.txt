@@ -1,0 +1,177 @@
+import pandas as pd
+contract = pd.read_csv('acceptance_contract.csv').iloc[0]
+p_negative = contract['deployment_negative_probability']
+p_positive = contract['deployment_positive_probability']
+cost_FP = contract['cost_FP']
+cost_FN = contract['cost_FN']
+bound = contract['expected_cost_bound']
+observations = pd.read_csv('validation_scores.csv')
+y = observations['actual_label'].to_numpy()
+scores = observations['score'].to_numpy()
+thresholds = pd.read_csv('thresholds.csv')['threshold'].tolist()
+import numpy as np
+if True:
+
+    def evaluate(scores, y, thresholds, p_negative, p_positive, cost_FP, cost_FN, bound):
+        records = []
+        selected = None
+        best_cost = None
+        for threshold in thresholds:
+            predictions = scores >= threshold
+            FP = count_mask((y == 0) & (predictions == 1))
+            TN = count_mask((y == 0) & (predictions == 0))
+            FN = count_mask((y == 1) & (predictions == 0))
+            TP = count_mask((y == 1) & (predictions == 1))
+            negative_count = FP + TN
+            positive_count = FN + TP
+            FPR = None
+            FNR = None
+            expected_cost = None
+            if negative_count > 0:
+                FPR = FP / negative_count
+            if positive_count > 0:
+                FNR = FN / positive_count
+            if negative_count > 0:
+                if positive_count > 0:
+                    expected_cost = p_negative * FPR * cost_FP + p_positive * FNR * cost_FN
+            record = {'FP': FP, 'TN': TN, 'FN': FN, 'TP': TP, 'actual_negative_count': negative_count, 'actual_positive_count': positive_count, 'FPR': FPR, 'FNR': FNR, 'expected_cost': expected_cost, 'threshold': threshold, 'score_representation': 'probability'}
+            records.append(record)
+            if expected_cost is not None:
+                if expected_cost <= bound:
+                    if best_cost is None:
+                        best_cost = expected_cost
+                        selected = threshold
+                    elif expected_cost < best_cost:
+                        best_cost = expected_cost
+                        selected = threshold
+        return {'records': records, 'selected_threshold': selected, 'score_representation': 'probability'}
+
+# TODO: replace the None placeholders with the required model/callables.
+count_mask = np.count_nonzero
+
+TESTS
+[
+  {
+    "test_id": "t1",
+    "kind": "value_equals",
+    "spec": {
+      "expr": "evaluate(scores, y, thresholds, p_negative, p_positive, cost_FP, cost_FN, bound)",
+      "expected": {
+        "records": [
+          {
+            "FP": 8,
+            "TN": 72,
+            "FN": 4,
+            "TP": 16,
+            "actual_negative_count": 80,
+            "actual_positive_count": 20,
+            "FPR": 0.1,
+            "FNR": 0.2,
+            "expected_cost": 0.28,
+            "threshold": 0.5,
+            "score_representation": "probability"
+          },
+          {
+            "FP": 5,
+            "TN": 75,
+            "FN": 4,
+            "TP": 16,
+            "actual_negative_count": 80,
+            "actual_positive_count": 20,
+            "FPR": 0.0625,
+            "FNR": 0.2,
+            "expected_cost": 0.25000000000000006,
+            "threshold": 0.7,
+            "score_representation": "probability"
+          }
+        ],
+        "selected_threshold": 0.7,
+        "score_representation": "probability"
+      }
+    },
+    "visible": true,
+    "message_on_fail": "Check the named result fields, fixed assumptions, and empty-group behavior."
+  },
+  {
+    "test_id": "t2",
+    "kind": "value_equals",
+    "spec": {
+      "expr": "evaluate(scores[y == 0], y[y == 0], thresholds, p_negative, p_positive, cost_FP, cost_FN, bound)",
+      "expected": {
+        "records": [
+          {
+            "FP": 8,
+            "TN": 72,
+            "FN": 0,
+            "TP": 0,
+            "actual_negative_count": 80,
+            "actual_positive_count": 0,
+            "FPR": 0.1,
+            "FNR": null,
+            "expected_cost": null,
+            "threshold": 0.5,
+            "score_representation": "probability"
+          },
+          {
+            "FP": 5,
+            "TN": 75,
+            "FN": 0,
+            "TP": 0,
+            "actual_negative_count": 80,
+            "actual_positive_count": 0,
+            "FPR": 0.0625,
+            "FNR": null,
+            "expected_cost": null,
+            "threshold": 0.7,
+            "score_representation": "probability"
+          }
+        ],
+        "selected_threshold": null,
+        "score_representation": "probability"
+      }
+    },
+    "visible": false,
+    "message_on_fail": "Check the named result fields, fixed assumptions, and empty-group behavior."
+  },
+  {
+    "test_id": "t3",
+    "kind": "value_equals",
+    "spec": {
+      "expr": "evaluate(scores, y, thresholds, p_negative, p_positive, cost_FP, cost_FN, -1)",
+      "expected": {
+        "records": [
+          {
+            "FP": 8,
+            "TN": 72,
+            "FN": 4,
+            "TP": 16,
+            "actual_negative_count": 80,
+            "actual_positive_count": 20,
+            "FPR": 0.1,
+            "FNR": 0.2,
+            "expected_cost": 0.28,
+            "threshold": 0.5,
+            "score_representation": "probability"
+          },
+          {
+            "FP": 5,
+            "TN": 75,
+            "FN": 4,
+            "TP": 16,
+            "actual_negative_count": 80,
+            "actual_positive_count": 20,
+            "FPR": 0.0625,
+            "FNR": 0.2,
+            "expected_cost": 0.25000000000000006,
+            "threshold": 0.7,
+            "score_representation": "probability"
+          }
+        ],
+        "selected_threshold": null,
+        "score_representation": "probability"
+      }
+    },
+    "visible": false,
+    "message_on_fail": "Check the named result fields, fixed assumptions, and empty-group behavior."
+  }
+]

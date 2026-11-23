@@ -1,0 +1,53 @@
+The supplied diagnosis adapter computes the release/cohort evidence. Bind selected_response to the supplied approved_rollback, retraining or drift_only response object consistent with the isolated configuration mismatch and fixture authorization. No action executes. This is a narrowed response-selection task; analysis is supplied scaffolding.  Supplied workflow specification (context only, not additional learner edits): Analyze read-only release_evidence. For every release/cohort return groups containing release, cohort, timestamp, active/approved artifact and config identities, schema_pass, matched_count, errors, conditional rate (None if no matched labels), impact and hypothesis_test. Isolate the configuration mismatch in the labeled after cohort using approved-configuration replay evidence. Record diagnosis with timeline, impact, hypothesis="configuration mismatch", test and policy authorization. Select response="approved_rollback", retain readiness and bounded prediction gates, and state the distribution-only quality limitation. Do not execute recovery.
+
+if True:
+    import csv, json
+    from datetime import datetime, timedelta
+
+    def load(path):
+        with open(path) as f:
+            data = list(csv.DictReader(f))
+        for r in data:
+            for k,v in r.items():
+                if v == 'True': r[k] = True
+                elif v == 'False': r[k] = False
+        return data
+
+    def number(v):
+        return float(v)
+    policy = {'permitted_responses': ['data_repair', 'approved_rollback', 'gated_retraining'], 'selected_fixture_authorization': 'approved rollback cfg.bad -> cfg.r1 under lab.operator; readiness and bounded prediction gates required', 'quality_denominator': 'matched_eligible_labels; zero means undefined', 'hypothesis': 'configuration mismatch, distinguished by approved-configuration replay'}
+    evidence=load('release_evidence.csv')
+    # Numbers are parsed by infrastructure, not calculated answers.
+    for r in evidence:
+        r['matched_eligible_labels']=int(r['matched_eligible_labels'])
+        r['labeled_errors']=int(r['labeled_errors'])
+
+    approved_rollback = 'approved_rollback'
+    retraining = 'authorized_retraining'
+    drift_only = 'distribution_difference_only'
+
+selected_response = approved_rollback
+
+if True:
+    report = {'groups':[], 'response':None, 'gates':['readiness','bounded prediction'], 'quality_limitation':'distribution difference alone does not establish labeled quality loss'}
+    for r in evidence:
+        denominator = r['matched_eligible_labels']
+        rate = None
+        if denominator > 0:
+            rate = r['labeled_errors'] / denominator
+        report['groups'].append({'release':r['release_id'], 'cohort':r['cohort_id'], 'timestamp':r['timestamp'], 'active_artifact':r['active_artifact'], 'approved_artifact':r['approved_artifact'], 'active_config':r['active_config'], 'approved_config':r['approved_config'], 'schema_pass':r['schema_pass'], 'matched_count':denominator, 'errors':r['labeled_errors'], 'rate':rate, 'impact':r['client_impact'], 'hypothesis_test':r['hypothesis_test']})
+        if r['active_config'] != r['approved_config'] and denominator > 0:
+            report['response'] = selected_response
+            report['diagnosis'] = {'timeline':r['timestamp'], 'impact':r['client_impact'], 'hypothesis':'configuration mismatch', 'test':r['hypothesis_test'], 'authorization':policy['selected_fixture_authorization']}
+    assert report['response'] == 'approved_rollback'
+
+
+    def plain(v):
+        if isinstance(v,dict):return {k:plain(x) for k,x in v.items()}
+        if isinstance(v,list):return [plain(x) for x in v]
+        if hasattr(v,'tolist'):return v.tolist()
+        return v
+    report=plain(report)
+
+CONSTRAINTS
+{'allowed_syntax': ['variable assignment', 'numeric, string, Boolean and None literals', 'lists and dictionaries', 'dictionary indexing', 'for loops', 'if/elif/else statements', 'comparison operators', 'Boolean mask operators & and |', 'parenthesized expressions', 'NumPy array indexing with Boolean masks', 'np.count_nonzero(...)', 'division guarded by a nonzero denominator', 'assert statements'], 'blocked_syntax': ['submit_retraining_job(...)', 'promote_retrained_candidate(...)', 'delete_serving_resources(...)']}

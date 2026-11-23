@@ -1,0 +1,65 @@
+Complete only the two NumPy operation bindings (three for fixed-edge monitoring): mean_operation=np.mean and std_operation=np.std. The visible supplied adapter implements the broader workflow below and calls your bindings on the selected arrays; it is not learner-written code. Do not change the supplied adapter. This is a narrowed supported-syntax task, not independent implementation of the full workflow.  Supplied workflow specification (context only, not additional learner edits): Write NumPy imports and compare(reference,current,policy). Return result with reference_id, window, fixed_edges, categories, eligibility, criterion, ddof=0; both means, standard deviations and eligible totals; aligned category probabilities and numeric bin proportions; both distances and drift booleans. Use 0.5*sum(abs(reference-current)) and strict distance>0.20 for each feature. Categories use their own window total; the adapter applies numeric [0,10] eligibility. Preserve edges [0,5,10] (first bin [0,5), second [5,10]). quality must retain the policy limitation, not claim target error increased.
+
+if True:
+    import csv, json
+    from datetime import datetime, timedelta
+
+    def load(path):
+        with open(path) as f:
+            data = list(csv.DictReader(f))
+        for r in data:
+            for k,v in r.items():
+                if v == 'True': r[k] = True
+                elif v == 'False': r[k] = False
+        return data
+
+    def number(v):
+        return float(v)
+    import numpy as _np
+    policy = {'reference_id': 'reference', 'current_id': 'production', 'comparison_window': '2026-01-02T10:00:00Z/2026-01-02T11:00:00Z', 'fixed_edges': [0, 5, 10], 'eligible_numeric_range': [0, 10], 'declared_categories': ['short_distance', 'long_distance', 'not_reported'], 'ddof': 0, 'distance_equation': '0.5 * sum(abs(reference_probability[i]-current_probability[i])) over all aligned positions', 'criterion': 'distance > 0.20; equality is not a crossing', 'numeric_rule': 'Apply the same distance to aligned numerical-bin proportions; retain mean and ddof=0 standard deviation separately', 'quality_claim': 'unresolved without matched labels'}
+    # Adapter supplies aligned arrays and totals; no summaries or decisions are precomputed.
+    def window(path):
+        data=load(path)
+        v=_np.asarray([number(r['numeric_values']) for r in data])
+        return {'values':v[(v>=0)&(v<=10)], 'categories':_np.asarray([r['category'] for r in data])}
+    reference=window('reference.csv')
+    current=window('production.csv')
+
+    import numpy as np
+
+mean_operation = np.mean
+std_operation = np.std
+
+if True:
+
+    import numpy as np
+
+    def compare(reference, current, policy):
+        r = reference['values']
+        c = current['values']
+        rp = np.asarray([np.count_nonzero(reference['categories'] == policy['declared_categories'][0]), np.count_nonzero(reference['categories'] == policy['declared_categories'][1]), np.count_nonzero(reference['categories'] == policy['declared_categories'][2])]) / np.count_nonzero(reference['categories'] != '')
+        cp = np.asarray([np.count_nonzero(current['categories'] == policy['declared_categories'][0]), np.count_nonzero(current['categories'] == policy['declared_categories'][1]), np.count_nonzero(current['categories'] == policy['declared_categories'][2])]) / np.count_nonzero(current['categories'] != '')
+        rb = np.asarray([np.count_nonzero(r < 5), np.count_nonzero(r >= 5)]) / np.count_nonzero(r >= 0)
+        cb = np.asarray([np.count_nonzero(c < 5), np.count_nonzero(c >= 5)]) / np.count_nonzero(c >= 0)
+        category_distance = 0.5 * np.sum(np.abs(rp - cp))
+        numeric_distance = 0.5 * np.sum(np.abs(rb - cb))
+        return {'reference_id': policy['reference_id'], 'window': policy['comparison_window'], 'fixed_edges': policy['fixed_edges'], 'categories': policy['declared_categories'], 'eligibility': policy['eligible_numeric_range'], 'criterion': policy['criterion'], 'ddof': 0, 'reference_mean': mean_operation(r), 'current_mean': mean_operation(c), 'reference_std': std_operation(r, ddof=0), 'current_std': std_operation(c, ddof=0), 'reference_total': np.count_nonzero(r >= 0), 'current_total': np.count_nonzero(c >= 0), 'reference_probabilities': rp, 'current_probabilities': cp, 'reference_bins':rb, 'current_bins':cb, 'category_distance': category_distance, 'numeric_distance':numeric_distance, 'category_drift':category_distance > 0.20, 'numeric_drift':numeric_distance > 0.20, 'quality':policy['quality_claim']}
+
+    result = compare(reference, current, policy)
+
+    def plain(v):
+        if isinstance(v, dict): return {k:plain(x) for k,x in v.items()}
+        if isinstance(v, list): return [plain(x) for x in v]
+        if hasattr(v,'tolist'): return v.tolist()
+        return v
+    report = plain(result)
+
+    def plain(v):
+        if isinstance(v,dict):return {k:plain(x) for k,x in v.items()}
+        if isinstance(v,list):return [plain(x) for x in v]
+        if hasattr(v,'tolist'):return v.tolist()
+        return v
+    report=plain(report)
+
+CONSTRAINTS
+{'allowed_syntax': ['import numpy as np', 'Imports for required dependencies explicitly identified by the supplied infrastructure scaffolding', 'def with parameters', 'return', 'Variable assignment', 'Lists and dictionaries', 'Array indexing and Boolean masks', 'np.asarray(...)', 'np.mean(numeric_values)', 'np.std(numeric_values, ddof=0)', 'np.std(numeric_values, ddof=1) only when the supplied calculation requires the N−1 divisor', 'np.count_nonzero(...)', 'np.sum(...)', 'np.abs(...)', 'Elementwise arithmetic and broadcasting', 'Comparison operators', 'Calls to supplied infrastructure interfaces'], 'blocked_syntax': []}

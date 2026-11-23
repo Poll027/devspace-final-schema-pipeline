@@ -1,0 +1,137 @@
+{
+  "concept_id": "fastapi.safe_unexpected_errors",
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "The situation",
+      "content": "An unexpected failure needs safe public output and useful internal evidence. These are separate artifacts with different disclosure rules.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "definition",
+      "title": "The rule and its boundary",
+      "content": "Unexpected internal failures should return generic public error information without stack traces, exception messages or implementation details.",
+      "fact_ids": [
+        "f1"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "How to use the rule",
+      "content": "Register a fallback exception handler that returns a stable generic JSON response with 500 for an unexpected server condition while recording the exception internally. Internal failure evidence should identify the event, code location and interaction context while omitting prohibited secrets and sensitive data. Disable debug traceback responses in production because debug mode substitutes a traceback response for the configured 500 handler. Exercise the fallback with TestClient(app, raise_server_exceptions=False), asserting the generic public response and inspecting the safe internal diagnostic record separately.",
+      "fact_ids": [
+        "f2",
+        "f3",
+        "f4",
+        "f5"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "example",
+      "title": "Reason through an example",
+      "content": "Register a fallback handler returning stable generic JSON with 500 while recording the exception internally. Keep event, location and interaction context without prohibited secrets. Disable debug traceback responses in production, since debug mode substitutes a traceback response for the configured 500 handler. Exercise the case with TestClient(app, raise_server_exceptions=False), asserting the generic body and inspecting safe internal diagnostics separately.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "misconception",
+      "title": "Keep this distinction",
+      "content": "Do not expose exception messages or traces to make failures easier to debug. Public safety and internal diagnosis are separate checks.",
+      "fact_ids": [
+        "f1",
+        "f3",
+        "f4"
+      ]
+    }
+  ],
+  "visual_anchor": {
+    "type": "comparison",
+    "purpose": "Make the disclosure boundary visible by placing the generic public 500 JSON response beside its separate safe internal diagnostic record, identifying which information belongs in each."
+  },
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Add one fallback exception handler to the supplied FastAPI application, returning stable generic JSON with status 500 and recording safe internal failure evidence. Disable debug responses and verify the fallback with the supplied controlled failure route.",
+    "success": "The controlled failure returns the exact generic JSON body with status 500, without exception messages, traces or implementation details. A separate check confirms that the internal record identifies the event, code location and interaction context without prohibited secrets or sensitive data.",
+    "live_code": {
+      "required_skill": "Register an unexpected-exception fallback, separate public output from safe internal evidence, and test both artifacts independently.",
+      "allowed_syntax": [
+        "Python imports",
+        "Function definitions and async def",
+        "Type annotations",
+        "Dictionary, string, integer and boolean literals",
+        "Variable assignment and attribute access",
+        "Function calls with keyword arguments",
+        "@app.exception_handler(Exception)",
+        "FastAPI(debug=False)",
+        "JSONResponse(status_code=500, content=...)",
+        "Calls to the supplied safe internal exception-recording helper",
+        "TestClient(app, raise_server_exceptions=False)",
+        "Context-managed TestClient usage",
+        "client.get(...)",
+        "response.status_code and response.json()",
+        "assert statements and equality comparisons",
+        "Inspection of captured safe internal records"
+      ],
+      "blocked_syntax": [
+        "Outbound retry loops",
+        "Webhook signature or replay-verification calls",
+        "Permission or scope-enforcement dependencies",
+        "Object-ownership authorization checks",
+        "Database test-isolation fixtures"
+      ],
+      "starter_state_intent": "Supply a minimal FastAPI application with a controlled failure route, an empty fallback-handler scaffold, a safe exception-recording helper and a captured-record test fixture. The helper retains event, code location and interaction context while excluding exception messages, local-variable values, request bodies and credentials. No business-data columns are needed.",
+      "observable_success": "Using TestClient(app, raise_server_exceptions=False), an assertion verifies status 500 and the exact stable generic JSON body. Independent assertions inspect the captured internal record for event, code location and interaction context and confirm that seeded sensitive values are absent. The application has debug disabled."
+    }
+  },
+  "required_facts": [
+    {
+      "id": "f1",
+      "statement": "Unexpected internal failures should return generic public error information without stack traces, exception messages or implementation details.",
+      "source_refs": [
+        "owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html#error-handling"
+      ]
+    },
+    {
+      "id": "f2",
+      "statement": "Register a fallback exception handler that returns a stable generic JSON response with 500 for an unexpected server condition while recording the exception internally.",
+      "source_refs": [
+        "fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/handling-errors/#install-custom-exception-handlers",
+        "rfc_9110_http_semantics#https://www.rfc-editor.org/rfc/rfc9110.html#section-15.6.1"
+      ]
+    },
+    {
+      "id": "f3",
+      "statement": "Internal failure evidence should identify the event, code location and interaction context while omitting prohibited secrets and sensitive data.",
+      "source_refs": [
+        "owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html#event-attributes",
+        "owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html#data-to-exclude"
+      ]
+    },
+    {
+      "id": "f4",
+      "statement": "Disable debug traceback responses in production because debug mode substitutes a traceback response for the configured 500 handler.",
+      "source_refs": [
+        "fastapi_docs_advanced#https://starlette.dev/exceptions/#errors-and-handled-exceptions"
+      ]
+    },
+    {
+      "id": "f5",
+      "statement": "Exercise the fallback with TestClient(app, raise_server_exceptions=False), asserting the generic public response and inspecting the safe internal diagnostic record separately.",
+      "source_refs": [
+        "fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/testing/#using-testclient",
+        "owasp_api_security_top10_2023#https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html#error-handling",
+        "fastapi_docs_advanced#https://starlette.dev/testclient/"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,146 @@
+The supplied authorized workload interface records the two bounded lifecycle windows and stopped states. The attribution interface applies resource_mapping, retains persistent-disk charges, shares charges by policy and records unallocated/unmatched amounts. Complete training_mean/inference_mean from training_values/inference_values with np.mean and training_std/inference_std with np.std(...,ddof=0). Each array is one workload's per-window charges. The result retains lifecycle, workload windows, unusual flags, explicit unallocated amounts and reconciled totals. Keep the supplied mapping/interval policy unchanged.
+{'allowed_syntax': ['gcloud compute instances describe INSTANCE --zone=ZONE', 'gcloud compute instances start INSTANCE --zone=ZONE', 'gcloud compute ssh INSTANCE --zone=ZONE', 'gcloud compute instances stop INSTANCE --zone=ZONE', 'import numpy as np', 'Variable assignment', 'Numeric and string literals', 'Lists and dictionaries', 'Indexing', 'For loops and conditional comparisons', 'Arithmetic operators', 'sum(numeric_values)', 'np.array(numeric_values)', 'np.mean(numeric_values)', 'np.std(numeric_values, ddof=0)', 'np.std(numeric_values, ddof=1) only when the supplied calculation requires the N−1 divisor'], 'blocked_syntax': ['gcloud compute instances delete', 'gcloud compute disks delete', 'gcloud billing budgets create', 'gcloud billing budgets update']}
+STARTER
+# Supplied fixture infrastructure (unchanged).
+exec('import csv, json\nimport numpy as np\npolicy = json.loads(\'{"authorized_identity": "lab.operator", "resource_mapping": {"training-lab": "training", "inference-lab": "inference", "training-disk": "training"}, "shared_rule": {"training": 0.5, "inference": 0.5}, "unmatched_rule": "explicitly unallocated", "unusual_rule": "per-workload per-window allocation >10", "unit": "fictional credits", "reporting_windows": {"w1": ["2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z"], "w2": ["2026-01-03T00:00:00Z", "2026-01-04T00:00:00Z"]}, "direct_interval_rule": "direct_compute rows correspond to the named resource lifecycle/work interval; persistent_disk spans reporting window even after stop", "numeric_values": "Select per-window attributed costs for each workload; do not mix workload series", "ddof": 0}\')\nbilling_export_rows = list(csv.DictReader(open(\'billing_export.csv\')))\nbilling_export = {}\nbilling_export[\'charge_id\'] = np.array([r[\'charge_id\'] for r in billing_export_rows])\nbilling_export[\'reporting_window\'] = np.array([r[\'reporting_window\'] for r in billing_export_rows])\nbilling_export[\'resource_id\'] = np.array([r[\'resource_id\'] for r in billing_export_rows])\nbilling_export[\'charge_category\'] = np.array([r[\'charge_category\'] for r in billing_export_rows])\nbilling_export[\'amount\'] = np.array([float(r[\'amount\'] or \'nan\') for r in billing_export_rows])\nlifecycle_rows = list(csv.DictReader(open(\'lifecycle.csv\')))\nlifecycle = {}\nlifecycle[\'INSTANCE\'] = np.array([r[\'INSTANCE\'] for r in lifecycle_rows])\nlifecycle[\'ZONE\'] = np.array([r[\'ZONE\'] for r in lifecycle_rows])\nlifecycle[\'workload\'] = np.array([r[\'workload\'] for r in lifecycle_rows])\nlifecycle[\'reporting_window\'] = np.array([r[\'reporting_window\'] for r in lifecycle_rows])\nlifecycle[\'start\'] = np.array([r[\'start\'] for r in lifecycle_rows])\nlifecycle[\'stop\'] = np.array([r[\'stop\'] for r in lifecycle_rows])\nlifecycle[\'before_state\'] = np.array([r[\'before_state\'] for r in lifecycle_rows])\nlifecycle[\'after_state\'] = np.array([r[\'after_state\'] for r in lifecycle_rows])\nlifecycle[\'completed_work\'] = np.array([float(r[\'completed_work\'] or \'nan\') for r in lifecycle_rows])\n\ncharges=[{k:(v[i].item() if hasattr(v[i],\'item\') else v[i]) for k,v in billing_export.items()} for i in range(len(billing_export_rows))]\n# Existing authorized lifecycle fixture interface, bounded to the two tagged instances.\ndef bounded_workloads():\n    return {\'identity\':policy[\'authorized_identity\'],\'actions\':[\'describe\',\'start\',\'ssh\',\'stop\',\'describe\'],\'records\':lifecycle_rows,\'verified_stopped\':all(r[\'after_state\']==\'TERMINATED\' for r in lifecycle_rows)}\nlifecycle_record = bounded_workloads()\n')
+
+# Supplied fixture infrastructure (unchanged).
+exec("allocated = {'training':{'w1':0,'w2':0},'inference':{'w1':0,'w2':0}}\nunallocated = 0\nexport_total = 0\nunmatched = []\nfor row in charges:\n    window = row['reporting_window']\n    amount = row['amount']\n    export_total = export_total+amount\n    if row['charge_category'] == 'shared':\n        allocated['training'][window] = allocated['training'][window]+amount*policy['shared_rule']['training']\n        allocated['inference'][window] = allocated['inference'][window]+amount*policy['shared_rule']['inference']\n    elif row['resource_id'] in policy['resource_mapping']:\n        workload = policy['resource_mapping'][row['resource_id']]\n        allocated[workload][window] = allocated[workload][window]+amount\n    else:\n        unallocated = unallocated+amount\n        unmatched = unmatched+[row['charge_id']]\ntraining_values=np.array([allocated['training']['w1'],allocated['training']['w2']])\ninference_values=np.array([allocated['inference']['w1'],allocated['inference']['w2']])\n")
+
+# Learner section
+training_mean = None
+training_std = None
+inference_mean = None
+inference_std = None
+# Complete the documented calculations/assignments.
+# Supplied fixture infrastructure (unchanged).
+exec("summary = {}\nfor workload in ['training','inference']:\n    values = np.array([allocated[workload]['w1'],allocated[workload]['w2']])\n    summary[workload] = {'windows':allocated[workload],'mean':training_mean if workload=='training' else inference_mean,'std':training_std if workload=='training' else inference_std,'unusual_w1':allocated[workload]['w1']>10,'unusual_w2':allocated[workload]['w2']>10}\nresult = {'lifecycle':lifecycle_record,'summary':summary,'unmatched_charge_ids':unmatched,'unallocated':unallocated,'allocated_total':sum([allocated['training']['w1'],allocated['training']['w2'],allocated['inference']['w1'],allocated['inference']['w2']]),'export_total':export_total,'unit':policy['unit'],'reporting_windows':policy['reporting_windows'],'ddof':policy['ddof']}\n")
+
+SOLUTION
+# Supplied fixture infrastructure (unchanged).
+exec('import csv, json\nimport numpy as np\npolicy = json.loads(\'{"authorized_identity": "lab.operator", "resource_mapping": {"training-lab": "training", "inference-lab": "inference", "training-disk": "training"}, "shared_rule": {"training": 0.5, "inference": 0.5}, "unmatched_rule": "explicitly unallocated", "unusual_rule": "per-workload per-window allocation >10", "unit": "fictional credits", "reporting_windows": {"w1": ["2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z"], "w2": ["2026-01-03T00:00:00Z", "2026-01-04T00:00:00Z"]}, "direct_interval_rule": "direct_compute rows correspond to the named resource lifecycle/work interval; persistent_disk spans reporting window even after stop", "numeric_values": "Select per-window attributed costs for each workload; do not mix workload series", "ddof": 0}\')\nbilling_export_rows = list(csv.DictReader(open(\'billing_export.csv\')))\nbilling_export = {}\nbilling_export[\'charge_id\'] = np.array([r[\'charge_id\'] for r in billing_export_rows])\nbilling_export[\'reporting_window\'] = np.array([r[\'reporting_window\'] for r in billing_export_rows])\nbilling_export[\'resource_id\'] = np.array([r[\'resource_id\'] for r in billing_export_rows])\nbilling_export[\'charge_category\'] = np.array([r[\'charge_category\'] for r in billing_export_rows])\nbilling_export[\'amount\'] = np.array([float(r[\'amount\'] or \'nan\') for r in billing_export_rows])\nlifecycle_rows = list(csv.DictReader(open(\'lifecycle.csv\')))\nlifecycle = {}\nlifecycle[\'INSTANCE\'] = np.array([r[\'INSTANCE\'] for r in lifecycle_rows])\nlifecycle[\'ZONE\'] = np.array([r[\'ZONE\'] for r in lifecycle_rows])\nlifecycle[\'workload\'] = np.array([r[\'workload\'] for r in lifecycle_rows])\nlifecycle[\'reporting_window\'] = np.array([r[\'reporting_window\'] for r in lifecycle_rows])\nlifecycle[\'start\'] = np.array([r[\'start\'] for r in lifecycle_rows])\nlifecycle[\'stop\'] = np.array([r[\'stop\'] for r in lifecycle_rows])\nlifecycle[\'before_state\'] = np.array([r[\'before_state\'] for r in lifecycle_rows])\nlifecycle[\'after_state\'] = np.array([r[\'after_state\'] for r in lifecycle_rows])\nlifecycle[\'completed_work\'] = np.array([float(r[\'completed_work\'] or \'nan\') for r in lifecycle_rows])\n\ncharges=[{k:(v[i].item() if hasattr(v[i],\'item\') else v[i]) for k,v in billing_export.items()} for i in range(len(billing_export_rows))]\n# Existing authorized lifecycle fixture interface, bounded to the two tagged instances.\ndef bounded_workloads():\n    return {\'identity\':policy[\'authorized_identity\'],\'actions\':[\'describe\',\'start\',\'ssh\',\'stop\',\'describe\'],\'records\':lifecycle_rows,\'verified_stopped\':all(r[\'after_state\']==\'TERMINATED\' for r in lifecycle_rows)}\nlifecycle_record = bounded_workloads()\n')
+
+# Supplied fixture infrastructure (unchanged).
+exec("allocated = {'training':{'w1':0,'w2':0},'inference':{'w1':0,'w2':0}}\nunallocated = 0\nexport_total = 0\nunmatched = []\nfor row in charges:\n    window = row['reporting_window']\n    amount = row['amount']\n    export_total = export_total+amount\n    if row['charge_category'] == 'shared':\n        allocated['training'][window] = allocated['training'][window]+amount*policy['shared_rule']['training']\n        allocated['inference'][window] = allocated['inference'][window]+amount*policy['shared_rule']['inference']\n    elif row['resource_id'] in policy['resource_mapping']:\n        workload = policy['resource_mapping'][row['resource_id']]\n        allocated[workload][window] = allocated[workload][window]+amount\n    else:\n        unallocated = unallocated+amount\n        unmatched = unmatched+[row['charge_id']]\ntraining_values=np.array([allocated['training']['w1'],allocated['training']['w2']])\ninference_values=np.array([allocated['inference']['w1'],allocated['inference']['w2']])\n")
+
+# Learner section
+training_mean = np.mean(training_values)
+training_std = np.std(training_values,ddof=0)
+inference_mean = np.mean(inference_values)
+inference_std = np.std(inference_values,ddof=0)
+
+# Supplied fixture infrastructure (unchanged).
+exec("summary = {}\nfor workload in ['training','inference']:\n    values = np.array([allocated[workload]['w1'],allocated[workload]['w2']])\n    summary[workload] = {'windows':allocated[workload],'mean':training_mean if workload=='training' else inference_mean,'std':training_std if workload=='training' else inference_std,'unusual_w1':allocated[workload]['w1']>10,'unusual_w2':allocated[workload]['w2']>10}\nresult = {'lifecycle':lifecycle_record,'summary':summary,'unmatched_charge_ids':unmatched,'unallocated':unallocated,'allocated_total':sum([allocated['training']['w1'],allocated['training']['w2'],allocated['inference']['w1'],allocated['inference']['w2']]),'export_total':export_total,'unit':policy['unit'],'reporting_windows':policy['reporting_windows'],'ddof':policy['ddof']}\n")
+
+TESTS
+[
+  {
+    "test_id": "t1",
+    "kind": "value_equals",
+    "spec": {
+      "expr": "result",
+      "expected": {
+        "lifecycle": {
+          "identity": "lab.operator",
+          "actions": [
+            "describe",
+            "start",
+            "ssh",
+            "stop",
+            "describe"
+          ],
+          "records": [
+            {
+              "INSTANCE": "training-lab",
+              "ZONE": "lab-zone-a",
+              "workload": "training",
+              "reporting_window": "w1",
+              "start": "2026-01-02T10:00:00Z",
+              "stop": "2026-01-02T10:10:00Z",
+              "before_state": "TERMINATED",
+              "after_state": "TERMINATED",
+              "completed_work": "1"
+            },
+            {
+              "INSTANCE": "inference-lab",
+              "ZONE": "lab-zone-a",
+              "workload": "inference",
+              "reporting_window": "w1",
+              "start": "2026-01-02T10:02:00Z",
+              "stop": "2026-01-02T10:08:00Z",
+              "before_state": "TERMINATED",
+              "after_state": "TERMINATED",
+              "completed_work": "100"
+            },
+            {
+              "INSTANCE": "training-lab",
+              "ZONE": "lab-zone-a",
+              "workload": "training",
+              "reporting_window": "w2",
+              "start": "2026-01-03T10:00:00Z",
+              "stop": "2026-01-03T10:10:00Z",
+              "before_state": "TERMINATED",
+              "after_state": "TERMINATED",
+              "completed_work": "1"
+            },
+            {
+              "INSTANCE": "inference-lab",
+              "ZONE": "lab-zone-a",
+              "workload": "inference",
+              "reporting_window": "w2",
+              "start": "2026-01-03T10:02:00Z",
+              "stop": "2026-01-03T10:08:00Z",
+              "before_state": "TERMINATED",
+              "after_state": "TERMINATED",
+              "completed_work": "120"
+            }
+          ],
+          "verified_stopped": true
+        },
+        "summary": {
+          "training": {
+            "windows": {
+              "w1": 7,
+              "w2": 11
+            },
+            "mean": 9,
+            "std": 2,
+            "unusual_w1": false,
+            "unusual_w2": true
+          },
+          "inference": {
+            "windows": {
+              "w1": 5,
+              "w2": 8
+            },
+            "mean": 6.5,
+            "std": 1.5,
+            "unusual_w1": false,
+            "unusual_w2": false
+          }
+        },
+        "unmatched_charge_ids": [
+          "w1.unmapped-lab",
+          "w2.unmapped-lab"
+        ],
+        "unallocated": 3,
+        "allocated_total": 31,
+        "export_total": 34,
+        "unit": "fictional credits",
+        "reporting_windows": {
+          "w1": [
+            "2026-01-02T00:00:00Z",
+            "2026-01-03T00:00:00Z"
+          ],
+          "w2": [
+            "2026-01-03T00:00:00Z",
+            "2026-01-04T00:00:00Z"
+          ]
+        },
+        "ddof": 0
+      }
+    },
+    "visible": true,
+    "message_on_fail": "The returned record or calculation does not match the declared fixture contract."
+  }
+]

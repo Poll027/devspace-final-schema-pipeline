@@ -1,0 +1,412 @@
+{
+  "type": "code_exercise",
+  "public": {
+    "prompt": "Validate every candidate fixture against its incumbent on the same declared validation cohort. Compute FPR=FP/(FP+TN), FNR=FN/(FN+TP), and P(Y=0)*FPR*cost_FP+P(Y=1)*FNR*cost_FN; empty groups are undefined and reject. Accept only if cost is no above incumbent and all quality, slice, compatibility and exact identity gates pass. Record exact candidate identity, cohort, rates, cost and verdict. Exercise valid, boundary, failing and identity-mismatch cases using the supplied fixtures; never access protected test data.\nThe supplied mechanism handles parsing and report assembly. Your bounded edit is to bind each named input to the intended mounted row collection. Replace only the None bindings. Do not copy an output or change the fixed contract. Run and inspect the full report described above. The graded variable is report: a list of records with fields fixture, candidate, cohort, rates, incumbent_rates, quality_pass, cost_pass, slice_pass, compatibility_pass, cohort_pass, promotion_identity, promotion_identity_matches, verdict. Retain the supplied nested record structure and declared ordering.",
+    "runtime": {
+      "kind": "python",
+      "version": "0.29.5",
+      "packages": [
+        "numpy"
+      ]
+    },
+    "workspace": {
+      "entry": "main.py",
+      "files": [
+        {
+          "path": "main.py",
+          "role": "editable",
+          "language": "python",
+          "content": "# Supplied fixture parsing, contract/report mechanism and authorized simulator.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'validation_counts': {'fixture': 'string', 'model_role': 'string', 'cohort_id': 'string', 'registry_artifact_id': 'string', 'FP': 'integer', 'TN': 'integer', 'FN': 'integer', 'TP': 'integer', 'slice_pass': 'boolean', 'compatibility_pass': 'boolean'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\ndef rates(r):\\n    fpr = None\\n    fnr = None\\n    cost = None\\n    if r['FP']+r['TN'] > 0 and r['FN']+r['TP'] > 0:\\n        fpr = r['FP']/(r['FP']+r['TN'])\\n        fnr = r['FN']/(r['FN']+r['TP'])\\n        cost = policy['P_Y0']*fpr*policy['cost_FP'] + policy['P_Y1']*fnr*policy['cost_FN']\\n    return {'FPR':fpr,'FNR':fnr,'expected_cost':cost}\\n\\n\\npolicy = {'P_Y0': 0.5, 'P_Y1': 0.5, 'cost_FP': 1, 'cost_FN': 2, 'acceptance': {'maximum_FPR': 0.1, 'maximum_FNR': 0.1, 'cost_not_above_incumbent': True, 'slice_pass_required': True, 'compatibility_pass_required': True}, 'empty_group': 'undefined; reject', 'cohort': 'cohort.validation', 'decision_record_fields': ['registry_artifact_id', 'cohort_id', 'FPR', 'FNR', 'expected_cost', 'quality_pass', 'slice_pass', 'compatibility_pass', 'verdict'], 'protected_test': 'not provided; never used for selection'}\\ndef calculate_contract(validation_counts_input):\\n    supplied_rows = {'validation_counts':validation_counts_input}\\n    def load(name):\\n        return supplied_rows[name]\\n    policy = {'P_Y0': 0.5, 'P_Y1': 0.5, 'cost_FP': 1, 'cost_FN': 2, 'acceptance': {'maximum_FPR': 0.1, 'maximum_FNR': 0.1, 'cost_not_above_incumbent': True, 'slice_pass_required': True, 'compatibility_pass_required': True}, 'empty_group': 'undefined; reject', 'cohort': 'cohort.validation', 'decision_record_fields': ['registry_artifact_id', 'cohort_id', 'FPR', 'FNR', 'expected_cost', 'quality_pass', 'slice_pass', 'compatibility_pass', 'verdict'], 'protected_test': 'not provided; never used for selection'}\\n    data = load('validation_counts')\\n    results = []\\n    \\n    for r in data:\\n        if r['model_role']=='candidate':\\n            incumbent = None\\n            for other in data:\\n                if other['fixture']==r['fixture'] and other['model_role']=='incumbent':\\n                    incumbent = other\\n            rr = rates(r)\\n            ir = rates(incumbent)\\n            defined = rr['expected_cost'] != None and ir['expected_cost'] != None\\n            quality_pass = False\\n            cost_pass = False\\n            if defined:\\n                quality_pass = rr['FPR'] <= policy['acceptance']['maximum_FPR'] and rr['FNR'] <= policy['acceptance']['maximum_FNR']\\n                cost_pass = rr['expected_cost'] <= ir['expected_cost']\\n            cohort_pass = r['cohort_id']==incumbent['cohort_id'] and r['cohort_id']==policy['cohort']\\n            for promotion_identity in [r['registry_artifact_id'],r['registry_artifact_id']+'.different']:\\n                identity_match = promotion_identity == r['registry_artifact_id']\\n                accept = defined and quality_pass and cost_pass and r['slice_pass'] and r['compatibility_pass'] and cohort_pass and identity_match\\n                if not identity_match:\\n                    assert not accept\\n                results.append({'fixture':r['fixture'],'candidate':r['registry_artifact_id'],'cohort':r['cohort_id'],'rates':rr,'incumbent_rates':ir,'quality_pass':quality_pass,'cost_pass':cost_pass,'slice_pass':r['slice_pass'],'compatibility_pass':r['compatibility_pass'],'cohort_pass':cohort_pass,'promotion_identity':promotion_identity,'promotion_identity_matches':identity_match,'verdict':accept})\\n    \\n    report = results\\n    return report\\n\"\nexec(_fixture_support)\nvalidation_counts_rows = load('validation_counts')\n# Bind each contract input to its intended row collection.\nvalidation_counts_input = None\nreport = calculate_contract(validation_counts_input)\n"
+        }
+      ],
+      "asset_mounts": [
+        {
+          "asset_id": "ds.validation_counts",
+          "mount_path": "validation_counts.csv"
+        }
+      ]
+    },
+    "constraints": {
+      "allowed_syntax": [
+        "import statements for supplied library and client dependencies",
+        "def statements with parameters and return statements",
+        "local variable assignment",
+        "numeric, string, boolean and None literals",
+        "dictionary construction and key access",
+        "arithmetic operators +, -, *, /",
+        "comparison operators ==, !=, <, <=, >, >=",
+        "boolean operators and, or, not",
+        "if, elif and else statements",
+        "calls to supplied fixture, unit-test and promotion-record interfaces",
+        "assert predicate statements"
+      ],
+      "blocked_syntax": [
+        "calls to incident-runbook execution interfaces",
+        "calls to compute or memory utilization tracking interfaces",
+        "calls to workload expenditure attribution interfaces",
+        "calls to workload cost-guardrail configuration interfaces",
+        "calls to serving-resource deletion interfaces"
+      ]
+    }
+  },
+  "grading": {
+    "solution_files": [
+      {
+        "path": "main.py",
+        "content": "# Supplied fixture parsing, contract/report mechanism and authorized simulator.\n_fixture_support = \"import csv, json, datetime\\nimport numpy as np\\nSCHEMAS = {'validation_counts': {'fixture': 'string', 'model_role': 'string', 'cohort_id': 'string', 'registry_artifact_id': 'string', 'FP': 'integer', 'TN': 'integer', 'FN': 'integer', 'TP': 'integer', 'slice_pass': 'boolean', 'compatibility_pass': 'boolean'}}\\ndef load(name):\\n    with open(name+'.csv') as f:\\n        data=list(csv.DictReader(f))\\n    for r in data:\\n        for k,t in SCHEMAS[name].items():\\n            v=r[k]\\n            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)\\n    return data\\ndef column(data,key):\\n    return np.asarray([r[key] for r in data])\\ndef emit(value):\\n    return value\\n\\ndef rates(r):\\n    fpr = None\\n    fnr = None\\n    cost = None\\n    if r['FP']+r['TN'] > 0 and r['FN']+r['TP'] > 0:\\n        fpr = r['FP']/(r['FP']+r['TN'])\\n        fnr = r['FN']/(r['FN']+r['TP'])\\n        cost = policy['P_Y0']*fpr*policy['cost_FP'] + policy['P_Y1']*fnr*policy['cost_FN']\\n    return {'FPR':fpr,'FNR':fnr,'expected_cost':cost}\\n\\n\\npolicy = {'P_Y0': 0.5, 'P_Y1': 0.5, 'cost_FP': 1, 'cost_FN': 2, 'acceptance': {'maximum_FPR': 0.1, 'maximum_FNR': 0.1, 'cost_not_above_incumbent': True, 'slice_pass_required': True, 'compatibility_pass_required': True}, 'empty_group': 'undefined; reject', 'cohort': 'cohort.validation', 'decision_record_fields': ['registry_artifact_id', 'cohort_id', 'FPR', 'FNR', 'expected_cost', 'quality_pass', 'slice_pass', 'compatibility_pass', 'verdict'], 'protected_test': 'not provided; never used for selection'}\\ndef calculate_contract(validation_counts_input):\\n    supplied_rows = {'validation_counts':validation_counts_input}\\n    def load(name):\\n        return supplied_rows[name]\\n    policy = {'P_Y0': 0.5, 'P_Y1': 0.5, 'cost_FP': 1, 'cost_FN': 2, 'acceptance': {'maximum_FPR': 0.1, 'maximum_FNR': 0.1, 'cost_not_above_incumbent': True, 'slice_pass_required': True, 'compatibility_pass_required': True}, 'empty_group': 'undefined; reject', 'cohort': 'cohort.validation', 'decision_record_fields': ['registry_artifact_id', 'cohort_id', 'FPR', 'FNR', 'expected_cost', 'quality_pass', 'slice_pass', 'compatibility_pass', 'verdict'], 'protected_test': 'not provided; never used for selection'}\\n    data = load('validation_counts')\\n    results = []\\n    \\n    for r in data:\\n        if r['model_role']=='candidate':\\n            incumbent = None\\n            for other in data:\\n                if other['fixture']==r['fixture'] and other['model_role']=='incumbent':\\n                    incumbent = other\\n            rr = rates(r)\\n            ir = rates(incumbent)\\n            defined = rr['expected_cost'] != None and ir['expected_cost'] != None\\n            quality_pass = False\\n            cost_pass = False\\n            if defined:\\n                quality_pass = rr['FPR'] <= policy['acceptance']['maximum_FPR'] and rr['FNR'] <= policy['acceptance']['maximum_FNR']\\n                cost_pass = rr['expected_cost'] <= ir['expected_cost']\\n            cohort_pass = r['cohort_id']==incumbent['cohort_id'] and r['cohort_id']==policy['cohort']\\n            for promotion_identity in [r['registry_artifact_id'],r['registry_artifact_id']+'.different']:\\n                identity_match = promotion_identity == r['registry_artifact_id']\\n                accept = defined and quality_pass and cost_pass and r['slice_pass'] and r['compatibility_pass'] and cohort_pass and identity_match\\n                if not identity_match:\\n                    assert not accept\\n                results.append({'fixture':r['fixture'],'candidate':r['registry_artifact_id'],'cohort':r['cohort_id'],'rates':rr,'incumbent_rates':ir,'quality_pass':quality_pass,'cost_pass':cost_pass,'slice_pass':r['slice_pass'],'compatibility_pass':r['compatibility_pass'],'cohort_pass':cohort_pass,'promotion_identity':promotion_identity,'promotion_identity_matches':identity_match,'verdict':accept})\\n    \\n    report = results\\n    return report\\n\"\nexec(_fixture_support)\nvalidation_counts_rows = load('validation_counts')\nvalidation_counts_input = validation_counts_rows\nreport = calculate_contract(validation_counts_input)\n"
+      }
+    ],
+    "tests": [
+      {
+        "test_id": "report",
+        "kind": "value_equals",
+        "spec": {
+          "expr": "report",
+          "expected": [
+            {
+              "fixture": "valid",
+              "candidate": "model.valid",
+              "cohort": "cohort.validation",
+              "rates": {
+                "FPR": 0.04,
+                "FNR": 0.06,
+                "expected_cost": 0.08
+              },
+              "incumbent_rates": {
+                "FPR": 0.2,
+                "FNR": 0.2,
+                "expected_cost": 0.30000000000000004
+              },
+              "quality_pass": true,
+              "cost_pass": true,
+              "slice_pass": true,
+              "compatibility_pass": true,
+              "cohort_pass": true,
+              "promotion_identity": "model.valid",
+              "promotion_identity_matches": true,
+              "verdict": true
+            },
+            {
+              "fixture": "valid",
+              "candidate": "model.valid",
+              "cohort": "cohort.validation",
+              "rates": {
+                "FPR": 0.04,
+                "FNR": 0.06,
+                "expected_cost": 0.08
+              },
+              "incumbent_rates": {
+                "FPR": 0.2,
+                "FNR": 0.2,
+                "expected_cost": 0.30000000000000004
+              },
+              "quality_pass": true,
+              "cost_pass": true,
+              "slice_pass": true,
+              "compatibility_pass": true,
+              "cohort_pass": true,
+              "promotion_identity": "model.valid.different",
+              "promotion_identity_matches": false,
+              "verdict": false
+            },
+            {
+              "fixture": "boundary",
+              "candidate": "model.boundary",
+              "cohort": "cohort.validation",
+              "rates": {
+                "FPR": 0.1,
+                "FNR": 0.1,
+                "expected_cost": 0.15000000000000002
+              },
+              "incumbent_rates": {
+                "FPR": 0.2,
+                "FNR": 0.2,
+                "expected_cost": 0.30000000000000004
+              },
+              "quality_pass": true,
+              "cost_pass": true,
+              "slice_pass": true,
+              "compatibility_pass": true,
+              "cohort_pass": true,
+              "promotion_identity": "model.boundary",
+              "promotion_identity_matches": true,
+              "verdict": true
+            },
+            {
+              "fixture": "boundary",
+              "candidate": "model.boundary",
+              "cohort": "cohort.validation",
+              "rates": {
+                "FPR": 0.1,
+                "FNR": 0.1,
+                "expected_cost": 0.15000000000000002
+              },
+              "incumbent_rates": {
+                "FPR": 0.2,
+                "FNR": 0.2,
+                "expected_cost": 0.30000000000000004
+              },
+              "quality_pass": true,
+              "cost_pass": true,
+              "slice_pass": true,
+              "compatibility_pass": true,
+              "cohort_pass": true,
+              "promotion_identity": "model.boundary.different",
+              "promotion_identity_matches": false,
+              "verdict": false
+            },
+            {
+              "fixture": "slice_fail",
+              "candidate": "model.slice_fail",
+              "cohort": "cohort.validation",
+              "rates": {
+                "FPR": 0.04,
+                "FNR": 0.06,
+                "expected_cost": 0.08
+              },
+              "incumbent_rates": {
+                "FPR": 0.2,
+                "FNR": 0.2,
+                "expected_cost": 0.30000000000000004
+              },
+              "quality_pass": true,
+              "cost_pass": true,
+              "slice_pass": false,
+              "compatibility_pass": true,
+              "cohort_pass": true,
+              "promotion_identity": "model.slice_fail",
+              "promotion_identity_matches": true,
+              "verdict": false
+            },
+            {
+              "fixture": "slice_fail",
+              "candidate": "model.slice_fail",
+              "cohort": "cohort.validation",
+              "rates": {
+                "FPR": 0.04,
+                "FNR": 0.06,
+                "expected_cost": 0.08
+              },
+              "incumbent_rates": {
+                "FPR": 0.2,
+                "FNR": 0.2,
+                "expected_cost": 0.30000000000000004
+              },
+              "quality_pass": true,
+              "cost_pass": true,
+              "slice_pass": false,
+              "compatibility_pass": true,
+              "cohort_pass": true,
+              "promotion_identity": "model.slice_fail.different",
+              "promotion_identity_matches": false,
+              "verdict": false
+            },
+            {
+              "fixture": "compat_fail",
+              "candidate": "model.compat_fail",
+              "cohort": "cohort.validation",
+              "rates": {
+                "FPR": 0.04,
+                "FNR": 0.06,
+                "expected_cost": 0.08
+              },
+              "incumbent_rates": {
+                "FPR": 0.2,
+                "FNR": 0.2,
+                "expected_cost": 0.30000000000000004
+              },
+              "quality_pass": true,
+              "cost_pass": true,
+              "slice_pass": true,
+              "compatibility_pass": false,
+              "cohort_pass": true,
+              "promotion_identity": "model.compat_fail",
+              "promotion_identity_matches": true,
+              "verdict": false
+            },
+            {
+              "fixture": "compat_fail",
+              "candidate": "model.compat_fail",
+              "cohort": "cohort.validation",
+              "rates": {
+                "FPR": 0.04,
+                "FNR": 0.06,
+                "expected_cost": 0.08
+              },
+              "incumbent_rates": {
+                "FPR": 0.2,
+                "FNR": 0.2,
+                "expected_cost": 0.30000000000000004
+              },
+              "quality_pass": true,
+              "cost_pass": true,
+              "slice_pass": true,
+              "compatibility_pass": false,
+              "cohort_pass": true,
+              "promotion_identity": "model.compat_fail.different",
+              "promotion_identity_matches": false,
+              "verdict": false
+            },
+            {
+              "fixture": "quality_fail",
+              "candidate": "model.quality_fail",
+              "cohort": "cohort.validation",
+              "rates": {
+                "FPR": 0.3,
+                "FNR": 0.3,
+                "expected_cost": 0.44999999999999996
+              },
+              "incumbent_rates": {
+                "FPR": 0.2,
+                "FNR": 0.2,
+                "expected_cost": 0.30000000000000004
+              },
+              "quality_pass": false,
+              "cost_pass": false,
+              "slice_pass": true,
+              "compatibility_pass": true,
+              "cohort_pass": true,
+              "promotion_identity": "model.quality_fail",
+              "promotion_identity_matches": true,
+              "verdict": false
+            },
+            {
+              "fixture": "quality_fail",
+              "candidate": "model.quality_fail",
+              "cohort": "cohort.validation",
+              "rates": {
+                "FPR": 0.3,
+                "FNR": 0.3,
+                "expected_cost": 0.44999999999999996
+              },
+              "incumbent_rates": {
+                "FPR": 0.2,
+                "FNR": 0.2,
+                "expected_cost": 0.30000000000000004
+              },
+              "quality_pass": false,
+              "cost_pass": false,
+              "slice_pass": true,
+              "compatibility_pass": true,
+              "cohort_pass": true,
+              "promotion_identity": "model.quality_fail.different",
+              "promotion_identity_matches": false,
+              "verdict": false
+            },
+            {
+              "fixture": "empty_negative",
+              "candidate": "model.empty_negative",
+              "cohort": "cohort.validation",
+              "rates": {
+                "FPR": null,
+                "FNR": null,
+                "expected_cost": null
+              },
+              "incumbent_rates": {
+                "FPR": 0.2,
+                "FNR": 0.2,
+                "expected_cost": 0.30000000000000004
+              },
+              "quality_pass": false,
+              "cost_pass": false,
+              "slice_pass": true,
+              "compatibility_pass": true,
+              "cohort_pass": true,
+              "promotion_identity": "model.empty_negative",
+              "promotion_identity_matches": true,
+              "verdict": false
+            },
+            {
+              "fixture": "empty_negative",
+              "candidate": "model.empty_negative",
+              "cohort": "cohort.validation",
+              "rates": {
+                "FPR": null,
+                "FNR": null,
+                "expected_cost": null
+              },
+              "incumbent_rates": {
+                "FPR": 0.2,
+                "FNR": 0.2,
+                "expected_cost": 0.30000000000000004
+              },
+              "quality_pass": false,
+              "cost_pass": false,
+              "slice_pass": true,
+              "compatibility_pass": true,
+              "cohort_pass": true,
+              "promotion_identity": "model.empty_negative.different",
+              "promotion_identity_matches": false,
+              "verdict": false
+            }
+          ]
+        },
+        "message_on_fail": "The report differs from the declared fixture contract. Recheck execution order, scope, definitions and required evidence."
+      }
+    ]
+  },
+  "interaction_id": "ix.mle.tile.086_089.s21",
+  "difficulty": "stretch",
+  "grading_mode": "client",
+  "standalone": true,
+  "measures": [
+    {
+      "concept_id": "mle.retrained_candidate_validation",
+      "capability": "verify_matched_validation_and_protected_test_isolation",
+      "fact_ids": [
+        "f1",
+        "f7"
+      ]
+    },
+    {
+      "concept_id": "mle.retrained_candidate_validation",
+      "capability": "calculate_incumbent_relative_expected_error_cost",
+      "fact_ids": [
+        "f2",
+        "f5",
+        "f6"
+      ]
+    },
+    {
+      "concept_id": "mle.retrained_candidate_validation",
+      "capability": "enforce_all_required_acceptance_gates",
+      "fact_ids": [
+        "f3"
+      ]
+    },
+    {
+      "concept_id": "mle.retrained_candidate_validation",
+      "capability": "bind_gate_verdict_to_exact_candidate_identity",
+      "fact_ids": [
+        "f4"
+      ]
+    },
+    {
+      "concept_id": "mle.retrained_candidate_validation",
+      "capability": "assert_valid_boundary_and_failure_gate_outcomes",
+      "fact_ids": [
+        "f8"
+      ]
+    }
+  ],
+  "anchors": [
+    "mle.retrained_candidate_validation#practice",
+    "mle.retrained_candidate_validation#assessment:verify_matched_validation_and_protected_test_isolation",
+    "mle.retrained_candidate_validation#assessment:calculate_incumbent_relative_expected_error_cost",
+    "mle.retrained_candidate_validation#assessment:enforce_all_required_acceptance_gates",
+    "mle.retrained_candidate_validation#assessment:bind_gate_verdict_to_exact_candidate_identity",
+    "mle.retrained_candidate_validation#assessment:assert_valid_boundary_and_failure_gate_outcomes"
+  ],
+  "feedback": {
+    "correct": {
+      "message": "Your result follows the declared evidence and contract boundaries."
+    },
+    "incorrect": {
+      "message": "Recheck the declared scope, eligible observations and required evidence before accepting the result."
+    },
+    "hints": [
+      "Identify which observations or operations the stated contract makes eligible.",
+      "Keep the declared identities, definitions and required gates intact."
+    ]
+  }
+}

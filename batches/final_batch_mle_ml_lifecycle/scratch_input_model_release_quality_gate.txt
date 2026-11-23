@@ -1,0 +1,288 @@
+{
+  "type": "live_code",
+  "objective": "Implement a learner-defined Python acceptance function in the supplied artifact-triggered Cloud Build pipeline, writing the required imports yourself. Read the supplied candidate and accepted-reference evidence, calculate validation expected error cost from the declared probabilities and costs, and evaluate every required quality and operating predicate. Reject failed or incomplete evidence with explicit exceptions identifying the affected predicates. Write assertions for passing and failing evidence, safely write and reload the existing configuration, wire the assigned gate entry point and required step dependencies, and trigger accepted and rejected fixtures through the configured Pub/Sub event trigger.",
+  "success": "Assertions confirm acceptance only when all required predicates are complete and passing, and confirm explicit rejection for failed or incomplete evidence, including undefined rates from empty conditioning groups. The reloaded configuration retains the required image, command, step IDs and waitFor dependencies without failure-tolerant gate settings. Actual resolved inputs identify the intended candidate fixtures. The accepted run passes the gate and reaches promotion; the rejected run exits unsuccessfully at the gate and does not execute promotion.",
+  "live_code": {
+    "required_skill": "Implement and test a fail-closed Python acceptance function, then connect its entry point to the assigned stage of an existing event-triggered release pipeline.",
+    "allowed_syntax": [
+      "import statements for yaml and required supplied-runtime library or client dependencies",
+      "def statements, parameters, function calls and return statements",
+      "dictionary and list literals, indexing and membership checks",
+      "variable assignment and arithmetic expressions",
+      "comparison operators and Boolean expressions",
+      "if, elif and else statements",
+      "for loops over required acceptance predicates",
+      "raise statements with explicit exception messages",
+      "try and except statements for asserting expected rejection without suppressing runtime gate failures",
+      "assert statements",
+      "with open(...) as file_handle",
+      "yaml.safe_dump(config, file_handle)",
+      "yaml.safe_load(file_handle)",
+      "existing pipeline mapping/list fields: steps, name, args or script, id and waitFor"
+    ],
+    "blocked_syntax": [],
+    "starter_state_intent": "Provide incomplete function and test entry points, the supplied candidate and accepted-reference evidence fixtures, predeclared acceptance requirements, deployment class probabilities, error costs and fixed operating limits. Include the existing Cloud Build configuration, declared PyYAML dependency, assigned gate and promotion stages, and configured event payload bindings and filters. Retain only the supplied fixture field names; do not provide a complete implementation or require creation of a new pipeline or trigger.",
+    "observable_success": "The learner's assertions distinguish accepted, failed and incomplete evidence. Configuration inspection confirms the required resolved fields and fatal dependency chain. Recorded results from both configured event-triggered runs show the intended inputs, successful gate execution for accepted evidence, and unsuccessful gate execution with an identified predicate and blocked promotion for rejected evidence."
+  }
+}
+[
+  {
+    "fact_ids": [
+      "f1",
+      "f2",
+      "f3",
+      "f4"
+    ],
+    "capability": "reject_failed_or_incomplete_candidate_acceptance"
+  },
+  {
+    "fact_ids": [
+      "f3",
+      "f5",
+      "f6"
+    ],
+    "capability": "calculate_validation_error_cost_and_apply_operating_limits"
+  },
+  {
+    "fact_ids": [
+      "f7"
+    ],
+    "capability": "preserve_protected_test_isolation"
+  },
+  {
+    "fact_ids": [
+      "f8",
+      "f9",
+      "f10"
+    ],
+    "capability": "wire_a_fatal_acceptance_gate_before_promotion"
+  },
+  {
+    "fact_ids": [
+      "f4",
+      "f11"
+    ],
+    "capability": "verify_event_triggered_gate_results_block_rejected_promotion"
+  },
+  {
+    "fact_ids": [
+      "f12"
+    ],
+    "capability": "safely_round_trip_and_inspect_release_configuration"
+  }
+]
+
+FILE cloudbuild.yaml
+{
+  "steps": [
+    {
+      "id": "release_gate",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "learner.py",
+        "${_CASE}",
+        "${_ARTIFACT}"
+      ],
+      "waitFor": [
+        "-"
+      ]
+    },
+    {
+      "id": "promotion",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "downstream_entry.py",
+        "${_ARTIFACT}"
+      ],
+      "waitFor": []
+    }
+  ],
+  "substitutions": {
+    "_SNAPSHOT": "valid",
+    "_CASE": "A",
+    "_ARTIFACT": "A"
+  },
+  "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com"
+}
+
+FILE storage_sim.py
+"""Bounded local Cloud Storage interface, never a real cloud client."""
+from pathlib import Path
+class PreconditionFailed(Exception):
+    status_code = 412
+class RecoverableFailure(Exception):
+    pass
+class StorageClient:
+    def __init__(self, initial=None, race=None):
+        self.objects = dict(initial or {})
+        self.race = dict(race or {})
+        self.uploads = []
+        self.requests = []
+    def blob(self, name):
+        return Blob(self, name)
+class Blob:
+    def __init__(self, client, name):
+        self.client, self.name = client, name
+        self.generation = None
+    def exists(self):
+        return self.name in self.client.objects
+    def reload(self):
+        self.generation = self.client.objects[self.name]["generation"]
+    def download_as_bytes(self, if_generation_match):
+        self.client.requests.append((self.name, if_generation_match))
+        obj = self.client.objects[self.name]
+        if obj["generation"] != if_generation_match:
+            raise PreconditionFailed("generation mismatch")
+        return obj["data"]
+    def upload_from_filename(self, path, if_generation_match):
+        if if_generation_match != 0:
+            raise ValueError("fixture contract permits create-only upload")
+        if self.name in self.client.race:
+            self.client.objects[self.name] = self.client.race.pop(self.name)
+            raise PreconditionFailed("412 concurrent creation")
+        if self.exists():
+            raise PreconditionFailed("412 already exists")
+        self.client.objects[self.name] = {"generation": 1, "data": Path(path).read_bytes()}
+        self.client.uploads.append(self.name)
+        self.reload()
+
+FILE fixtures/artifacts.json
+{
+  "A": {
+    "artifact_id": "A",
+    "uri": "gs://fixture-artifacts/A.txt",
+    "generation": 1,
+    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+    "validation_ok": true
+  },
+  "B": {
+    "artifact_id": "B",
+    "uri": "gs://fixture-artifacts/B.txt",
+    "generation": 1,
+    "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+    "validation_ok": true
+  }
+}
+
+FILE fixtures/release_cases.json
+{
+  "reference": {
+    "candidate_id": "reference",
+    "FP": 10,
+    "TN": 90,
+    "FN": 10,
+    "TP": 90,
+    "latency_ms": 18,
+    "operating_ok": true,
+    "evidence_complete": true
+  },
+  "A": {
+    "candidate_id": "A",
+    "FP": 5,
+    "TN": 95,
+    "FN": 5,
+    "TP": 95,
+    "latency_ms": 20,
+    "operating_ok": true,
+    "evidence_complete": true
+  },
+  "B": {
+    "candidate_id": "B",
+    "FP": 4,
+    "TN": 96,
+    "FN": 4,
+    "TP": 96,
+    "latency_ms": 21,
+    "operating_ok": true,
+    "evidence_complete": true
+  },
+  "boundary": {
+    "candidate_id": "boundary",
+    "FP": 10,
+    "TN": 90,
+    "FN": 10,
+    "TP": 90,
+    "latency_ms": 20,
+    "operating_ok": true,
+    "evidence_complete": true
+  },
+  "empty_negatives": {
+    "candidate_id": "empty_negatives",
+    "FP": 0,
+    "TN": 0,
+    "FN": 5,
+    "TP": 95,
+    "latency_ms": 15,
+    "operating_ok": true,
+    "evidence_complete": true
+  },
+  "empty_positives": {
+    "candidate_id": "empty_positives",
+    "FP": 5,
+    "TN": 95,
+    "FN": 0,
+    "TP": 0,
+    "latency_ms": 15,
+    "operating_ok": true,
+    "evidence_complete": true
+  },
+  "incomplete": {
+    "candidate_id": "incomplete",
+    "FP": 5,
+    "TN": 95,
+    "FN": 5,
+    "TP": 95,
+    "latency_ms": null,
+    "operating_ok": true,
+    "evidence_complete": false
+  },
+  "cost_failure": {
+    "candidate_id": "cost_failure",
+    "FP": 40,
+    "TN": 60,
+    "FN": 40,
+    "TP": 60,
+    "latency_ms": 15,
+    "operating_ok": true,
+    "evidence_complete": true
+  },
+  "operating_failure": {
+    "candidate_id": "operating_failure",
+    "FP": 5,
+    "TN": 95,
+    "FN": 5,
+    "TP": 95,
+    "latency_ms": 15,
+    "operating_ok": false,
+    "evidence_complete": true
+  }
+}
+
+FILE fixtures/release_contract.json
+{
+  "probabilities": {
+    "P(Y=0)": 0.8,
+    "P(Y=1)": 0.2
+  },
+  "costs": {
+    "cost_FP": 1,
+    "cost_FN": 4,
+    "correct_prediction": 0
+  },
+  "max_expected_error_cost": 0.16,
+  "max_latency_ms": 20,
+  "accepted_reference": "reference",
+  "requirements": [
+    "all evidence fields present",
+    "nonnegative integer counts",
+    "both actual-class denominators nonempty",
+    "candidate identity matches event",
+    "expected error cost <= fixed maximum and <= accepted reference cost",
+    "latency_ms <= fixed maximum",
+    "operating_ok is True",
+    "evidence_complete is True"
+  ],
+  "protected_test_use": "Never fit, select, or tune using protected-test observations."
+}

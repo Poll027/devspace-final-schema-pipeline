@@ -1,0 +1,125 @@
+{
+  "concept_id": "auth.endpoint_permissions",
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "The situation",
+      "content": "A verified caller may read orders but lack permission to modify them. Authentication and operation permission are different gates.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "definition",
+      "title": "The rule and its boundary",
+      "content": "OAuth2 scopes express permissions requested or granted for protected operations; authentication alone does not establish that all operation permissions are present.",
+      "fact_ids": [
+        "f1"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "How to use the rule",
+      "content": "Declare Security(provider, scopes=[...]) on a protected operation and accept SecurityScopes in the provider to access the operation's required scopes. Compare each required scope with the scopes in the verified token context and reject the request if a required scope is absent. Test a verified token with the required scope and another without it, asserting that only the sufficiently scoped request succeeds.",
+      "fact_ids": [
+        "f2",
+        "f3",
+        "f4"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "walkthrough",
+      "title": "Reason through an example",
+      "content": "Declare Security(provider, scopes=[...]) for the operation's required permissions. In the provider, SecurityScopes exposes those requirements; compare each against the verified token context and reject if one is missing. For a hypothetical write permission, test a verified token with it and another otherwise verified token without it. The sufficiently scoped request succeeds while the other is denied. Keep verification valid in both cases so the test isolates permission rather than failing earlier authentication. Draw identity verification before scope comparison, but do not treat reaching the latter as automatic success. Each declared operation requirement still needs to be enforced.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "misconception",
+      "title": "Keep this distinction",
+      "content": "Authentication alone does not grant every scope. Documentation of scopes is not a substitute for checking them against verified authority.",
+      "fact_ids": [
+        "f1",
+        "f3"
+      ]
+    }
+  ],
+  "visual_anchor": {
+    "type": "code",
+    "purpose": "Make the connection visible between the operation's Security scope declaration, SecurityScopes in the provider, the comparison against verified scopes, and the successful versus denied test outcomes."
+  },
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Add an orders:write scope requirement to an order-modification operation and enforce it against the verified token context.",
+    "success": "The operation declares orders:write through Security, the provider checks every required scope, and two otherwise verified requests demonstrate that only the request carrying orders:write succeeds.",
+    "live_code": {
+      "required_skill": "Declare an operation's required scopes, receive them through SecurityScopes, and reject a request when the verified token context lacks any requirement.",
+      "allowed_syntax": [
+        "from fastapi import Security, Depends, HTTPException",
+        "from fastapi.security import SecurityScopes",
+        "Security(provider, scopes=[\"orders:write\"])",
+        "security_scopes: SecurityScopes",
+        "Depends(verified_token_context)",
+        "security_scopes.scopes",
+        "for required_scope in security_scopes.scopes:",
+        "if required_scope not in token_context.scopes:",
+        "raise HTTPException(status_code=403, detail=\"Insufficient permissions\")",
+        "def and async def function declarations",
+        "FastAPI path-operation decorators",
+        "return statements",
+        "string, integer, list, and dictionary literals",
+        "TestClient requests",
+        "dependency_overrides",
+        "assert statements comparing response status codes"
+      ],
+      "blocked_syntax": [
+        "order.owner_id == token_context.subject",
+        "app.openapi()",
+        "get_openapi(...)",
+        "OAuth2AuthorizationCodeBearer(...)",
+        "jwt.decode(...)",
+        "invalid-token test fixtures"
+      ],
+      "starter_state_intent": "Provide an order-modification operation, a working verified-token-context dependency exposing scopes, and a provider awaiting permission enforcement. Supply two verified contexts: one with orders:write and one without it, plus an endpoint test harness.",
+      "observable_success": "The operation uses Security(provider, scopes=[\"orders:write\"]). The provider accepts SecurityScopes and rejects any missing required scope. Assertions show success for the sufficiently scoped context and HTTP 403 for the otherwise verified context without orders:write."
+    }
+  },
+  "required_facts": [
+    {
+      "id": "f1",
+      "statement": "OAuth2 scopes express permissions requested or granted for protected operations; authentication alone does not establish that all operation permissions are present.",
+      "source_refs": [
+        "fastapi_docs_advanced#https://fastapi.tiangolo.com/advanced/security/oauth2-scopes/#oauth2-scopes-and-openapi"
+      ]
+    },
+    {
+      "id": "f2",
+      "statement": "Declare Security(provider, scopes=[...]) on a protected operation and accept SecurityScopes in the provider to access the operation's required scopes.",
+      "source_refs": [
+        "fastapi_docs_advanced#https://fastapi.tiangolo.com/advanced/security/oauth2-scopes/#use-securityscopes"
+      ]
+    },
+    {
+      "id": "f3",
+      "statement": "Compare each required scope with the scopes in the verified token context and reject the request if a required scope is absent.",
+      "source_refs": [
+        "fastapi_docs_advanced#https://fastapi.tiangolo.com/advanced/security/oauth2-scopes/#verify-the-scopes"
+      ]
+    },
+    {
+      "id": "f4",
+      "statement": "Test a verified token with the required scope and another without it, asserting that only the sufficiently scoped request succeeds.",
+      "source_refs": [
+        "fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/testing/#using-testclient",
+        "fastapi_docs_advanced#https://fastapi.tiangolo.com/advanced/security/oauth2-scopes/#verify-the-scopes"
+      ]
+    }
+  ]
+}

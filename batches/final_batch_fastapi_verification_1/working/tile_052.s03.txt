@@ -1,0 +1,152 @@
+{
+  "step_id": "tile_052.s03",
+  "interaction": {
+    "type": "code_exercise",
+    "interaction_id": "ix.tile_052.s03",
+    "difficulty": "core",
+    "grading_mode": "client",
+    "standalone": false,
+    "measures": [
+      {
+        "concept_id": "deployment.graceful_shutdown_verification",
+        "fact_ids": [
+          "f1",
+          "f2",
+          "f3"
+        ],
+        "capability": "identify_interrupted_work_against_shutdown_limit"
+      },
+      {
+        "concept_id": "deployment.graceful_shutdown_verification",
+        "fact_ids": [
+          "f3"
+        ],
+        "capability": "identify_shared_resources_not_released_by_lifespan_cleanup"
+      }
+    ],
+    "anchors": [
+      "deployment.graceful_shutdown_verification#practice",
+      "deployment.graceful_shutdown_verification#assessment:identify_interrupted_work_against_shutdown_limit",
+      "deployment.graceful_shutdown_verification#assessment:identify_shared_resources_not_released_by_lifespan_cleanup"
+    ],
+    "feedback": {
+      "correct": {
+        "message": "You applied the declared boundary and preserved its required behavior."
+      },
+      "incorrect": {
+        "message": "Recheck the stated boundary and distinguish the separate obligations rather than assuming one implies the other."
+      },
+      "hints": [
+        "Compare each declaration with its input or lifecycle boundary.",
+        "Trace what happens on the alternative input or exit, not only the successful path."
+      ]
+    },
+    "public": {
+      "prompt": "Add --timeout-graceful-shutdown 5 to server_command. Complete lifespan finally with await client.aclose() and app.state.client_closed = client.is_closed. Keep the supplied request and harness unchanged. The pinned WASM runtime verifies an in-process drain boundary while the request is active, completion inside the configured limit, and actual shared-client closure. It cannot send a real Uvicorn process signal: use the registered run.sh and termination_harness.py in a native environment for process-level verification. Distinguish an unfinished response from failed cleanup.",
+      "runtime": {
+        "kind": "python_asgi",
+        "version": "0.29.5"
+      },
+      "workspace": {
+        "entry": "exercise.py",
+        "files": [
+          {
+            "path": "exercise.py",
+            "role": "editable",
+            "language": "python",
+            "content": "request_delay = 0.01\nshutdown_limit = 5\nimport asyncio\nfrom contextlib import asynccontextmanager\nimport httpx\nfrom fastapi import FastAPI\n\nasync def lifespan(app):\n    client = httpx.AsyncClient()\n    app.state.client = client\n    try:\n        yield\n    finally:\n        # TODO: await client.aclose(); record client.is_closed.\n        pass\nlifespan = asynccontextmanager(lifespan)\napp = FastAPI(lifespan=lifespan)\n\nasync def controlled_order():\n    print('request_started', flush=True)\n    await asyncio.sleep(request_delay)\n    print('request_completed', flush=True)\n    return {'id': 42, 'quantity': 2}\ncontrolled_order = app.get('/orders/42')(controlled_order)\n\nserver_command = 'uvicorn main:app --host 127.0.0.1 --port 8000'\nimport asyncio, inspect, json, ast\nimport httpx\nfrom contextlib import contextmanager\n\ndef _drive(coro):\n    try:\n        pending = coro.send(None)\n    except StopIteration as done:\n        return done.value\n    raise RuntimeError('Harness encountered a suspending operation: ' + repr(pending))\n\nasync def _requests(application, requests):\n    async with application.router.lifespan_context(application):\n        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=application, raise_app_exceptions=False), base_url='http://testserver') as client:\n            out=[]\n            for method,path,kwargs in requests:\n                response=await client.request(method,path,**kwargs)\n                try: body=response.json()\n                except ValueError: body=response.text\n                out.append({'status':response.status_code,'body':body})\n            return out\ndef _case(which):\n    import shlex\n    command=shlex.split(server_command)\n    configured=float(command[command.index('--timeout-graceful-shutdown')+1])\n    assert configured==shutdown_limit\n    async def run():\n        async with app.router.lifespan_context(app):\n            loop=asyncio.get_running_loop()\n            started=loop.time()\n            task=asyncio.create_task(controlled_order())\n            await asyncio.sleep(0)\n            termination_started=loop.time()\n            assert not task.done()\n            response=await asyncio.wait_for(task,configured)\n            elapsed=loop.time()-termination_started\n            assert elapsed<configured\n        assert app.state.client_closed and app.state.client.is_closed\n        return {'configured_limit':configured,'termination_during_active_request':True,'response':response,'closed':app.state.client.is_closed,'verification_mode':which}\n    # Expose async verification as an ASGI endpoint for the awaited runner.\n    return run()\n\nasync def verify_shutdown(which: str): return await _case(which)\nverify_shutdown = app.get('/verify-shutdown/{which}')(verify_shutdown)\n"
+          }
+        ],
+        "asset_mounts": []
+      },
+      "constraints": {
+        "allowed_syntax": [
+          "uvicorn --timeout-graceful-shutdown <seconds>",
+          "async def",
+          "await",
+          "try/finally",
+          "@asynccontextmanager",
+          "yield",
+          "FastAPI(lifespan=...)",
+          "@app.get(...)",
+          "await asyncio.sleep(...)",
+          "httpx.AsyncClient()",
+          "await client.aclose()",
+          "client.is_closed"
+        ],
+        "blocked_syntax": [
+          "app.dependency_overrides",
+          "Header(...)",
+          "Cookie(...)",
+          "@app.exception_handler(...)",
+          "session.commit()",
+          "session.rollback()"
+        ]
+      }
+    },
+    "grading": {
+      "solution_files": [
+        {
+          "path": "exercise.py",
+          "content": "request_delay = 0.01\nshutdown_limit = 5\nimport asyncio\nfrom contextlib import asynccontextmanager\nimport httpx\nfrom fastapi import FastAPI\n\nasync def lifespan(app):\n    client = httpx.AsyncClient()\n    app.state.client = client\n    try:\n        yield\n    finally:\n        await client.aclose()\n        app.state.client_closed = client.is_closed\nlifespan = asynccontextmanager(lifespan)\napp = FastAPI(lifespan=lifespan)\n\nasync def controlled_order():\n    print('request_started', flush=True)\n    await asyncio.sleep(request_delay)\n    print('request_completed', flush=True)\n    return {'id': 42, 'quantity': 2}\ncontrolled_order = app.get('/orders/42')(controlled_order)\n\nserver_command = 'uvicorn main:app --host 127.0.0.1 --port 8000 --timeout-graceful-shutdown 5'\nimport asyncio, inspect, json, ast\nimport httpx\nfrom contextlib import contextmanager\n\ndef _drive(coro):\n    try:\n        pending = coro.send(None)\n    except StopIteration as done:\n        return done.value\n    raise RuntimeError('Harness encountered a suspending operation: ' + repr(pending))\n\nasync def _requests(application, requests):\n    async with application.router.lifespan_context(application):\n        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=application, raise_app_exceptions=False), base_url='http://testserver') as client:\n            out=[]\n            for method,path,kwargs in requests:\n                response=await client.request(method,path,**kwargs)\n                try: body=response.json()\n                except ValueError: body=response.text\n                out.append({'status':response.status_code,'body':body})\n            return out\ndef _case(which):\n    import shlex\n    command=shlex.split(server_command)\n    configured=float(command[command.index('--timeout-graceful-shutdown')+1])\n    assert configured==shutdown_limit\n    async def run():\n        async with app.router.lifespan_context(app):\n            loop=asyncio.get_running_loop()\n            started=loop.time()\n            task=asyncio.create_task(controlled_order())\n            await asyncio.sleep(0)\n            termination_started=loop.time()\n            assert not task.done()\n            response=await asyncio.wait_for(task,configured)\n            elapsed=loop.time()-termination_started\n            assert elapsed<configured\n        assert app.state.client_closed and app.state.client.is_closed\n        return {'configured_limit':configured,'termination_during_active_request':True,'response':response,'closed':app.state.client.is_closed,'verification_mode':which}\n    # Expose async verification as an ASGI endpoint for the awaited runner.\n    return run()\n\nasync def verify_shutdown(which: str): return await _case(which)\nverify_shutdown = app.get('/verify-shutdown/{which}')(verify_shutdown)\n"
+        }
+      ],
+      "tests": [
+        {
+          "test_id": "test_1",
+          "kind": "http_equals",
+          "spec": {
+            "requests": [
+              {
+                "method": "GET",
+                "path": "/verify-shutdown/normal"
+              }
+            ],
+            "expected": {
+              "status": 200,
+              "json": {
+                "configured_limit": 5,
+                "termination_during_active_request": true,
+                "response": {
+                  "id": 42,
+                  "quantity": 2
+                },
+                "closed": true,
+                "verification_mode": "normal"
+              }
+            }
+          },
+          "visible": true,
+          "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+        },
+        {
+          "test_id": "test_2",
+          "kind": "http_equals",
+          "spec": {
+            "requests": [
+              {
+                "method": "GET",
+                "path": "/verify-shutdown/repeat"
+              }
+            ],
+            "expected": {
+              "status": 200,
+              "json": {
+                "configured_limit": 5,
+                "termination_during_active_request": true,
+                "response": {
+                  "id": 42,
+                  "quantity": 2
+                },
+                "closed": true,
+                "verification_mode": "repeat"
+              }
+            }
+          },
+          "visible": true,
+          "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+        }
+      ]
+    }
+  }
+}

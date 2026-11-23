@@ -1,0 +1,65 @@
+# Supplied implementation, fixtures and verification harness; complete only the marked assignments and assertions.
+exec('import numpy as np\nclass EncoderFixture:\n    def __init__(self, handle_unknown="error", sparse_output=False):\n        self.handle_unknown = handle_unknown\n    def fit(self, X):\n        values = [r[0] for r in X]\n        known = sorted(set(v for v in values if not (isinstance(v,float) and np.isnan(v))))\n        if any(isinstance(v,float) and np.isnan(v) for v in values): known.append(np.nan)\n        self.categories_ = [np.array(known,dtype=object)]\n        return self\n    def transform(self, X):\n        out = []\n        for row in X:\n            value = row[0]\n            flags = [value == c or (isinstance(value,float) and isinstance(c,float) and np.isnan(value) and np.isnan(c)) for c in self.categories_[0]]\n            if not any(flags) and self.handle_unknown == "error": raise ValueError("unknown category")\n            out.append([int(v) for v in flags])\n        return np.array(out)\nOneHotEncoder = EncoderFixture\n')
+
+training_rows = [['north'], ['south']]
+
+training_missing_rows = [['north'], ['south'], [None]]
+
+cases = {'north': [['north']], 'east': [['east']], 'None': [[None]]}
+
+feature_name = 'zone'
+
+X_train = training_rows
+
+X_train_missing = [[np.nan if v is None else v for v in row] for row in training_missing_rows]
+
+known = cases['north']
+
+unseen = cases['east']
+
+missing = [[np.nan]]
+
+if True:
+
+    def supplied_encode(X_train, known, unseen, missing, policy):
+        encoder = OneHotEncoder(handle_unknown=policy, sparse_output=False)
+        encoder.fit(X_train)
+        stored = encoder.categories_[0].copy()
+        mapping = {'zone': encoder.categories_[0].tolist()}
+        outputs = {}
+        for name in ['known', 'unseen', 'missing']:
+            if name == 'known':
+                rows = known
+            if name == 'unseen':
+                rows = unseen
+            if name == 'missing':
+                rows = missing
+            try:
+                outputs[name] = encoder.transform(rows).tolist()
+            except ValueError:
+                outputs[name] = 'ValueError'
+        assert encoder.categories_[0].tolist() == stored.tolist()
+        return {'mapping': mapping, 'outputs': outputs, 'width': len(stored)}
+
+# TODO: complete the required encode assignment.
+encode = None
+
+ignore_result = encode(X_train, known, unseen, missing, 'ignore')
+
+error_result = encode(X_train, known, unseen, missing, 'error')
+
+seen_missing_result = encode(X_train_missing, known, unseen, missing, 'ignore')
+
+assert ignore_result['outputs']['known'] == [[1, 0]]
+
+assert ignore_result['outputs']['unseen'] == [[0, 0]]
+
+assert ignore_result['outputs']['missing'] == [[0, 0]]
+
+assert error_result['outputs']['unseen'] == 'ValueError'
+
+assert error_result['outputs']['missing'] == 'ValueError'
+
+assert seen_missing_result['outputs']['missing'] == [[0, 0, 1]]
+
+exec('def probe_contract(training, known, unseen, missing, policy):\n    arrays = [[[np.nan if v is None else v for v in row] for row in rows] for rows in [training,known,unseen,missing]]\n    return encode(*arrays,policy)\n')

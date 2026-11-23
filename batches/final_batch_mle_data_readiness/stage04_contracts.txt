@@ -1,0 +1,1341 @@
+mle.prediction_task_definition
+{
+  "practice": {
+    "type": "spreadsheet",
+    "objective": "Complete a task record for the delivery-order example: identify the eligible population, one order at acceptance as the prediction unit, arrival more than 30 minutes after acceptance as the target event, prediction time, horizon and allowed inputs. Use the supplied counts to calculate the empirical outcome proportion for all 100 orders and the conditional proportion for the specified zone\u2019s 40 orders.",
+    "success": "The record separates unit, population, target, prediction time and 30-minute horizon. It allows distance and promised delivery zone as inputs and excludes eventual arrival time. Calculations show 20/100 = 0.20 and 12/40 = 0.30, each labeled with its population and target horizon. The explanation connects these counts to a measurable order-level target without treating the zone proportion as applying to every zone."
+  },
+  "assess": [
+    {
+      "fact_ids": [
+        "f1",
+        "f4"
+      ],
+      "capability": "specify_prediction_unit_target_time_and_horizon"
+    },
+    {
+      "fact_ids": [
+        "f2"
+      ],
+      "capability": "restrict_inputs_to_prediction_time_information"
+    }
+  ],
+  "example": [
+    "For this invented task, one prediction unit is an order at acceptance. The target event is arrival more than 30 minutes after acceptance, judged over that 30-minute horizon. Distance and the promised delivery zone are available at acceptance; the eventual arrival time is not an input. Suppose a supplied population contains 100 orders, of which 20 meet the target event. Its empirical outcome proportion is 20/100 = 0.20. Within a specified zone, 12 of 40 orders meet it, giving a conditional proportion of 12/40 = 0.30. The denominators answer different questions: all orders versus orders in that zone. Record both the population and the horizon beside the counts so another engineer can interpret the same task.\n\nNotice how changing the prediction unit would change the task. If the unit were a whole delivery zone rather than an individual accepted order, neither the input row nor the target event in this fixture would be the same. Similarly, a horizon of one hour would ask a different question from the stated 30 minutes. Keep unit, decision time, target and horizon in separate record fields so those changes cannot masquerade as implementation details. When reporting 0.30 for the zone, say which zone and which eligible orders provided the denominator. The task definition establishes the interpretation that subsequent dataset and model work must preserve."
+  ]
+}
+mle.numpy_shape_dtype
+{
+  "practice": {
+    "type": "live_code",
+    "objective": "Write your own NumPy import and parameterized validator for order fixtures with two features per order and an accepted batch length of one through three orders. Convert each list or tuple fixture into an array; assign and inspect rank, shape, dtype, dimension lengths and boolean check results. Check rank before indexing axis lengths, use arithmetic dimension comparisons, and conditionally raise ValueError for invalid inputs. Return the accepted array. Write assertions covering valid, boundary, empty and malformed fixtures, including assertions that rejected fixtures raise ValueError.",
+    "success": "The learner-written function accepts one-order and three-order fixtures of width two, including both list and tuple inputs. It rejects an empty fixture, a flat six-value fixture, a rank-two fixture of width one and a four-order fixture. Assertions verify accepted shapes and expected rejection without accessing a missing axis. Rank, dimension, dtype and boolean variables are inspectable; dtype is observed without selecting or converting its representation.",
+    "live_code": {
+      "required_skill": "Implement and test a rank-first NumPy batch/feature shape validator using parameterized Python functions, explicit conditional rejection and fixture assertions.",
+      "allowed_syntax": [
+        "import numpy as np",
+        "def with parameters",
+        "return",
+        "variable assignment",
+        "list and tuple literals",
+        "integer, floating-point, boolean and string literals",
+        "np.array(fixture)",
+        "a.ndim",
+        "a.shape",
+        "a.dtype",
+        "tuple indexing after a rank check",
+        "arithmetic with dimension integers",
+        "comparison operators",
+        "and, or, not",
+        "if statements",
+        "raise ValueError(message)",
+        "assert predicate",
+        "try and except ValueError",
+        "function calls",
+        "type(variable)"
+      ],
+      "blocked_syntax": [
+        "np.array with a dtype argument",
+        "a.astype(...)",
+        "a.reshape(...)",
+        "np.broadcast_to(...)",
+        "elementwise array arithmetic",
+        "np.load(...)",
+        "np.loadtxt(...)",
+        "np.genfromtxt(...)",
+        "scikit-learn imports",
+        "torch imports"
+      ],
+      "starter_state_intent": "Provide only the declared contract and order fixtures, not completed code or imports. Fixtures include [[2, 10], [4, 20], [6, 30]], ((2, 10),), [], [2, 10, 4, 20, 6, 30], [[2], [4], [6]], and [[2, 10], [4, 20], [6, 30], [2, 10]]. The learner authors the import, function, inspection variables and tests.",
+      "observable_success": "In ordinary non-optimized execution, all learner-written assertions pass. Accepted arrays retain their expected batch/feature shapes. Every invalid fixture produces ValueError, including flat and empty inputs, rather than failing through premature second-axis indexing. Inspection variables expose rank, shape, dtype, integer dimensions and boolean decisions."
+    }
+  },
+  "assess": [
+    {
+      "fact_ids": [
+        "f1"
+      ],
+      "capability": "inspect_array_rank_shape_and_dtype"
+    },
+    {
+      "fact_ids": [
+        "f2",
+        "f3"
+      ],
+      "capability": "decide_acceptance_under_batch_feature_contract"
+    },
+    {
+      "fact_ids": [
+        "f4",
+        "f5"
+      ],
+      "capability": "distinguish_input_rejection_from_fixture_assertions"
+    }
+  ],
+  "example": [
+    "Consider the fixture [[2, 10], [4, 20], [6, 30]]. The declared interpretation is three orders and two features per order, so rank 2, shape (3, 2), and feature width 2 satisfy the contract. A fixture [2, 10, 4, 20, 6, 30] contains the same number of values but has rank 1, so it fails this contract. Check rank before looking for a second axis. A rank-2 fixture with shape (3, 1) fails the feature-width rule instead. Include an accepted fixture, a declared batch-length boundary and a rejected fixture in the checks. When a production input violates the rule, raise the declared ValueError instead of allowing the later operation to decide what the input meant.\n\nRead the shape from left to right under the declared interpretation: the first length counts observations, and the second counts features within each observation. This tells you where to check batch boundaries and where to check model input width. Do not index shape[1] before establishing rank 2; a flat failure fixture does not have that second axis. Dtype is another independent contract field. An array can have the accepted shape while using the wrong numerical representation, or the accepted dtype while having the wrong axes. Keep those failures distinguishable in tests so fixing one check does not accidentally waive another."
+  ]
+}
+mle.numpy_dtype_selection
+{
+  "practice": {
+    "type": "live_code",
+    "objective": "Write the NumPy import and a learner-defined Python function that compares two supplied numerical dtypes for the six-value order feature matrix. Retain the reference matrix, explicitly cast it into each candidate dtype, inspect each dtype, calculate element-storage bytes, and use scalar arithmetic differences to check every value against the supplied tolerance and range requirements. Return the choice and its justification under the declared storage budget, or report that neither candidate satisfies the requirements.",
+    "success": "Both candidates are explicitly cast from the unchanged reference. Their element counts remain unchanged, their size-times-itemsize totals agree with nbytes, and every supplied value\u2014including boundary fixtures\u2014is checked against the reference. The returned justification distinguishes element storage from total object memory and accepts only a candidate satisfying the declared value-preservation and storage requirements.",
+    "live_code": {
+      "required_skill": "Implement a bounded dtype comparison using explicit casts, element-storage accounting, and scalar arithmetic checks.",
+      "allowed_syntax": [
+        "import numpy as np",
+        "def",
+        "function parameters and calls",
+        "return",
+        "variable assignment",
+        "for loops",
+        "range",
+        "if/elif/else",
+        "numeric and string literals",
+        "lists and dictionaries",
+        "a.shape",
+        "a.dtype",
+        "a.size",
+        "a.itemsize",
+        "a.nbytes",
+        "a.astype(candidate_dtype)",
+        "two-dimensional scalar indexing",
+        "scalar subtraction and multiplication",
+        "abs",
+        "scalar comparisons",
+        "boolean operators"
+      ],
+      "blocked_syntax": [
+        "array-wide arithmetic and broadcasting",
+        "np.vectorize",
+        "np.broadcast_to",
+        "np.load",
+        "np.loadtxt",
+        "np.genfromtxt",
+        "np.memmap",
+        "pandas.read_csv",
+        "sklearn preprocessing, fit, and predict calls",
+        "torch tensor construction and training calls",
+        "MLflow logging calls",
+        "cloud storage or managed-training client calls"
+      ],
+      "starter_state_intent": "The supplied infrastructure provides the six-value order feature matrix a, two candidate dtype specifications, reference-value and boundary fixtures, a numeric tolerance, and an element-storage budget. It supplies no completed comparison function or imports. The learner works only with this in-memory fixture and leaves its reference values unchanged.",
+      "observable_success": "The returned result records each candidate dtype, unchanged element count, calculated bytes, nbytes, scalar differences for all six reference values, and acceptance status. The final choice is supported by both preservation checks and the declared budget, with an explicit explanation if neither candidate qualifies."
+    }
+  },
+  "assess": [
+    {
+      "fact_ids": [
+        "f1",
+        "f4"
+      ],
+      "capability": "evaluate_dtype_range_and_precision_preservation"
+    },
+    {
+      "fact_ids": [
+        "f2"
+      ],
+      "capability": "inspect_and_explicitly_cast_candidate_dtypes"
+    },
+    {
+      "fact_ids": [
+        "f3"
+      ],
+      "capability": "calculate_fixed_width_element_storage"
+    },
+    {
+      "fact_ids": [
+        "f1",
+        "f3",
+        "f4"
+      ],
+      "capability": "choose_dtype_within_precision_and_memory_limits"
+    }
+  ],
+  "example": [
+    "Suppose a reference fixture contains six values and you are comparing fixed-width representations with element widths of eight and four bytes. Their element-storage totals are 6 \u00d7 8 = 48 bytes and 6 \u00d7 4 = 24 bytes. That comparison says nothing about other object overhead. Explicitly cast the reference into the candidate representation, inspect the candidate dtype and subtract reference values to reveal changes. For instance, if a supplied candidate represents a reference value 1.25 as 1.0, the difference is \u22120.25. Whether that is acceptable depends on the fixture's declared tolerance; the byte saving does not decide it. Keep the reference values available while checking the candidate, so the comparison is not between two copies of the already altered values.\n\nInspect a value near a declared precision or range boundary as well as ordinary values. The purpose is to expose the candidate conversion's actual difference from the retained reference, not to assume that every smaller dtype behaves badly or that every successful cast is acceptable. Compare the difference using the fixture's explicit tolerance. A zero difference on one ordinary value is not enough to waive the remaining declared fixtures. Also keep the number of elements unchanged when comparing element bytes; otherwise a reduced total could come from fewer observations instead of a narrower representation. The choice balances measured preservation with the specified storage budget."
+  ]
+}
+mle.numpy_vectorization
+{
+  "practice": {
+    "type": "live_code",
+    "objective": "Within supplied execution scaffolding, write a Python function and its NumPy import. Replace the row-wise subtraction for [[2, 10], [4, 20], [6, 30]] and feature references [1, 5] with an array expression. Author a list-comprehension reference, an intended-shape assertion, and an explicit-tolerance agreement check.",
+    "success": "The learner-defined function returns [[1, 5], [3, 15], [5, 25]] as an array of shape (3, 2). Learner-written assertions independently check the intended shape and agreement with the list-comprehension reference using explicit rtol and atol values.",
+    "live_code": {
+      "required_skill": "Implement elementwise subtraction with compatible broadcasting, then verify the result's shape and numerical agreement independently.",
+      "allowed_syntax": [
+        "import numpy as np",
+        "def",
+        "return",
+        "variable assignment",
+        "numeric literals",
+        "list literals",
+        "list comprehensions",
+        "list indexing",
+        "np.array",
+        "array subtraction",
+        ".shape",
+        "tuple literals",
+        "assert",
+        "==",
+        "np.testing.assert_allclose",
+        "rtol and atol keyword arguments"
+      ],
+      "blocked_syntax": [
+        "np.load",
+        "pandas.read_csv",
+        "pandas.read_csv with chunksize",
+        "sklearn.preprocessing.StandardScaler",
+        "sklearn.pipeline.Pipeline",
+        "torch.tensor",
+        "mlflow.start_run"
+      ],
+      "starter_state_intent": "Supply the illustrative three-observation, two-feature matrix and its two feature references within an existing execution harness. State the expected shape (3, 2), but leave the import, function, array expression, reference comprehension, and assertions for the learner.",
+      "observable_success": "The harness receives the expected array from the learner's function. The shape assertion passes, and np.testing.assert_allclose(array_result, reference_result, rtol=1e-7, atol=1e-9) passes for the independently authored reference."
+    }
+  },
+  "assess": [
+    {
+      "fact_ids": [
+        "f1"
+      ],
+      "capability": "express_elementwise_numeric_transform"
+    },
+    {
+      "fact_ids": [
+        "f2",
+        "f3"
+      ],
+      "capability": "check_broadcast_compatibility_and_intended_shape"
+    },
+    {
+      "fact_ids": [
+        "f4"
+      ],
+      "capability": "verify_array_result_with_explicit_tolerances"
+    }
+  ],
+  "example": [
+    "For the invented matrix [[2, 10], [4, 20], [6, 30]], subtract [1, 5]. The trailing feature lengths match, so the result is [[1, 5], [3, 15], [5, 25]], with shape (3, 2). Verify it against a list-comprehension reference using explicit tolerances. Now compare operands shaped (3, 1) and (1, 2): compatible broadcasting yields a (3, 2) result, not a (3, 1) result. If the contract expected one output per observation without an extra feature axis, compatibility alone would not make that result acceptable. Write the intended result shape beside the numerical reference, and check both instead of accepting an operation simply because it completed.\n\nWork through one output row to check meaning as well as compatibility. The first row [2, 10] minus the two feature references [1, 5] becomes [1, 5]. The same reference is then applied to each later observation. A reference operation should express that intended per-feature rule, not simply duplicate an accidental broadcast. For the (3, 1) and (1, 2) case, expanding three row positions against two column positions creates six outputs. That is why validating the output shape matters even when no exception was raised. The check ties the succinct operation to a concrete result rather than treating compact syntax as correctness."
+  ]
+}
+mle.file_object_ingestion
+{
+  "practice": {
+    "type": "live_code",
+    "objective": "Write the required imports and a Python ingestion function that uses the existing authorized runtime to list the supplied object-storage prefix, select orders-b.csv by name, download it to the supplied local path, and read it with explicit declared column types. Verify the loaded observations against the supplied expectations, write a local text identity record through an explicit file handle, and explain why CSV fits the stated access pattern and when selected-column Parquet access would fit instead.",
+    "success": "The function retrieves orders-b.csv rather than orders-a.csv, returns the downloaded local path and loaded table, and provides checks of the expected columns, row count, and converted value representations, including the supplied order key example '0012'. The identity record is written inside a UTF-8 open-file block. The format explanation distinguishes delimited text from columnar selected-column access without changing the supplied format arbitrarily.",
+    "live_code": {
+      "required_skill": "Implement bounded object retrieval and typed CSV ingestion in a learner-defined function, using learner-written dependency imports and an explicit local text-file handle.",
+      "allowed_syntax": [
+        "from google.cloud import storage",
+        "import pandas as pd",
+        "def",
+        "return",
+        "assignment",
+        "function parameters and keyword arguments",
+        "for",
+        "if",
+        "equality comparisons",
+        "string, integer, list, and dictionary literals",
+        "storage.Client()",
+        "client.list_blobs(bucket_name, prefix=prefix)",
+        "blob.name",
+        "client.bucket(bucket_name)",
+        "bucket.blob(object_name)",
+        "download_to_filename(local_path)",
+        "pd.read_csv(local_path, dtype=declared_types)",
+        "table.columns",
+        "table.dtypes",
+        "table[column_name]",
+        "table[column_name].iloc[0]",
+        "len(table)",
+        "list(table.columns)",
+        "with open(path, mode, encoding=\"utf-8\") as f",
+        "f.read()",
+        "f.write(text)"
+      ],
+      "blocked_syntax": [
+        "pd.read_csv(..., chunksize=...)",
+        "table.drop_duplicates()",
+        "table.dropna()",
+        "table.fillna(...)",
+        "sklearn.model_selection.train_test_split(...)",
+        "sklearn.impute.SimpleImputer(...)",
+        "sklearn.preprocessing.StandardScaler(...)",
+        "sklearn.preprocessing.OneHotEncoder(...)",
+        "sklearn.pipeline.Pipeline(...)",
+        "model.fit(...)",
+        "model.predict(...)"
+      ],
+      "starter_state_intent": "Supply an already authorized runtime, bucket name, prefix containing orders-a.csv and orders-b.csv, the intended object name orders-b.csv, local dataset and identity-record paths, and the dataset contract. Provide declared_types, expected columns, expected row count, and expected value representations using only the supplied dataset's column names, including the order key example '0012'. State the access pattern and provide no completed imports or ingestion function.",
+      "observable_success": "Execution exposes the prefix's object names, downloads the named dataset to the supplied path, and returns that path with the loaded table and comparison results. The columns and row count match the supplied expectations, inspected converted values retain their declared representations, and the local identity record contains the chosen object name and local dataset path. The learner explains the format choice in terms of the stated access pattern."
+    }
+  },
+  "assess": [
+    {
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f6"
+      ],
+      "capability": "retrieve_named_object_with_authorized_client"
+    },
+    {
+      "fact_ids": [
+        "f3",
+        "f7"
+      ],
+      "capability": "read_csv_with_declared_types_and_verify_loaded_observations"
+    },
+    {
+      "fact_ids": [
+        "f4"
+      ],
+      "capability": "match_supplied_format_to_ml_access_pattern"
+    },
+    {
+      "fact_ids": [
+        "f5"
+      ],
+      "capability": "write_local_identity_record_with_explicit_file_handle"
+    }
+  ],
+  "example": [
+    "Suppose the approved prefix contains orders-a.csv and orders-b.csv, while the task names orders-b.csv. Inspect the listing, select that object by name and download it to the declared local path. Read it with the declared types, then compare its columns and row count with the supplied expectation. An order key such as \u20180012\u2019 is example data worth inspecting after conversion: its loaded representation must match the key contract. If the supplied task instead requires selected columns from a Parquet dataset, relate that choice to the declared access pattern rather than changing formats arbitrarily. Write a local text identity record inside its open-file block so the retrieval and inspection have an identifiable result.\n\nThe listing and the loaded table answer different questions. Listing confirms which objects are available under the authorized location; table inspection confirms how the chosen object's bytes were interpreted. Keep the local path in the retrieval result so a later read cannot accidentally inspect an earlier download. CSV and Parquet should be discussed in terms of the supplied access requirement: text-and-type conversion versus columnar typed access. A selected-column Parquet read does not excuse omitting a column the task needs, just as a CSV conversion does not excuse changing a key's declared representation. Verify the loaded result before calling ingestion complete."
+  ]
+}
+mle.chunked_ingestion
+{
+  "practice": {
+    "type": "live_code",
+    "objective": "Write a Python function with learner-written imports that reads the supplied order dataset through an open file handle and a pandas chunk iterator. Use the supplied declared_types mapping for the fixture's 20 eight-byte feature columns. Calculate a row limit for the 16,000-byte array budget, materialize and verify each chunk's feature matrix, and return the largest observed per-chunk array byte count without retaining previous chunks.",
+    "success": "The function chooses a row limit of 100, keeps the file open throughout iteration, and checks every materialized matrix, including the final short chunk. It calculates element bytes from actual shape and dtype, confirms agreement with the matrix's nbytes, and verifies that each matrix uses at most 16,000 bytes. It reports the largest observed single-chunk array allocation without claiming a bound on total reader or process memory.",
+    "live_code": {
+      "required_skill": "Implement file-backed chunk iteration and verify homogeneous array storage against a declared byte budget.",
+      "allowed_syntax": [
+        "import pandas as pd",
+        "def",
+        "function parameters and calls",
+        "assignment",
+        "return",
+        "with open(...) as file_handle",
+        "pd.read_csv(file_handle, chunksize=row_limit, dtype=declared_types)",
+        "for",
+        "integer and string literals",
+        "dictionary access",
+        "tuple unpacking",
+        "multiplication",
+        "floor division",
+        "comparison operators",
+        "assert",
+        "max",
+        "chunk.to_numpy()",
+        "matrix.shape",
+        "matrix.dtype.itemsize",
+        "matrix.nbytes",
+        "del"
+      ],
+      "blocked_syntax": [
+        "DataFrame.describe()",
+        "DataFrame.drop_duplicates()",
+        "DataFrame.fillna()",
+        "train_test_split()",
+        "StandardScaler()",
+        "OneHotEncoder()",
+        "Pipeline()",
+        "model.fit()",
+        "model.predict()",
+        "torch.tensor()",
+        "DataLoader()"
+      ],
+      "starter_state_intent": "Provide an existing order-dataset CSV path, its declared_types mapping for exactly the supplied 20 feature columns, and a 16,000-byte array budget. Include enough rows for multiple full chunks and a final short chunk. Supply no complete implementation; the learner writes imports and a function, and releases each working matrix before materializing the next.",
+      "observable_success": "Execution reads the complete dataset in bounded chunks while the file context remains open. Every matrix passes the actual-shape, element-width, and nbytes checks. The returned maximum is 16,000 bytes for this fixture, no prior matrices are accumulated, and the result is explicitly limited to single-chunk array element storage."
+    }
+  },
+  "assess": [
+    {
+      "fact_ids": [
+        "f2",
+        "f3"
+      ],
+      "capability": "choose_chunk_size_within_array_budget"
+    },
+    {
+      "fact_ids": [
+        "f1",
+        "f3",
+        "f4"
+      ],
+      "capability": "verify_bounded_chunk_iteration"
+    }
+  ],
+  "example": [
+    "Assume the declared feature matrix has 20 columns of eight-byte elements and an array budget of 16,000 bytes. A 100-row chunk uses 100 \u00d7 20 \u00d7 8 = 16,000 element bytes. A 101-row chunk would use 16,160 bytes and fail that particular bound. Keep the file open while iterating the reader, process one chunk, and verify each materialized matrix rather than inferring its size only from the reader setting. The final chunk may contain fewer rows; apply the same bound to it. This example accounts for the homogeneous feature matrix only. It does not establish a bound on parsing buffers, other objects or the process as a whole.\n\nTreat the arithmetic as a per-chunk admission check. The reader setting proposes an upper row count, but the working matrix's actual shape and dtype determine its element bytes. The final short chunk remains a valid chunk rather than a reason to invent padding rows. Process and emit or summarize that chunk within the declared bounded workflow, then continue without accumulating prior chunks into a full dataset. If the feature width changes, recompute the bound from the actual column count; the old 100-row estimate no longer establishes the same storage requirement. The open file context must encompass the whole iteration, not end before the reader finishes."
+  ]
+}
+mle.dataset_inspection
+{
+  "practice": {
+    "type": "live_code",
+    "objective": "Write the required NumPy import and a parameterized inspection function for the supplied loaded two-column dataset. Accept its column names, numeric feature matrix and stated standard-deviation divisor as inputs. Return a readiness dictionary containing column names, column dtypes, feature-wise descriptive summaries, matrix shape with named axis meanings, matrix dtype and element memory cost.",
+    "success": "The function returns consistently named fields for the supplied fixture and another fixture with the same columns. For rows [2, 10], [4, 20] and [6, 30], it reports three observations, two features, means [4, 20], and population standard deviations approximately [1.633, 8.165]. Dtype and element bytes match the supplied array. The dictionary distinguishes element storage from total process memory.",
+    "live_code": {
+      "required_skill": "Implement a reusable NumPy inspection function that summarizes numeric features over rows and returns named structural, distribution and element-memory evidence.",
+      "allowed_syntax": [
+        "import numpy as np",
+        "def with named parameters and defaults",
+        "return",
+        "variable assignment",
+        "dictionary literals with string keys",
+        "list and tuple literals",
+        "string, integer and floating-point literals",
+        "dictionary and tuple indexing",
+        "function calls with keyword arguments",
+        "np.array",
+        "np.mean(numeric_values, axis=0)",
+        "np.std(numeric_values, axis=0, ddof=0)",
+        "np.std(numeric_values, axis=0, ddof=1)",
+        "numeric_values.shape",
+        "numeric_values.dtype",
+        "numeric_values.dtype.itemsize",
+        "numeric_values.nbytes",
+        "arithmetic multiplication"
+      ],
+      "blocked_syntax": [
+        "sklearn imports",
+        "torch imports",
+        "mlflow imports",
+        ".fit()",
+        ".fit_transform()",
+        ".predict()",
+        "train_test_split()",
+        ".fillna()",
+        ".drop_duplicates()",
+        "pd.get_dummies()"
+      ],
+      "starter_state_intent": "Provide an existing authorized runtime with NumPy available, the loaded numeric fixture containing rows [2, 10], [4, 20] and [6, 30], its supplied column names, and the population-divisor requirement. Supply invocation and result-checking scaffolding, but no completed inspection function or learner import. Preserve the fixture's column names and expose its dtype rather than prescribing an unobserved representation.",
+      "observable_success": "The returned dictionary exposes column names, column dtypes, observation_count=3, feature_count=2, shape=(3, 2), both axis meanings, feature-wise means and standard deviations, the observed dtype, and element_bytes equal to numeric_values.nbytes. It records that element bytes exclude total process memory. A second invocation returns the same field names with results computed from its input, and ddof=1 is used only when the supplied calculation explicitly requires the N\u22121 divisor."
+    }
+  },
+  "assess": [
+    {
+      "fact_ids": [
+        "f1",
+        "f2"
+      ],
+      "capability": "identify_model_input_structure_constraints"
+    },
+    {
+      "fact_ids": [
+        "f5",
+        "f6"
+      ],
+      "capability": "interpret_feature_wise_distribution_summaries"
+    },
+    {
+      "fact_ids": [
+        "f2",
+        "f3"
+      ],
+      "capability": "distinguish_element_storage_from_process_memory"
+    },
+    {
+      "fact_ids": [
+        "f4"
+      ],
+      "capability": "identify_reusable_named_readiness_evidence"
+    }
+  ],
+  "example": [
+    "Use a two-column fixture with rows [2, 10], [4, 20] and [6, 30]. Its feature shape is (3, 2): three observations, two features. The column means are 4 and 20. With the population divisor, the first column's standard deviation is the square root of 8/3, about 1.633. Record the dtype and array.nbytes as observed, together with column names and summaries. Return those results in a dictionary from a function whose input and inspection choices are explicit parameters. Another caller should be able to inspect the same named fields for a different fixture rather than parse a paragraph or rely on values left in an interactive session. Keep the two axis meanings alongside their lengths.\n\nThe dictionary should make the observation count and feature count directly accessible under their own names. A caller inspecting a width mismatch should not need to infer it from the means. Likewise, record units or the selected numerical observations beside summaries so a feature's mean is not confused with an average over every number in the matrix. Computing feature-wise summaries over the observation axis produces one result per feature. Keep dtype and element bytes as observed representation properties, distinct from the task's value summaries. A readiness verdict can then be traced to named evidence rather than to an opaque statement that the data was inspected."
+  ]
+}
+mle.dataset_schema_validation
+{
+  "practice": {
+    "type": "live_code",
+    "objective": "Within supplied runtime scaffolding, write the required pandas import and a reusable Python validation function for a table containing exactly distance and zone. Use a supplied explicit contract for both column types and the permitted zone representation, with distance constrained to 0 through 100 inclusive. Check columns and dtypes before value predicates, raise descriptive validation exceptions on failures, and author reusable fixtures and assertions for valid input, both inclusive boundaries, missing or unexpected columns, incorrect types, and out-of-range values.",
+    "success": "The learner-written function accepts valid tables and distance values of 0 and 100, rejects each declared column, type, and value violation with an identifiable validation exception, and passes learner-written assertions confirming acceptance and rejection without changing the input.",
+    "live_code": {
+      "required_skill": "Implement conditional schema validation and verify its acceptance and exception paths with reusable fixtures and assertions.",
+      "allowed_syntax": [
+        "import pandas as pd",
+        "def statements, parameters, and return statements",
+        "if statements",
+        "for loops",
+        "dictionary, list, set, string, and numeric literals",
+        "variable assignment and function calls",
+        "pd.DataFrame construction with explicit column dtypes",
+        "table.columns and table.dtypes",
+        "column selection with table[column_name]",
+        "set equality and dtype comparisons",
+        "comparison operators and boolean operators",
+        "elementwise boolean predicates combined with &",
+        "Series.all()",
+        "raise ValueError with a descriptive message",
+        "try and except ValueError",
+        "assert predicate statements"
+      ],
+      "blocked_syntax": [
+        "DataFrame.drop_duplicates()",
+        "DataFrame.fillna()",
+        "pandas.get_dummies()",
+        "sklearn preprocessing and pipeline APIs",
+        "model.fit() and model.predict()",
+        "train_test_split()"
+      ],
+      "starter_state_intent": "Provide an authorized runtime with pandas available, an explicit contract for distance and zone, and an empty implementation area rather than completed code. Declare exactly those two columns, their required dtypes, the permitted zone representation, and the inclusive distance interval. Leave imports, the validation function, reusable fixtures, and assertions for the learner to author.",
+      "observable_success": "Valid and boundary fixtures return successfully. Isolated fixtures for missing zone, an unexpected column, an incorrect declared dtype, an invalid zone representation, and distance below 0 or above 100 raise descriptive ValueError exceptions. Learner-written assertions verify each result in ordinary non-optimized execution."
+    }
+  },
+  "assess": [
+    {
+      "fact_ids": [
+        "f1",
+        "f2"
+      ],
+      "capability": "detect_column_and_type_contract_violations"
+    },
+    {
+      "fact_ids": [
+        "f3"
+      ],
+      "capability": "detect_value_boundary_violations"
+    },
+    {
+      "fact_ids": [
+        "f3",
+        "f4"
+      ],
+      "capability": "distinguish_validation_exceptions_from_fixture_assertions"
+    }
+  ],
+  "example": [
+    "For this invented contract, distance must be numeric and between 0 and 100 inclusive; zone must use the declared representation. A row at distance 0 exercises the lower boundary, while \u22121 is a failure fixture. A table with an unexpected third feature fails the stated column contract even if all its values look plausible. Compare the column set and types first, then evaluate each constrained column with boolean predicates. Use an explicit validation exception when a required condition fails. Keep fixtures for a valid table, a permitted boundary and a failed condition, so a later change does not quietly alter what the contract accepts. The checks concern the declared schema, not guesses about what a downstream model might tolerate.\n\nSeparate a column-contract failure from a value-contract failure. A missing zone field prevents the declared table schema from being satisfied; a present zone field with an invalid representation is a different reason to reject. The numerical limit test also needs its stated inclusive boundary rather than an assumed strict inequality. Write the failure so the caller can identify the violated condition without guessing from a later estimator exception. Replaying both valid and rejected fixtures verifies that the validator is neither accepting everything nor rejecting everything. Its purpose is to enforce the supplied contract before downstream work depends on that contract."
+  ]
+}
+mle.dataset_cleaning_policy
+{
+  "practice": {
+    "type": "live_code",
+    "objective": "Write a Python function that cleans supplied order observations under the stated validity policy within existing infrastructure scaffolding. Write imports for required supplied dependencies. Use an accepted-key set, a policy dictionary and conditional branches to retain valid observations, resolve repeated accepted keys, repair the approved zone spelling and reject invalid distances as declared. Return cleaned observations and a report of affected observation IDs and actions. Author assertions for valid, boundary, repair, rejection and repeated-key cases.",
+    "success": "The resulting observations match the supplied policy, accepted keys are added only after acceptance, and every affected observation ID is reported with its declared action. Assertions verify expected repaired values, retained valid and boundary observations, and exclusion of rejected observations and prohibited repeats. A deliberately false assertion raises AssertionError during ordinary non-optimized execution.",
+    "live_code": {
+      "required_skill": "Implement and verify policy-governed cleaning using set membership, dictionary lookup, conditional branches and assert predicates in a learner-defined Python function.",
+      "allowed_syntax": [
+        "import and from ... import for required supplied dependencies",
+        "def with parameters and return",
+        "local variable assignment",
+        "list and dictionary literals",
+        "string and numeric literals",
+        "set()",
+        "for loops",
+        "if, elif and else",
+        "in and not in membership tests",
+        "set.add()",
+        "dictionary key lookup",
+        "dictionary item assignment",
+        "list.append()",
+        "comparison operators",
+        "and, or and not",
+        "len()",
+        "assert predicate"
+      ],
+      "blocked_syntax": [
+        "train_test_split()",
+        "fit()",
+        "fit_transform()",
+        "transform()",
+        "predict()",
+        "torch.tensor()",
+        "loss.backward()",
+        "optimizer.step()",
+        "mlflow.start_run()"
+      ],
+      "starter_state_intent": "Supply order observations using only observation IDs, order keys, distance and zone, including repeated order A, order B with the approved zone spelling issue, a valid distance, the declared distance boundary and an invalid distance. Provide the policy dictionary, expected outcomes and authorized infrastructure connection scaffolding, but leave the cleaning function, required imports and assertions for the learner to write.",
+      "observable_success": "The function returns the expected cleaned observations and an action report identifying each affected observation ID. Rejected observations do not enter the accepted-key set; repairs have their expected values; repeated accepted keys follow the declared policy. Learner-written assertions pass for the supplied cases, and an intentionally false predicate demonstrates AssertionError in ordinary non-optimized execution."
+    }
+  },
+  "assess": [
+    {
+      "fact_ids": [
+        "f1",
+        "f2"
+      ],
+      "capability": "apply_declared_duplicate_resolution_policy"
+    },
+    {
+      "fact_ids": [
+        "f2",
+        "f3",
+        "f4"
+      ],
+      "capability": "resolve_invalid_observations_and_report_actions"
+    },
+    {
+      "fact_ids": [
+        "f5"
+      ],
+      "capability": "verify_cleaning_policy_with_assert_predicates"
+    }
+  ],
+  "example": [
+    "Suppose the approved policy retains the first accepted order key, rejects a repeated accepted key, and repairs a specified zone spelling. Start with an empty accepted-key set. After accepting order A, add A; when A appears again, detect the repeat before accepting it. Apply the policy dictionary's action through explicit branches and record A as affected. For order B with the approved spelling issue, record the repair and its ID. A different defect may require rejection rather than that same repair. Test a valid observation, the declared boundary and a repeated-key fixture. This example does not choose a universal deduplication rule: it implements the rule supplied for this dataset and its intended training use.\n\nA useful cleaning report lets a reviewer trace each affected ID back to the applied policy action. Do not combine \u2018repaired\u2019 and \u2018rejected\u2019 into an undifferentiated issue count: a repaired record contributes different resulting data from a rejected record. Membership in the accepted-key set is also about the accepted observation history, so follow the supplied action order rather than adding every seen key indiscriminately. The repaired fixture should have its expected resulting values checked, while the duplicate fixture should verify that the prohibited repeat was not accepted. Retain valid observations according to the same policy; defect handling should not replace the dataset's stated purpose."
+  ]
+}
+mle.dataset_selection_bias
+{
+  "practice": {
+    "type": "live_code",
+    "objective": "Using the supplied zone-A and zone-B order counts and selected numeric_values, calculate sample and target category proportions, category-specific inclusion probabilities, the arithmetic mean, and standard deviation with ddof=0. Record one coverage limitation supported by the counts.",
+    "success": "The results distinguish sample shares of 0.75 and 0.25 from target shares of 0.60 and 0.40 and inclusion probabilities of 0.50 and 0.25. Numeric summaries match the supplied observations and specified divisor. The recorded limitation identifies lower inclusion and sample share for zone B without claiming an unobserved cause or inevitable prediction failure.",
+    "live_code": {
+      "required_skill": "Use NumPy descriptive summaries and explicit numerator\u2013denominator calculations to compare a supplied sample with its target population.",
+      "allowed_syntax": [
+        "import numpy as np",
+        "variable assignment",
+        "integer and floating-point literals",
+        "string literals",
+        "list literals",
+        "np.array(...)",
+        "array indexing",
+        "array arithmetic",
+        "division",
+        "numeric comparisons",
+        "if/else",
+        "np.mean(numeric_values)",
+        "np.std(numeric_values, ddof=0)",
+        "np.std(numeric_values, ddof=1)"
+      ],
+      "blocked_syntax": [
+        "train_test_split(...)",
+        "SimpleImputer(...)",
+        "StandardScaler(...)",
+        "OneHotEncoder(...)",
+        "Pipeline(...)",
+        "model.fit(...)",
+        "model.predict(...)"
+      ],
+      "starter_state_intent": "Provide NumPy already available, zone-A and zone-B sample counts of 30 and 10, target counts of 60 and 40, and a supplied numeric_values array for selected order observations. Leave result assignments and a written limitation incomplete. No ingestion or model operations are needed.",
+      "observable_success": "Inspectable result variables contain the correct category shares, inclusion rates, mean, and ddof=0 standard deviation. Inclusion calculations are conditional on a positive target-category denominator; an empty denominator is recorded as unsupported rather than assigned a rate. A string records the supported zone-B coverage limitation."
+    }
+  },
+  "assess": [
+    {
+      "fact_ids": [
+        "f1",
+        "f4"
+      ],
+      "capability": "identify_collection_related_coverage_limitations"
+    },
+    {
+      "fact_ids": [
+        "f2"
+      ],
+      "capability": "compare_sample_and_target_category_proportions"
+    },
+    {
+      "fact_ids": [
+        "f3",
+        "f4"
+      ],
+      "capability": "interpret_category_inclusion_rates_with_valid_denominators"
+    }
+  ],
+  "example": [
+    "Suppose the target population has 60 zone-A orders and 40 zone-B orders, while the sample includes 30 A and 10 B. Target proportions are 0.60 and 0.40; sample proportions are 0.75 and 0.25. With known membership, estimated inclusion probabilities are 30/60 = 0.50 for A and 10/40 = 0.25 for B. These calculations show a supported coverage difference and unequal inclusion. They do not establish that every characteristic of either zone differs. You can also summarize a selected numerical feature with its mean and standard deviation, retaining the specified observations and divisor. If a category has no target members in the supplied denominator, do not manufacture an inclusion rate for it.\n\nRead the ratios as separate conditional questions. The sample's 0.75 zone-A share asks which zone an included observation belongs to. The 0.50 zone-A inclusion probability asks whether a target-population zone-A observation was included. Neither is the target's 0.60 zone-A share. Naming the numerator and denominator in the record prevents a later user from interpreting a selection statistic as population prevalence. The numerical summaries are descriptive evidence for the selected values only. The supported limitation is unequal observed coverage under these supplied counts, not a claim that a particular model must fail or that an unobserved cause of selection has been established."
+  ]
+}
+mle.label_integrity
+{
+  "practice": {
+    "type": "live_code",
+    "objective": "Implement one learner-defined Python audit function with learner-written imports for the supplied A/B fixtures and acceptance predicates. Check repeated observation and label IDs before accepting an observation-ID-to-label-and-timestamps dictionary. Use set differences to identify missing and orphaned labels, then keyed lookups to evaluate identity, label validity and task-specific timestamp predicates. Return one label-integrity verdict with affected IDs and author assert checks for valid, reordered, duplicate, missing, orphaned, misaligned, unavailable and declared boundary cases.",
+    "success": "The audit accepts valid records regardless of label row order, reports repeated IDs before dictionary replacement can hide them, distinguishes both unmatched-ID directions, and reports invalid, misaligned or time-unsuitable records using the supplied predicates. Assertions verify the verdict and affected IDs for every declared fixture, including the timestamp boundary.",
+    "live_code": {
+      "required_skill": "Write a bounded Python label-integrity audit using duplicate checks, sets, keyed dictionaries, supplied acceptance predicates and assert statements.",
+      "allowed_syntax": [
+        "import statements for supplied dataset and timestamp handling",
+        "def with parameters and return",
+        "list, tuple, dictionary and set literals",
+        "string, numeric, Boolean and None literals",
+        "variable assignment",
+        "for loops",
+        "if, elif and else",
+        "dictionary key lookup and assignment",
+        "membership checks with in and not in",
+        "set() and set difference",
+        "len()",
+        "list.append() and set.add()",
+        "comparison and Boolean operators",
+        "calls to supplied acceptance predicates",
+        "assert predicate statements"
+      ],
+      "blocked_syntax": [
+        "sklearn.model_selection.train_test_split()",
+        "sklearn.impute.SimpleImputer()",
+        "sklearn.preprocessing.StandardScaler()",
+        "sklearn.preprocessing.OneHotEncoder()",
+        "sklearn.pipeline.Pipeline()",
+        "sklearn.metrics API calls",
+        "sklearn estimator fit() and predict() calls",
+        "mlflow API calls",
+        "torch API calls"
+      ],
+      "starter_state_intent": "Supply observation and label records using only observation ID, label, observation timestamp and availability timestamp, with illustrative IDs A and B. Include reversed label order and separate duplicate, missing, orphaned, invalid, misaligned, unavailable and boundary fixtures. Supply the task contract and acceptance predicates, but leave imports, the audit function and assertions for the learner to write.",
+      "observable_success": "The returned verdict and affected IDs match each fixture's declared expectations. Reordering alone preserves acceptance; duplicate and unmatched IDs prevent mapping acceptance; keyed checks identify predicate failures. All learner-written assert predicates pass in ordinary non-optimized execution, while an intentionally false predicate raises AssertionError."
+    }
+  },
+  "assess": [
+    {
+      "fact_ids": [
+        "f1",
+        "f4"
+      ],
+      "capability": "identify_misaligned_labels_by_observation_id"
+    },
+    {
+      "fact_ids": [
+        "f2",
+        "f3"
+      ],
+      "capability": "identify_duplicate_missing_and_orphaned_label_ids"
+    },
+    {
+      "fact_ids": [
+        "f4",
+        "f5"
+      ],
+      "capability": "determine_label_validity_and_task_specific_availability"
+    },
+    {
+      "fact_ids": [
+        "f6"
+      ],
+      "capability": "verify_label_integrity_with_assert_predicates"
+    }
+  ],
+  "example": [
+    "Let observations have IDs A and B, while the label file lists B then A. A keyed lookup attaches each label to its own observation despite the reversed order. Before constructing the label dictionary, check repeated IDs: two labels for A would otherwise compete for the same dictionary key. Compare observation and label ID sets to reveal a missing label or a label without an observation. Then inspect the matched timestamps under the supplied acceptance predicates. A label's later availability does not turn it into an input available at the earlier prediction time. Exercise reordered, duplicate, missing and declared boundary fixtures so correct row counts do not conceal incorrect correspondence.\n\nConstruct the observation-ID and label-ID sets before declaring the join complete. Their differences identify the two unmatched directions: observations without labels and labels without observations. Duplicate IDs need handling before a dictionary silently replaces a value, because set equality alone would not reveal two label rows with the same ID. After the keyed join, inspect the supplied timestamp boundary on the matched record. Key correspondence and time suitability are independent requirements: a correctly keyed label can still be unsuitable under a stated time predicate. This order of checks produces aligned, permitted examples rather than an apparently complete table whose targets belong to another row."
+  ]
+}
+mle.deployment_matched_splits
+{
+  "practice": {
+    "type": "live_code",
+    "objective": "Implement a learner-defined Python function that partitions supplied list observations according to a declared group-based or time-based deployment scenario. Justify the boundaries, calculate each partition's target proportion, and verify the deliverable with learner-written assertions and supplied unit-test fixtures. Write any imports required by the supplied fixture interface.",
+    "success": "The function assigns observations according to the stated scenario. Group-based partitions keep each group wholly on one side and have empty group-set intersections. Time-based partitions satisfy the declared cutoff and later-interval inequalities, including cutoff equality cases. Each nonempty partition reports its target count divided by its total. Assertions pass for valid fixtures and raise AssertionError for declared violations during ordinary non-optimized execution; supplied unit-test fixtures confirm the same deliverable.",
+    "live_code": {
+      "required_skill": "Partition list observations using scenario-specific predicates, represent group membership with sets, calculate target proportions, and author assertions that verify the declared boundaries.",
+      "allowed_syntax": [
+        "def and return",
+        "import and from ... import for required supplied fixture dependencies",
+        "variable assignment",
+        "list literals and list comprehensions",
+        "set literals, set comprehensions, and set()",
+        "dictionary literals and supplied observation field access",
+        "for loops",
+        "if, elif, and else",
+        "membership tests with in and not in",
+        "set intersection with & or intersection()",
+        "comparison operators <, <=, >, >=, ==, and !=",
+        "Boolean operators and, or, and not",
+        "len(), sum(), min(), and max()",
+        "integer, floating-point, string, and Boolean literals",
+        "arithmetic operators + and /",
+        "assert predicate",
+        "calls to the supplied fixture and unit-test interfaces"
+      ],
+      "blocked_syntax": [
+        "model.fit(...)",
+        "model.predict(...)",
+        "transformer.fit_transform(...)",
+        "transformer.transform(...)",
+        "Pipeline(...)",
+        "GridSearchCV(...)",
+        "RandomizedSearchCV(...)",
+        "mlflow.start_run(...)",
+        "torch.tensor(...)",
+        "torch.nn.Module",
+        "loss.backward()",
+        "optimizer.step()"
+      ],
+      "starter_state_intent": "Supply separate group and time fixtures, a declared scenario contract, and an existing test harness without completed partition logic. Use orders A and B from G1 and C from G2 for the group fixture; use supplied order timestamps and a declared cutoff for the time fixture. Include target outcomes, valid cases, cutoff boundary cases, and deliberately invalid assignments. The learner writes the function, any required imports, and assertions.",
+      "observable_success": "Returned partitions satisfy the supplied assignment expectations. Group-set intersections are empty where required; timestamp predicates enforce the exact declared boundaries. Reported target proportions match fixture counts for each nonempty partition. Learner-written assertions detect overlapping groups and invalid time assignments, and the supplied tests confirm valid and boundary behavior."
+    }
+  },
+  "assess": [
+    {
+      "fact_ids": [
+        "f1",
+        "f2"
+      ],
+      "capability": "choose_deployment_matched_split_boundaries"
+    },
+    {
+      "fact_ids": [
+        "f2",
+        "f3"
+      ],
+      "capability": "verify_disjoint_evaluation_groups"
+    },
+    {
+      "fact_ids": [
+        "f2",
+        "f4"
+      ],
+      "capability": "verify_scenario_matched_time_boundaries"
+    },
+    {
+      "fact_ids": [
+        "f5"
+      ],
+      "capability": "interpret_partition_target_proportions"
+    },
+    {
+      "fact_ids": [
+        "f6"
+      ],
+      "capability": "assert_valid_boundary_and_failure_cases"
+    }
+  ],
+  "example": [
+    "For a group-based fixture, suppose orders A and B belong to customer G1, while C belongs to G2. Keeping G1 wholly in training and G2 wholly in validation satisfies that group boundary; putting A in training and B in validation does not. Assert that the group-set intersection is empty. For a separate time-boundary fixture, use training observations before the cutoff and evaluation observations in the declared later interval, checking the inequalities directly. Report the target proportion within each partition: if validation contains four target events among ten examples, its proportion is 0.40. That number describes the cohort actually evaluated, not automatically the whole intended population. Keep group and time scenarios tied to their respective supplied evaluation interpretation.\n\nThe set-intersection assertion asks whether the same group identity appears on both sides, not whether two individual order IDs repeat. Distinct observations from G1 can still violate a group boundary. In the time fixture, compare timestamp extrema or the supplied inequalities under the stated cutoff; distinct group sets do not establish temporal ordering. Reporting each partition's target prevalence helps describe what the evaluation cohort actually contains, but it does not choose the boundary retrospectively. Fix the deployment-matched interpretation first, assign observations accordingly and then inspect whether the resulting partitions satisfy it. The evaluation claim must stay tied to that simulated scenario."
+  ]
+}
+mle.training_fitted_imputation
+{
+  "practice": {
+    "type": "live_code",
+    "objective": "Within supplied infrastructure scaffolding, write the required imports and a Python function that fits one SimpleImputer on training distance values using the declared mean strategy, then reuses it on validation distance values. Compute the mean and population standard deviation of the observed training distances, and author assertions for valid, boundary and deliberately incorrect results.",
+    "success": "Observed training distances 2 and 6 produce a columnwise mean of 4 and population standard deviation of 2. Validation distance 100 remains 100, and a missing validation distance becomes 4. A validation input consisting of one missing distance also becomes 4. Assertions verify these outputs and unchanged statistics_ after both transformations. A deliberately incorrect expected replacement fails an assertion under ordinary non-optimized execution.",
+    "live_code": {
+      "required_skill": "Implement training-only imputer fitting, reuse its fitted state, compute columnwise numerical summaries, and assert output and state invariants in a learner-defined function.",
+      "allowed_syntax": [
+        "import numpy as np",
+        "from sklearn.impute import SimpleImputer",
+        "def",
+        "return",
+        "variable assignment",
+        "function parameters and calls",
+        "numeric and string literals",
+        "list literals",
+        "array indexing and slicing",
+        "np.array",
+        "np.nan",
+        "np.mean(numeric_values, axis=0)",
+        "np.std(numeric_values, axis=0, ddof=0)",
+        "np.std(numeric_values, axis=0, ddof=1)",
+        "np.allclose",
+        "np.array_equal",
+        "array.copy()",
+        "SimpleImputer(strategy=declared_strategy)",
+        "imputer.fit(X_train)",
+        "imputer.transform(X_validation)",
+        "imputer.statistics_",
+        "assert predicate",
+        "comparison operators",
+        "Boolean operators"
+      ],
+      "blocked_syntax": [
+        "StandardScaler",
+        "MinMaxScaler",
+        "OneHotEncoder",
+        "OrdinalEncoder",
+        "Pipeline",
+        "ColumnTransformer",
+        "estimator.predict",
+        "GridSearchCV",
+        "RandomizedSearchCV",
+        "mlflow",
+        "torch"
+      ],
+      "starter_state_intent": "Supply only distance fixtures, the declared mean strategy, a function interface and an assertion-checking harness\u2014not complete implementation code. X_train contains distances 2, 6 and a missing value; numeric_values contains only the observed training distances as a two-dimensional, one-column array. X_validation contains distance 100 and a missing value. Supply a separate one-row missing-distance boundary input and an intentionally incorrect expected replacement for the failure check.",
+      "observable_success": "The learner-written function imports its dependencies, fits exactly one imputer using X_train only, and transforms both validation fixtures without refitting. Returned summaries are mean 4 and population standard deviation 2. Returned transformed distances preserve 100 and replace missing entries with 4. Learner-written assertions compare copied statistics_ with the state after each transformation; the supplied harness observes AssertionError for the deliberately false check."
+    }
+  },
+  "assess": [
+    {
+      "fact_ids": [
+        "f1",
+        "f2"
+      ],
+      "capability": "apply_declared_training_fitted_replacement"
+    },
+    {
+      "fact_ids": [
+        "f2",
+        "f3"
+      ],
+      "capability": "verify_validation_preserves_fitted_replacement_state"
+    },
+    {
+      "fact_ids": [
+        "f4",
+        "f5"
+      ],
+      "capability": "compute_columnwise_training_mean_and_declared_spread"
+    },
+    {
+      "fact_ids": [
+        "f3",
+        "f6"
+      ],
+      "capability": "assert_replacement_output_and_state_invariants"
+    }
+  ],
+  "example": [
+    "Suppose the observed training distances are 2 and 6, and the declared strategy is mean. Their mean is 4, so the fitted replacement for a missing distance is 4. If validation contains distance 100 and a missing value, transform it using the stored replacement rather than incorporating 100 into a new mean. Inspect statistics_ before and after transformation to confirm the replacement stayed fixed. Keep checks for a complete row, a missing row and the declared boundary case. If the readiness calculation also asks for feature spread, use the specified standard-deviation divisor on the selected numerical observations; that summary is distinct from selecting the imputer strategy. Other supplied strategies may call for a different replacement, so do not treat this example's mean as a general requirement.\n\nThe missing validation row is an application case for the stored statistic. It is not an extra observation from which to relearn the statistic, and the observed value 100 belongs to the held-out cohort rather than the training reference. Check the transformed result and statistics_ together: the expected replacement verifies the output, while unchanged statistics verify reuse of the fitted state. This distinction remains important if the supplied strategy is median, most_frequent or constant instead of mean. The chosen strategy defines how the replacement is learned or supplied; the train-versus-transform boundary defines when its state may change. Preserve both choices in the bounded workflow."
+  ]
+}
+mle.training_fitted_scaling
+{
+  "practice": {
+    "type": "live_code",
+    "objective": "Write a Python function with learner-written NumPy and StandardScaler imports. Within the supplied scaffolding, compute column-wise training means and population standard deviations, fit one scaler on X_train, and transform X_validation without refitting. Author assertions for valid transformations, a constant-feature boundary case, and supplied incorrect-result or changed-state failure cases.",
+    "success": "The function uses training-only fitted parameters. Training distance values 2 and 6 yield mean 4 and population standard deviation 2; validation distance 8 transforms to 2. The constant feature has scale_ equal to 1. Assertions verify numerical results and unchanged mean_ and scale_ after validation transformation, and reject supplied incorrect results or changed fitted parameters.",
+    "live_code": {
+      "required_skill": "Implement and verify a training-fitted numerical transformation using column-wise NumPy calculations, StandardScaler state inspection, and assert predicates.",
+      "allowed_syntax": [
+        "import numpy as np",
+        "from sklearn.preprocessing import StandardScaler",
+        "def",
+        "return",
+        "variable assignment",
+        "array indexing",
+        "arithmetic operators",
+        "comparison operators",
+        "assert predicate",
+        "np.array",
+        "np.mean(numeric_values, axis=0)",
+        "np.std(numeric_values, axis=0, ddof=0)",
+        "np.std(numeric_values, axis=0, ddof=1)",
+        "np.allclose",
+        "array.copy()",
+        "StandardScaler(with_mean=True, with_std=True)",
+        "scaler.fit(X_train)",
+        "scaler.transform(X_train)",
+        "scaler.transform(X_validation)",
+        "scaler.mean_",
+        "scaler.scale_"
+      ],
+      "blocked_syntax": [
+        "OneHotEncoder",
+        "OrdinalEncoder",
+        "Pipeline",
+        "ColumnTransformer",
+        "model.fit",
+        "model.predict",
+        "mlflow",
+        "torch"
+      ],
+      "starter_state_intent": "Supply infrastructure that calls the learner-defined function with X_train and X_validation containing the running example's distance feature and a constant numeric feature. Training distance values are 2 and 6; validation distance is 8. Supply an assertion-checking harness with incorrect transformed results and changed fitted-parameter fixtures, but no completed function, imports, or assertions.",
+      "observable_success": "Column-wise reference calculations agree with the fitted training parameters, except that a constant feature's zero standard deviation corresponds to scale_ equal to 1. Validation distance becomes 2, stored parameters remain unchanged, and assertions pass for valid and constant-feature cases while false predicates raise AssertionError for supplied failure cases during ordinary non-optimized execution."
+    }
+  },
+  "assess": [
+    {
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f4"
+      ],
+      "capability": "reuse_training_fitted_scaling_on_unseen_features"
+    },
+    {
+      "fact_ids": [
+        "f3"
+      ],
+      "capability": "interpret_constant_feature_scaling"
+    },
+    {
+      "fact_ids": [
+        "f5",
+        "f6"
+      ],
+      "capability": "compute_column_wise_training_scaling_parameters"
+    },
+    {
+      "fact_ids": [
+        "f2",
+        "f4",
+        "f7"
+      ],
+      "capability": "assert_validation_transformation_preserves_fitted_state"
+    }
+  ],
+  "example": [
+    "Take a training feature with values 2 and 6. Its mean is 4 and its population standard deviation is 2. With centering and scaling enabled, those values become \u22121 and 1. A validation value of 8 becomes (8\u22124)/2 = 2 under the stored training rule. Separately fitting validation would no longer apply that rule. Inspect mean_ and scale_ and check that validation transformation does not replace them. Include a constant-feature fixture: the scaler uses a scaling factor of 1 rather than turning a constant feature into unit variance. Record feature-wise summaries over rows with the specified divisor so the reference calculation and the fitted parameter interpretation remain aligned.\n\nA validation value beyond the training range can legitimately receive a transformed value beyond the training fixture's transformed values. The value 2 for validation distance 8 follows the fixed formula; it is not a reason to refit until validation has its own mean zero. Verify the column-wise mean and population spread used in the hand calculation, then inspect the fitted parameters corresponding to that feature. Centering and scaling configuration also matters: the stated formula assumes both are enabled. For a constant training feature, report the factor of 1 and the resulting behavior rather than describing an impossible unit-variance transformation. All later cohorts reuse this same fitted interpretation."
+  ]
+}
+mle.categorical_encoding
+{
+  "practice": {
+    "type": "live_code",
+    "objective": "Write the required imports and a Python function that fits OneHotEncoder on training zone rows, explicitly declares handle_unknown, and builds a training-category dictionary from categories_ under the feature name zone. Create reusable list-based known, unseen and missing fixtures, transform them without refitting, and author assertions checking their outputs against the stored mapping. Exercise both error and ignore policies, including missing values present and absent during fit.",
+    "success": "Known categories activate the indicator specified by the stored training mapping. Transformation preserves categories_ and output width. Unseen categories and missing values absent during fit produce all-zero indicators under ignore and raise ValueError under error. Missing values represented during fit activate their learned indicator. Learner-written assertions verify valid, boundary and failure cases.",
+    "live_code": {
+      "required_skill": "Implement and verify a training-fitted categorical encoder using imports, a learner-defined function, a category dictionary, reusable list fixtures and assert predicates.",
+      "allowed_syntax": [
+        "import numpy as np",
+        "from sklearn.preprocessing import OneHotEncoder",
+        "def",
+        "return",
+        "variable assignment",
+        "function calls and keyword arguments",
+        "string, numeric and Boolean literals",
+        "lists and nested lists",
+        "dictionaries",
+        "indexing",
+        "for loops",
+        "if statements",
+        "try/except ValueError",
+        "assert predicate",
+        "equality comparisons",
+        "not",
+        "len()",
+        "np.nan",
+        "np.isnan()",
+        "np.array_equal()",
+        "np.all()",
+        "OneHotEncoder(handle_unknown=..., sparse_output=False)",
+        "encoder.fit()",
+        "encoder.transform()",
+        "encoder.categories_",
+        "array.copy()",
+        "array.tolist()",
+        "array.shape"
+      ],
+      "blocked_syntax": [
+        "Pipeline",
+        "make_pipeline()",
+        "ColumnTransformer",
+        "model.fit()",
+        "model.predict()",
+        "pytest fixtures and decorators",
+        "unittest.TestCase",
+        "mlflow.start_run()",
+        "joblib.dump()"
+      ],
+      "starter_state_intent": "Supply only illustrative zone training rows containing north and south, a second training fixture that also contains np.nan, the feature name zone, and separate reusable nested-list cases for north, east and np.nan. Leave imports, the function, dictionary construction, transformation and assertions for the learner to write.",
+      "observable_success": "The function returns encoded validation rows and a zone category dictionary derived from categories_. Assertions establish indicator positions from that dictionary, unchanged fitted categories and output width, the learned missing indicator, and all-zero unknown outputs under ignore. Exception checks establish rejection under error without refitting on validation rows."
+    }
+  },
+  "assess": [
+    {
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f6"
+      ],
+      "capability": "preserve_training_fitted_category_mapping"
+    },
+    {
+      "fact_ids": [
+        "f3",
+        "f4"
+      ],
+      "capability": "apply_declared_unknown_and_missing_category_policy"
+    },
+    {
+      "fact_ids": [
+        "f5",
+        "f6"
+      ],
+      "capability": "verify_encoding_with_aligned_fixture_assertions"
+    }
+  ],
+  "example": [
+    "Suppose training contains north and south. Inspect categories_ and store the category dictionary with the feature name, using the fitted order rather than inventing a new one. Under a two-column north/south mapping, a known north row has its corresponding indicator set. An unseen east row is rejected by the default error policy; with handle_unknown set to ignore, it has all-zero indicators for that feature. Keep known, unseen and missing fixtures aligned with the stored mapping. Missing values present during fit can become a learned category; missing values absent from the learned set follow the unknown-category behavior. That distinction means two missing-value fixtures may need different expectations depending on what the fit actually saw.\n\nThe output width depends on the fitted category set, not on the number of categories occurring in a particular validation batch. Keep columns aligned to the stored training mapping even if a batch contains only north. An unseen east fixture tests the explicit policy without silently extending categories_ during transformation. For the missing fixture, first ask whether missing was represented in the fit data. If yes, its learned indicator follows that mapping; if not, it follows the unknown-category rule. These checks distinguish stable column identity from changing observed batch contents. The metadata dictionary records that identity so the representation remains interpretable to downstream callers."
+  ]
+}
+mle.preprocessing_pipeline
+{
+  "practice": {
+    "type": "live_code",
+    "objective": "Write a learner-defined Python function with learner-written imports that composes the supplied numerical transformation, category encoder and estimator into one pipeline for distance and zone. Fit it on training data only, then use its prediction path for validation and bounded inference within supplied scaffolding. Author reusable normal, missing-value and malformed fixtures using those columns, with assertions for the supplied valid, boundary and failure expectations and unchanged fitted preprocessing state.",
+    "success": "The function fits one workflow on training data and predicts validation and bounded inference through that same fitted object without further fitting. Assertions confirm the declared transformed representation and output expectations, unchanged fitted preprocessing parameters, the specified missing-value outcome and the specified malformed-input failure.",
+    "live_code": {
+      "required_skill": "Compose column-specific fitted preprocessing with a supplied final estimator, reuse the resulting pipeline and express contract checks as assert predicates.",
+      "allowed_syntax": [
+        "import and from ... import for the required preprocessing, pipeline and prerequisite data libraries",
+        "def, parameters, local variables and return",
+        "lists, tuples and dictionaries for named steps, column selections and reusable fixtures",
+        "Pipeline([(name, transformer), ..., (name, estimator)])",
+        "ColumnTransformer with declared transformers and distance or zone column selections",
+        "prerequisite imputer, scaler and categorical encoder constructors with supplied policies",
+        ".fit(X_train, y_train) on the composed pipeline",
+        ".predict(X) on the fitted pipeline",
+        ".transform(X) on fitted preprocessing for representation checks",
+        ".named_steps and .named_transformers_ to inspect fitted preprocessing",
+        "copies and equality comparisons of prerequisite fitted preprocessing parameters",
+        "assert predicate",
+        "try and except for the supplied failure exception",
+        "prerequisite NumPy or tabular fixture construction and missing-value representations"
+      ],
+      "blocked_syntax": [
+        "GridSearchCV(...)",
+        "RandomizedSearchCV(...)",
+        "cross_val_score(...)",
+        "classification_report(...)",
+        "roc_auc_score(...)",
+        "mlflow.start_run(...)",
+        "mlflow.log_metric(...)",
+        "torch.nn.Module",
+        "torch.optim.Adam(...)",
+        "joblib.dump(...)",
+        "joblib.load(...)",
+        "requests.post(...)"
+      ],
+      "starter_state_intent": "Provide distance and zone training and validation data, training labels, declared transformation policies, a supplied estimator and bounded inference execution scaffolding. Supply expected representation and output predicates, inspectable fitted-state fields, and the missing-value and malformed-input contracts. Leave imports, the function, pipeline composition, reusable fixtures and assertions for the learner to write; infrastructure access remains inside the scaffolding.",
+      "observable_success": "In ordinary non-optimized execution, all declared assertions pass. Validation and bounded inference use the training-fitted pipeline, recorded preprocessing state remains equal after prediction, normal and missing-value fixtures meet their supplied expectations, and the malformed fixture follows the specified failure path."
+    }
+  },
+  "assess": [
+    {
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3"
+      ],
+      "capability": "compose_column_specific_preprocessing_with_an_estimator"
+    },
+    {
+      "fact_ids": [
+        "f2",
+        "f4"
+      ],
+      "capability": "reuse_training_fitted_transformations_without_refitting"
+    },
+    {
+      "fact_ids": [
+        "f4",
+        "f5"
+      ],
+      "capability": "assert_fitted_state_reuse_and_declared_input_outcomes"
+    }
+  ],
+  "example": [
+    "Imagine distance uses the declared numerical transformer while zone uses the fitted category encoder. ColumnTransformer assigns those operations to their named columns. Pipeline chains the resulting transformation with the final estimator. Fit that workflow on training data, then predict validation through the same fitted object. A fixture should check the expected transformed representation and final output for a valid input, and the supplied boundary and failure cases. If an engineer manually prepares validation with a new encoder, it no longer follows this workflow even if the estimator object is unchanged. Trace one row from selected columns through transformations to the estimator so the distinction between fitting the workflow and applying it is visible.\n\nTrace a complete prediction call rather than testing transformations and estimation as unrelated pieces. The incoming raw columns are selected, their fitted operations are applied and the resulting representation reaches the final estimator. Intermediate pipeline steps must support fitting and transformation; the final step is the estimator. A manually prepared validation array can accidentally skip a step or use a newly learned category order, which is why the fixture should exercise the fitted workflow's own prediction path. Preserve column assignment and fitted state together. Successful estimation of an already transformed array is not evidence that the raw-input pipeline handles the declared contract correctly."
+  ]
+}
+mle.prediction_boundary_leakage
+{
+  "practice": {
+    "type": "live_code",
+    "objective": "Audit the supplied order workflow against its acceptance-time prediction contract. In a learner-defined Python function with learner-written imports, exclude the eventual-arrival field from prediction inputs and ensure preprocessing fits only the designated training rows. Write assert checks using the supplied valid, boundary and failure fixtures.",
+    "success": "The learner localizes each information-boundary defect. The same assertions fail on the leaked workflow and pass after correction, establishing that prediction inputs contain only decision-available fields, preprocessing fits only training rows, and held-out inputs receive transform without refitting.",
+    "live_code": {
+      "required_skill": "Trace row and field access through supplied workflow scaffolding, correct preprocessing and prediction-input boundaries, and verify those boundaries with assert predicates.",
+      "allowed_syntax": [
+        "import statements for the required fixture and preprocessing dependencies",
+        "def with parameters",
+        "return statements",
+        "variable assignment",
+        "calls to supplied fixture and workflow interfaces",
+        "array or table indexing and column selection",
+        "list and tuple literals",
+        "comparison operators",
+        "boolean operators",
+        "assert predicate statements",
+        "training-only preprocessing fit calls",
+        "training-only preprocessing fit_transform calls",
+        "held-out preprocessing transform calls"
+      ],
+      "blocked_syntax": [
+        "new estimator construction or learner-authored estimator training",
+        "GridSearchCV(...)",
+        "RandomizedSearchCV(...)",
+        "mlflow.start_run(...)",
+        "torch.nn.Module subclass definitions",
+        "optimizer.step()",
+        "deployment or prediction-service client construction"
+      ],
+      "starter_state_intent": "Provide the order-at-acceptance fixture, designated training and held-out rows, an eventual-arrival field, existing preprocessing and prediction scaffolding, and observable fit/input traces. Supply valid, boundary and failure fixtures, but leave the correction function, its imports and its assertions for the learner to author.",
+      "observable_success": "Fixture traces show only designated training rows reaching preprocessing fit, no eventual-arrival field reaching prediction inputs, and transform-only handling of held-out inputs. Learner-written assertions pass for the corrected valid and boundary cases and raise AssertionError for the leaked failure cases during ordinary non-optimized execution."
+    }
+  },
+  "assess": [
+    {
+      "fact_ids": [
+        "f1",
+        "f2"
+      ],
+      "capability": "identify_target_and_future_information_leakage"
+    },
+    {
+      "fact_ids": [
+        "f2",
+        "f3"
+      ],
+      "capability": "localize_held_out_information_in_preprocessing_fits"
+    },
+    {
+      "fact_ids": [
+        "f4"
+      ],
+      "capability": "verify_boundary_cases_with_assert_predicates"
+    }
+  ],
+  "example": [
+    "For predictions made at acceptance, a field populated only after arrival is unavailable at the required boundary. Remove it from the prediction input rather than describing the strong held-out result as reliable evidence for this task. Also trace the preprocessing fit: if it saw both training and validation rows, separating the estimator's fit alone did not keep held-out information out of the fitted system. Split before fitting preprocessing and apply transform to held-out inputs. In the bounded fixture, retain explicit checks that no future field enters the prediction and that the fit receives only the designated training rows. The audit is about information flow, not merely whether files have different names.\n\nDistinguish the prediction-time audit from the held-out-fit audit. The former asks whether each input field could have been known at the declared decision time. The latter asks whether any fitted choice used held-out observations. Removing the eventual-arrival feature addresses the first issue but does not repair a scaler already fitted on validation; splitting before fit addresses the second but does not make a future field available at acceptance. Test both information paths in the bounded fixture. The corrected workflow should produce held-out predictions from training-fitted state and decision-available inputs, not merely show a lower score after deleting a suspicious column."
+  ]
+}
+mle.leakage_safe_features
+{
+  "practice": {
+    "type": "live_code",
+    "objective": "Implement a learner-defined Python function that accepts records and prediction_time, filters records with a list comprehension using available_at <= prediction_time, and sums only accepted value entries. Write the required datetime import for the supplied timestamp fixtures. Within the supplied infrastructure scaffolding, author assertions and verify the function with supplied unit-test fixtures, including a record exactly at the boundary and an added later observation.",
+    "success": "The available values 2 and 3 produce 5. Adding the later value 7 leaves the earlier feature at 5. A record exactly at prediction_time is included, and the learner-written assertions and supplied feature fixtures pass.",
+    "live_code": {
+      "required_skill": "Write a function that filters timestamped records before arithmetic and asserts that later unavailable records cannot change its result.",
+      "allowed_syntax": [
+        "from datetime import datetime",
+        "def function_name(records, prediction_time):",
+        "return total",
+        "variable assignment",
+        "integer literals",
+        "datetime(...)",
+        "list literals",
+        "dictionary literals with available_at and value keys",
+        "row[\"available_at\"]",
+        "record[\"value\"]",
+        "[row for row in records if row[\"available_at\"] <= prediction_time]",
+        "total = 0",
+        "for record in accepted:",
+        "total += record[\"value\"]",
+        "list concatenation with +",
+        "function calls",
+        "assert actual == expected"
+      ],
+      "blocked_syntax": [
+        "model.fit(...)",
+        "model.predict(...)",
+        "model.predict_proba(...)",
+        "torch.tensor(...)",
+        "loss.backward()",
+        "optimizer.step()",
+        "mlflow.start_run(...)"
+      ],
+      "starter_state_intent": "Supply an authorized harness, an unimplemented feature-function interface, and timestamp fixtures using only records, prediction_time, available_at, and value. Include available values 2 and 3, a later value 7, and an exact-boundary case. Leave the import, function implementation, and invariance assertions for the learner.",
+      "observable_success": "The function returns 5 for the original records and for records augmented with the later value 7. Learner-written assertions confirm equality of those results, and supplied fixtures confirm inclusion at the exact boundary and exclusion after it."
+    }
+  },
+  "assess": [
+    {
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f5"
+      ],
+      "capability": "derive_feature_from_prediction_time_records"
+    },
+    {
+      "fact_ids": [
+        "f1",
+        "f3"
+      ],
+      "capability": "select_lookup_value_at_recorded_boundary"
+    },
+    {
+      "fact_ids": [
+        "f2",
+        "f4",
+        "f5"
+      ],
+      "capability": "verify_feature_invariance_to_later_observations"
+    }
+  ],
+  "example": [
+    "Suppose an order has available records with values 2 and 3 at the decision time, plus a later record with value 7. For the declared sum feature, filter by available_at first, initialize the total to zero, and accumulate only the accepted values. The earlier feature is 5, not 12. Add the later record to the test input and assert that the earlier feature remains 5. If the feature also uses a changing lookup value, retrieve the value appropriate to the recorded boundary instead of treating the current lookup as historical. This test checks the feature computation's response to later information; it does not require later records to be deleted from the source system.\n\nPreserve the calculation's order in the code and the test: inspect availability, decide membership, then update the accumulator. Summing every record and later removing a timestamp field would not remove the later record's contribution. Adding the value 7 is a useful invariance test because the earlier prediction boundary has not changed. The historical lookup check is the corresponding question for changing reference state. Both mechanisms enforce the same declared availability boundary, but they concern different inputs to the feature. Retain a boundary fixture for a record at the exact permitted time under the supplied predicate instead of assuming whether equality is included."
+  ]
+}
+mle.sensitive_ml_assets
+{
+  "practice": {
+    "type": "live_code",
+    "objective": "Write one Python audit in a learner-defined function, including learner-written imports for any required library or supplied runtime-client dependencies. Apply the supplied identity and permitted-field policy to a dataset/log sample, construct a new dictionary using membership checks, and exclude restricted values and literal credentials without copying the credential out of the authorized runtime secret mechanism.",
+    "success": "For the authorized fixture, the returned record contains only run_id and row_count with their original values. Neither token nor restricted raw customer values appear in the returned record or captured output. The supplied authorization boundary is respected, and the credential remains available only through the existing authorized runtime secret mechanism.",
+    "live_code": {
+      "required_skill": "Implement an existing handling policy through dictionary membership checks in a learner-defined Python function, and verify that restricted values are not disclosed.",
+      "allowed_syntax": [
+        "def and function parameters",
+        "return statements",
+        "import and from ... import statements for required dependencies",
+        "variable assignment",
+        "dictionary literals and dictionary key access",
+        "dictionary items() iteration",
+        "for loops",
+        "if statements",
+        "in and not in membership checks",
+        "dictionary comprehensions",
+        "list, tuple and set literals for supplied permitted-field collections",
+        "string, integer and boolean literals",
+        "calls to supplied authorized runtime interfaces",
+        "assert statements and equality comparisons"
+      ],
+      "blocked_syntax": [
+        "model.fit() and model.predict() calls",
+        "MLflow tracking API calls",
+        "PyTorch tensor, neural-network, autograd and optimizer APIs",
+        "prediction-service route and authentication-handler definitions",
+        "deployment, registry and pipeline orchestration API calls"
+      ],
+      "starter_state_intent": "Provide an illustrative sample containing run_id, row_count, token and raw customer values; an existing policy permitting only run_id and row_count; a supplied identity/authorization fixture; and an existing authorized runtime secret interface. Supply any necessary interface documentation but no completed function or imports. Use dummy restricted values only.",
+      "observable_success": "Tests confirm that the authorized result equals the permitted run_id and row_count record, unauthorized access follows the supplied policy, and captured output contains no dummy credential or restricted customer value. The existing runtime secret remains usable through its authorized interface and is absent from generated records."
+    }
+  },
+  "assess": [
+    {
+      "fact_ids": [
+        "f1"
+      ],
+      "capability": "apply_existing_identity_and_authorization_policy"
+    },
+    {
+      "fact_ids": [
+        "f2"
+      ],
+      "capability": "construct_permitted_field_records_with_membership_checks"
+    },
+    {
+      "fact_ids": [
+        "f3"
+      ],
+      "capability": "remove_literal_credentials_from_generated_assets"
+    },
+    {
+      "fact_ids": [
+        "f4"
+      ],
+      "capability": "retain_credentials_in_authorized_runtime_secret_mechanism"
+    }
+  ],
+  "example": [
+    "Suppose the supplied policy permits run_id and row_count, but not token or raw customer values. Construct a dictionary containing the permitted fields using membership checks; the new record should contain the run identifier and count without the credential. Keep the credential in the authorized runtime secret mechanism, not in an image, metadata or diagnostic record. Test a sample containing both permitted and forbidden keys and inspect the resulting record rather than assuming a field was removed. This is implementation of an existing policy, not permission to invent new readers or expand the permitted field list. A useful error report can identify the handling problem without reproducing the literal credential.\n\nBuild a new permitted-field dictionary rather than copying the whole input and hoping no forbidden field remains. The membership rule should use the existing allowed-field collection; adding a field because it appears diagnostically useful would change policy. Inspect both the returned dictionary and the captured output. A removed token field in the returned record does not establish non-disclosure if the input was printed beforehand. Runtime credential delivery and diagnostic-field selection address related but distinct handling paths. Keep the credential reference usable by the permitted runtime while keeping its literal value absent from generated data, metadata, images and logs."
+  ]
+}

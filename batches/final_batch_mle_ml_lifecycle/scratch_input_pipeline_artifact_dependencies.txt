@@ -1,0 +1,309 @@
+{
+  "type": "live_code",
+  "objective": "Edit the supplied Cloud Build YAML configuration and dependency-map checks to connect data validation, training and model validation through immutable artifact references. Preserve required fatal gates, serialize and reload the configuration, then exercise the existing configured Pub/Sub trigger with bounded accepted and rejected fixtures and inspect resolved stage inputs.",
+  "success": "The reloaded configuration has the required execution images, entry points, step IDs, waitFor edges and immutable consumer references. Predicate checks distinguish the declared valid, boundary and failure cases, including training output A incorrectly referenced as B. Accepted fixture results confirm the actual producer-consumer identities; rejected fixture results show unsuccessful required gates and no execution of their dependent stages.",
+  "live_code": {
+    "required_skill": "Edit a supplied pipeline configuration and Python dependency dictionary, assert artifact-identity and validation predicates, and verify configured edges against bounded runtime results.",
+    "allowed_syntax": [
+      "Python dictionary and list literals",
+      "String, numeric and Boolean literals",
+      "Variable assignment",
+      "Dictionary and list indexing",
+      "Equality comparisons and Boolean predicates",
+      "assert predicate",
+      "Existing function and test entry-point calls",
+      "import yaml",
+      "with open(...) as file_handle",
+      "yaml.safe_dump(config, file_handle)",
+      "yaml.safe_load(file_handle)",
+      "YAML mappings and sequences",
+      "Cloud Build steps, name, args and script fields",
+      "Cloud Build id and waitFor fields",
+      "Existing Cloud Build substitutions and immutable artifact references"
+    ],
+    "blocked_syntax": [],
+    "starter_state_intent": "Supply the existing authorized pipeline, configured event bindings and filters, declared PyYAML dependency, and valid, boundary and failure fixtures. Include a dependency dictionary and a consumer reference to B where training produces A, so the learner must repair the identity mismatch as well as configure explicit execution dependencies.",
+    "observable_success": "Saved and reloaded fields match the declared contract; assertions detect the A-to-B mismatch before repair and accept the corrected edge. Bounded accepted and rejected runs expose resolved artifact inputs and stage outcomes demonstrating both correct identity binding and fatal required validation gates."
+  }
+}
+[
+  {
+    "fact_ids": [
+      "f1",
+      "f2",
+      "f3",
+      "f10"
+    ],
+    "capability": "specify_immutable_artifact_producer_consumer_edges"
+  },
+  {
+    "fact_ids": [
+      "f4",
+      "f6",
+      "f7",
+      "f8"
+    ],
+    "capability": "configure_required_stage_dependencies_and_fatal_validation_gates"
+  },
+  {
+    "fact_ids": [
+      "f3",
+      "f5"
+    ],
+    "capability": "assert_artifact_dependency_contracts_for_declared_cases"
+  },
+  {
+    "fact_ids": [
+      "f6",
+      "f11"
+    ],
+    "capability": "serialize_reload_and_inspect_pipeline_configuration"
+  },
+  {
+    "fact_ids": [
+      "f9",
+      "f10"
+    ],
+    "capability": "verify_artifact_edges_from_resolved_run_inputs"
+  }
+]
+
+FILE cloudbuild.yaml
+{
+  "steps": [
+    {
+      "id": "data_validation",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "learner.py",
+        "${_CASE}"
+      ],
+      "waitFor": [
+        "-"
+      ]
+    },
+    {
+      "id": "training",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "downstream_entry.py",
+        "${_ARTIFACT}"
+      ],
+      "waitFor": []
+    },
+    {
+      "id": "model_validation",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "learner.py",
+        "${_CASE}",
+        "B"
+      ],
+      "waitFor": []
+    }
+  ],
+  "substitutions": {
+    "_SNAPSHOT": "valid",
+    "_CASE": "valid",
+    "_ARTIFACT": "A"
+  },
+  "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com"
+}
+
+FILE storage_sim.py
+"""Bounded local Cloud Storage interface, never a real cloud client."""
+from pathlib import Path
+class PreconditionFailed(Exception):
+    status_code = 412
+class RecoverableFailure(Exception):
+    pass
+class StorageClient:
+    def __init__(self, initial=None, race=None):
+        self.objects = dict(initial or {})
+        self.race = dict(race or {})
+        self.uploads = []
+        self.requests = []
+    def blob(self, name):
+        return Blob(self, name)
+class Blob:
+    def __init__(self, client, name):
+        self.client, self.name = client, name
+        self.generation = None
+    def exists(self):
+        return self.name in self.client.objects
+    def reload(self):
+        self.generation = self.client.objects[self.name]["generation"]
+    def download_as_bytes(self, if_generation_match):
+        self.client.requests.append((self.name, if_generation_match))
+        obj = self.client.objects[self.name]
+        if obj["generation"] != if_generation_match:
+            raise PreconditionFailed("generation mismatch")
+        return obj["data"]
+    def upload_from_filename(self, path, if_generation_match):
+        if if_generation_match != 0:
+            raise ValueError("fixture contract permits create-only upload")
+        if self.name in self.client.race:
+            self.client.objects[self.name] = self.client.race.pop(self.name)
+            raise PreconditionFailed("412 concurrent creation")
+        if self.exists():
+            raise PreconditionFailed("412 already exists")
+        self.client.objects[self.name] = {"generation": 1, "data": Path(path).read_bytes()}
+        self.client.uploads.append(self.name)
+        self.reload()
+
+FILE fixtures/artifacts.json
+{
+  "A": {
+    "artifact_id": "A",
+    "uri": "gs://fixture-artifacts/A.txt",
+    "generation": 1,
+    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+    "validation_ok": true
+  },
+  "B": {
+    "artifact_id": "B",
+    "uri": "gs://fixture-artifacts/B.txt",
+    "generation": 1,
+    "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+    "validation_ok": true
+  }
+}
+
+FILE fixtures/dependency_cases.json
+{
+  "valid": {
+    "data_validation": {
+      "consumed": "snapshot.A",
+      "parameters": {
+        "contract": "dataset_contract"
+      },
+      "produced": "validated.snapshot.A",
+      "validation_ok": true
+    },
+    "training": {
+      "consumed": "validated.snapshot.A",
+      "parameters": {
+        "feature_scale": 5.0,
+        "threshold": 0.4,
+        "package": "A"
+      },
+      "produced": "A"
+    },
+    "model_validation": {
+      "consumed": "A",
+      "parameters": {
+        "rtol": 1e-07,
+        "atol": 1e-08
+      },
+      "produced": "validated.A",
+      "validation_ok": true
+    }
+  },
+  "mismatch": {
+    "data_validation": {
+      "consumed": "snapshot.A",
+      "parameters": {
+        "contract": "dataset_contract"
+      },
+      "produced": "validated.snapshot.A",
+      "validation_ok": true
+    },
+    "training": {
+      "consumed": "validated.snapshot.A",
+      "parameters": {
+        "feature_scale": 5.0,
+        "threshold": 0.4,
+        "package": "A"
+      },
+      "produced": "A"
+    },
+    "model_validation": {
+      "consumed": "B",
+      "parameters": {
+        "rtol": 1e-07,
+        "atol": 1e-08
+      },
+      "produced": "validated.A",
+      "validation_ok": true
+    }
+  },
+  "rejected_data": {
+    "data_validation": {
+      "consumed": "snapshot.A",
+      "parameters": {
+        "contract": "dataset_contract"
+      },
+      "produced": "validated.snapshot.A",
+      "validation_ok": false
+    },
+    "training": {
+      "consumed": "validated.snapshot.A",
+      "parameters": {
+        "feature_scale": 5.0,
+        "threshold": 0.4,
+        "package": "A"
+      },
+      "produced": "A"
+    },
+    "model_validation": {
+      "consumed": "A",
+      "parameters": {
+        "rtol": 1e-07,
+        "atol": 1e-08
+      },
+      "produced": "validated.A",
+      "validation_ok": true
+    }
+  },
+  "boundary": {
+    "data_validation": {
+      "consumed": "snapshot.A",
+      "parameters": {
+        "contract": "dataset_contract"
+      },
+      "produced": "validated.snapshot.A",
+      "validation_ok": true
+    },
+    "training": {
+      "consumed": "validated.snapshot.A",
+      "parameters": {
+        "feature_scale": 5.0,
+        "threshold": 0.4,
+        "package": "A"
+      },
+      "produced": "A"
+    },
+    "model_validation": {
+      "consumed": "A",
+      "parameters": {
+        "rtol": 1e-07,
+        "atol": 1e-08
+      },
+      "produced": "validated.A",
+      "validation_ok": true
+    }
+  }
+}
+
+FILE fixtures/dependency_contract.json
+{
+  "required_edges": [
+    [
+      "data_validation",
+      "training"
+    ],
+    [
+      "training",
+      "model_validation"
+    ]
+  ],
+  "checks": [
+    "producer immutable identity equals consumer reference",
+    "validation result before dependent execution",
+    "resolved run args agree with dependency dictionary"
+  ],
+  "assignment": "repair training A / model-validation B mismatch and configure explicit waitFor edges"
+}

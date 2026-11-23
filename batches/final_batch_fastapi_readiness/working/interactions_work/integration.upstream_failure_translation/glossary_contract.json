@@ -1,0 +1,133 @@
+{
+  "concept_id": "integration.upstream_failure_translation",
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "The situation",
+      "content": "An external service failure is input to the local integration contract. The local API should not blindly forward every remote status or raw response.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "definition",
+      "title": "The rule and its boundary",
+      "content": "HTTPX distinguishes transport RequestError failures from HTTPStatusError raised for an unsuccessful HTTP status by response.raise_for_status().",
+      "fact_ids": [
+        "f1"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "How to use the rule",
+      "content": "Call response.raise_for_status() when status failures require translation and classify caught HTTPStatusError by exc.response.status_code, while catching RequestError for failures without a usable response. Treat remote failures as inputs to an explicit local integration contract rather than blindly trusting or exposing a remote response as the local outcome. When acting as a gateway, 502 denotes an invalid upstream response and 504 denotes an upstream timeout; select the local status or domain exception from the service's declared mapping rather than forwarding every upstream status unchanged. Test one supplied upstream status failure and one transport failure, asserting the mapped local response or domain failure and absence of raw upstream internals.",
+      "fact_ids": [
+        "f2",
+        "f3",
+        "f4",
+        "f5"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "walkthrough",
+      "title": "Reason through an example",
+      "content": "Call response.raise_for_status() when unsuccessful statuses need translation. HTTPStatusError provides the response status for classification; RequestError covers transport failures without a usable response. Test one supplied remote status failure and one transport failure, mapping each through the declared local contract. When acting as a gateway, 502 means an invalid upstream response and 504 an upstream timeout, but use the service's supplied mapping rather than inventing a universal rule for every external error. Assert the selected local response or domain failure and absence of raw upstream internals. Trace remote observation, classification and local meaning separately so a remote client-error status is not automatically treated as the same local outcome.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "misconception",
+      "title": "Keep this distinction",
+      "content": "An upstream status is not automatically the correct local status. Transport errors and unsuccessful HTTP responses are also distinct observations.",
+      "fact_ids": [
+        "f1",
+        "f3",
+        "f4"
+      ]
+    }
+  ],
+  "visual_anchor": {
+    "type": "process_flow",
+    "purpose": "Show remote observation, HTTPX classification, declared local mapping, and public outcome as separate steps. Trace an upstream 503 through HTTPStatusError to the example contract's local 502, and an upstream timeout through RequestError to local 504; mark raw upstream internals as excluded from public output."
+  },
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Implement translation of an integration failure using a supplied local contract, then test one unsuccessful upstream status and one transport failure.",
+    "success": "An upstream 503 maps to the supplied local 502 response with a fixed public detail, and an upstream timeout maps to the supplied local 504 response with a fixed public detail. Both tests assert the local outcome and confirm that raw upstream internals are absent.",
+    "live_code": {
+      "required_skill": "Classify HTTPX failures and translate them into stable local HTTPException responses according to a supplied mapping.",
+      "allowed_syntax": [
+        "import httpx",
+        "from fastapi import HTTPException",
+        "async def",
+        "await",
+        "function parameters",
+        "return",
+        "try/except",
+        "if/else",
+        "integer and string literals",
+        "response.raise_for_status()",
+        "except httpx.HTTPStatusError as exc",
+        "exc.response.status_code",
+        "except httpx.RequestError as exc",
+        "isinstance(exc, httpx.TimeoutException)",
+        "raise HTTPException(status_code=..., detail=...) from None",
+        "assert",
+        "supplied test dependency replacement"
+      ],
+      "blocked_syntax": [
+        "retry loops around outbound requests",
+        "retry backoff scheduling"
+      ],
+      "starter_state_intent": "Provide an async integration function with a supplied HTTPX client, a fixed upstream URL, and an incomplete failure-translation block. Supply the contract: upstream 503 becomes local 502 with detail 'Upstream unavailable'; an upstream timeout becomes local 504 with detail 'Upstream timed out'; other unsuccessful statuses and transport failures use the supplied local 502 fallback. Provide endpoint test scaffolding and dependency replacements for the two required failures.",
+      "observable_success": "The implementation calls response.raise_for_status(), classifies HTTPStatusError using exc.response.status_code, and handles RequestError separately. The supplied 503 and timeout tests pass with exactly the declared local statuses and details, without exposing upstream response bodies, URLs, or exception messages."
+    }
+  },
+  "required_facts": [
+    {
+      "id": "f1",
+      "statement": "HTTPX distinguishes transport RequestError failures from HTTPStatusError raised for an unsuccessful HTTP status by response.raise_for_status().",
+      "source_refs": [
+        "fastapi_docs_advanced#https://www.python-httpx.org/exceptions/#the-exception-hierarchy"
+      ]
+    },
+    {
+      "id": "f2",
+      "statement": "Call response.raise_for_status() when status failures require translation and classify caught HTTPStatusError by exc.response.status_code, while catching RequestError for failures without a usable response.",
+      "source_refs": [
+        "fastapi_docs_advanced#https://www.python-httpx.org/exceptions/#the-exception-hierarchy"
+      ]
+    },
+    {
+      "id": "f3",
+      "statement": "Treat remote failures as inputs to an explicit local integration contract rather than blindly trusting or exposing a remote response as the local outcome.",
+      "source_refs": [
+        "owasp_api_security_top10_2023#https://api-security.owasp.org/editions/2023/en/0xaa-unsafe-consumption-of-apis/#how-to-prevent"
+      ]
+    },
+    {
+      "id": "f4",
+      "statement": "When acting as a gateway, 502 denotes an invalid upstream response and 504 denotes an upstream timeout; select the local status or domain exception from the service's declared mapping rather than forwarding every upstream status unchanged.",
+      "source_refs": [
+        "rfc_9110_http_semantics#https://www.rfc-editor.org/rfc/rfc9110.html#section-15.6.3",
+        "rfc_9110_http_semantics#https://www.rfc-editor.org/rfc/rfc9110.html#section-15.6.5"
+      ]
+    },
+    {
+      "id": "f5",
+      "statement": "Test one supplied upstream status failure and one transport failure, asserting the mapped local response or domain failure and absence of raw upstream internals.",
+      "source_refs": [
+        "fastapi_docs_tutorial#https://fastapi.tiangolo.com/tutorial/testing/#using-testclient",
+        "fastapi_docs_advanced#https://www.python-httpx.org/exceptions/#the-exception-hierarchy"
+      ]
+    }
+  ]
+}

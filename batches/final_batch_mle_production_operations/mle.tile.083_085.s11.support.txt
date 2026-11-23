@@ -1,0 +1,26 @@
+import csv, json, datetime
+import numpy as np
+SCHEMAS = {'alert_observations': {'window_id': 'string', 'numeric_values': 'number'}}
+def load(name):
+    with open(name+'.csv') as f:
+        data=list(csv.DictReader(f))
+    for r in data:
+        for k,t in SCHEMAS[name].items():
+            v=r[k]
+            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)
+    return data
+def column(data,key):
+    return np.asarray([r[key] for r in data])
+def emit(value):
+    return value
+
+def replay(config,data):
+    windows={}
+    for r in data: windows.setdefault(r['window_id'],[]).append(r['numeric_values'])
+    return [{'window':k,'owner':config['owner'],'response':config['response']} for k,v in windows.items() if k!='baseline' and np.mean(v)>config['threshold']]
+
+
+policy = {'indicator': 'window_mean', 'baseline_window': 'baseline', 'window_rule': 'mean(window)>mean(baseline)+4', 'ddof': 0, 'owner': 'order_oncall', 'response': 'investigate_window', 'expected_replays': {'normal': False, 'boundary': False, 'breached': True}}
+
+def baseline_values(data):
+    return np.asarray([r['numeric_values'] for r in data if r['window_id']==policy['baseline_window']])

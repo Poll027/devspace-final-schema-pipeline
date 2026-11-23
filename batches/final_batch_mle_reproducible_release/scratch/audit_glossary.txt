@@ -1,0 +1,1977 @@
+
+CONCEPT mle.ml_training_script
+{
+  "coverage": {
+    "learning_objective": "Replace notebook-global execution with a committed, parameterized script whose clean-shell output is verified.",
+    "required_facts": [
+      {
+        "id": "f1",
+        "statement": "Place the executable call behind if __name__ == \"__main__\": so direct script execution runs the entry point and ordinary imports do not.",
+        "source_refs": [
+          "python_tutorial#modules.html \u2014 Executing modules as scripts"
+        ]
+      },
+      {
+        "id": "f2",
+        "statement": "Define the training entry function with explicit parameters and resolve its defaults and keyword overrides before training.",
+        "source_refs": [
+          "python_tutorial#controlflow.html \u2014 Defining Functions; Default Argument Values; Keyword Arguments"
+        ]
+      },
+      {
+        "id": "f3",
+        "statement": "Load the declared JSON configuration with json.load and map its fields to the training function\u2019s arguments.",
+        "source_refs": [
+          "python_tutorial#inputoutput.html \u2014 Saving structured data with json"
+        ]
+      },
+      {
+        "id": "f4",
+        "statement": "Run the saved file with python training_script.py and compare its recorded configuration and outputs with the supplied notebook behavior.",
+        "source_refs": [
+          "python_tutorial#modules.html \u2014 Executing modules as scripts"
+        ]
+      },
+      {
+        "id": "f5",
+        "statement": "From a caller, subprocess.run([\"python\", script_path], check=True) executes the script and raises on a nonzero exit status.",
+        "source_refs": [
+          "python_tutorial#../library/subprocess.html \u2014 Using the subprocess Module"
+        ]
+      },
+      {
+        "id": "f6",
+        "statement": "Serialize a configuration or record using json.dump(record, file_handle), and recover the structured values with json.load(file_handle) rather than treating JSON text as a Python dictionary.",
+        "source_refs": [
+          "python_tutorial#inputoutput.html \u2014 Saving structured data with json"
+        ]
+      },
+      {
+        "id": "f7",
+        "statement": "Call the entry function once with its default arguments and once with explicit keyword overrides; all task state must be parameters or local values rather than notebook globals.",
+        "source_refs": [
+          "python_tutorial#controlflow.html \u2014 Defining Functions; Default Argument Values; Keyword Arguments"
+        ]
+      },
+      {
+        "id": "f8",
+        "statement": "Use f-strings such as f\"{parameter_name}={resolved_value}\" to emit the resolved parameters and validation result for inspection.",
+        "source_refs": [
+          "python_tutorial#inputoutput.html \u2014 Formatted String Literals"
+        ]
+      },
+      {
+        "id": "f9",
+        "statement": "Save the script in the repository, stage it with git add SCRIPT_PATH and commit it with git commit, retaining the resulting revision.",
+        "source_refs": [
+          "git_docs#git-commit \u2014 DESCRIPTION; git-checkout \u2014 DESCRIPTION"
+        ]
+      },
+      {
+        "id": "f10",
+        "statement": "Run the saved entry point from a clean shell process with output redirection (python training_script.py > capture.log 2>&1), then inspect the captured parameters and result.",
+        "source_refs": [
+          "python_tutorial#../library/subprocess.html \u2014 Using the subprocess Module"
+        ]
+      }
+    ],
+    "misconceptions": []
+  },
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "Reproduce a Training Experiment",
+      "content": "The training behavior must leave the notebook and run from a clean shell. A script entry point makes direct execution explicit while preventing ordinary imports from silently launching the training task.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "mechanism",
+      "title": "The working rule",
+      "content": "Place the executable call behind if __name__ == \"__main__\": so direct script execution runs the entry point and ordinary imports do not. Define the training entry function with explicit parameters and resolve its defaults and keyword overrides before training. Load the declared JSON configuration with json.load and map its fields to the training function\u2019s arguments.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Run the saved file with python training_script.py and compare its recorded configuration and outputs with the supplied notebook behavior. From a caller, subprocess.run([\"python\", script_path], check=True) executes the script and raises on a nonzero exit status. Serialize a configuration or record using json.dump(record, file_handle), and recover the structured values with json.load(file_handle) rather than treating JSON text as a Python dictionary.",
+      "fact_ids": [
+        "f4",
+        "f5",
+        "f6"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Call the entry function once with its default arguments and once with explicit keyword overrides; all task state must be parameters or local values rather than notebook globals. Use f-strings such as f\"{parameter_name}={resolved_value}\" to emit the resolved parameters and validation result for inspection. Save the script in the repository, stage it with git add SCRIPT_PATH and commit it with git commit, retaining the resulting revision.",
+      "fact_ids": [
+        "f7",
+        "f8",
+        "f9"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Run the saved entry point from a clean shell process with output redirection (python training_script.py > capture.log 2>&1), then inspect the captured parameters and result.",
+      "fact_ids": [
+        "f10"
+      ]
+    },
+    {
+      "id": "tb6",
+      "purpose": "example",
+      "title": "A bounded work example",
+      "content": "Suppose the training function has a default setting and accepts an explicit keyword override. Call both forms with task state passed as parameters, then map a decoded JSON configuration to the entry function's arguments. Place execution behind the __main__ guard, save the script in the repository and retain its committed revision. Run it in a clean subprocess, check the exit result and inspect captured resolved parameters and validation output against the supplied notebook behavior. Output redirection captures both standard output and error in the declared log. The test is not merely whether the script starts: it checks that no forgotten notebook global supplied a necessary value.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5",
+        "f6",
+        "f7",
+        "f8",
+        "f9",
+        "f10"
+      ]
+    },
+    {
+      "id": "tb7",
+      "purpose": "misconception",
+      "title": "A distinction to keep",
+      "content": "JSON text is not a Python dictionary until decoded. A clean script also must not depend on notebook globals or print defaults as though they were the resolved keyword overrides.",
+      "fact_ids": [
+        "f6",
+        "f7",
+        "f8"
+      ]
+    }
+  ],
+  "video_need": {
+    "level": "HIGH",
+    "reason": "A live fixture with visible intermediate state and acceptance checks would make this distinction concrete: An entry point makes training independent of interactive execution state.",
+    "preferred_visual_modes": [
+      "live_code"
+    ]
+  },
+  "assessment_anchors": [
+    {
+      "fact_ids": [
+        "f1"
+      ],
+      "capability": "distinguish_direct_execution_from_import"
+    },
+    {
+      "fact_ids": [
+        "f2",
+        "f3",
+        "f7",
+        "f8"
+      ],
+      "capability": "resolve_and_report_explicit_training_state"
+    },
+    {
+      "fact_ids": [
+        "f3",
+        "f6"
+      ],
+      "capability": "round_trip_structured_json_configuration"
+    },
+    {
+      "fact_ids": [
+        "f4",
+        "f5",
+        "f10"
+      ],
+      "capability": "verify_clean_process_training_execution"
+    },
+    {
+      "fact_ids": [
+        "f9"
+      ],
+      "capability": "save_and_commit_training_entry_point"
+    }
+  ],
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Convert the supplied notebook prototype into one executable training_script.py in the supplied repository. Write the imports and a training function with explicit parameters and defaults, keeping all task state in parameters or local variables. Behind the entry-point guard, invoke training once with defaults and once with explicit keyword overrides mapped from the declared JSON configuration. Report each run's resolved parameters and validation result using f-strings, and save and reload a structured JSON record. Stage and commit the script, retain the revision, run it from a clean shell with output redirection, and inspect the captured results against the supplied notebook behavior. Also verify execution from a caller using subprocess.run with check=True.",
+    "success": "One committed script executes successfully in a clean process without notebook globals. Captured output distinguishes the default run from the configured keyword-override run and reports their actual resolved parameters and validation results. Those results agree with the supplied notebook behavior under the corresponding settings. The saved JSON record reloads as structured values, importing the script does not launch training, and the checked caller invocation completes successfully.",
+    "live_code": {
+      "required_skill": "Extract the supplied training workflow into an explicitly parameterized function and guarded entry point, then verify its configuration and results outside the notebook.",
+      "allowed_syntax": [
+        "import statements for json, subprocess, and the supplied training workflow's dependencies",
+        "def statements with explicit parameters and default values",
+        "local variable assignments",
+        "function calls with default arguments and explicit keyword arguments",
+        "return statements",
+        "if __name__ == \"__main__\":",
+        "with open(...) as file_handle:",
+        "json.load(file_handle)",
+        "json.dump(record, file_handle)",
+        "dictionary literals and configuration field access",
+        "string and numeric literals",
+        "print(...)",
+        "f\"{parameter_name}={resolved_value}\"",
+        "subprocess.run([\"python\", script_path], check=True)",
+        "the supplied prerequisite workflow's fit, predict, and validation metric calls"
+      ],
+      "blocked_syntax": [
+        "mlflow.register_model(...)",
+        "@app.post(...)",
+        "@app.get(...)"
+      ],
+      "starter_state_intent": "Supply the existing notebook prototype, declared JSON configuration, expected notebook behavior, and repository location. Preserve the notebook's existing task names and data fields. Leave imports, the parameterized training function, guarded calls, reporting, and JSON record handling for the learner to implement.",
+      "observable_success": "The saved script supports both required calls, reports resolved rather than assumed parameter values, and reproduces the corresponding notebook validation behavior. Importing it leaves training unexecuted. Running python training_script.py > capture.log 2>&1 from a clean shell produces inspectable output without missing notebook state. A caller using subprocess.run([\"python\", script_path], check=True) succeeds, a saved JSON record reloads correctly, and the script has a retained commit revision."
+    }
+  },
+  "visual_anchor": {
+    "type": "code",
+    "purpose": "Make the parameterized training function, JSON-to-argument mapping, two invocation forms, and guarded executable call visible alongside captured resolved parameters and validation results. Distinguish direct execution from importing, and show the retained script commit revision."
+  },
+  "teaching_notes": [
+    "Start with the concrete fixture and the declared contract; keep the explanation within this tile: Reproduce a Training Experiment.",
+    "Use the registered prerequisite preparation rather than reteaching general Python, statistics, software engineering or cloud administration. This path assumes those foundations; ownership remains bounded to the supplied ML task and existing authorized runtime.",
+    "Declared direct prerequisites: mle.sklearn_baseline_workflow, mle.task_metric_selection. Use these as preparation, not additional learning targets. No forward-preview concepts are taught.",
+    "All numeric values and short names in the work example are illustrative fixture data, not observed production results. Retain each source rule, qualifier, declared budget and policy boundary."
+  ],
+  "cluster_ref": null,
+  "validation": {
+    "source_supported": true,
+    "prerequisite_safe": true,
+    "media_aligned": true,
+    "ready_for_final_schema": true
+  }
+}
+
+CONCEPT mle.training_dataset_version
+{
+  "coverage": {
+    "learning_objective": "Create and re-retrieve a hashed immutable dataset version despite an overwrite of latest.",
+    "required_facts": [
+      {
+        "id": "f1",
+        "statement": "A mutable object name can refer to new contents after an overwrite; Object Versioning retains noncurrent versions whose identities can be selected explicitly.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/storage/docs/object-versioning \u2014 Object Versioning"
+        ]
+      },
+      {
+        "id": "f2",
+        "statement": "Retrieve a Google Cloud Storage snapshot with bucket.blob(object_name, generation=recorded_generation).download_to_filename(local_path), preserving the generation instead of resolving the current object.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/storage/docs/using-versioned-objects \u2014 Download noncurrent object versions"
+        ]
+      },
+      {
+        "id": "f3",
+        "statement": "Use the authorized client to confirm the supplied object/version exists before recording the snapshot as available.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/storage/docs/listing-objects \u2014 Python"
+        ]
+      },
+      {
+        "id": "f4",
+        "statement": "Compute a digest from the actual bytes, for example hashlib.sha256(data_bytes).hexdigest(), and compare it with the recorded expected content identity.",
+        "source_refs": [
+          "python_tutorial#../library/hashlib.html \u2014 Usage"
+        ]
+      },
+      {
+        "id": "f5",
+        "statement": "Write the object name, generation and observed digest to the local snapshot record so later training can retrieve and verify the same bytes.",
+        "source_refs": [
+          "python_tutorial#inputoutput.html \u2014 Reading and Writing Files"
+        ]
+      },
+      {
+        "id": "f6",
+        "statement": "Upload the dataset to the version-enabled bucket with bucket.blob(object_name).upload_from_filename(local_path), then inspect the created object generation and record it.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/storage/docs/uploading-objects \u2014 Python"
+        ]
+      },
+      {
+        "id": "f7",
+        "statement": "Read the local dataset through with open(path, \"rb\") as handle and update the SHA-256 digest from those bytes before recording the upload identity.",
+        "source_refs": [
+          "python_tutorial#../library/hashlib.html \u2014 Usage"
+        ]
+      },
+      {
+        "id": "f8",
+        "statement": "After overwriting the mutable latest object in the test bucket, download the originally recorded generation again and compare its digest with the original snapshot digest.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/storage/docs/using-versioned-objects \u2014 Download noncurrent object versions"
+        ]
+      }
+    ],
+    "misconceptions": []
+  },
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "Reproduce a Training Experiment",
+      "content": "A dataset name still exists, but its contents have been overwritten. Reproduction requires the recorded object generation and actual content identity, not just a path called latest.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "mechanism",
+      "title": "The working rule",
+      "content": "A mutable object name can refer to new contents after an overwrite; Object Versioning retains noncurrent versions whose identities can be selected explicitly. Retrieve a Google Cloud Storage snapshot with bucket.blob(object_name, generation=recorded_generation).download_to_filename(local_path), preserving the generation instead of resolving the current object. Use the authorized client to confirm the supplied object/version exists before recording the snapshot as available.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Compute a digest from the actual bytes, for example hashlib.sha256(data_bytes).hexdigest(), and compare it with the recorded expected content identity. Write the object name, generation and observed digest to the local snapshot record so later training can retrieve and verify the same bytes. Upload the dataset to the version-enabled bucket with bucket.blob(object_name).upload_from_filename(local_path), then inspect the created object generation and record it.",
+      "fact_ids": [
+        "f4",
+        "f5",
+        "f6"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Read the local dataset through with open(path, \"rb\") as handle and update the SHA-256 digest from those bytes before recording the upload identity. After overwriting the mutable latest object in the test bucket, download the originally recorded generation again and compare its digest with the original snapshot digest.",
+      "fact_ids": [
+        "f7",
+        "f8"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "example",
+      "title": "A bounded work example",
+      "content": "Upload the supplied dataset to the version-enabled test bucket and record its created generation and the SHA-256 digest of the local bytes. Later, select that recorded generation explicitly, verify it exists and download it. Compare the downloaded bytes' digest with the expected snapshot identity. In the authorized overwrite fixture, change only the mutable latest object, then retrieve the original generation again. The observed original digest should still match the snapshot record. Keep object name, generation and digest together: the name tells you which object family, the generation selects the version, and the digest checks the bytes you actually obtained.\n\nThe overwrite test separates immutable snapshot selection from the mutable object's current state. Verify the recorded generation exists before relying on it, and check the content after retrieval rather than assuming a version-qualified request returned the expected bytes. A local digest computed before upload and a digest of the later download can be compared directly as content evidence. Keep the selected generation in the record even when both old and latest objects happen to have the same name. The test proves retrieval of the recorded fixture, not a claim that mutable names are intrinsically safe for reproduction.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5",
+        "f6",
+        "f7",
+        "f8"
+      ]
+    },
+    {
+      "id": "tb6",
+      "purpose": "misconception",
+      "title": "A distinction to keep",
+      "content": "A mutable object name is not immutable data identity. Recording a digest without verifying downloaded bytes also does not establish that the intended snapshot was retrieved.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f4"
+      ]
+    }
+  ],
+  "video_need": {
+    "level": "HIGH",
+    "reason": "A live fixture with visible intermediate state and acceptance checks would make this distinction concrete: Reproducibility requires exact data identity, not a mutable location.",
+    "preferred_visual_modes": [
+      "live_code"
+    ]
+  },
+  "assessment_anchors": [
+    {
+      "fact_ids": [
+        "f1",
+        "f5",
+        "f6"
+      ],
+      "capability": "record_exact_training_snapshot_reference"
+    },
+    {
+      "fact_ids": [
+        "f2",
+        "f3",
+        "f4",
+        "f7"
+      ],
+      "capability": "retrieve_and_verify_recorded_snapshot_identity"
+    },
+    {
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f4",
+        "f8"
+      ],
+      "capability": "verify_snapshot_identity_after_latest_overwrite"
+    }
+  ],
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Implement a learner-defined Python snapshot function with learner-written imports for hashing, local identity-record handling and the authorized Google Cloud Storage client. Read the supplied dataset with an explicit binary file handle, compute its SHA-256 digest, upload it to the supplied object name in the version-enabled test bucket, inspect the created generation and confirm that exact version exists. Write its object name, generation and observed digest to a local record using an explicit file handle. Download the recorded generation and verify its digest, then repeat the verification after the authorized fixture overwrites the mutable latest object.",
+    "success": "The local record identifies the uploaded object name and exact generation and contains the SHA-256 digest computed from the original local bytes. The authorized client confirms that generation exists before it is recorded as available. Downloads explicitly select the recorded generation, and their digests match the original record both before and after the latest object is overwritten.",
+    "live_code": {
+      "required_skill": "Write a Python function that uses imported file/hash and object-storage dependencies to persist, retrieve and verify an exact dataset snapshot.",
+      "allowed_syntax": [
+        "import hashlib",
+        "import json",
+        "from google.cloud import storage",
+        "def with parameters and return",
+        "variable assignment and function calls",
+        "with open(path, \"rb\") as handle",
+        "handle.read()",
+        "hashlib.sha256(data_bytes).hexdigest()",
+        "with open(record_path, \"w\") as handle",
+        "with open(record_path, \"r\") as handle",
+        "dictionary literals and key access",
+        "json.dump(record, handle)",
+        "json.load(handle)",
+        "storage.Client()",
+        "client.bucket(bucket_name)",
+        "bucket.blob(object_name)",
+        "blob.upload_from_filename(local_path)",
+        "blob.generation",
+        "bucket.blob(object_name, generation=recorded_generation)",
+        "blob.exists(client=client)",
+        "blob.download_to_filename(local_path)",
+        "if statements",
+        "equality and inequality comparisons",
+        "raise ValueError with a string message",
+        "string and integer literals"
+      ],
+      "blocked_syntax": [
+        "subprocess.run([\"git\", \"rev-parse\", \"HEAD\"])",
+        "subprocess.run([\"pip\", \"freeze\"])",
+        "mlflow.register_model(...)",
+        "mlflow.pyfunc.log_model(...)",
+        "aiplatform.CustomJob(...)",
+        "aiplatform.Endpoint(...)",
+        "FastAPI()",
+        "@app.post(...)"
+      ],
+      "starter_state_intent": "Supply an authorized runtime, a version-enabled test bucket, the local training dataset, an object name, local record and download paths, and a separate authorized overwrite fixture. Provide an empty function scaffold without imports or implementation. Keep the original local dataset unchanged during the overwrite test.",
+      "observable_success": "The learner-written function creates the local snapshot record through an explicit file handle only after confirming the selected version exists. The recorded digest equals the digest of the original local dataset. After the fixture changes the current object's contents, a download selecting the original recorded generation still has the recorded digest."
+    }
+  },
+  "visual_anchor": {
+    "type": "code",
+    "purpose": "Make visible the explicit binary read, SHA-256 calculation, upload-created generation, existence check, local identity record and generation-qualified download. Show matching original and retrieved digests before and after the mutable latest object changes."
+  },
+  "teaching_notes": [
+    "Start with the concrete fixture and the declared contract; keep the explanation within this tile: Reproduce a Training Experiment.",
+    "Use the registered prerequisite preparation rather than reteaching general Python, statistics, software engineering or cloud administration. This path assumes those foundations; ownership remains bounded to the supplied ML task and existing authorized runtime.",
+    "Declared direct prerequisites: mle.file_object_ingestion. Use these as preparation, not additional learning targets. No forward-preview concepts are taught.",
+    "All numeric values and short names in the work example are illustrative fixture data, not observed production results. Retain each source rule, qualifier, declared budget and policy boundary."
+  ],
+  "cluster_ref": "cluster_machine_learning_engineer_052_055_53_54",
+  "validation": {
+    "source_supported": true,
+    "prerequisite_safe": true,
+    "media_aligned": true,
+    "ready_for_final_schema": true
+  }
+}
+
+CONCEPT mle.training_environment_record
+{
+  "coverage": {
+    "learning_objective": "Serialize and verify the actual revision, dependency pins and runtime identity in one manifest.",
+    "required_facts": [
+      {
+        "id": "f1",
+        "statement": "Inspect the actual local repository commit using git rev-parse --verify HEAD and include that exact revision in the environment dictionary.",
+        "source_refs": [
+          "git_docs#git-rev-parse \u2014 --verify; git-show \u2014 DESCRIPTION"
+        ]
+      },
+      {
+        "id": "f2",
+        "statement": "Collect installed pinned dependency versions with python -m pip freeze, whose package==version output can be installed with pip install -r.",
+        "source_refs": [
+          "python_tutorial#venv.html \u2014 Managing Packages"
+        ]
+      },
+      {
+        "id": "f3",
+        "statement": "Use imported runtime/environment facilities and the recorded runtime identity to capture the actual execution context alongside the revision and dependency versions.",
+        "source_refs": [
+          "python_tutorial#stdlib.html \u2014 Operating System Interface; Command Line Arguments"
+        ]
+      },
+      {
+        "id": "f4",
+        "statement": "With import json, serialize the manifest dictionary using json.dump(manifest, handle), then parse it using json.load(handle) from the saved file.",
+        "source_refs": [
+          "python_tutorial#inputoutput.html \u2014 Saving structured data with json"
+        ]
+      },
+      {
+        "id": "f5",
+        "statement": "Write and read the manifest with explicit with open(path, \"w\"/\"r\", encoding=\"utf-8\") handles.",
+        "source_refs": [
+          "python_tutorial#inputoutput.html \u2014 Reading and Writing Files"
+        ]
+      },
+      {
+        "id": "f6",
+        "statement": "Compare the parsed revision, dependency-version mapping and runtime identity with independently inspected values and reject a mismatch.",
+        "source_refs": [
+          "python_tutorial#datastructures.html \u2014 List Comprehensions; Sets; Dictionaries"
+        ]
+      },
+      {
+        "id": "f7",
+        "statement": "Use import sys to record sys.version and sys.executable as actual Python runtime details alongside the supplied runtime identity.",
+        "source_refs": [
+          "python_tutorial#../library/sys.html \u2014 sys.version; sys.executable"
+        ]
+      }
+    ],
+    "misconceptions": []
+  },
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "Reproduce a Training Experiment",
+      "content": "The run's environment record should describe what actually executed. A remembered dependency list or a typed commit label is not independent evidence of the Python runtime and repository revision used.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "mechanism",
+      "title": "The working rule",
+      "content": "Inspect the actual local repository commit using git rev-parse --verify HEAD and include that exact revision in the environment dictionary. Collect installed pinned dependency versions with python -m pip freeze, whose package==version output can be installed with pip install -r. Use imported runtime/environment facilities and the recorded runtime identity to capture the actual execution context alongside the revision and dependency versions.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "With import json, serialize the manifest dictionary using json.dump(manifest, handle), then parse it using json.load(handle) from the saved file. Write and read the manifest with explicit with open(path, \"w\"/\"r\", encoding=\"utf-8\") handles. Compare the parsed revision, dependency-version mapping and runtime identity with independently inspected values and reject a mismatch.",
+      "fact_ids": [
+        "f4",
+        "f5",
+        "f6"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Use import sys to record sys.version and sys.executable as actual Python runtime details alongside the supplied runtime identity.",
+      "fact_ids": [
+        "f7"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "example",
+      "title": "A bounded work example",
+      "content": "Inspect the local HEAD, collect pinned dependency versions with pip freeze, and record sys.version and sys.executable with the supplied runtime identity. Serialize that dictionary to the declared text manifest and parse it back. Compare the parsed revision, dependency mapping and runtime identity with independently inspected values. If the manifest says revision A but HEAD is B, reject the match rather than correcting the observed revision to fit the manifest. The dependency file can be installed with pip install -r in the declared environment. Keep the saved manifest and verified values identifiable so a later reproduction can resolve the recorded context.\n\nThe parsed manifest is the artifact a later execution will read, so inspect it after serialization rather than only inspecting the in-memory dictionary that preceded writing. Compare its dependency mapping with the freeze output, its revision with HEAD and its Python/runtime fields with the actual process. Paths such as sys.executable help identify which interpreter executed, while sys.version records that interpreter's version information. Keep these values beside the environment identity instead of treating them as substitutes for it. A mismatch is a verification failure to resolve, not a reason to change the independently observed environment values.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5",
+        "f6",
+        "f7"
+      ]
+    },
+    {
+      "id": "tb6",
+      "purpose": "misconception",
+      "title": "A distinction to keep",
+      "content": "Writing a manifest is not verifying it. Runtime details and dependency pins must come from the actual environment, and a parsed record with a mismatch cannot be declared accurate.",
+      "fact_ids": [
+        "f1",
+        "f3",
+        "f6",
+        "f7"
+      ]
+    }
+  ],
+  "video_need": {
+    "level": "HIGH",
+    "reason": "A live fixture with visible intermediate state and acceptance checks would make this distinction concrete: Executable provenance binds code and dependency versions to a model.",
+    "preferred_visual_modes": [
+      "live_code"
+    ]
+  },
+  "assessment_anchors": [
+    {
+      "fact_ids": [
+        "f1",
+        "f2"
+      ],
+      "capability": "collect_actual_revision_and_dependency_pins"
+    },
+    {
+      "fact_ids": [
+        "f3",
+        "f7"
+      ],
+      "capability": "capture_execution_runtime_identity"
+    },
+    {
+      "fact_ids": [
+        "f4",
+        "f5"
+      ],
+      "capability": "round_trip_environment_manifest_json"
+    },
+    {
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f6",
+        "f7"
+      ],
+      "capability": "verify_manifest_against_independent_environment_observations"
+    }
+  ],
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Implement a Python function that inspects the supplied repository with git rev-parse --verify HEAD, collects installed dependency pins using the current interpreter's -m pip freeze, and records the supplied runtime identity with sys.version and sys.executable. Write the manifest as UTF-8 JSON, read it back, and verify its fields against independently inspected repository and environment values.",
+    "success": "The saved file parses as JSON and contains the exact observed revision, dependency-version mapping, supplied runtime identity, and Python runtime details. Verification accepts matching observations and rejects a changed revision, dependency version, or runtime field without altering the independent observations.",
+    "live_code": {
+      "required_skill": "Import runtime, environment, filesystem and JSON facilities; collect actual execution-context values; serialize and parse a manifest; compare parsed fields with independent observations and reject mismatches.",
+      "allowed_syntax": [
+        "import json",
+        "import sys",
+        "import os",
+        "import subprocess",
+        "def",
+        "return",
+        "variable assignment",
+        "dictionary and list literals",
+        "string literals",
+        "dictionary indexing",
+        "for",
+        "if",
+        "comparison operators",
+        "raise ValueError",
+        "os.environ",
+        "os.fspath(path)",
+        "sys.version",
+        "sys.executable",
+        "subprocess.run(..., cwd=..., check=True, capture_output=True, text=True)",
+        "completed_process.stdout",
+        "str.strip()",
+        "str.splitlines()",
+        "str.split(\"==\", 1)",
+        "with open(path, \"w\", encoding=\"utf-8\") as handle",
+        "with open(path, \"r\", encoding=\"utf-8\") as handle",
+        "json.dump(manifest, handle)",
+        "json.load(handle)"
+      ],
+      "blocked_syntax": [
+        "mlflow.register_model(...)",
+        "mlflow.pyfunc.log_model(...)",
+        "FastAPI(...)",
+        "@app.post(...)",
+        "requests.post(...)"
+      ],
+      "starter_state_intent": "Provide the supplied local repository, the existing authorized training runtime with pinned package==version dependencies, its supplied runtime identity, and the declared manifest path. Leave environment collection, JSON writing and reading, and independent verification for the learner to implement.",
+      "observable_success": "Inspection uses the supplied repository and current Python interpreter. The UTF-8 JSON file round-trips successfully, and its parsed revision, dependency mapping, runtime identity, sys.version and sys.executable match fresh observations. Controlled mismatches trigger rejection rather than changes to the observed values."
+    }
+  },
+  "visual_anchor": {
+    "type": "code",
+    "purpose": "Make the repository inspection commands, current-interpreter dependency collection, runtime fields, explicit UTF-8 file handles, and JSON round-trip visible alongside field-by-field verification results for matching and mismatched records."
+  },
+  "teaching_notes": [
+    "Start with the concrete fixture and the declared contract; keep the explanation within this tile: Reproduce a Training Experiment.",
+    "Use the registered prerequisite preparation rather than reteaching general Python, statistics, software engineering or cloud administration. This path assumes those foundations; ownership remains bounded to the supplied ML task and existing authorized runtime.",
+    "Declared direct prerequisites: none within this path. Use these as preparation, not additional learning targets. No forward-preview concepts are taught.",
+    "All numeric values and short names in the work example are illustrative fixture data, not observed production results. Retain each source rule, qualifier, declared budget and policy boundary."
+  ],
+  "cluster_ref": "cluster_machine_learning_engineer_052_055_53_54",
+  "validation": {
+    "source_supported": true,
+    "prerequisite_safe": true,
+    "media_aligned": true,
+    "ready_for_final_schema": true
+  }
+}
+
+CONCEPT mle.experiment_reproduction
+{
+  "coverage": {
+    "learning_objective": "Re-execute a recorded experiment in a clean process using its recorded source, inputs and environment.",
+    "required_facts": [
+      {
+        "id": "f1",
+        "statement": "Retrieve the recorded experiment\u2019s revision, dataset snapshot, environment and resolved run settings before executing it again.",
+        "source_refs": [
+          "mlflow_docs#ml/tracking/tracking-api/ \u2014 Starting and Managing Runs; Logging Data to Runs; Querying Runs Programmatically"
+        ]
+      },
+      {
+        "id": "f2",
+        "statement": "Check out the recorded local repository commit and verify HEAD, rather than running a changed working tree and calling it reproduction.",
+        "source_refs": [
+          "git_docs#git-commit \u2014 DESCRIPTION; git-checkout \u2014 DESCRIPTION"
+        ]
+      },
+      {
+        "id": "f3",
+        "statement": "Download the recorded dataset generation and verify its identity instead of resolving the mutable latest object.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/storage/docs/using-versioned-objects \u2014 Download noncurrent object versions"
+        ]
+      },
+      {
+        "id": "f4",
+        "statement": "Use the recorded Python/dependency environment, installing its pinned requirements where needed.",
+        "source_refs": [
+          "python_tutorial#venv.html \u2014 Managing Packages"
+        ]
+      },
+      {
+        "id": "f5",
+        "statement": "Define the execution function with default argument values and explicit keyword overrides, and pass the resolved run state through its parameters.",
+        "source_refs": [
+          "python_tutorial#controlflow.html \u2014 Defining Functions; Default Argument Values; Keyword Arguments"
+        ]
+      },
+      {
+        "id": "f6",
+        "statement": "Run the script in a clean subprocess using its recorded working directory, checking the process exit result and capturing its output.",
+        "source_refs": [
+          "python_tutorial#../library/subprocess.html \u2014 Using the subprocess Module"
+        ]
+      },
+      {
+        "id": "f7",
+        "statement": "Navigate the referenced repository and artifact directories before resolving relative dataset, configuration and script paths.",
+        "source_refs": [
+          "python_tutorial#stdlib.html \u2014 Operating System Interface; Command Line Arguments"
+        ]
+      },
+      {
+        "id": "f8",
+        "statement": "Redirect shell output with > capture.log 2>&1 to capture standard output and error, and inspect the captured file; a pipe connects the first command\u2019s output to the next command\u2019s input.",
+        "source_refs": [
+          "python_tutorial#../library/subprocess.html \u2014 Using the subprocess Module"
+        ]
+      }
+    ],
+    "misconceptions": []
+  },
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "Reproduce a Training Experiment",
+      "content": "To reproduce an experiment, resolve its recorded code, data, environment and settings before execution. Running today's working tree on the current dataset may be another experiment, even if it has the old run's name.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "mechanism",
+      "title": "The working rule",
+      "content": "Retrieve the recorded experiment\u2019s revision, dataset snapshot, environment and resolved run settings before executing it again. Check out the recorded local repository commit and verify HEAD, rather than running a changed working tree and calling it reproduction. Download the recorded dataset generation and verify its identity instead of resolving the mutable latest object.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Use the recorded Python/dependency environment, installing its pinned requirements where needed. Define the execution function with default argument values and explicit keyword overrides, and pass the resolved run state through its parameters. Run the script in a clean subprocess using its recorded working directory, checking the process exit result and capturing its output.",
+      "fact_ids": [
+        "f4",
+        "f5",
+        "f6"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Navigate the referenced repository and artifact directories before resolving relative dataset, configuration and script paths. Redirect shell output with > capture.log 2>&1 to capture standard output and error, and inspect the captured file; a pipe connects the first command\u2019s output to the next command\u2019s input.",
+      "fact_ids": [
+        "f7",
+        "f8"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "example",
+      "title": "A bounded work example",
+      "content": "Retrieve the run's commit and dataset generation. Check out and verify the recorded local commit, download and verify the recorded snapshot, and use the pinned Python/dependency environment. Resolve defaults and keyword overrides through the execution function's parameters. Navigate to the recorded directories before resolving relative script or artifact paths, then launch a clean subprocess with captured output and checked exit status. Inspect the captured result rather than assuming launch means completion. In a failure fixture, a changed latest dataset or different working directory should be distinguishable from the recorded execution context. A shell pipe connects one command's output to another's input; it is not the same operation as saving both output streams to a log.\n\nCompare captured resolved parameters with the run record as well as inspecting exit success. A process can exit successfully while using a wrong dataset or default setting, so the reproduction verdict needs identity and configuration checks too. Relative paths are interpreted from the actual working directory; navigate explicitly before invoking the recorded script. The pinned environment and recorded code commit govern which implementation runs, while the verified snapshot governs its inputs. These separate pieces make the bounded reproduction auditable instead of relying on an operator's memory of the previous notebook session.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5",
+        "f6",
+        "f7",
+        "f8"
+      ]
+    },
+    {
+      "id": "tb6",
+      "purpose": "misconception",
+      "title": "A distinction to keep",
+      "content": "The same script filename is not reproduction identity. A changed revision, mutable dataset or unresolved local path can change the executed experiment despite a familiar name.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f6",
+        "f7"
+      ]
+    }
+  ],
+  "video_need": {
+    "level": "HIGH",
+    "reason": "A live fixture with visible intermediate state and acceptance checks would make this distinction concrete: Reproduction re-executes an identified experiment rather than approximating it from memory.",
+    "preferred_visual_modes": [
+      "live_code"
+    ]
+  },
+  "assessment_anchors": [
+    {
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4"
+      ],
+      "capability": "verify_recorded_experiment_inputs"
+    },
+    {
+      "fact_ids": [
+        "f1",
+        "f5"
+      ],
+      "capability": "pass_resolved_run_settings_through_function_parameters"
+    },
+    {
+      "fact_ids": [
+        "f6",
+        "f7",
+        "f8"
+      ],
+      "capability": "execute_and_inspect_a_recorded_rerun"
+    },
+    {
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5",
+        "f6"
+      ],
+      "capability": "verify_reproduced_outcome_within_declared_stochastic_tolerances"
+    }
+  ],
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Implement a learner-defined Python execution function with learner-written dependency imports, default arguments and explicit keyword overrides. Retrieve the supplied experiment's recorded inputs, check out and verify its local commit, download and verify its dataset generation, and use its pinned environment. Navigate the referenced directories, execute the recorded script in a clean subprocess, and capture and inspect shell output using redirection and a pipe.",
+    "success": "The rerun uses the verified commit, dataset generation, environment, working directory and resolved settings. The learner checks the subprocess exit result, inspects captured standard output and error, demonstrates a pipe feeding one command's output into another, and compares the recorded outcome with the rerun under the supplied stochastic tolerances.",
+    "live_code": {
+      "required_skill": "Resolve a recorded experiment's inputs and implement parameterized, independently executed Python reruns with verifiable identities and captured execution evidence.",
+      "allowed_syntax": [
+        "import and from ... import for required standard-library and supplied dataset-client dependencies",
+        "def with default argument values",
+        "explicit keyword arguments",
+        "return statements",
+        "variable assignment and dictionary access",
+        "string, numeric, boolean and None literals",
+        "lists and dictionaries",
+        "if statements and comparisons",
+        "pathlib.Path and path resolution",
+        "json.load",
+        "subprocess.run with cwd, env, check, capture_output and text arguments",
+        "subprocess.CompletedProcess.returncode, stdout and stderr",
+        "supplied dataset-client calls for downloading a recorded generation and checking its identity",
+        "cd and pwd",
+        "git status --porcelain",
+        "git checkout <recorded_commit>",
+        "git rev-parse HEAD",
+        "<recorded_python> -m pip install -r <pinned_requirements>",
+        "<recorded_python> <recorded_script>",
+        "> capture.log 2>&1",
+        "cat capture.log",
+        "shell pipe operator |",
+        "grep"
+      ],
+      "blocked_syntax": [
+        "mlflow.register_model(...)",
+        "mlflow.pyfunc.log_model(...)",
+        "mlflow.pyfunc.load_model(...)",
+        "mlflow.pyfunc.serve(...)"
+      ],
+      "starter_state_intent": "Provide the recorded experiment metadata, local repository, referenced artifact directories, recorded dataset generation, pinned requirements and recorded script, plus the outcome and declared tolerances. Supply no complete execution function. Use only the script, dataset, configuration and artifact references from this fixture.",
+      "observable_success": "The learner-written function accepts defaults and keyword overrides and passes the resolved state into execution. Evidence includes a clean working tree, HEAD matching the recorded commit, verified dataset identity, the pinned environment, the recorded working directory, matching resolved settings, a checked exit result and an inspected capture.log containing both output streams. A separate piped inspection demonstrates command-to-command output transfer. The rerun outcome meets the supplied tolerances; changed-input or wrong-directory fixtures are identified rather than accepted as reproduction."
+    }
+  },
+  "visual_anchor": {
+    "type": "code",
+    "purpose": "Make the learner-defined function, resolved run parameters, verified repository and dataset identities, environment reference, actual working directory, subprocess exit result and captured output visible alongside the recorded outcome and declared tolerance comparison."
+  },
+  "teaching_notes": [
+    "Start with the concrete fixture and the declared contract; keep the explanation within this tile: Reproduce a Training Experiment.",
+    "Use the registered prerequisite preparation rather than reteaching general Python, statistics, software engineering or cloud administration. This path assumes those foundations; ownership remains bounded to the supplied ML task and existing authorized runtime.",
+    "Declared direct prerequisites: mle.experiment_metric_logging, mle.training_dataset_version, mle.training_environment_record, mle.training_randomness, mle.ml_training_script. Use these as preparation, not additional learning targets. No forward-preview concepts are taught.",
+    "All numeric values and short names in the work example are illustrative fixture data, not observed production results. Retain each source rule, qualifier, declared budget and policy boundary."
+  ],
+  "cluster_ref": null,
+  "validation": {
+    "source_supported": true,
+    "prerequisite_safe": true,
+    "media_aligned": true,
+    "ready_for_final_schema": true
+  }
+}
+
+CONCEPT mle.model_version_registration
+{
+  "coverage": {
+    "learning_objective": "Register and verify an artifact\u2019s immutable object version, hash and originating run.",
+    "required_facts": [
+      {
+        "id": "f1",
+        "statement": "Resolve the originating tracked run\u2019s artifact record, expected hash and immutable object version before creating a model registry version.",
+        "source_refs": [
+          "mlflow_docs#ml/tracking/tracking-api/ \u2014 Starting and Managing Runs; Logging Data to Runs; Querying Runs Programmatically"
+        ]
+      },
+      {
+        "id": "f2",
+        "statement": "Download the recorded artifact generation with bucket.blob(key, generation=recorded_generation).download_to_filename(path), not the current object at key.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/storage/docs/using-versioned-objects \u2014 Download noncurrent object versions"
+        ]
+      },
+      {
+        "id": "f3",
+        "statement": "Compute SHA-256 over the downloaded artifact bytes and reject a mismatch against the run record before registration.",
+        "source_refs": [
+          "python_tutorial#../library/hashlib.html \u2014 Usage"
+        ]
+      },
+      {
+        "id": "f4",
+        "statement": "Before version creation, require the supplied model name to exist as a registered model (for a new name, client.create_registered_model(name) creates it); then call client.create_model_version(name=name, source=version_qualified_source, run_id=run_id) and retain its returned numeric version.",
+        "source_refs": [
+          "mlflow_docs#https://mlflow.org/docs/latest/api_reference/python_api/mlflow.client.html \u2014 MlflowClient.create_registered_model; MlflowClient.create_model_version \u2014 Examples"
+        ]
+      },
+      {
+        "id": "f5",
+        "statement": "Preserve the exact object version and hash in that version\u2019s metadata/tags with set_model_version_tag, so the registry record identifies more than a mutable object name.",
+        "source_refs": [
+          "mlflow_docs#ml/model-registry/workflow/ \u2014 Registering a Model; Fetching an MLflow Model from the Model Registry; Deploy and Organize Models"
+        ]
+      },
+      {
+        "id": "f6",
+        "statement": "Retrieve the created record using get_model_version(name, version), and retrieve its linked originating run to verify the recorded identities.",
+        "source_refs": [
+          "mlflow_docs#ml/model-registry/workflow/ \u2014 Registering a Model; Fetching an MLflow Model from the Model Registry; Deploy and Organize Models"
+        ]
+      },
+      {
+        "id": "f7",
+        "statement": "Overwrite the latest object only in the authorized test bucket, then use the registered version-qualified reference to retrieve the original generation again.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/storage/docs/uploading-objects \u2014 Python"
+        ]
+      },
+      {
+        "id": "f8",
+        "statement": "Verify the re-retrieved bytes have the registered hash and return one keyed registration verdict; do not treat a mutable overwrite as a new approved registry version.",
+        "source_refs": [
+          "python_tutorial#../library/hashlib.html \u2014 Usage"
+        ]
+      },
+      {
+        "id": "f9",
+        "statement": "Import the registry dependency with from mlflow import MlflowClient, construct MlflowClient(), and use the resulting client for create_model_version, get_model_version and set_model_version_tag.",
+        "source_refs": [
+          "mlflow_docs#ml/model-registry/workflow/ \u2014 Registering a Model; Fetching an MLflow Model from the Model Registry; Deploy and Organize Models"
+        ]
+      }
+    ],
+    "misconceptions": []
+  },
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "Register and Package the Model",
+      "content": "A model registry version should point back to a verified run artifact. Before creating the version, resolve the exact stored generation and compare its bytes with the run's expected hash.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "mechanism",
+      "title": "The working rule",
+      "content": "Resolve the originating tracked run\u2019s artifact record, expected hash and immutable object version before creating a model registry version. Download the recorded artifact generation with bucket.blob(key, generation=recorded_generation).download_to_filename(path), not the current object at key. Compute SHA-256 over the downloaded artifact bytes and reject a mismatch against the run record before registration.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Before version creation, require the supplied model name to exist as a registered model (for a new name, client.create_registered_model(name) creates it); then call client.create_model_version(name=name, source=version_qualified_source, run_id=run_id) and retain its returned numeric version. Preserve the exact object version and hash in that version\u2019s metadata/tags with set_model_version_tag, so the registry record identifies more than a mutable object name. Retrieve the created record using get_model_version(name, version), and retrieve its linked originating run to verify the recorded identities.",
+      "fact_ids": [
+        "f4",
+        "f5",
+        "f6"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Overwrite the latest object only in the authorized test bucket, then use the registered version-qualified reference to retrieve the original generation again. Verify the re-retrieved bytes have the registered hash and return one keyed registration verdict; do not treat a mutable overwrite as a new approved registry version. Import the registry dependency with from mlflow import MlflowClient, construct MlflowClient(), and use the resulting client for create_model_version, get_model_version and set_model_version_tag.",
+      "fact_ids": [
+        "f7",
+        "f8",
+        "f9"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "example",
+      "title": "A bounded work example",
+      "content": "Suppose a tracked run records artifact generation A while the mutable key now resolves to B. Download A explicitly and verify its hash before registering. Use the supplied registered model name, creating that name only if the declared new-name path requires it. Create the numeric version with the version-qualified source and run link, and retain generation and hash tags. Retrieve the created version and linked run to compare identities. In the authorized test-bucket overwrite fixture, re-retrieve the registered generation and verify its bytes again. Return one keyed verdict binding run, version and artifact, instead of treating a later mutable overwrite as a newly approved version.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5",
+        "f6",
+        "f7",
+        "f8",
+        "f9"
+      ]
+    },
+    {
+      "id": "tb6",
+      "purpose": "misconception",
+      "title": "A distinction to keep",
+      "content": "A numeric registry version does not make an unresolved mutable source trustworthy. Verify the exact generation and hash, and do not confuse object overwrite with an approved registry-version creation.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f5",
+        "f8"
+      ]
+    }
+  ],
+  "video_need": {
+    "level": "HIGH",
+    "reason": "A live fixture with visible intermediate state and acceptance checks would make this distinction concrete: A registry version is reproducible only when it pins verified immutable artifact content; registry-record immutability does not make a mutable object key immutable.",
+    "preferred_visual_modes": [
+      "live_code"
+    ]
+  },
+  "assessment_anchors": [
+    {
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3"
+      ],
+      "capability": "resolve_and_verify_exact_run_artifact"
+    },
+    {
+      "fact_ids": [
+        "f4",
+        "f5",
+        "f9"
+      ],
+      "capability": "create_registry_version_with_pinned_artifact_identity"
+    },
+    {
+      "fact_ids": [
+        "f6"
+      ],
+      "capability": "retrieve_registry_version_and_verify_originating_run"
+    },
+    {
+      "fact_ids": [
+        "f7",
+        "f8"
+      ],
+      "capability": "verify_registered_content_survives_mutable_key_overwrite"
+    }
+  ],
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Implement a Python registration function using the supplied versioned test bucket, hashing dependency, MlflowClient and dictionary run artifact record. Resolve and download the recorded generation, reject a hash mismatch before registration, and create a numeric registry version with a version-qualified source, originating run link, generation tag and hash tag. Retrieve the version and linked run, overwrite the latest object only in the authorized test bucket, and verify that retrieving the registered generation still yields the registered hash. Return one keyed registration verdict.",
+    "success": "The matching-hash fixture produces a registry version whose source, tags and originating run agree with the run artifact record. Its exact generation retains the registered hash after the latest key is overwritten. The supplied mismatch fixture is rejected before any registry version is created.",
+    "live_code": {
+      "required_skill": "Implement exact-generation artifact retrieval, SHA-256 verification, linked MLflow version registration and bounded overwrite verification in a Python function.",
+      "allowed_syntax": [
+        "from mlflow import MlflowClient",
+        "from google.cloud import storage",
+        "import hashlib",
+        "MlflowClient()",
+        "storage.Client()",
+        "storage_client.bucket(bucket_name)",
+        "def",
+        "return",
+        "assignment",
+        "dictionary literals and key access",
+        "string, integer, Boolean and None literals",
+        "function calls with keyword arguments",
+        "attribute access",
+        "if",
+        "comparison operators",
+        "raise ValueError(...)",
+        "with open(path, 'rb') as artifact_file",
+        "artifact_file.read()",
+        "hashlib.sha256(artifact_bytes).hexdigest()",
+        "client.get_run(run_id)",
+        "bucket.blob(key, generation=recorded_generation).download_to_filename(path)",
+        "client.get_registered_model(name)",
+        "client.create_registered_model(name)",
+        "client.create_model_version(name=name, source=version_qualified_source, run_id=run_id)",
+        "client.set_model_version_tag(name, version, tag_key, tag_value)",
+        "client.get_model_version(name, version)",
+        "int(...)",
+        "str(...)",
+        "bucket.blob(key).upload_from_string(replacement_bytes)"
+      ],
+      "blocked_syntax": [
+        "mlflow.pyfunc.log_model(...)",
+        "mlflow.pyfunc.load_model(...)",
+        "model.predict(...)",
+        "client.set_registered_model_alias(...)",
+        "client.transition_model_version_stage(...)"
+      ],
+      "starter_state_intent": "Provide the tracked run's dictionary artifact record, expected hash, recorded generation A, supplied model name and version-qualified source, plus local download paths and replacement bytes. Supply an authorized versioned test bucket whose mutable key resolves to generation B, and registry access with an explicit existing-name or new-name fixture. Include a separate supplied hash-mismatch record. Leave the registration and verification function incomplete.",
+      "observable_success": "The returned dictionary binds the originating run, numeric registry version, exact artifact generation and verified hash to one verdict. Retrieved registry metadata and linked run match those identities. After the authorized latest-key overwrite, downloading the registered generation yields the same hash. The mismatch case raises an error before create_model_version is called."
+    }
+  },
+  "visual_anchor": {
+    "type": "code",
+    "purpose": "Make the run artifact record, explicit generation-qualified download, computed hash, numeric registry version and retrieved tags visible together. Show the mutable latest generation changing while the registered generation and its verified hash remain unchanged, alongside the mismatch case creating no registry version."
+  },
+  "teaching_notes": [
+    "Start with the concrete fixture and the declared contract; keep the explanation within this tile: Register and Package the Model.",
+    "Use the registered prerequisite preparation rather than reteaching general Python, statistics, software engineering or cloud administration. This path assumes those foundations; ownership remains bounded to the supplied ML task and existing authorized runtime.",
+    "Declared direct prerequisites: mle.experiment_metric_logging, mle.training_dataset_version. Use these as preparation, not additional learning targets. No forward-preview concepts are taught.",
+    "All numeric values and short names in the work example are illustrative fixture data, not observed production results. Retain each source rule, qualifier, declared budget and policy boundary."
+  ],
+  "cluster_ref": "cluster_machine_learning_engineer_056_057_56_57",
+  "validation": {
+    "source_supported": true,
+    "prerequisite_safe": true,
+    "media_aligned": true,
+    "ready_for_final_schema": true
+  }
+}
+
+CONCEPT mle.model_preprocessing_package
+{
+  "coverage": {
+    "learning_objective": "Package fitted preprocessing and model state with dependencies and verify container-reloaded predictions.",
+    "required_facts": [
+      {
+        "id": "f1",
+        "statement": "Persist the fitted model and fitted preprocessor together using a package path tied to the recorded version:\nimport pickle\nwith open(package_path, \"wb\") as handle:\n    pickle.dump({\"model\": model, \"preprocessor\": preprocessor}, handle, protocol=5)",
+        "source_refs": [
+          "scikit_learn_user_guide#https://scikit-learn.org/stable/model_persistence.html \u2014 11.4 Using pickle, joblib, or cloudpickle; 11.5 Security & Maintainability Limitations",
+          "python_tutorial#inputoutput.html \u2014 Reading and Writing Files"
+        ]
+      },
+      {
+        "id": "f2",
+        "statement": "Reload only a trusted, verified package in the compatible pinned inference environment:\nwith open(package_path, \"rb\") as handle:\n    package = pickle.load(handle)\nmodel = package[\"model\"]\npreprocessor = package[\"preprocessor\"]\nPickle loading can execute arbitrary code and is unsafe for untrusted artifacts.",
+        "source_refs": [
+          "scikit_learn_user_guide#https://scikit-learn.org/stable/model_persistence.html \u2014 11.4 Using pickle, joblib, or cloudpickle; 11.5 Security & Maintainability Limitations"
+        ]
+      },
+      {
+        "id": "f3",
+        "statement": "Write Dockerfile instructions FROM <compatible-python-image>, WORKDIR /app, COPY requirements.txt ./, RUN pip install --no-cache-dir -r requirements.txt, COPY <package-path-in-context> /app/<package-filename>, COPY <serving-source-in-context> /app/<serving-source>, and CMD [\"<serving-command>\", \"<argument>\"]; replace placeholders with the declared package, inference dependencies and serving entry point so the default command loads that package.",
+        "source_refs": [
+          "docker_docs#https://docs.docker.com/get-started/docker-concepts/building-images/writing-a-dockerfile/ \u2014 Common instructions; Python application Dockerfile"
+        ]
+      },
+      {
+        "id": "f4",
+        "statement": "Run docker build -t IMAGE:TAG CONTEXT to build and tag the package image; CONTEXT must contain the Dockerfile (or select it with -f) and every source used by COPY, with needed files not excluded by .dockerignore; record the resulting immutable image identity as well as its tag.",
+        "source_refs": [
+          "docker_docs#https://docs.docker.com/reference/cli/docker/buildx/build/ \u2014 Usage; Specify a Dockerfile; Tag an image",
+          "docker_docs#docker-concepts/building-images/build-tag-and-publish-an-image \u2014 Build an image; Tag an image",
+          "docker_docs#https://docs.docker.com/build/concepts/context/ \u2014 Filesystem contexts; .dockerignore files"
+        ]
+      },
+      {
+        "id": "f5",
+        "statement": "The packaged prediction path must apply the fitted training preprocessing before the packaged model, not refit preprocessing at inference time.",
+        "source_refs": [
+          "scikit_learn_user_guide#common_pitfalls.html \u2014 12.1 Inconsistent preprocessing"
+        ]
+      },
+      {
+        "id": "f6",
+        "statement": "Use docker run --name NAME -p HOST_PORT:CONTAINER_PORT --env KEY=VALUE IMAGE to start the referenced image with the declared port and nonsecret runtime settings.",
+        "source_refs": [
+          "docker_docs#https://docs.docker.com/reference/cli/docker/container/run/ \u2014 Publish or expose port; Set environment variables; Specify a container name"
+        ]
+      },
+      {
+        "id": "f7",
+        "statement": "Inspect the named container with docker container inspect NAME to check its image identity and State fields.",
+        "source_refs": [
+          "docker_docs#https://docs.docker.com/reference/cli/docker/container/inspect/ \u2014 Description; Examples"
+        ]
+      },
+      {
+        "id": "f8",
+        "statement": "Use docker container logs NAME to inspect its captured standard output and error for initialization or execution failures.",
+        "source_refs": [
+          "docker_docs#https://docs.docker.com/reference/cli/docker/container/logs/ \u2014 Description"
+        ]
+      },
+      {
+        "id": "f9",
+        "statement": "Do not embed secrets in Dockerfile ARG or ENV instructions, because they persist in the final image or its metadata.",
+        "source_refs": [
+          "docker_docs#https://docs.docker.com/reference/build-checks/secrets-used-in-arg-or-env/ \u2014 Description"
+        ]
+      },
+      {
+        "id": "f10",
+        "statement": "Supply sensitive values through the runtime secret mechanism rather than placing their literal values in the Compose configuration.",
+        "source_refs": [
+          "docker_docs#https://docs.docker.com/reference/compose-file/secrets/ \u2014 secrets"
+        ]
+      },
+      {
+        "id": "f11",
+        "statement": "Save and reload the fitted model/preprocessor through explicit binary file handles, and write/read the pinned dependency manifest through a text file handle.",
+        "source_refs": [
+          "python_tutorial#inputoutput.html \u2014 Reading and Writing Files"
+        ]
+      },
+      {
+        "id": "f12",
+        "statement": "Record pinned inference package versions in the package\u2019s requirements manifest and install that manifest in the serving image.",
+        "source_refs": [
+          "python_tutorial#venv.html \u2014 Managing Packages"
+        ]
+      },
+      {
+        "id": "f13",
+        "statement": "Assert the pre-save and container-reloaded predictions agree on the same fixed inputs under declared tolerances, and separately check that fitted preprocessing parameters are preserved.",
+        "source_refs": [
+          "numpy_user_guide#reference/generated/numpy.testing.assert_allclose.html"
+        ]
+      },
+      {
+        "id": "f14",
+        "statement": "Write assert predicate checks for the declared valid, boundary and failure cases; a false predicate raises AssertionError during ordinary non-optimized execution.",
+        "source_refs": [
+          "python_tutorial#../reference/simple_stmts.html \u2014 The assert statement"
+        ]
+      }
+    ],
+    "misconceptions": []
+  },
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "Register and Package the Model",
+      "content": "The serving package needs the fitted model and its fitted preprocessor together. A container that loads only weights or refits preprocessing can execute successfully without reproducing the intended prediction representation.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "mechanism",
+      "title": "The working rule",
+      "content": "Persist the fitted model and preprocessor together in the recorded version-tied package path. Import pickle, open that path with a binary \"wb\" handle and call pickle.dump on the dictionary {\"model\": model, \"preprocessor\": preprocessor}, passing the handle and protocol=5. Reload only a trusted, verified package in the compatible pinned inference environment. Open the package path with a binary \"rb\" handle and call pickle.load on that handle. Retrieve the model and preprocessor from the corresponding dictionary keys. Pickle loading can execute arbitrary code and is unsafe for untrusted artifacts. The Dockerfile uses FROM for the compatible Python image, WORKDIR /app, COPY requirements.txt ./ and RUN pip install --no-cache-dir -r requirements.txt. COPY the package and serving source from the declared build context into their declared /app paths. Set CMD to the declared serving command and argument as a JSON array, so the default command loads this package. Replace source and command placeholders with the supplied package, inference dependencies and serving entry point.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Run docker build -t IMAGE:TAG CONTEXT to build and tag the package image; CONTEXT must contain the Dockerfile (or select it with -f) and every source used by COPY, with needed files not excluded by .dockerignore; record the resulting immutable image identity as well as its tag. The packaged prediction path must apply the fitted training preprocessing before the packaged model, not refit preprocessing at inference time. Use docker run --name NAME -p HOST_PORT:CONTAINER_PORT --env KEY=VALUE IMAGE to start the referenced image with the declared port and nonsecret runtime settings.",
+      "fact_ids": [
+        "f4",
+        "f5",
+        "f6"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Inspect the named container with docker container inspect NAME to check its image identity and State fields. Use docker container logs NAME to inspect its captured standard output and error for initialization or execution failures. Do not embed secrets in Dockerfile ARG or ENV instructions, because they persist in the final image or its metadata.",
+      "fact_ids": [
+        "f7",
+        "f8",
+        "f9"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Supply sensitive values through the runtime secret mechanism rather than placing their literal values in the Compose configuration. Save and reload the fitted model/preprocessor through explicit binary file handles, and write/read the pinned dependency manifest through a text file handle. Record pinned inference package versions in the package\u2019s requirements manifest and install that manifest in the serving image.",
+      "fact_ids": [
+        "f10",
+        "f11",
+        "f12"
+      ]
+    },
+    {
+      "id": "tb6",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Assert the pre-save and container-reloaded predictions agree on the same fixed inputs under declared tolerances, and separately check that fitted preprocessing parameters are preserved. Write assert predicate checks for the declared valid, boundary and failure cases; a false predicate raises AssertionError during ordinary non-optimized execution.",
+      "fact_ids": [
+        "f13",
+        "f14"
+      ]
+    },
+    {
+      "id": "tb7",
+      "purpose": "example",
+      "title": "A bounded work example",
+      "content": "Persist the fitted model and preprocessor in the version-tied trusted package using binary handles. Retain pinned inference dependencies in the text requirements manifest. Build the declared Docker context with the package, requirements and serving source included, and record the immutable image identity. Start that image with its declared port and nonsecret settings, then inspect identity, state and logs. On a fixed order fixture, compare pre-save and container-reloaded predictions under explicit tolerances and separately inspect preserved preprocessing parameters. Do not load an untrusted pickle artifact merely because its filename looks correct; pickle loading can execute arbitrary code. Supply credentials through the runtime mechanism instead of Dockerfile or Compose literal values.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5",
+        "f6",
+        "f7",
+        "f8",
+        "f9",
+        "f10",
+        "f11",
+        "f12",
+        "f13",
+        "f14"
+      ]
+    },
+    {
+      "id": "tb8",
+      "purpose": "misconception",
+      "title": "A distinction to keep",
+      "content": "Packaging is not permission to refit at inference or embed credentials. A matching tag alone does not verify image identity, and a pickle package needs trusted, verified provenance and a compatible pinned environment.",
+      "fact_ids": [
+        "f2",
+        "f4",
+        "f5",
+        "f9",
+        "f10"
+      ]
+    }
+  ],
+  "video_need": {
+    "level": "HIGH",
+    "reason": "A live fixture with visible intermediate state and acceptance checks would make this distinction concrete: The deployable model is the complete fitted prediction function, not weights alone.",
+    "preferred_visual_modes": [
+      "live_code"
+    ]
+  },
+  "assessment_anchors": [
+    {
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f11",
+        "f12"
+      ],
+      "capability": "persist_and_reload_a_trusted_versioned_package_with_pinned_dependencies"
+    },
+    {
+      "fact_ids": [
+        "f3",
+        "f4",
+        "f6",
+        "f7",
+        "f8"
+      ],
+      "capability": "build_run_and_inspect_the_referenced_package_image"
+    },
+    {
+      "fact_ids": [
+        "f5",
+        "f13",
+        "f14"
+      ],
+      "capability": "verify_prediction_agreement_and_preserved_fitted_preprocessing"
+    },
+    {
+      "fact_ids": [
+        "f9",
+        "f10"
+      ],
+      "capability": "keep_sensitive_values_out_of_image_and_configuration_literals"
+    }
+  ],
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Implement a Python packaging function that imports its serialization dependency, saves and reloads the supplied fitted model/preprocessor pair at a recorded version-tied path, and writes and reads the supplied pinned inference manifest. Complete a Dockerfile using the supplied compatible Python image and serving entry point, build and tag its image, record its immutable identity, then run and inspect the named container. Execute assertions comparing pre-save and container-reloaded predictions on the same supplied fixed order inputs and separately checking fitted preprocessing parameters. Cover the declared valid, boundary and failure fixtures, and issue one package reproducibility verdict.",
+    "success": "The trusted package reloads in the pinned environment, the manifest round-trips through text file handles, and the image installs that manifest. Container inspection confirms the recorded image identity and expected State fields; captured logs are checked for failures. The supplied serving entry point applies the reloaded fitted preprocessor before the reloaded model without refitting. Prediction and preprocessing-state assertions pass under the declared tolerances; deliberately false predicates raise AssertionError in ordinary non-optimized execution. One verdict reports whether every declared reproducibility check passed.",
+    "live_code": {
+      "required_skill": "Persist and reload fitted artifacts and pinned dependencies, configure their supplied container entry point, and verify package reproducibility using executable assertions.",
+      "allowed_syntax": [
+        "import pickle",
+        "import numpy as np",
+        "def function_name(...):",
+        "assignment",
+        "dictionary literals and key access",
+        "string and numeric literals",
+        "with open(package_path, \"wb\") as handle:",
+        "pickle.dump({\"model\": model, \"preprocessor\": preprocessor}, handle, protocol=5)",
+        "with open(package_path, \"rb\") as handle:",
+        "pickle.load(handle)",
+        "with open(manifest_path, \"w\", encoding=\"utf-8\") as handle:",
+        "with open(manifest_path, \"r\", encoding=\"utf-8\") as handle:",
+        "handle.write(...)",
+        "handle.read()",
+        "preprocessor.transform(...)",
+        "model.predict(...)",
+        "access to supplied fitted preprocessing attributes",
+        "np.allclose(..., rtol=..., atol=...)",
+        "assert predicate",
+        "comparison operators",
+        "Boolean operators",
+        "if/else",
+        "return"
+      ],
+      "blocked_syntax": [
+        "@app.post(...)",
+        "@app.get(...)",
+        "FastAPI(...)",
+        "BaseModel subclasses for request or response validation",
+        "requests.post(...)",
+        "ThreadPoolExecutor(...)",
+        "ProcessPoolExecutor(...)",
+        "prometheus_client.Counter(...)",
+        "prometheus_client.Histogram(...)"
+      ],
+      "starter_state_intent": "Provide the already-fitted model and preprocessor, trusted version-tied package path, exact inference pins, compatible Python image, and supplied serving source that loads the package and exposes its fixed-fixture results for comparison. Include the fixed order inputs, expected fitted parameters, declared tolerances, and valid, boundary and failure fixtures. Supply an authorized runtime and its nonsecret settings. Leave serialization, manifest file handling, Dockerfile instructions, build/run/inspection commands, assertions and the final verdict incomplete; do not require new input columns or a newly implemented service.",
+      "observable_success": "Binary persistence retains both fitted objects; text persistence retains the exact dependency pins. The Dockerfile includes all required sources and installs the manifest. Recorded build, run, inspection and log evidence identifies the resulting image and container. Executed assertions establish agreement between pre-save and container-reloaded predictions and preservation of fitted preprocessing parameters, with no inference-time refitting. The declared failure checks demonstrate assertion failure without loading an untrusted artifact. The final verdict follows the assertion results."
+    }
+  },
+  "visual_anchor": {
+    "type": "comparison",
+    "purpose": "Make the same fixed order inputs, pre-save predictions, container-reloaded predictions, declared tolerances, and fitted preprocessing parameters visible side by side. Include assertion outcomes and the recorded versus inspected immutable image identity so successful execution is distinguishable from demonstrated reproducibility."
+  },
+  "teaching_notes": [
+    "Start with the concrete fixture and the declared contract; keep the explanation within this tile: Register and Package the Model.",
+    "Use the registered prerequisite preparation rather than reteaching general Python, statistics, software engineering or cloud administration. This path assumes those foundations; ownership remains bounded to the supplied ML task and existing authorized runtime.",
+    "Declared direct prerequisites: mle.preprocessing_pipeline, mle.sklearn_baseline_workflow, mle.training_environment_record. Use these as preparation, not additional learning targets. No forward-preview concepts are taught.",
+    "All numeric values and short names in the work example are illustrative fixture data, not observed production results. Retain each source rule, qualifier, declared budget and policy boundary."
+  ],
+  "cluster_ref": "cluster_machine_learning_engineer_056_057_56_57",
+  "validation": {
+    "source_supported": true,
+    "prerequisite_safe": true,
+    "media_aligned": true,
+    "ready_for_final_schema": true
+  }
+}
+
+CONCEPT mle.protected_test_comparison
+{
+  "coverage": {
+    "learning_objective": "Evaluate the frozen selected candidate on protected test observations without retuning.",
+    "required_facts": [
+      {
+        "id": "f1",
+        "statement": "Only evaluate the protected test set after fixing the selected candidate, fitted preprocessing and decision threshold; test results must not choose a replacement candidate or threshold.",
+        "source_refs": [
+          "scikit_learn_user_guide#common_pitfalls.html \u2014 12.2 Data leakage"
+        ]
+      },
+      {
+        "id": "f2",
+        "statement": "Generate selected-model and baseline predictions for the same protected-test observations and compare the precommitted predictive quantities on that cohort.",
+        "source_refs": [
+          "google_ml_crash_course#classification/accuracy-precision-recall \u2014 Accuracy; Recall, or true positive rate; False positive rate; Precision"
+        ]
+      },
+      {
+        "id": "f3",
+        "statement": "Use the already fixed deployment class probabilities, error costs and operating requirements when computing the final comparison; report failure rather than retuning on the test.",
+        "source_refs": [
+          "scikit_learn_user_guide#auto_examples/model_selection/plot_cost_sensitive_learning.html \u2014 Cost-sensitive learning with constant gains and costs"
+        ]
+      },
+      {
+        "id": "f4",
+        "statement": "For binary validation counts, FPR = FP/(FP+TN) conditions on actual negatives, and FNR = FN/(FN+TP) conditions on actual positives; an empty conditioning group does not yield a defined rate.",
+        "source_refs": [
+          "google_ml_crash_course#classification/accuracy-precision-recall \u2014 Accuracy; Recall, or true positive rate; False positive rate; Precision"
+        ]
+      },
+      {
+        "id": "f5",
+        "statement": "With zero cost for correct predictions and supplied deployment class probabilities, expected error cost is P(Y=0) \u00d7 FPR \u00d7 cost_FP + P(Y=1) \u00d7 FNR \u00d7 cost_FN.",
+        "source_refs": [
+          "scikit_learn_user_guide#auto_examples/model_selection/plot_cost_sensitive_learning.html \u2014 Cost-sensitive learning with constant gains and costs"
+        ]
+      }
+    ],
+    "misconceptions": []
+  },
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "Evaluate the Frozen Choice",
+      "content": "The protected test is the final comparison for the already fixed system. Freeze candidate, preprocessing and threshold first; a disappointing test result must be reported rather than used to choose a replacement.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "mechanism",
+      "title": "The working rule",
+      "content": "Only evaluate the protected test set after fixing the selected candidate, fitted preprocessing and decision threshold; test results must not choose a replacement candidate or threshold. Generate selected-model and baseline predictions for the same protected-test observations and compare the precommitted predictive quantities on that cohort. Use the already fixed deployment class probabilities, error costs and operating requirements when computing the final comparison; report failure rather than retuning on the test.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "For binary validation counts, FPR = FP/(FP+TN) conditions on actual negatives, and FNR = FN/(FN+TP) conditions on actual positives; an empty conditioning group does not yield a defined rate. With zero cost for correct predictions and supplied deployment class probabilities, expected error cost is P(Y=0) \u00d7 FPR \u00d7 cost_FP + P(Y=1) \u00d7 FNR \u00d7 cost_FN.",
+      "fact_ids": [
+        "f4",
+        "f5"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "example",
+      "title": "A bounded work example",
+      "content": "Suppose validation selected candidate B and its threshold, and the protected cohort contains a different observed class mix. Predict that cohort with B and the baseline on the same observations. Use the already fixed deployment probabilities and error costs, not new values chosen to make B pass. Check the precommitted quality and operating requirements and retain the test's actual-class conditioning counts. If B fails the requirement, report failure. A threshold adjustment based on these test outcomes would let the protected observations choose the system, contradicting the boundary. The output is a final matched comparison, not another candidate-selection round.\n\nFreeze means the choices are made before test outcomes are observed: model identity, fitted preprocessing, threshold, metric inputs and requirements all retain their declared values. The baseline and candidate predictions then use the same protected observations for a final matched comparison. Retain the test's observed conditioning counts while applying the supplied deployment probabilities; these are different roles in the calculation. If a required quantity is undefined or a requirement fails, report that outcome explicitly. This protects the interpretation of final testing rather than using it as a source of additional tuning information.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "misconception",
+      "title": "A distinction to keep",
+      "content": "Protected testing is not a second tuning opportunity. Test failure does not authorize switching candidate, refitting preprocessing or searching for a better threshold on those observations.",
+      "fact_ids": [
+        "f1",
+        "f3"
+      ]
+    }
+  ],
+  "video_need": {
+    "level": "MEDIUM",
+    "reason": "A frozen-system comparison table makes the distinction between final testing and renewed selection explicit.",
+    "preferred_visual_modes": [
+      "data_table_demo"
+    ]
+  },
+  "assessment_anchors": [
+    {
+      "fact_ids": [
+        "f1",
+        "f2"
+      ],
+      "capability": "report_matched_test_comparison_without_new_selection"
+    },
+    {
+      "fact_ids": [
+        "f3"
+      ],
+      "capability": "apply_fixed_comparison_inputs_and_report_requirement_failures"
+    },
+    {
+      "fact_ids": [
+        "f4"
+      ],
+      "capability": "derive_conditional_error_rates_and_identify_undefined_rates"
+    },
+    {
+      "fact_ids": [
+        "f5"
+      ],
+      "capability": "compute_expected_error_cost_from_supplied_deployment_probabilities"
+    }
+  ],
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Implement a learner-defined Python function, with learner-written imports for required dependencies, that evaluates frozen candidate B and the baseline on the same protected observations using supplied infrastructure scaffolding. Derive conditional error rates and expected error costs using fixed deployment probabilities and error costs, compare the precommitted requirements, and report the frozen choice unchanged.",
+    "success": "The function returns a matched comparison containing actual-class conditioning counts, FPR, FNR, expected error cost and requirement outcomes for B and the baseline. Empty conditioning groups produce explicitly undefined rates and any dependent cost is reported as undefined. Failed requirements are reported without replacing B, refitting preprocessing or changing the threshold or comparison inputs.",
+    "live_code": {
+      "required_skill": "Write a bounded evaluation function that obtains predictions from supplied frozen artifacts, computes binary error counts and conditional rates, applies supplied deployment probabilities and error costs, and returns a final comparison without selection.",
+      "allowed_syntax": [
+        "import numpy as np",
+        "def with parameters and return",
+        "local variable assignment",
+        "dictionary construction and key access",
+        "if and else",
+        "None",
+        "numeric and string literals",
+        "NumPy array comparisons",
+        "elementwise Boolean operations with &",
+        "np.sum",
+        "arithmetic operators",
+        "calls to supplied protected-data access and frozen-prediction helpers"
+      ],
+      "blocked_syntax": [
+        "prediction request or response schema definitions",
+        "HTTP prediction route decorators",
+        "prediction-service authentication configuration",
+        "deployment or release-promotion client calls",
+        "production monitoring or retraining client calls"
+      ],
+      "starter_state_intent": "Supply authorized protected-data access, a frozen prediction helper for B with its fitted preprocessing and threshold, a fixed baseline prediction helper, and the precommitted deployment probabilities, error costs and requirements. Keep the learner's imports and evaluation-function body unwritten. Use B and the baseline as the only model identities.",
+      "observable_success": "One protected evaluation yields predictions aligned to the same observations for both systems. The returned comparison uses FP+TN for FPR and FN+TP for FNR, handles zero denominators explicitly, applies the supplied probability-weighted error-cost formula when defined, and preserves every frozen choice and input even when requirements fail."
+    }
+  },
+  "visual_anchor": {
+    "type": "comparison",
+    "purpose": "Make a final matched comparison table visible for B and the baseline, showing the shared protected cohort, frozen threshold and preprocessing identity, actual-class conditioning counts, conditional error rates, supplied deployment probabilities and error costs, expected error cost, and precommitted requirement outcomes. Distinguish undefined quantities and failed requirements from any change to the frozen choice."
+  },
+  "teaching_notes": [
+    "Start with the concrete fixture and the declared contract; keep the explanation within this tile: Evaluate the Frozen Choice.",
+    "Use the registered prerequisite preparation rather than reteaching general Python, statistics, software engineering or cloud administration. This path assumes those foundations; ownership remains bounded to the supplied ML task and existing authorized runtime.",
+    "Declared direct prerequisites: mle.task_metric_selection, mle.validation_candidate_comparison, mle.model_acceptance_criteria, mle.decision_threshold_selection, mle.reference_baseline. Use these as preparation, not additional learning targets. No forward-preview concepts are taught.",
+    "All numeric values and short names in the work example are illustrative fixture data, not observed production results. Retain each source rule, qualifier, declared budget and policy boundary."
+  ],
+  "cluster_ref": null,
+  "validation": {
+    "source_supported": true,
+    "prerequisite_safe": true,
+    "media_aligned": true,
+    "ready_for_final_schema": true
+  }
+}
+
+CONCEPT mle.bounded_managed_training
+{
+  "coverage": {
+    "learning_objective": "Invoke a bounded managed job from parsed settings and verify its consumed inputs, output and terminal state.",
+    "required_facts": [
+      {
+        "id": "f1",
+        "statement": "A SageMaker CreateTrainingJob request specifies TrainingJobName, AlgorithmSpecification, RoleArn, input/output data configuration, ResourceConfig and StoppingCondition.",
+        "source_refs": [
+          "sagemaker_developer_guide#../APIReference/API_CreateTrainingJob.html \u2014 Request Syntax; Request Parameters; Response Syntax"
+        ]
+      },
+      {
+        "id": "f2",
+        "statement": "Select the supplied custom training image with TrainingImage, set instance count/type within the authorized budget and set MaxRuntimeInSeconds to bound execution.",
+        "source_refs": [
+          "sagemaker_developer_guide#../APIReference/API_CreateTrainingJob.html \u2014 Request Syntax; Request Parameters; Response Syntax"
+        ]
+      },
+      {
+        "id": "f3",
+        "statement": "Provide version-resolved input locations through InputDataConfig and an output S3 location through OutputDataConfig; the role must be authorized for those resources.",
+        "source_refs": [
+          "sagemaker_developer_guide#../APIReference/API_CreateTrainingJob.html \u2014 Request Syntax; Request Parameters; Response Syntax"
+        ]
+      },
+      {
+        "id": "f4",
+        "statement": "In the SageMaker training container contract, supplied input channels are exposed under /opt/ml/input/data/CHANNEL and model output is written under /opt/ml/model for upload.",
+        "source_refs": [
+          "sagemaker_developer_guide#adapt-training-container.html \u2014 SageMaker AI training environment"
+        ]
+      },
+      {
+        "id": "f5",
+        "statement": "Inspect the created job\u2019s final status and output artifact location, and use its recorded configuration to check that the one bounded job produced the intended artifact.",
+        "source_refs": [
+          "sagemaker_developer_guide#../APIReference/API_CreateTrainingJob.html \u2014 Request Syntax; Request Parameters; Response Syntax"
+        ]
+      },
+      {
+        "id": "f6",
+        "statement": "Keep the dataset snapshot, code/configuration and resulting run/artifact identities in the execution record.",
+        "source_refs": [
+          "google_mlops_pipelines#Metadata management"
+        ]
+      },
+      {
+        "id": "f7",
+        "statement": "Use import boto3, client = boto3.client(\"sagemaker\") and client.create_training_job(**resolved_configuration) for the authorized request.",
+        "source_refs": [
+          "sagemaker_developer_guide#https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/create_training_job.html \u2014 Request Syntax"
+        ]
+      },
+      {
+        "id": "f8",
+        "statement": "Call client.describe_training_job(TrainingJobName=job_name) to inspect TrainingJobStatus, FailureReason when present and ModelArtifacts.S3ModelArtifacts.",
+        "source_refs": [
+          "sagemaker_developer_guide#https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_training_job.html \u2014 Response Syntax"
+        ]
+      },
+      {
+        "id": "f9",
+        "statement": "Serialize a configuration or record using json.dump(record, file_handle), and recover the structured values with json.load(file_handle) rather than treating JSON text as a Python dictionary.",
+        "source_refs": [
+          "python_tutorial#inputoutput.html \u2014 Saving structured data with json"
+        ]
+      },
+      {
+        "id": "f10",
+        "statement": "Resolve and verify each version-qualified input before submitting the job; if the training API accepts only a mutable channel URI, materialize the selected version at a controlled immutable input location rather than passing an unsupported version parameter.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/storage/docs/using-versioned-objects \u2014 Download noncurrent object versions"
+        ]
+      },
+      {
+        "id": "f11",
+        "statement": "Retrieve the output artifact using the authorized storage client and verify the returned artifact reference against the completed job record.",
+        "source_refs": [
+          "google_mlops_pipelines#https://docs.cloud.google.com/storage/docs/downloading-objects \u2014 Python"
+        ]
+      },
+      {
+        "id": "f12",
+        "statement": "Managed training creates the requested training resources for the job and releases them after it terminates; confirm terminal job status instead of assuming submission has already ended compute use.",
+        "source_refs": [
+          "sagemaker_developer_guide#how-it-works-training.html \u2014 How SageMaker AI works with Docker containers"
+        ]
+      }
+    ],
+    "misconceptions": []
+  },
+  "teaching_blocks": [
+    {
+      "id": "tb1",
+      "purpose": "intro",
+      "title": "Run Bounded Managed Training",
+      "content": "The existing managed platform can execute one bounded custom-model training job. The request must bind authorized resources, version-resolved inputs and the expected artifact, rather than treating submission as proof of successful training.",
+      "fact_ids": []
+    },
+    {
+      "id": "tb2",
+      "purpose": "mechanism",
+      "title": "The working rule",
+      "content": "A SageMaker CreateTrainingJob request specifies TrainingJobName, AlgorithmSpecification, RoleArn, input/output data configuration, ResourceConfig and StoppingCondition. Select the supplied custom training image with TrainingImage, set instance count/type within the authorized budget and set MaxRuntimeInSeconds to bound execution. Provide version-resolved input locations through InputDataConfig and an output S3 location through OutputDataConfig; the role must be authorized for those resources.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3"
+      ]
+    },
+    {
+      "id": "tb3",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "In the SageMaker training container contract, supplied input channels are exposed under /opt/ml/input/data/CHANNEL and model output is written under /opt/ml/model for upload. Inspect the created job\u2019s final status and output artifact location, and use its recorded configuration to check that the one bounded job produced the intended artifact. Keep the dataset snapshot, code/configuration and resulting run/artifact identities in the execution record.",
+      "fact_ids": [
+        "f4",
+        "f5",
+        "f6"
+      ]
+    },
+    {
+      "id": "tb4",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Use import boto3, client = boto3.client(\"sagemaker\") and client.create_training_job(**resolved_configuration) for the authorized request. Call client.describe_training_job(TrainingJobName=job_name) to inspect TrainingJobStatus, FailureReason when present and ModelArtifacts.S3ModelArtifacts. Serialize a configuration or record using json.dump(record, file_handle), and recover the structured values with json.load(file_handle) rather than treating JSON text as a Python dictionary.",
+      "fact_ids": [
+        "f7",
+        "f8",
+        "f9"
+      ]
+    },
+    {
+      "id": "tb5",
+      "purpose": "mechanism",
+      "title": "Apply and verify",
+      "content": "Resolve and verify each version-qualified input before submitting the job; if the training API accepts only a mutable channel URI, materialize the selected version at a controlled immutable input location rather than passing an unsupported version parameter. Retrieve the output artifact using the authorized storage client and verify the returned artifact reference against the completed job record. Managed training creates the requested training resources for the job and releases them after it terminates; confirm terminal job status instead of assuming submission has already ended compute use.",
+      "fact_ids": [
+        "f10",
+        "f11",
+        "f12"
+      ]
+    },
+    {
+      "id": "tb6",
+      "purpose": "example",
+      "title": "A bounded work example",
+      "content": "For the supplied custom image and budget, resolve the job name, role, channels, output location, instance count/type and maximum runtime before calling create_training_job. Verify each selected input version. If the API only accepts a mutable channel URI, materialize the selected version at the controlled immutable location rather than inventing a version argument. The container reads the supplied channel beneath /opt/ml/input/data and writes its model under /opt/ml/model. Inspect terminal status, failure reason when present and the returned artifact location. Retrieve the artifact with the authorized storage client and compare its reference with the completed job record. Keep snapshot, code/configuration and run/artifact identities together.",
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5",
+        "f6",
+        "f7",
+        "f8",
+        "f9",
+        "f10",
+        "f11",
+        "f12"
+      ]
+    },
+    {
+      "id": "tb7",
+      "purpose": "misconception",
+      "title": "A distinction to keep",
+      "content": "Job submission is not completion, and an input name is not verified input identity. Managed resources are released after termination; confirm terminal status rather than assuming the request already ended compute use.",
+      "fact_ids": [
+        "f10",
+        "f11",
+        "f12"
+      ]
+    }
+  ],
+  "video_need": {
+    "level": "HIGH",
+    "reason": "A live fixture with visible intermediate state and acceptance checks would make this distinction concrete: Managed training changes the execution substrate, not the input/output contract.",
+    "preferred_visual_modes": [
+      "live_code"
+    ]
+  },
+  "assessment_anchors": [
+    {
+      "fact_ids": [
+        "f1",
+        "f2",
+        "f3",
+        "f7"
+      ],
+      "capability": "submit_authorized_resource_bounded_training_job"
+    },
+    {
+      "fact_ids": [
+        "f3",
+        "f4",
+        "f10"
+      ],
+      "capability": "verify_input_identity_and_container_contract"
+    },
+    {
+      "fact_ids": [
+        "f5",
+        "f8",
+        "f11",
+        "f12"
+      ],
+      "capability": "verify_terminal_status_and_retrieve_expected_artifact"
+    },
+    {
+      "fact_ids": [
+        "f6",
+        "f9"
+      ],
+      "capability": "preserve_structured_training_execution_record"
+    }
+  ],
+  "practice_anchor": {
+    "type": "live_code",
+    "objective": "Implement a learner-defined Python function with learner-written imports that authors and parses the supplied job configuration, verifies version-qualified object inputs, submits one authorized custom-model training job within the supplied resource limits, inspects its terminal state and retrieves its verified output artifact. Preserve the dataset snapshot, code/configuration and job/artifact identities in a JSON execution record.",
+    "success": "Exactly one job is submitted using the supplied image, authorized role, verified input locations, output location and permitted instance count/type and maximum runtime. The job reaches Completed, its returned artifact reference matches the execution record, and the artifact is retrieved through the authorized storage client. The JSON record round-trips as structured values and records terminal status as confirmation that job-managed compute use has ended.",
+    "live_code": {
+      "required_skill": "Compose and execute a bounded SageMaker training request from structured configuration, verify storage identities, inspect completion and preserve an artifact-linked execution record.",
+      "allowed_syntax": [
+        "import boto3",
+        "import json",
+        "def function_name(...):",
+        "Assignments, dictionaries, lists, string and numeric literals",
+        "Dictionary key access and dict.get(...)",
+        "Function parameters and return statements",
+        "if statements, comparisons and assertions",
+        "for and while loops",
+        "with open(...) as file_handle:",
+        "json.dump(record, file_handle)",
+        "json.load(file_handle)",
+        "boto3.client(\"sagemaker\")",
+        "boto3.client(\"s3\")",
+        "client.create_training_job(**resolved_configuration)",
+        "client.describe_training_job(TrainingJobName=job_name)",
+        "storage_client.head_object(Bucket=..., Key=..., VersionId=...)",
+        "storage_client.get_object(Bucket=..., Key=..., VersionId=...)",
+        "storage_client.copy_object(Bucket=..., Key=..., CopySource={\"Bucket\": ..., \"Key\": ..., \"VersionId\": ...})",
+        "storage_client.download_file(Bucket=..., Key=..., Filename=...)",
+        "Reading supplied configuration and storage-response fields"
+      ],
+      "blocked_syntax": [
+        "client.create_model(...)",
+        "client.create_endpoint_config(...)",
+        "client.create_endpoint(...)",
+        "client.update_endpoint(...)",
+        "client.delete_endpoint(...)",
+        "client.create_transform_job(...)",
+        "client.create_pipeline(...)",
+        "client.start_pipeline_execution(...)",
+        "runtime_client.invoke_endpoint(...)"
+      ],
+      "starter_state_intent": "Provide an incomplete function scaffold without imports or a completed implementation, supplied training code and custom image, injected credentials, an authorized role, version-qualified input objects, controlled immutable input and output locations, and an explicit resource budget. Use only job, channel, snapshot, code/configuration and artifact names from the supplied training fixture. Leave configuration construction, JSON handling, input verification, submission, inspection and artifact retrieval to the learner.",
+      "observable_success": "The function verifies each selected input version before submission and, where necessary, materializes it at the controlled immutable channel location without adding an unsupported version parameter to the training request. Its parsed configuration contains the required request sections and budget limits. One created job reaches Completed; inspection captures status and the returned model artifact reference, with FailureReason handled when present. Authorized retrieval obtains that artifact, and the saved/reloaded record links its reference to the same job, dataset snapshot and code/configuration. Terminal status is explicitly checked rather than inferred from submission."
+    }
+  },
+  "visual_anchor": {
+    "type": "code",
+    "purpose": "Make visible the structured request and resource bounds, verified input-version mapping, channel and model-output paths, submission response, terminal job description, retrieved artifact reference and round-tripped execution record."
+  },
+  "teaching_notes": [
+    "Start with the concrete fixture and the declared contract; keep the explanation within this tile: Run Bounded Managed Training.",
+    "Use the registered prerequisite preparation rather than reteaching general Python, statistics, software engineering or cloud administration. This path assumes those foundations; ownership remains bounded to the supplied ML task and existing authorized runtime.",
+    "Declared direct prerequisites: mle.training_dataset_version. Use these as preparation, not additional learning targets. No forward-preview concepts are taught.",
+    "All numeric values and short names in the work example are illustrative fixture data, not observed production results. Retain each source rule, qualifier, declared budget and policy boundary."
+  ],
+  "cluster_ref": null,
+  "validation": {
+    "source_supported": true,
+    "prerequisite_safe": true,
+    "media_aligned": true,
+    "ready_for_final_schema": true
+  }
+}

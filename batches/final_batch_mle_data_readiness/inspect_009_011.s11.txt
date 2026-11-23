@@ -1,0 +1,367 @@
+PROMPT In the supplied workflow, replace only `learner_operation = None` with a binding of `learner_operation` to `supplied_operation` (without calling it). The helper implements `row['availability_timestamp'] > FIXTURES['contract']['availability_cutoff']`. Leave the inputs, helper and verification scaffolding unchanged. This is a scaffolded operation-binding task; the remaining implementation is supplied. The completed workflow must meet the following output contract: Implement audit(observations, labels). Return {duplicates, missing, orphan, invalid, misaligned, unavailable, accepted}. Each issue is a list of affected IDs in encounter order (missing in observation order). Detect duplicates before replacing a dictionary entry. Match by ID, not row order; binary label values, identical observation timestamps, and availability <= the supplied inclusive cutoff are required. accepted is true only if all six issue lists are empty. Assert valid reordered labels, all supplied failure cases and exact cutoff acceptance.
+SOLUTION
+# Supplied inputs and operation; do not edit.
+FIXTURES = {'observations': [{'observation_id': 'A', 'observation_timestamp': '2025-01-01T09:00:00'}, {'observation_id': 'B', 'observation_timestamp': '2025-01-01T10:00:00'}], 'labels': [{'observation_id': 'B', 'label': 0, 'observation_timestamp': '2025-01-01T10:00:00', 'availability_timestamp': '2025-01-01T10:30:00'}, {'observation_id': 'A', 'label': 1, 'observation_timestamp': '2025-01-01T09:00:00', 'availability_timestamp': '2025-01-01T09:30:00'}], 'cases': {'duplicate_id': [{'observation_id': 'B', 'label': 0, 'observation_timestamp': '2025-01-01T10:00:00', 'availability_timestamp': '2025-01-01T10:30:00'}, {'observation_id': 'A', 'label': 1, 'observation_timestamp': '2025-01-01T09:00:00', 'availability_timestamp': '2025-01-01T09:30:00'}, {'observation_id': 'A', 'label': 1, 'observation_timestamp': '2025-01-01T09:00:00', 'availability_timestamp': '2025-01-01T09:30:00'}], 'missing_label': [{'observation_id': 'B', 'label': 0, 'observation_timestamp': '2025-01-01T10:00:00', 'availability_timestamp': '2025-01-01T10:30:00'}], 'orphan_label': [{'observation_id': 'C', 'label': 0, 'observation_timestamp': '2025-01-01T10:00:00', 'availability_timestamp': '2025-01-01T10:30:00'}, {'observation_id': 'A', 'label': 1, 'observation_timestamp': '2025-01-01T09:00:00', 'availability_timestamp': '2025-01-01T09:30:00'}], 'invalid_label': [{'observation_id': 'B', 'label': 0, 'observation_timestamp': '2025-01-01T10:00:00', 'availability_timestamp': '2025-01-01T10:30:00'}, {'observation_id': 'A', 'label': 2, 'observation_timestamp': '2025-01-01T09:00:00', 'availability_timestamp': '2025-01-01T09:30:00'}], 'misaligned_timestamp': [{'observation_id': 'B', 'label': 0, 'observation_timestamp': '2025-01-01T10:00:00', 'availability_timestamp': '2025-01-01T10:30:00'}, {'observation_id': 'A', 'label': 1, 'observation_timestamp': '2025-01-01T09:01:00', 'availability_timestamp': '2025-01-01T09:30:00'}], 'unavailable_label': [{'observation_id': 'B', 'label': 0, 'observation_timestamp': '2025-01-01T10:00:00', 'availability_timestamp': '2025-01-01T10:30:00'}, {'observation_id': 'A', 'label': 1, 'observation_timestamp': '2025-01-01T09:00:00', 'availability_timestamp': '2025-01-02T09:30:00'}]}, 'contract': {'label_values': [0, 1], 'require_matching_observation_timestamp': True, 'availability_cutoff': '2025-01-01T10:30:00', 'availability_boundary_inclusive': True}}
+if True:
+
+    def supplied_operation(FIXTURES, row):
+        return row['availability_timestamp'] > FIXTURES['contract']['availability_cutoff']
+
+learner_operation = supplied_operation
+
+# Supplied workflow and verification scaffolding; do not edit.
+if True:
+
+    def audit(observations, labels):
+        observed = {}
+        for row in observations:
+            observed[row['observation_id']] = row
+        mapped = {}
+        duplicates = []
+        orphan = []
+        invalid = []
+        misaligned = []
+        unavailable = []
+        for row in labels:
+            key = row['observation_id']
+            if key in mapped:
+                duplicates.append(key)
+            else:
+                mapped[key] = row
+            if key not in observed:
+                orphan.append(key)
+            elif row['observation_timestamp'] != observed[key]['observation_timestamp']:
+                misaligned.append(key)
+            if row['label'] not in FIXTURES['contract']['label_values']:
+                invalid.append(key)
+            if learner_operation(FIXTURES, row):
+                unavailable.append(key)
+        missing = []
+        for key in observed:
+            if key not in mapped:
+                missing.append(key)
+        return {'duplicates': duplicates, 'missing': missing, 'orphan': orphan, 'invalid': invalid, 'misaligned': misaligned, 'unavailable': unavailable, 'accepted': not duplicates and (not missing) and (not orphan) and (not invalid) and (not misaligned) and (not unavailable)}
+    assert audit(FIXTURES['observations'], FIXTURES['labels'])['accepted']
+    for case in FIXTURES['cases']:
+        assert not audit(FIXTURES['observations'], FIXTURES['cases'][case])['accepted']
+
+TESTS
+[
+  {
+    "test_id": "case_1",
+    "kind": "function_call",
+    "spec": {
+      "function": "audit",
+      "args": [
+        [
+          {
+            "observation_id": "A",
+            "observation_timestamp": "2025-01-01T09:00:00"
+          },
+          {
+            "observation_id": "B",
+            "observation_timestamp": "2025-01-01T10:00:00"
+          }
+        ],
+        [
+          {
+            "observation_id": "B",
+            "label": 0,
+            "observation_timestamp": "2025-01-01T10:00:00",
+            "availability_timestamp": "2025-01-01T10:30:00"
+          },
+          {
+            "observation_id": "A",
+            "label": 1,
+            "observation_timestamp": "2025-01-01T09:00:00",
+            "availability_timestamp": "2025-01-01T09:30:00"
+          }
+        ]
+      ],
+      "expected": {
+        "duplicates": [],
+        "missing": [],
+        "orphan": [],
+        "invalid": [],
+        "misaligned": [],
+        "unavailable": [],
+        "accepted": true
+      }
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  },
+  {
+    "test_id": "case_2",
+    "kind": "function_call",
+    "spec": {
+      "function": "audit",
+      "args": [
+        [
+          {
+            "observation_id": "A",
+            "observation_timestamp": "2025-01-01T09:00:00"
+          },
+          {
+            "observation_id": "B",
+            "observation_timestamp": "2025-01-01T10:00:00"
+          }
+        ],
+        [
+          {
+            "observation_id": "B",
+            "label": 0,
+            "observation_timestamp": "2025-01-01T10:00:00",
+            "availability_timestamp": "2025-01-01T10:30:00"
+          },
+          {
+            "observation_id": "A",
+            "label": 1,
+            "observation_timestamp": "2025-01-01T09:00:00",
+            "availability_timestamp": "2025-01-01T09:30:00"
+          },
+          {
+            "observation_id": "A",
+            "label": 1,
+            "observation_timestamp": "2025-01-01T09:00:00",
+            "availability_timestamp": "2025-01-01T09:30:00"
+          }
+        ]
+      ],
+      "expected": {
+        "duplicates": [
+          "A"
+        ],
+        "missing": [],
+        "orphan": [],
+        "invalid": [],
+        "misaligned": [],
+        "unavailable": [],
+        "accepted": false
+      }
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  },
+  {
+    "test_id": "case_3",
+    "kind": "function_call",
+    "spec": {
+      "function": "audit",
+      "args": [
+        [
+          {
+            "observation_id": "A",
+            "observation_timestamp": "2025-01-01T09:00:00"
+          },
+          {
+            "observation_id": "B",
+            "observation_timestamp": "2025-01-01T10:00:00"
+          }
+        ],
+        [
+          {
+            "observation_id": "B",
+            "label": 0,
+            "observation_timestamp": "2025-01-01T10:00:00",
+            "availability_timestamp": "2025-01-01T10:30:00"
+          }
+        ]
+      ],
+      "expected": {
+        "duplicates": [],
+        "missing": [
+          "A"
+        ],
+        "orphan": [],
+        "invalid": [],
+        "misaligned": [],
+        "unavailable": [],
+        "accepted": false
+      }
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  },
+  {
+    "test_id": "case_4",
+    "kind": "function_call",
+    "spec": {
+      "function": "audit",
+      "args": [
+        [
+          {
+            "observation_id": "A",
+            "observation_timestamp": "2025-01-01T09:00:00"
+          },
+          {
+            "observation_id": "B",
+            "observation_timestamp": "2025-01-01T10:00:00"
+          }
+        ],
+        [
+          {
+            "observation_id": "C",
+            "label": 0,
+            "observation_timestamp": "2025-01-01T10:00:00",
+            "availability_timestamp": "2025-01-01T10:30:00"
+          },
+          {
+            "observation_id": "A",
+            "label": 1,
+            "observation_timestamp": "2025-01-01T09:00:00",
+            "availability_timestamp": "2025-01-01T09:30:00"
+          }
+        ]
+      ],
+      "expected": {
+        "duplicates": [],
+        "missing": [
+          "B"
+        ],
+        "orphan": [
+          "C"
+        ],
+        "invalid": [],
+        "misaligned": [],
+        "unavailable": [],
+        "accepted": false
+      }
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  },
+  {
+    "test_id": "case_5",
+    "kind": "function_call",
+    "spec": {
+      "function": "audit",
+      "args": [
+        [
+          {
+            "observation_id": "A",
+            "observation_timestamp": "2025-01-01T09:00:00"
+          },
+          {
+            "observation_id": "B",
+            "observation_timestamp": "2025-01-01T10:00:00"
+          }
+        ],
+        [
+          {
+            "observation_id": "B",
+            "label": 0,
+            "observation_timestamp": "2025-01-01T10:00:00",
+            "availability_timestamp": "2025-01-01T10:30:00"
+          },
+          {
+            "observation_id": "A",
+            "label": 2,
+            "observation_timestamp": "2025-01-01T09:00:00",
+            "availability_timestamp": "2025-01-01T09:30:00"
+          }
+        ]
+      ],
+      "expected": {
+        "duplicates": [],
+        "missing": [],
+        "orphan": [],
+        "invalid": [
+          "A"
+        ],
+        "misaligned": [],
+        "unavailable": [],
+        "accepted": false
+      }
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  },
+  {
+    "test_id": "case_6",
+    "kind": "function_call",
+    "spec": {
+      "function": "audit",
+      "args": [
+        [
+          {
+            "observation_id": "A",
+            "observation_timestamp": "2025-01-01T09:00:00"
+          },
+          {
+            "observation_id": "B",
+            "observation_timestamp": "2025-01-01T10:00:00"
+          }
+        ],
+        [
+          {
+            "observation_id": "B",
+            "label": 0,
+            "observation_timestamp": "2025-01-01T10:00:00",
+            "availability_timestamp": "2025-01-01T10:30:00"
+          },
+          {
+            "observation_id": "A",
+            "label": 1,
+            "observation_timestamp": "2025-01-01T09:01:00",
+            "availability_timestamp": "2025-01-01T09:30:00"
+          }
+        ]
+      ],
+      "expected": {
+        "duplicates": [],
+        "missing": [],
+        "orphan": [],
+        "invalid": [],
+        "misaligned": [
+          "A"
+        ],
+        "unavailable": [],
+        "accepted": false
+      }
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  },
+  {
+    "test_id": "case_7",
+    "kind": "function_call",
+    "spec": {
+      "function": "audit",
+      "args": [
+        [
+          {
+            "observation_id": "A",
+            "observation_timestamp": "2025-01-01T09:00:00"
+          },
+          {
+            "observation_id": "B",
+            "observation_timestamp": "2025-01-01T10:00:00"
+          }
+        ],
+        [
+          {
+            "observation_id": "B",
+            "label": 0,
+            "observation_timestamp": "2025-01-01T10:00:00",
+            "availability_timestamp": "2025-01-01T10:30:00"
+          },
+          {
+            "observation_id": "A",
+            "label": 1,
+            "observation_timestamp": "2025-01-01T09:00:00",
+            "availability_timestamp": "2025-01-02T09:30:00"
+          }
+        ]
+      ],
+      "expected": {
+        "duplicates": [],
+        "missing": [],
+        "orphan": [],
+        "invalid": [],
+        "misaligned": [],
+        "unavailable": [
+          "A"
+        ],
+        "accepted": false
+      }
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  }
+]
+CONSTRAINTS
+{"allowed_syntax": ["import statements for supplied dataset and timestamp handling", "def with parameters and return", "list, tuple, dictionary and set literals", "string, numeric, Boolean and None literals", "variable assignment", "for loops", "if, elif and else", "dictionary key lookup and assignment", "membership checks with in and not in", "set() and set difference", "len()", "list.append() and set.add()", "comparison and Boolean operators", "calls to supplied acceptance predicates", "assert predicate statements"], "blocked_syntax": ["sklearn.model_selection.train_test_split()", "sklearn.impute.SimpleImputer()", "sklearn.preprocessing.StandardScaler()", "sklearn.preprocessing.OneHotEncoder()", "sklearn.pipeline.Pipeline()", "sklearn.metrics API calls", "sklearn estimator fit() and predict() calls", "mlflow API calls", "torch API calls"]}

@@ -1,0 +1,219 @@
+PROMPT In the supplied workflow, replace only `learner_operation = None` with a binding of `learner_operation` to `supplied_operation` (without calling it). The helper implements `set()`. Leave the inputs, helper and verification scaffolding unchanged. This is a scaffolded operation-binding task; the remaining implementation is supplied. The completed workflow must meet the following output contract: Implement clean(records). Return {accepted: list of new observation dictionaries, actions: list of {observation_id, action}} in input order. Action labels are retained, repaired, rejected. Reject repeated accepted keys, reject distance outside the supplied inclusive bounds, repair only the approved zone spelling, and add a key only after acceptance. Do not change input records. Write assertions for repairs, boundary values and repeats; use the supplied false-assertion harness to confirm AssertionError.
+SOLUTION
+# Supplied inputs and operation; do not edit.
+FIXTURES = {'records': [{'observation_id': 'obs_A', 'order_key': 'A', 'distance': 2, 'zone': 'north'}, {'observation_id': 'obs_B', 'order_key': 'B', 'distance': 4, 'zone': 'South'}, {'observation_id': 'obs_C', 'order_key': 'C', 'distance': 0, 'zone': 'north'}, {'observation_id': 'obs_D', 'order_key': 'D', 'distance': -1, 'zone': 'south'}, {'observation_id': 'obs_A_repeat', 'order_key': 'A', 'distance': 2, 'zone': 'north'}], 'valid': [{'observation_id': 'obs_A', 'order_key': 'A', 'distance': 2, 'zone': 'north'}, {'observation_id': 'obs_B', 'order_key': 'B', 'distance': 4, 'zone': 'south'}, {'observation_id': 'obs_C', 'order_key': 'C', 'distance': 0, 'zone': 'north'}, {'observation_id': 'obs_D', 'order_key': 'D', 'distance': 100, 'zone': 'south'}], 'policy': {'repeat_accepted_key': 'reject', 'zone_repairs': {'South': 'south'}, 'distance_min': 0, 'distance_max': 100, 'invalid_distance': 'reject'}, 'connection': 'authorized local fixture only'}
+if True:
+
+    def supplied_operation(set):
+        return set()
+
+learner_operation = supplied_operation
+
+# Supplied workflow and verification scaffolding; do not edit.
+if True:
+    if True:
+
+        def supplied_false_assertion():
+            try:
+                assert False
+            except AssertionError:
+                return True
+
+    def clean(records):
+        accepted = []
+        actions = []
+        seen = learner_operation(set)
+        for row in records:
+            action = 'retained'
+            if row['order_key'] in seen:
+                action = 'rejected'
+            elif row['distance'] < FIXTURES['policy']['distance_min'] or row['distance'] > FIXTURES['policy']['distance_max']:
+                action = 'rejected'
+            else:
+                item = {'observation_id': row['observation_id'], 'order_key': row['order_key'], 'distance': row['distance'], 'zone': row['zone']}
+                if row['zone'] in FIXTURES['policy']['zone_repairs']:
+                    item['zone'] = FIXTURES['policy']['zone_repairs'][row['zone']]
+                    action = 'repaired'
+                accepted.append(item)
+                seen.add(row['order_key'])
+            actions.append({'observation_id': row['observation_id'], 'action': action})
+        return {'accepted': accepted, 'actions': actions}
+    assert clean(FIXTURES['records'])['accepted'][1]['zone'] == 'south'
+    assert len(clean(FIXTURES['records'])['accepted']) == 3
+    assert len(clean(FIXTURES['valid'])['accepted']) == 4
+    assert clean(FIXTURES['valid'])['accepted'][3]['distance'] == 100
+    assert supplied_false_assertion()
+
+TESTS
+[
+  {
+    "test_id": "case_1",
+    "kind": "function_call",
+    "spec": {
+      "function": "clean",
+      "args": [
+        [
+          {
+            "observation_id": "obs_A",
+            "order_key": "A",
+            "distance": 2,
+            "zone": "north"
+          },
+          {
+            "observation_id": "obs_B",
+            "order_key": "B",
+            "distance": 4,
+            "zone": "South"
+          },
+          {
+            "observation_id": "obs_C",
+            "order_key": "C",
+            "distance": 0,
+            "zone": "north"
+          },
+          {
+            "observation_id": "obs_D",
+            "order_key": "D",
+            "distance": -1,
+            "zone": "south"
+          },
+          {
+            "observation_id": "obs_A_repeat",
+            "order_key": "A",
+            "distance": 2,
+            "zone": "north"
+          }
+        ]
+      ],
+      "expected": {
+        "accepted": [
+          {
+            "observation_id": "obs_A",
+            "order_key": "A",
+            "distance": 2,
+            "zone": "north"
+          },
+          {
+            "observation_id": "obs_B",
+            "order_key": "B",
+            "distance": 4,
+            "zone": "south"
+          },
+          {
+            "observation_id": "obs_C",
+            "order_key": "C",
+            "distance": 0,
+            "zone": "north"
+          }
+        ],
+        "actions": [
+          {
+            "observation_id": "obs_A",
+            "action": "retained"
+          },
+          {
+            "observation_id": "obs_B",
+            "action": "repaired"
+          },
+          {
+            "observation_id": "obs_C",
+            "action": "retained"
+          },
+          {
+            "observation_id": "obs_D",
+            "action": "rejected"
+          },
+          {
+            "observation_id": "obs_A_repeat",
+            "action": "rejected"
+          }
+        ]
+      }
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  },
+  {
+    "test_id": "case_2",
+    "kind": "function_call",
+    "spec": {
+      "function": "clean",
+      "args": [
+        [
+          {
+            "observation_id": "obs_A",
+            "order_key": "A",
+            "distance": 2,
+            "zone": "north"
+          },
+          {
+            "observation_id": "obs_B",
+            "order_key": "B",
+            "distance": 4,
+            "zone": "south"
+          },
+          {
+            "observation_id": "obs_C",
+            "order_key": "C",
+            "distance": 0,
+            "zone": "north"
+          },
+          {
+            "observation_id": "obs_D",
+            "order_key": "D",
+            "distance": 100,
+            "zone": "south"
+          }
+        ]
+      ],
+      "expected": {
+        "accepted": [
+          {
+            "observation_id": "obs_A",
+            "order_key": "A",
+            "distance": 2,
+            "zone": "north"
+          },
+          {
+            "observation_id": "obs_B",
+            "order_key": "B",
+            "distance": 4,
+            "zone": "south"
+          },
+          {
+            "observation_id": "obs_C",
+            "order_key": "C",
+            "distance": 0,
+            "zone": "north"
+          },
+          {
+            "observation_id": "obs_D",
+            "order_key": "D",
+            "distance": 100,
+            "zone": "south"
+          }
+        ],
+        "actions": [
+          {
+            "observation_id": "obs_A",
+            "action": "retained"
+          },
+          {
+            "observation_id": "obs_B",
+            "action": "retained"
+          },
+          {
+            "observation_id": "obs_C",
+            "action": "retained"
+          },
+          {
+            "observation_id": "obs_D",
+            "action": "retained"
+          }
+        ]
+      }
+    },
+    "message_on_fail": "Recheck the declared fixture contract and boundary assertions."
+  }
+]
+CONSTRAINTS
+{"allowed_syntax": ["import and from ... import for required supplied dependencies", "def with parameters and return", "local variable assignment", "list and dictionary literals", "string and numeric literals", "set()", "for loops", "if, elif and else", "in and not in membership tests", "set.add()", "dictionary key lookup", "dictionary item assignment", "list.append()", "comparison operators", "and, or and not", "len()", "assert predicate"], "blocked_syntax": ["train_test_split()", "fit()", "fit_transform()", "transform()", "predict()", "torch.tensor()", "loss.backward()", "optimizer.step()", "mlflow.start_run()"]}

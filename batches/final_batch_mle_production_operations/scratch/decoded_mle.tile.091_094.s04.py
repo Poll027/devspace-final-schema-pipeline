@@ -1,0 +1,43 @@
+import csv, json
+
+import numpy as np
+
+policy = json.loads('{"INSTANCE": "serving-lab", "process_id": "model-service", "interval_start": "2026-01-02T10:00:00Z", "interval_end_exclusive": "2026-01-02T10:03:00Z", "cpu_unit": "percent", "memory_unit": "MiB", "ddof": 0, "action_required": false, "lifecycle_policy": "These lifecycle records belong to the utilization fixture; no recovery fault or learner lifecycle action is required."}')
+
+resource_telemetry_rows = list(csv.DictReader(open('resource_telemetry.csv')))
+
+resource_telemetry = {}
+
+resource_telemetry['timestamp'] = np.array([r['timestamp'] for r in resource_telemetry_rows])
+
+resource_telemetry['INSTANCE'] = np.array([r['INSTANCE'] for r in resource_telemetry_rows])
+
+resource_telemetry['process_id'] = np.array([r['process_id'] for r in resource_telemetry_rows])
+
+resource_telemetry['instance_state'] = np.array([r['instance_state'] for r in resource_telemetry_rows])
+
+resource_telemetry['running_process'] = np.array([r['running_process'] for r in resource_telemetry_rows])
+
+resource_telemetry['cpu_percent'] = np.array([float(r['cpu_percent'] or 'nan') for r in resource_telemetry_rows])
+
+resource_telemetry['memory_value'] = np.array([float(r['memory_value'] or 'nan') for r in resource_telemetry_rows])
+
+resource_telemetry['memory_unit'] = np.array([r['memory_unit'] for r in resource_telemetry_rows])
+
+resource_telemetry['included'] = np.array([r['included'] == 'True' for r in resource_telemetry_rows])
+
+mask = (resource_telemetry['INSTANCE'] == policy['INSTANCE']) & (resource_telemetry['process_id'] == policy['process_id']) & (resource_telemetry['instance_state'] == 'RUNNING') & (resource_telemetry['running_process'] == policy['process_id']) & (resource_telemetry['timestamp'] >= policy['interval_start']) & (resource_telemetry['timestamp'] < policy['interval_end_exclusive'])
+
+cpu = resource_telemetry['cpu_percent'][mask]
+
+memory = resource_telemetry['memory_value'][mask]
+
+cpu_mean = np.mean(cpu)
+
+cpu_std = np.std(cpu, ddof=0)
+
+memory_mean = np.mean(memory)
+
+memory_std = np.std(memory, ddof=0)
+
+result = {'INSTANCE': policy['INSTANCE'], 'process_id': policy['process_id'], 'interval_start': policy['interval_start'], 'interval_end_exclusive': policy['interval_end_exclusive'], 'cpu_unit': policy['cpu_unit'], 'memory_unit': policy['memory_unit'], 'cpu_count': len(cpu), 'memory_count': len(memory), 'cpu_mean': cpu_mean, 'cpu_std': cpu_std, 'memory_mean': memory_mean, 'memory_std': memory_std, 'ddof': policy['ddof']}

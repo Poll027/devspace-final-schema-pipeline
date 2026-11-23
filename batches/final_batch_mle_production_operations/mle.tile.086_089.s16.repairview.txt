@@ -1,0 +1,232 @@
+Wire the supplied durable admission function by assigning on_accepted=accepted_same_token, on_duplicate=duplicate_same_token and on_busy=no_launch. Read their contracts: accepted launches with the atomic coordinator's persisted job token, duplicate attaches/reconciles that same token, and busy launches nothing. The supplied shared filesystem coordinator atomically reserves key/slot/job identity; the function handles terminal release while retaining completed keys. Existing assertions and fresh-worker fixtures inspect one logical job, busy deferral, stable restart/unknown-response identity and non-relaunch after completion. The existing build config uses explicit fatal entry/function_test/execute dependencies, safe YAML roundtrip and accepted/rejected trigger evidence. Keep the infrastructure and assertions unchanged. This bounded edit wires the correct branch interfaces rather than adding new coordination state.
+{'allowed_syntax': ['import statements for supplied clients and yaml', 'function definitions, parameters and return statements', 'variable assignment', 'dictionary and list literals', 'dictionary key access for declared event and configuration fields', 'string literals for declared statuses, run keys and job identities', 'if, elif and else branches', 'comparisons and Boolean expressions', 'calls to supplied atomic admission, executor reconciliation, job-state and terminal-release methods', 'calls to supplied concurrency and restart fixture helpers', 'assert statements', 'with open(...) as file_handle', 'yaml.safe_dump(config, file_handle)', 'yaml.safe_load(file_handle)', 'raise SystemExit(...) for an unsuccessful rejected gate'], 'blocked_syntax': []}
+STARTER
+# Supplied fixture infrastructure (unchanged).
+exec("import yaml\npolicy = {'event': {'run_key': 'K', 'pipeline': 'order-retrain-lab'}, 'busy_policy': 'defer', 'coordinator_contract': {'atomic_admit(run_key,pipeline)': 'Atomically reserve unique run key AND pipeline slot and persist job_id. Return accepted, duplicate or busy plus persisted identity; durable coordinator is external to learner process.', 'inspect(run_key)': 'Read durable record; completed records retained.', 'confirm_terminal_and_release(run_key,job_id)': 'Release active slot only after executor confirms terminal; retain completed key.'}, 'executor_contract': {'launch(job_id)': 'Idempotent executor token; at most one logical job per job_id. Unknown response must be reconciled with same token.', 'attach(job_id)': 'Resume or reconcile existing identity.', 'status(job_id)': 'Return running or confirmed terminal.'}, 'test_scenarios': ['concurrent_same_key', 'concurrent_different_key', 'restart_after_reservation', 'restart_after_launch', 'unknown_launch_response', 'completed_duplicate'], 'fatal_dependencies': ['admission', 'function_test', 'execute']}\n\nimport os, json\n# Durable shared coordinator fixture. os.mkdir claims a filesystem lock atomically;\n# os.replace commits the entire key/slot/job reservation as one persisted record.\nclass Coordinator:\n    def __init__(self):\n        self.path='coordinator.json'\n        if not os.path.exists(self.path):\n            self.write({'claims':{},'slots':{},'jobs':{}})\n    def read(self):\n        with open(self.path) as f: return json.load(f)\n    def write(self,state):\n        with open(self.path+'.tmp','w') as f: json.dump(state,f)\n        os.replace(self.path+'.tmp',self.path)\n    def atomic_admit(self,key,pipeline):\n        os.mkdir('coordinator.lock')\n        try:\n            state=self.read()\n            if key in state['claims']:\n                row=state['claims'][key]\n                return {'status':'duplicate','job_id':row['job_id'],'completed':row['completed']}\n            if pipeline in state['slots']:\n                return {'status':'busy','job_id':None,'completed':False}\n            job='J.'+key\n            state['claims'][key]={'pipeline':pipeline,'job_id':job,'completed':False}\n            state['slots'][pipeline]=key\n            self.write(state)\n            return {'status':'accepted','job_id':job,'completed':False}\n        finally: os.rmdir('coordinator.lock')\n    def confirm_terminal_and_release(self,key,job):\n        os.mkdir('coordinator.lock')\n        try:\n            state=self.read()\n            if state['jobs'].get(job)!='terminal': return False\n            row=state['claims'][key]\n            if row['job_id']!=job: return False\n            row['completed']=True\n            if state['slots'].get(row['pipeline'])==key: del state['slots'][row['pipeline']]\n            self.write(state); return True\n        finally: os.rmdir('coordinator.lock')\n    def finish_jobs(self):\n        state=self.read(); state['jobs']={j:'terminal' for j in state['jobs']}; self.write(state)\nclass Executor:\n    def __init__(self,coordinator): self.coordinator=coordinator\n    def launch(self,job):\n        os.mkdir('coordinator.lock')\n        try:\n            state=self.coordinator.read()\n            state['jobs'].setdefault(job,'running')\n            self.coordinator.write(state);return job\n        finally: os.rmdir('coordinator.lock')\n    def attach(self,job): return self.launch(job)\n    def status(self,job): return self.coordinator.read()['jobs'].get(job,'unknown')\ndef fresh():\n    c=Coordinator();return c,Executor(c)\ndef reset():\n    c,e=fresh();c.write({'claims':{},'slots':{},'jobs':{}})\ndef durable_state():\n    c,e=fresh();return c.read()\ndef run_fixtures(admit,config):\n    event=policy['event'];key=event['run_key'];pipeline=event['pipeline'];out={}\n    reset(); c1,e1=fresh();c2,e2=fresh()\n    # Two independent coordinator clients, same delivery. Atomic coordinator serializes competing claims.\n    a=admit(event,c1,e1);b=admit(event,c2,e2);out['same_key']={'results':[a,b],'state':durable_state()}\n    b2=admit({'run_key':key+'2','pipeline':pipeline},c2,e2);out['different_key']={'result':b2,'state':durable_state()}\n    reset();c,e=fresh();reservation=c.atomic_admit(key,pipeline);c2,e2=fresh();out['restart_reservation']={'result':admit(event,c2,e2),'state':durable_state()}\n    reset();c,e=fresh();r=c.atomic_admit(key,pipeline);e.launch(r['job_id']);c2,e2=fresh();out['restart_launch']={'result':admit(event,c2,e2),'state':durable_state()}\n    # Launch accepted by backend, response lost: fresh worker can see only persisted identity.\n    c3,e3=fresh();out['unknown_response']={'result':admit(event,c3,e3),'state':durable_state()}\n    c.finish_jobs();out['completion_release']=admit(event,c3,e3);out['completed_duplicate']={'result':admit(event,*fresh()),'state':durable_state()}\n    fatal=all(not s.get('allowFailure',False) and not s.get('allowExitCodes') for s in config['steps'])\n    deps=config['steps'][1]['waitFor']==['entry'] and config['steps'][2]['waitFor']==['function_test']\n    out['pipeline']={'resolved':config,'accepted':{'entry':'success','function_test':'success','execute':'success'} if fatal and deps else {},'rejected':{'entry':'failed','function_test':'blocked','execute':'blocked'},'resolved_inputs':event}\n    return out\n")
+
+event_run_key = 'K'
+# Supplied fixture infrastructure (unchanged).
+exec("policy['event']['run_key']=event_run_key\ndef accepted_same_token(claim,executor): return executor.launch(claim['job_id'])\ndef duplicate_same_token(claim,executor): return executor.attach(claim['job_id'])\ndef no_launch(claim,executor): return None\n")
+
+# Learner section
+on_accepted = None
+on_duplicate = None
+on_busy = None
+# Complete the documented calculations/assignments.
+# Supplied fixture infrastructure (unchanged).
+exec("if on_accepted is None or on_duplicate is None or on_busy is None:\n    result=None\nelse:\n    def admit(event,coordinator,executor):\n        claim = coordinator.atomic_admit(event['run_key'],event['pipeline'])\n        if claim['status'] == 'busy':\n            on_busy(claim,executor)\n            return {'status':'defer','job_id':claim['job_id']}\n        elif claim['completed']:\n            return {'status':'completed','job_id':claim['job_id']}\n        elif claim['status'] == 'accepted':\n            on_accepted(claim,executor)\n        else:\n            on_duplicate(claim,executor)\n        if executor.status(claim['job_id']) == 'terminal':\n            coordinator.confirm_terminal_and_release(event['run_key'],claim['job_id'])\n        return {'status':claim['status'],'job_id':claim['job_id']}\n    config = {'steps': [{'id': 'entry', 'name': 'python:3.11', 'args': ['python3', 'entry_fixture.py']}, {'id': 'function_test', 'name': 'python:3.11', 'waitFor': ['entry'], 'args': ['python3', 'learner.py']}, {'id': 'execute', 'name': 'python:3.11', 'waitFor': ['function_test'], 'args': ['python3', 'execution_fixture.py']}]}\n    with open('build.yaml','w') as handle:\n        yaml.safe_dump(config,handle)\n    with open('build.yaml') as handle:\n        resolved = yaml.safe_load(handle)\n    result = run_fixtures(admit,resolved)\n    assert result['same_key']['results'][0]['job_id'] == result['same_key']['results'][1]['job_id']\n    assert result['different_key']['result']['status'] == 'defer'\n    assert result['restart_reservation']['result']['job_id'] == result['restart_launch']['result']['job_id']\n    assert result['completed_duplicate']['result']['status'] == 'completed'\n")
+
+SOLUTION
+# Supplied fixture infrastructure (unchanged).
+exec("import yaml\npolicy = {'event': {'run_key': 'K', 'pipeline': 'order-retrain-lab'}, 'busy_policy': 'defer', 'coordinator_contract': {'atomic_admit(run_key,pipeline)': 'Atomically reserve unique run key AND pipeline slot and persist job_id. Return accepted, duplicate or busy plus persisted identity; durable coordinator is external to learner process.', 'inspect(run_key)': 'Read durable record; completed records retained.', 'confirm_terminal_and_release(run_key,job_id)': 'Release active slot only after executor confirms terminal; retain completed key.'}, 'executor_contract': {'launch(job_id)': 'Idempotent executor token; at most one logical job per job_id. Unknown response must be reconciled with same token.', 'attach(job_id)': 'Resume or reconcile existing identity.', 'status(job_id)': 'Return running or confirmed terminal.'}, 'test_scenarios': ['concurrent_same_key', 'concurrent_different_key', 'restart_after_reservation', 'restart_after_launch', 'unknown_launch_response', 'completed_duplicate'], 'fatal_dependencies': ['admission', 'function_test', 'execute']}\n\nimport os, json\n# Durable shared coordinator fixture. os.mkdir claims a filesystem lock atomically;\n# os.replace commits the entire key/slot/job reservation as one persisted record.\nclass Coordinator:\n    def __init__(self):\n        self.path='coordinator.json'\n        if not os.path.exists(self.path):\n            self.write({'claims':{},'slots':{},'jobs':{}})\n    def read(self):\n        with open(self.path) as f: return json.load(f)\n    def write(self,state):\n        with open(self.path+'.tmp','w') as f: json.dump(state,f)\n        os.replace(self.path+'.tmp',self.path)\n    def atomic_admit(self,key,pipeline):\n        os.mkdir('coordinator.lock')\n        try:\n            state=self.read()\n            if key in state['claims']:\n                row=state['claims'][key]\n                return {'status':'duplicate','job_id':row['job_id'],'completed':row['completed']}\n            if pipeline in state['slots']:\n                return {'status':'busy','job_id':None,'completed':False}\n            job='J.'+key\n            state['claims'][key]={'pipeline':pipeline,'job_id':job,'completed':False}\n            state['slots'][pipeline]=key\n            self.write(state)\n            return {'status':'accepted','job_id':job,'completed':False}\n        finally: os.rmdir('coordinator.lock')\n    def confirm_terminal_and_release(self,key,job):\n        os.mkdir('coordinator.lock')\n        try:\n            state=self.read()\n            if state['jobs'].get(job)!='terminal': return False\n            row=state['claims'][key]\n            if row['job_id']!=job: return False\n            row['completed']=True\n            if state['slots'].get(row['pipeline'])==key: del state['slots'][row['pipeline']]\n            self.write(state); return True\n        finally: os.rmdir('coordinator.lock')\n    def finish_jobs(self):\n        state=self.read(); state['jobs']={j:'terminal' for j in state['jobs']}; self.write(state)\nclass Executor:\n    def __init__(self,coordinator): self.coordinator=coordinator\n    def launch(self,job):\n        os.mkdir('coordinator.lock')\n        try:\n            state=self.coordinator.read()\n            state['jobs'].setdefault(job,'running')\n            self.coordinator.write(state);return job\n        finally: os.rmdir('coordinator.lock')\n    def attach(self,job): return self.launch(job)\n    def status(self,job): return self.coordinator.read()['jobs'].get(job,'unknown')\ndef fresh():\n    c=Coordinator();return c,Executor(c)\ndef reset():\n    c,e=fresh();c.write({'claims':{},'slots':{},'jobs':{}})\ndef durable_state():\n    c,e=fresh();return c.read()\ndef run_fixtures(admit,config):\n    event=policy['event'];key=event['run_key'];pipeline=event['pipeline'];out={}\n    reset(); c1,e1=fresh();c2,e2=fresh()\n    # Two independent coordinator clients, same delivery. Atomic coordinator serializes competing claims.\n    a=admit(event,c1,e1);b=admit(event,c2,e2);out['same_key']={'results':[a,b],'state':durable_state()}\n    b2=admit({'run_key':key+'2','pipeline':pipeline},c2,e2);out['different_key']={'result':b2,'state':durable_state()}\n    reset();c,e=fresh();reservation=c.atomic_admit(key,pipeline);c2,e2=fresh();out['restart_reservation']={'result':admit(event,c2,e2),'state':durable_state()}\n    reset();c,e=fresh();r=c.atomic_admit(key,pipeline);e.launch(r['job_id']);c2,e2=fresh();out['restart_launch']={'result':admit(event,c2,e2),'state':durable_state()}\n    # Launch accepted by backend, response lost: fresh worker can see only persisted identity.\n    c3,e3=fresh();out['unknown_response']={'result':admit(event,c3,e3),'state':durable_state()}\n    c.finish_jobs();out['completion_release']=admit(event,c3,e3);out['completed_duplicate']={'result':admit(event,*fresh()),'state':durable_state()}\n    fatal=all(not s.get('allowFailure',False) and not s.get('allowExitCodes') for s in config['steps'])\n    deps=config['steps'][1]['waitFor']==['entry'] and config['steps'][2]['waitFor']==['function_test']\n    out['pipeline']={'resolved':config,'accepted':{'entry':'success','function_test':'success','execute':'success'} if fatal and deps else {},'rejected':{'entry':'failed','function_test':'blocked','execute':'blocked'},'resolved_inputs':event}\n    return out\n")
+
+event_run_key = 'K'
+# Supplied fixture infrastructure (unchanged).
+exec("policy['event']['run_key']=event_run_key\ndef accepted_same_token(claim,executor): return executor.launch(claim['job_id'])\ndef duplicate_same_token(claim,executor): return executor.attach(claim['job_id'])\ndef no_launch(claim,executor): return None\n")
+
+# Learner section
+on_accepted = accepted_same_token
+on_duplicate = duplicate_same_token
+on_busy = no_launch
+
+# Supplied fixture infrastructure (unchanged).
+exec("if on_accepted is None or on_duplicate is None or on_busy is None:\n    result=None\nelse:\n    def admit(event,coordinator,executor):\n        claim = coordinator.atomic_admit(event['run_key'],event['pipeline'])\n        if claim['status'] == 'busy':\n            on_busy(claim,executor)\n            return {'status':'defer','job_id':claim['job_id']}\n        elif claim['completed']:\n            return {'status':'completed','job_id':claim['job_id']}\n        elif claim['status'] == 'accepted':\n            on_accepted(claim,executor)\n        else:\n            on_duplicate(claim,executor)\n        if executor.status(claim['job_id']) == 'terminal':\n            coordinator.confirm_terminal_and_release(event['run_key'],claim['job_id'])\n        return {'status':claim['status'],'job_id':claim['job_id']}\n    config = {'steps': [{'id': 'entry', 'name': 'python:3.11', 'args': ['python3', 'entry_fixture.py']}, {'id': 'function_test', 'name': 'python:3.11', 'waitFor': ['entry'], 'args': ['python3', 'learner.py']}, {'id': 'execute', 'name': 'python:3.11', 'waitFor': ['function_test'], 'args': ['python3', 'execution_fixture.py']}]}\n    with open('build.yaml','w') as handle:\n        yaml.safe_dump(config,handle)\n    with open('build.yaml') as handle:\n        resolved = yaml.safe_load(handle)\n    result = run_fixtures(admit,resolved)\n    assert result['same_key']['results'][0]['job_id'] == result['same_key']['results'][1]['job_id']\n    assert result['different_key']['result']['status'] == 'defer'\n    assert result['restart_reservation']['result']['job_id'] == result['restart_launch']['result']['job_id']\n    assert result['completed_duplicate']['result']['status'] == 'completed'\n")
+
+TESTS
+[
+  {
+    "test_id": "t1",
+    "kind": "value_equals",
+    "spec": {
+      "expr": "result",
+      "expected": {
+        "same_key": {
+          "results": [
+            {
+              "status": "accepted",
+              "job_id": "J.K"
+            },
+            {
+              "status": "duplicate",
+              "job_id": "J.K"
+            }
+          ],
+          "state": {
+            "claims": {
+              "K": {
+                "pipeline": "order-retrain-lab",
+                "job_id": "J.K",
+                "completed": false
+              }
+            },
+            "slots": {
+              "order-retrain-lab": "K"
+            },
+            "jobs": {
+              "J.K": "running"
+            }
+          }
+        },
+        "different_key": {
+          "result": {
+            "status": "defer",
+            "job_id": null
+          },
+          "state": {
+            "claims": {
+              "K": {
+                "pipeline": "order-retrain-lab",
+                "job_id": "J.K",
+                "completed": false
+              }
+            },
+            "slots": {
+              "order-retrain-lab": "K"
+            },
+            "jobs": {
+              "J.K": "running"
+            }
+          }
+        },
+        "restart_reservation": {
+          "result": {
+            "status": "duplicate",
+            "job_id": "J.K"
+          },
+          "state": {
+            "claims": {
+              "K": {
+                "pipeline": "order-retrain-lab",
+                "job_id": "J.K",
+                "completed": false
+              }
+            },
+            "slots": {
+              "order-retrain-lab": "K"
+            },
+            "jobs": {
+              "J.K": "running"
+            }
+          }
+        },
+        "restart_launch": {
+          "result": {
+            "status": "duplicate",
+            "job_id": "J.K"
+          },
+          "state": {
+            "claims": {
+              "K": {
+                "pipeline": "order-retrain-lab",
+                "job_id": "J.K",
+                "completed": false
+              }
+            },
+            "slots": {
+              "order-retrain-lab": "K"
+            },
+            "jobs": {
+              "J.K": "running"
+            }
+          }
+        },
+        "unknown_response": {
+          "result": {
+            "status": "duplicate",
+            "job_id": "J.K"
+          },
+          "state": {
+            "claims": {
+              "K": {
+                "pipeline": "order-retrain-lab",
+                "job_id": "J.K",
+                "completed": false
+              }
+            },
+            "slots": {
+              "order-retrain-lab": "K"
+            },
+            "jobs": {
+              "J.K": "running"
+            }
+          }
+        },
+        "completion_release": {
+          "status": "duplicate",
+          "job_id": "J.K"
+        },
+        "completed_duplicate": {
+          "result": {
+            "status": "completed",
+            "job_id": "J.K"
+          },
+          "state": {
+            "claims": {
+              "K": {
+                "pipeline": "order-retrain-lab",
+                "job_id": "J.K",
+                "completed": true
+              }
+            },
+            "slots": {},
+            "jobs": {
+              "J.K": "terminal"
+            }
+          }
+        },
+        "pipeline": {
+          "resolved": {
+            "steps": [
+              {
+                "args": [
+                  "python3",
+                  "entry_fixture.py"
+                ],
+                "id": "entry",
+                "name": "python:3.11"
+              },
+              {
+                "args": [
+                  "python3",
+                  "learner.py"
+                ],
+                "id": "function_test",
+                "name": "python:3.11",
+                "waitFor": [
+                  "entry"
+                ]
+              },
+              {
+                "args": [
+                  "python3",
+                  "execution_fixture.py"
+                ],
+                "id": "execute",
+                "name": "python:3.11",
+                "waitFor": [
+                  "function_test"
+                ]
+              }
+            ]
+          },
+          "accepted": {
+            "entry": "success",
+            "function_test": "success",
+            "execute": "success"
+          },
+          "rejected": {
+            "entry": "failed",
+            "function_test": "blocked",
+            "execute": "blocked"
+          },
+          "resolved_inputs": {
+            "run_key": "K",
+            "pipeline": "order-retrain-lab"
+          }
+        }
+      }
+    },
+    "visible": true,
+    "message_on_fail": "The returned record or calculation does not match the declared fixture contract."
+  }
+]

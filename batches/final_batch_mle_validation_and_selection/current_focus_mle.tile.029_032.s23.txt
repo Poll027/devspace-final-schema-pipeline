@@ -1,0 +1,62 @@
+Complete only the top-level callable/value bindings. Bind `trial_interface` to the supplied authorized trial-execution operation and `cost_rule` to the supplied deployment-weighted expected-error-cost operation. The evaluator must execute only the budgeted prefix of configurations, retain their actual validation results, and select using the fixed eligibility and cost rules without protected-test access. Read and preserve all supplied loading, evaluation logic, guards and returned fields; do not edit the supplied evaluation block. The checker runs the completed evaluator on the supplied evidence and boundary cases.
+{'allowed_syntax': ['import statements for required supplied library or client dependencies', 'def with a default budget parameter', 'function calls with explicit keyword arguments', 'return statements', 'variable assignment', 'dictionary literals and key access', 'list literals, indexing, slicing, and append', 'for loops over the bounded configuration list', 'if and else conditionals', 'None for undefined rates', 'numeric literals', 'arithmetic and comparison operators', 'len', 'calls to the supplied trial execution interface'], 'blocked_syntax': ['import torch', 'from torch import ...', 'torch.nn.Module', 'torch.utils.data.DataLoader', 'Tensor.backward()', 'torch.optim', 'model.train()', 'model.eval()', 'torch.save', 'torch.load', 'if __name__ == "__main__":']}
+# Supplied evaluation scaffold. Keep this block unchanged; complete only the bindings below.
+if __name__:
+    def supplied_budget_prefix(configurations, budget):
+        return configurations[:budget]
+    def run_trial(configuration):
+        for row in trials:
+            if json.loads(row['configuration_json']) == configuration:
+                CALLS.append(configuration.copy())
+                return row
+        raise ValueError('configuration outside declared search space')
+
+    def deployment_weighted_cost(p_negative, FPR, cost_FP, p_positive, FNR, cost_FN):
+        return p_negative * FPR * cost_FP + p_positive * FNR * cost_FN
+
+    def search(configurations, p_negative, p_positive, cost_FP, cost_FN, bound, budget=3):
+        if budget < 0:
+            budget = 0
+        if budget > len(configurations):
+            budget = len(configurations)
+        records = []
+        selected = None
+        best_cost = None
+        for configuration in configurations[:budget]:
+            trial = trial_interface(configuration)
+            FP = trial['FP']
+            TN = trial['TN']
+            FN = trial['FN']
+            TP = trial['TP']
+            FPR = None
+            FNR = None
+            expected_cost = None
+            if FP + TN > 0:
+                FPR = FP / (FP + TN)
+            if FN + TP > 0:
+                FNR = FN / (FN + TP)
+            if FP + TN > 0:
+                if FN + TP > 0:
+                    expected_cost = cost_rule(p_negative, FPR, cost_FP, p_positive, FNR, cost_FN)
+            eligible = False
+            if expected_cost is not None:
+                if expected_cost <= bound:
+                    if trial['operating_requirements_met']:
+                        eligible = True
+                        if best_cost is None:
+                            best_cost = expected_cost
+                            selected = configuration
+                        elif expected_cost < best_cost:
+                            best_cost = expected_cost
+                            selected = configuration
+            records.append({'configuration': configuration, 'cohort_id': trial['cohort_id'], 'FP': FP, 'TN': TN, 'FN': FN, 'TP': TP, 'actual_negative_count': FP + TN, 'actual_positive_count': FN + TP, 'FPR': FPR, 'FNR': FNR, 'expected_cost': expected_cost, 'eligible': eligible})
+        return {'resolved_budget': budget, 'completed_trials': len(records), 'records': records, 'selected_configuration': selected}
+
+# Supplied callable operations; keep these assignments unchanged.
+supplied_run_trial = run_trial
+supplied_deployment_weighted_cost = deployment_weighted_cost
+trial_interface = None  # TODO: bind the supplied operation/value
+cost_rule = None  # TODO: bind the supplied operation/value
+
+# Callable/value bindings.
+budgeted_configurations = supplied_budget_prefix

@@ -1,0 +1,51 @@
+import csv, json, datetime
+import numpy as np
+SCHEMAS = {'incident_evidence': {'phase': 'string', 'INSTANCE': 'string', 'ZONE': 'string', 'authorized_identity': 'string', 'instance_state': 'string', 'process_state': 'string', 'readiness': 'boolean', 'prediction_contract_pass': 'boolean', 'fault_evidence': 'string', 'hypothesis_result': 'string', 'credential_review_pass': 'boolean'}}
+def load(name):
+    with open(name+'.csv') as f:
+        data=list(csv.DictReader(f))
+    for r in data:
+        for k,t in SCHEMAS[name].items():
+            v=r[k]
+            r[k] = None if v=='' else (v=='True' if t=='boolean' else int(v) if t=='integer' else float(v) if t=='number' else v)
+    return data
+def column(data,key):
+    return np.asarray([r[key] for r in data])
+def emit(value):
+    return value
+
+class Recovery:
+    def __init__(self,data,policy): self.data=data; self.policy=policy; self.trace=[]; self.state='initial'
+    def step(self,action,required,next_state):
+        if self.state!=required: raise ValueError('operation lacks required prior evidence/completion')
+        self.trace.append(action); self.state=next_state
+    def describe_before(self): self.step('gcloud compute instances describe '+self.policy['INSTANCE']+' --zone='+self.policy['ZONE'],'initial','inspected')
+    def reproduce_and_test(self): self.step('gcloud compute ssh; preserve fault evidence and test runbook hypothesis','inspected','tested')
+    def stop_and_wait(self): self.step('gcloud compute instances stop; confirm TERMINATED','tested','stopped')
+    def start_and_wait(self): self.step('gcloud compute instances start; confirm RUNNING','stopped','started')
+    def reconnect(self): self.step('gcloud compute ssh same target','started','connected')
+    def verify_service(self): self.step('readiness and bounded prediction; credential review','connected','verified')
+    def describe_after(self): self.step('gcloud compute instances describe same target','verified','done')
+    def report(self):
+        if self.state!='done': raise ValueError('incomplete recovery')
+        before=self.data[0]; after=self.data[-1]
+        for row in [before,after]:
+            assert row['INSTANCE']==self.policy['INSTANCE'] and row['ZONE']==self.policy['ZONE'] and row['authorized_identity']==self.policy['authorized_identity'] and row['credential_review_pass']
+        assert before['fault_evidence'] and before['hypothesis_result']
+        assert after['instance_state']=='RUNNING' and after['process_state']=='running' and after['readiness'] and after['prediction_contract_pass']
+        return {'target':self.policy,'pre_fault':before['fault_evidence'],'hypothesis':before['hypothesis_result'],'trace':self.trace,'after':after,'credentials':'runtime references only','scope':'fixture-backed simulator, not live cloud evidence'}
+
+
+# OUTER
+
+policy = {'INSTANCE': 'serving-lab', 'ZONE': 'lab-zone-a', 'authorized_identity': 'lab.operator', 'allowed_actions': ['inspect', 'reproduce_fault', 'test_hypothesis', 'stop', 'wait_stopped', 'start', 'wait_running', 'reconnect', 'readiness', 'bounded_prediction'], 'prediction_contract': {'request': {'distance_category': 'long_distance', 'numeric_values': 5}, 'response': {'predicted_class': 'late'}}, 'credentials': 'runtime-injected only'}
+lab = Recovery(load('incident_evidence'),policy)
+
+lab.describe_before()
+lab.reproduce_and_test()
+lab.stop_and_wait()
+lab.start_and_wait()
+lab.reconnect()
+lab.verify_service()
+lab.describe_after()
+report = lab.report()

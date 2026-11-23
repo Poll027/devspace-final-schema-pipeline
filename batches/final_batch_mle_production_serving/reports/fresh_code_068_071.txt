@@ -1,0 +1,164 @@
+PROMPT Write the required JSON and NumPy imports. Complete the JSON round-trip and the two NumPy calculation blocks in learner.py. Set decoded_trace to json.loads(json.dumps(trace)). For each supplied setting, convert latencies to a NumPy array, set mean to its arithmetic mean, std to its population standard deviation using ddof=divisor, and tail to np.percentile using declared_percentile and method=percentile_method. Do not edit the supplied identity/status matching, end-to-end subtraction, report assembly or objective selection. Only matched successful responses contribute; durations include batch waiting. report must contain count, mean, std, p99, units, ddof and percentile_method for each setting. selected contains settings with p99 <= latency_objective, in supplied order, or no settings if none qualify.
+
+STARTER learner.py
+# TODO: write the required imports.
+exec('import json
+import numpy as np
+import csv
+with open("batching_trace.csv") as handle:
+    raw_rows = list(csv.DictReader(handle))
+trace = [{"request_id": r["request_id"], "batching_setting": r["batching_setting"], "request_start_seconds": float(r["request_start_seconds"]) if r["request_start_seconds"] else None, "response_complete_seconds": float(r["response_complete_seconds"]) if r["response_complete_seconds"] else None, "success": r["success"].lower() == "true", "response_json": r["response_json"]} for r in raw_rows]
+settings = [\'limit_1\', \'limit_2\']
+declared_percentile = 99
+percentile_method = \'linear\'
+latency_objective = 0.5
+units = \'seconds\'
+divisor = 0
+
+')
+
+# TODO: JSON-encode trace and decode it back.
+decoded_trace = trace
+# Supplied identity/status matching and end-to-end duration extraction.
+exec('latencies_by_setting = {}
+for setting in settings:
+    latencies = []
+    for row in decoded_trace:
+        if row["batching_setting"] == setting:
+            if row["success"]:
+                if row["request_start_seconds"] is not None:
+                    if row["response_complete_seconds"] is not None:
+                        if row["response_json"]:
+                            response = json.loads(row["response_json"])
+                            if response["request_id"] == row["request_id"]:
+                                if response["batching_setting"] == setting:
+                                    latencies.append(row["response_complete_seconds"] - row["request_start_seconds"])
+    latencies_by_setting[setting] = latencies
+')
+report = {}
+selected = []
+setting = settings[0]
+latencies = latencies_by_setting[setting]
+# TODO: array conversion, mean, population std and declared percentile.
+values = None
+mean = None
+std = None
+tail = None
+report[setting] = {"count": len(latencies), "mean": mean, "std": std, "p99": tail, "units": units, "ddof": divisor, "percentile_method": percentile_method}
+if tail is not None:
+    if tail <= latency_objective:
+        selected.append(setting)
+setting = settings[1]
+latencies = latencies_by_setting[setting]
+# TODO: array conversion, mean, population std and declared percentile.
+values = None
+mean = None
+std = None
+tail = None
+report[setting] = {"count": len(latencies), "mean": mean, "std": std, "p99": tail, "units": units, "ddof": divisor, "percentile_method": percentile_method}
+if tail is not None:
+    if tail <= latency_objective:
+        selected.append(setting)
+
+
+SOLUTION learner.py
+exec('import json
+import numpy as np
+import csv
+with open("batching_trace.csv") as handle:
+    raw_rows = list(csv.DictReader(handle))
+trace = [{"request_id": r["request_id"], "batching_setting": r["batching_setting"], "request_start_seconds": float(r["request_start_seconds"]) if r["request_start_seconds"] else None, "response_complete_seconds": float(r["response_complete_seconds"]) if r["response_complete_seconds"] else None, "success": r["success"].lower() == "true", "response_json": r["response_json"]} for r in raw_rows]
+settings = [\'limit_1\', \'limit_2\']
+declared_percentile = 99
+percentile_method = \'linear\'
+latency_objective = 0.5
+units = \'seconds\'
+divisor = 0
+
+')
+
+import json
+import numpy as np
+decoded_trace = json.loads(json.dumps(trace))
+# Supplied identity/status matching and end-to-end duration extraction.
+exec('latencies_by_setting = {}
+for setting in settings:
+    latencies = []
+    for row in decoded_trace:
+        if row["batching_setting"] == setting:
+            if row["success"]:
+                if row["request_start_seconds"] is not None:
+                    if row["response_complete_seconds"] is not None:
+                        if row["response_json"]:
+                            response = json.loads(row["response_json"])
+                            if response["request_id"] == row["request_id"]:
+                                if response["batching_setting"] == setting:
+                                    latencies.append(row["response_complete_seconds"] - row["request_start_seconds"])
+    latencies_by_setting[setting] = latencies
+')
+report = {}
+selected = []
+setting = settings[0]
+latencies = latencies_by_setting[setting]
+values = np.array(latencies)
+mean = np.mean(values)
+std = np.std(values, ddof=divisor)
+tail = np.percentile(values, declared_percentile, method=percentile_method)
+report[setting] = {"count": len(latencies), "mean": mean, "std": std, "p99": tail, "units": units, "ddof": divisor, "percentile_method": percentile_method}
+if tail is not None:
+    if tail <= latency_objective:
+        selected.append(setting)
+setting = settings[1]
+latencies = latencies_by_setting[setting]
+values = np.array(latencies)
+mean = np.mean(values)
+std = np.std(values, ddof=divisor)
+tail = np.percentile(values, declared_percentile, method=percentile_method)
+report[setting] = {"count": len(latencies), "mean": mean, "std": std, "p99": tail, "units": units, "ddof": divisor, "percentile_method": percentile_method}
+if tail is not None:
+    if tail <= latency_objective:
+        selected.append(setting)
+
+TESTS [
+  {
+    "test_id": "t1",
+    "kind": "value_equals",
+    "message_on_fail": "Compare the computed report with every requested field, population, and fixture predicate.",
+    "spec": {
+      "expr": "report",
+      "expected": {
+        "limit_1": {
+          "count": 5,
+          "mean": 0.20000000000000012,
+          "std": 8.95090418262362e-17,
+          "p99": 0.20000000000000018,
+          "units": "seconds",
+          "ddof": 0,
+          "percentile_method": "linear"
+        },
+        "limit_2": {
+          "count": 5,
+          "mean": 0.5999999999999999,
+          "std": 2.220446049250313e-16,
+          "p99": 0.6000000000000001,
+          "units": "seconds",
+          "ddof": 0,
+          "percentile_method": "linear"
+        }
+      },
+      "tolerance": 1e-08
+    }
+  },
+  {
+    "test_id": "t2",
+    "kind": "value_equals",
+    "message_on_fail": "Compare the computed report with every requested field, population, and fixture predicate.",
+    "spec": {
+      "expr": "selected",
+      "expected": [
+        "limit_1"
+      ],
+      "tolerance": 1e-08
+    }
+  }
+]

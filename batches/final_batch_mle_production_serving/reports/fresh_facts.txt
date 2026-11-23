@@ -1,0 +1,181 @@
+
+mle.prediction_schema_validation
+f1 A prediction request schema declares the expected features, their types and permitted values, and a response schema declares the expected output structure.
+f2 Decode the incoming JSON into Python values before validating field presence and value types; raw JSON text is not the structured request.
+f3 Compare required and supplied key sets, then check each value’s declared type or numeric boundary with conditional predicates.
+f4 For matrix-valued inputs, construct the declared NumPy representation and verify rank, feature width and output row alignment against the request/response contract.
+f5 Reject malformed or out-of-contract requests explicitly rather than returning a successful prediction from invalid inputs.
+f6 Write assert predicate checks for the declared valid, boundary and failure cases; a false predicate raises AssertionError during ordinary non-optimized execution.
+f7 Send a JSON request body as encoded bytes in urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST"), then read the response through urlopen with a stated timeout.
+f8 Use json.dumps to encode structured request/response values and json.loads to decode JSON before checking their fields.
+PRACTICE Within supplied infrastructure scaffolding, write a Python function and its required imports to exchange JSON requests and responses against one declared prediction contract. Author reusable fixtures for a valid three-row, two-feature order matrix, an included numeric limit, a value beyond that limit, a missing required key, an incorrect matrix width and an incorrectly aligned response. Validate decoded structures and assert the expected acceptance or rejection of each case.
+
+mle.online_prediction_contract
+f1 For a bounded standard-library HTTP implementation, subclass BaseHTTPRequestHandler and implement do_POST to handle the declared prediction route.
+f2 Read the declared request body length from the headers and read that many bytes from rfile before JSON decoding and schema checks.
+f3 Pass validated input through the already fitted preprocessing and model without fitting or updating either during the request.
+f4 Encode the response dictionary with json.dumps(...).encode("utf-8") so its named output fields match the declared response schema.
+f5 Write the status with send_response, declare Content-Type and body length with send_header, call end_headers and write the encoded body to wfile.
+f6 http.server is suitable for the bounded supplied fixture but is not recommended as a production server.
+f7 Write assert predicate checks for the declared valid, boundary and failure cases; a false predicate raises AssertionError during ordinary non-optimized execution.
+f8 For the bounded fixture, construct HTTPServer((host, port), Handler) with the declared handler and serve_forever(), using the configured host/port and the existing runtime rather than creating a new platform.
+PRACTICE Write a learner-defined Python function that constructs the bounded HTTP prediction fixture around the supplied frozen fitted package. Author the required imports and a BaseHTTPRequestHandler subclass with do_POST for the declared route. Read and validate JSON features, apply only fitted prediction operations, and return schema-conforming JSON predictions. Create reusable valid, boundary and malformed request fixtures, with assert checks for stable predictions and the declared rejected failure paths. Use the configured host and port in the existing runtime.
+
+mle.bounded_batch_inference
+f1 Use the format-appropriate bounded reader, such as pd.read_csv(path, chunksize=declared_rows), to iterate the input dataset rather than requiring it all in memory.
+f2 Apply the fitted preprocessing/model to each chunk without fitting new state during inference.
+f3 Preserve each chunk’s observation keys alongside predictions and verify one result per eligible input key, rather than relying on a changed output row order.
+f4 Write output records in the declared serialized format and decode the written fixture again to verify its schema and observation alignment.
+f5 Write assert predicate checks for the declared valid, boundary and failure cases; a false predicate raises AssertionError during ordinary non-optimized execution.
+f6 Use explicit with open(...) handles for input/identity or output records, and write one bounded set of prediction records before reading the next batch.
+PRACTICE Write a Python batch-prediction function and its required imports within supplied infrastructure scaffolding. Read the finite keyed-order CSV fixture through an explicit file handle in declared-size chunks, apply the supplied fitted model package without refitting, and write each chunk's keyed predictions as JSON Lines through an explicit output handle before requesting the next chunk. Decode the written fixture and author count, schema and key-alignment assertions using the supplied valid, boundary and failure fixtures.
+
+mle.model_service_readiness
+f1 A model health endpoint must respond successfully within the runtime’s health-check contract; in SageMaker the health check uses /ping.
+f2 Return a successful readiness result only after the model is loaded and the service can accept inference, rather than treating process startup alone as model readiness.
+f3 Configure the container healthcheck with the declared command, interval, timeout and retry count for the readiness endpoint.
+f4 Use docker inspect to inspect the health result and status after initialization, and verify that an unready model does not pass the ready fixture.
+f5 Implement do_GET for the declared readiness route, send a non-ready HTTP status until both the fitted model and preprocessor are initialized, and send success only after that condition is met.
+f6 Serialize readiness state as JSON and test both the HTTP status and decoded state before and after initialization.
+f7 Use docker run --name NAME -p HOST_PORT:CONTAINER_PORT --env KEY=VALUE IMAGE to start the referenced image with the declared port and nonsecret runtime settings.
+f8 Inspect the named container with docker container inspect NAME to check its image identity and State fields.
+f9 Use docker container logs NAME to inspect its captured standard output and error for initialization or execution failures.
+f10 Write assert predicate checks for the declared valid, boundary and failure cases; a false predicate raises AssertionError during ordinary non-optimized execution.
+PRACTICE Implement readiness handling and verification in learner-defined Python functions with learner-written imports, using the supplied container image and its declared contract. Implement do_GET for the readiness route, serialize readiness as JSON, and admit inference only when both the fitted model and preprocessor are initialized and usable. Configure the declared healthcheck, start the named container with its declared port and nonsecret settings, inspect its identity, State and logs, and assert HTTP status and decoded readiness before and after initialization.
+
+mle.deployment_configuration_code
+f1 Use the recorded immutable image digest in the deployment instead of a mutable tag that can later resolve to different contents.
+f2 In the supplied Docker Compose runtime, author the mapping services: {prediction: {image: IMAGE_DIGEST, environment: {SETTING: VALUE}, ports: ["HOST_PORT:CONTAINER_PORT"], secrets: [credential], deploy: {replicas: REPLICA_COUNT}}} and top-level secrets: {credential: {environment: INJECTED_SECRET_VARIABLE}}; substitute the approved digest, nonsecret setting, port numbers, supported replica count and host secret-variable name, never the secret value.
+f3 Set a service’s image to its immutable artifact reference, its ports to HOST:CONTAINER mappings, and its environment to the declared nonsecret key/value settings.
+f4 Use docker compose -f CONFIG_PATH config to parse, resolve and validate the authored YAML before applying it; check its resolved fields against the intended runtime contract.
+f5 Apply the declared local Compose deployment with docker compose -f CONFIG_PATH up -d and inspect the resulting containers.
+f6 Set replica count at services.<service>.deploy.replicas; set resource bounds at services.<service>.deploy.resources.limits.cpus and memory in a runtime supporting these deploy fields, and validate the resolved count and bounds before applying the configuration.
+f7 Do not embed secrets in Dockerfile ARG or ENV instructions, because they persist in the final image or its metadata.
+f8 Supply sensitive values through the runtime secret mechanism rather than placing their literal values in the Compose configuration.
+f9 After application, inspect the running image identity and compare it with the recorded artifact reference.
+f10 For an authorized supplied Compute Engine VM, gcloud compute instances start INSTANCE --zone=ZONE and gcloud compute instances stop INSTANCE --zone=ZONE change its lifecycle state; wait for the operation and inspect the resulting state.
+f11 Connect to the running authorized VM with gcloud compute ssh INSTANCE --zone=ZONE to execute the workload.
+f12 Use gcloud compute instances describe INSTANCE --zone=ZONE to inspect the instance status and identity before and after the authorized lifecycle action.
+f13 Create the configuration branch with git checkout -b BRANCH, commit the verified configuration, then merge the branch under the existing repository workflow.
+f14 Destroy only the test deployment with docker compose -f CONFIG_PATH down, then reapply the same file and verify identical image identity and resolved runtime settings.
+f15 With the declared PyYAML dependency, import yaml; write a mapping/list configuration with yaml.safe_dump(config, file_handle), reload it with yaml.safe_load(file_handle), and inspect the required resolved fields before submitting it to the existing runtime. Safe loading accepts standard YAML tags, not arbitrary Python object constructors.
+PRACTICE On a branch in the supplied repository, author a parameterized Compose YAML configuration for prediction using the approved immutable image digest, nonsecret environment setting, port mapping, supported replica count and resource bounds, and injected credential reference. Write and reload it with PyYAML, then validate its resolved fields with Compose. Using only the authorized supplied VM and test deployment, inspect the instance, start and connect as required, apply the configuration, inspect container state and logs without exposing credentials, and compare the running image identity with the recorded artifact. Destroy only this test deployment, reapply the same file, verify unchanged identity and settings, then commit and merge the verified configuration.
+
+mle.deployment_verification
+f1 Verify the same recorded artifact and runtime configuration in the existing execution environment, rather than accepting the fact that deployment started as proof of a correct release.
+f2 Use docker run --name NAME -p HOST_PORT:CONTAINER_PORT --env KEY=VALUE IMAGE to start the referenced image with the declared port and nonsecret runtime settings.
+f3 Inspect the named container with docker container inspect NAME to check its image identity and State fields.
+f4 Use docker container logs NAME to inspect its captured standard output and error for initialization or execution failures.
+f5 Inspect the running container identity and State, including Health when a healthcheck is configured, and compare them with the intended release.
+f6 Inspect runtime logs for initialization and execution failures without copying sensitive request data or credentials into the evidence record.
+f7 Call the declared readiness and prediction endpoints with bounded timeouts and check the returned status and payload against the expected contracts.
+f8 Send a JSON request body as encoded bytes in urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST"), then read the response through urlopen with a stated timeout.
+f9 Use json.dumps to encode structured request/response values and json.loads to decode JSON before checking their fields.
+f10 Inspect the small prediction fixture’s output shape and values against the declared task/response contract.
+f11 Write assert predicate checks for the declared valid, boundary and failure cases; a false predicate raises AssertionError during ordinary non-optimized execution.
+PRACTICE Start the supplied immutable release image on the existing authorized runtime with its declared published port and nonsecret settings. Inspect container identity, State, configured Health and logs. Author reusable valid, boundary and malformed JSON fixtures using only the supplied prediction fields, and assert readiness status, decoded prediction shape and values, malformed-request rejection and immutable release identity. Execute the bounded checks and record one acceptance verdict.
+
+mle.prediction_authentication
+f1 Authentication establishes the caller identity and authorization checks whether that identity may perform the prediction action; both are needed for the supplied protected service.
+f2 Reference the protected credential through an authorized runtime secret, and give it only to the service permitted to use it rather than writing its literal value in the YAML.
+f3 Inject the platform’s declared nonsecret authentication settings in the service configuration, keeping them separate from the credential secret.
+f4 Make one request with the authorized supplied credential and negative requests with missing or invalid credentials; verify allowed and denied responses under the existing platform policy.
+f5 Inspect runtime logs to verify failures are visible without displaying the credential or protected request values.
+f6 A Compose YAML document declares services by name; use indented mappings for service fields and lists or mappings in the forms required by the Compose specification.
+f7 Set a service’s image to its immutable artifact reference, its ports to HOST:CONTAINER mappings, and its environment to the declared nonsecret key/value settings.
+f8 Use docker compose -f CONFIG_PATH config to parse, resolve and validate the authored YAML before applying it; check its resolved fields against the intended runtime contract.
+f9 Apply the declared local Compose deployment with docker compose -f CONFIG_PATH up -d and inspect the resulting containers.
+f10 For the supplied Google ID-token verifier contract, use from google.oauth2 import id_token and from google.auth.transport import requests; implement authorize_prediction(token, expected_audience, permitted_subjects) to reject a missing token, call claims = id_token.verify_oauth2_token(token, requests.Request(), audience=expected_audience), and return the verified claims only when claims["sub"] is in the supplied permitted_subjects policy, otherwise raising PermissionError. Use the verified sub identity, not an unverified decode or a changeable email address.
+f11 Write assert predicate checks for the declared valid, boundary and failure cases; a false predicate raises AssertionError during ordinary non-optimized execution.
+f12 With the declared PyYAML dependency, import yaml; write a mapping/list configuration with yaml.safe_dump(config, file_handle), reload it with yaml.safe_load(file_handle), and inspect the required resolved fields before submitting it to the existing runtime. Safe loading accepts standard YAML tags, not arbitrary Python object constructors.
+f13 Use from google.auth.exceptions import GoogleAuthError; catch (ValueError, GoogleAuthError) from verification and raise PermissionError for the service harness’s declared denied HTTP path before calling prediction; a ValueError signals verification failure and GoogleAuthError includes invalid issuer. Missing credentials, invalid tokens and verified-but-unpermitted subjects must all be denied without executing prediction or logging the token.
+PRACTICE Implement authorize_prediction(token, expected_audience, permitted_subjects) with learner-written Google verifier imports and connect it to the supplied endpoint harness before prediction. Author the Compose configuration using the declared PyYAML dependency, runtime secret reference, immutable image, ports and nonsecret authentication settings. Validate and apply it within the supplied infrastructure. Use reusable supplied request fixtures to send HTTP JSON requests with authorized, missing, invalid and verified-but-unpermitted credentials, and write assertions for the permitted and denied paths.
+
+mle.service_telemetry
+f1 Choose client-visible request outcomes and latency as service indicators instead of inferring availability only from container or CPU state.
+f2 Measure an attempt’s elapsed time as time.perf_counter() after completion minus its start value, retaining a consistent duration unit.
+f3 Record enough timestamped outcome and duration evidence to distinguish successes, errors and timeouts in the measurement window.
+f4 Compute an error fraction as error attempts divided by eligible attempts, using the same clearly declared observation window and denominator as the success indicator.
+f5 Estimate client-visible success probability as successful eligible attempts divided by all eligible attempts in the defined measurement window, counting failed attempts in the denominator.
+f6 Compute the arithmetic mean with np.mean(numeric_values) over the selected numeric observations.
+f7 Compute standard deviation with np.std(numeric_values, ddof=0), which divides squared deviations by N before taking the square root; use ddof=1 only when the stated calculation requires the N−1 divisor.
+f8 Instrument the handler around JSON decoding, prediction and JSON response encoding, recording duration and status/error counts even on its handled error paths.
+f9 For the prescribed probe, retain its half-open five-minute window [t0, t0+300 seconds), its one valid request per second and all 300 attempt outcomes.
+f10 Count an attempt as available only for an HTTP 200 response with a valid prediction received within its two-second deadline; allow the final attempt its entire deadline before summarizing.
+f11 Compute availability as that successful-deadline count divided by 300, including connection-refused and response-timeout attempts that never reach the handler.
+f12 Reconcile absent handler records with the external failure record and report the probe window, numerator and denominator alongside handler latency/statistics and status counts.
+PRACTICE Instrument one prediction handler in the supplied service scaffolding using learner-written imports and a learner-defined Python function. Include JSON decoding, prediction and JSON response encoding in handler timing, and record timestamped durations and status/error counts on successful and handled-error paths. Calculate handler latency mean and population standard deviation. Run the supplied external probe and fault scaffolding without implementing infrastructure or probe scheduling. Summarize all 300 client-side attempt outcomes and reconcile them with handler records.
+
+mle.prediction_load_test
+f1 Exercise the endpoint with the declared arrival/concurrency profile and bounded duration, and record client-visible outcomes and response times rather than only attempted request count.
+f2 Treat a load point as acceptable only if it meets the predeclared client-visible success and tail-latency requirements, as well as the required completed throughput.
+f3 Retain failures and timeouts separately so latency measured only for completed responses is not misrepresented as the experience of every attempted request.
+f4 Estimate client-visible success probability as successful eligible attempts divided by all eligible attempts in the defined measurement window, counting failed attempts in the denominator.
+f5 Compute the declared tail-latency percentile with np.percentile(completed_latency_values, declared_percentile), retaining its convention, sample count and time unit.
+f6 Measure completed successful requests divided by elapsed measurement time for successful throughput, and compare it with the offered load rather than equating arrivals with completed work.
+f7 Run valid and malformed HTTP JSON fixtures with assertions, keeping intentional malformed tests outside the valid-traffic capacity measurement.
+f8 At every fixed offered load, use the stated valid payload mix, warm-up and fixed measurement duration, counting successful completions, HTTP errors, timeouts and other failed attempts separately.
+f9 Compute failed-request fraction from all failed attempts divided by all valid-traffic attempts; timeouts remain failures.
+f10 Inspect backlog growth and unfinished work throughout the window; accept only stable-backlog loads meeting the predeclared tail-latency and error limits, and report the highest measured successful throughput or no feasible measured envelope.
+f11 Use docker run --name NAME -p HOST_PORT:CONTAINER_PORT --env KEY=VALUE IMAGE to start the referenced image with the declared port and nonsecret runtime settings.
+f12 Inspect the named container with docker container inspect NAME to check its image identity and State fields.
+f13 Use docker container logs NAME to inspect its captured standard output and error for initialization or execution failures.
+f14 Send a JSON request body as encoded bytes in urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST"), then read the response through urlopen with a stated timeout.
+f15 Use json.dumps to encode structured request/response values and json.loads to decode JSON before checking their fields.
+f16 Compute the arithmetic mean with np.mean(numeric_values) over the selected numeric observations.
+f17 Compute standard deviation with np.std(numeric_values, ddof=0), which divides squared deviations by N before taking the square root; use ddof=1 only when the stated calculation requires the N−1 divisor.
+f18 Write assert predicate checks for the declared valid, boundary and failure cases; a false predicate raises AssertionError during ordinary non-optimized execution.
+PRACTICE Run and inspect the supplied prediction-service image with its declared published HTTP port and nonsecret runtime settings. Author reusable valid, boundary and malformed JSON fixtures with assertions for the declared contract, keeping intentional rejection checks separate from capacity measurements. Use the supplied bounded load driver to exercise a small fixed range of offered rates with the stated valid payload mix, arrival/concurrency profile, warm-up and measurement duration. Account for outcomes, calculate completed-response latency statistics and successful throughput, inspect backlog throughout each window, and determine the measured feasible envelope against predeclared requirements.
+
+mle.inference_batching_decision
+f2 Use json.dumps to encode structured request/response values and json.loads to decode JSON before checking their fields.
+f3 Match each successful JSON response to its request identity and batching setting before computing its end-to-end duration from the trace.
+f4 Use response-completion minus request-start time in one declared unit, including batch waiting time in the latency interpretation.
+f5 Calculate the required tail percentile with np.percentile(latencies, declared_percentile), keeping the convention and successful-response sample count explicit.
+f6 Choose only a batching limit meeting the stated latency objective, comparing the same trace/population interpretation.
+f7 Compute the arithmetic mean with np.mean(numeric_values) over the selected numeric observations.
+f8 Compute standard deviation with np.std(numeric_values, ddof=0), which divides squared deviations by N before taking the square root; use ddof=1 only when the stated calculation requires the N−1 divisor.
+PRACTICE Encode structured trace values as JSON and decode supplied HTTP JSON request/response traces for two batching settings. Match successful responses to their request identities and settings, calculate end-to-end durations, mean, standard deviation and the declared tail percentile, then choose a supplied batching limit satisfying the latency objective.
+
+mle.serving_worker_concurrency
+f1 A Compose YAML document declares services by name; use indented mappings for service fields and lists or mappings in the forms required by the Compose specification.
+f2 Set a service’s image to its immutable artifact reference, its ports to HOST:CONTAINER mappings, and its environment to the declared nonsecret key/value settings.
+f3 Use docker compose -f CONFIG_PATH config to parse, resolve and validate the authored YAML before applying it; check its resolved fields against the intended runtime contract.
+f4 Apply the declared local Compose deployment with docker compose -f CONFIG_PATH up -d and inspect the resulting containers.
+f5 Set the existing runtime’s worker-limit setting in the YAML, validate its parsed value and run the referenced image under that bound.
+f6 Inspect running worker processes with docker container top NAME during the load fixture and compare the observed count with the configured limit to detect oversubscription.
+f7 Inspect concurrent CPU/memory usage during the same fixture to support the bound check rather than assuming the configuration was honored.
+f8 With the declared PyYAML dependency, import yaml; write a mapping/list configuration with yaml.safe_dump(config, file_handle), reload it with yaml.safe_load(file_handle), and inspect the required resolved fields before submitting it to the existing runtime. Safe loading accepts standard YAML tags, not arbitrary Python object constructors.
+PRACTICE Configure the approved limit of two workers for the supplied containerized runtime. Write and reload its Compose YAML safely, validate the resolved runtime contract, apply the supplied immutable image, and inspect worker processes and CPU/memory usage during the supplied load fixture.
+
+mle.serving_replica_scaling
+f1 For a fixed Compose scaling fixture, declare deploy.replicas or use docker compose up -d --scale SERVICE=COUNT, then inspect the actual replica count.
+f2 For SageMaker Application Auto Scaling, register the supplied endpoint variant as a scalable target with explicit MinCapacity and MaxCapacity bounds.
+f3 A target-tracking scaling policy specifies a metric, target value and scale-in/scale-out cooldowns; apply only the supported supplied policy to the existing scalable target.
+f4 Compare scale settings at the same declared load and select capacity that meets observed success, p99 latency and throughput requirements rather than assuming more replicas are always better.
+f5 Estimate client-visible success probability as successful eligible attempts divided by all eligible attempts in the defined measurement window, counting failed attempts in the denominator.
+f6 Compute the declared tail-latency percentile with np.percentile(completed_latency_values, declared_percentile), retaining its convention, sample count and time unit.
+f7 Measure completed successful requests divided by elapsed measurement time for successful throughput, and compare it with the offered load rather than equating arrivals with completed work.
+f8 Edit the existing runtime’s YAML replica policy from the demand/capacity evidence, then parse and inspect the resolved replica bounds before applying it.
+f9 Inspect running containers before and after the bounded demand change and compare the observed count and identities with the intended replica policy.
+f10 Restore the nonproduction runtime’s original replica and lifecycle settings after the bounded scaling check.
+f11 Compute the arithmetic mean with np.mean(numeric_values) over the selected numeric observations.
+f12 Compute standard deviation with np.std(numeric_values, ddof=0), which divides squared deviations by N before taking the square root; use ddof=1 only when the stated calculation requires the N−1 divisor.
+f13 Use gcloud compute instances describe INSTANCE --zone=ZONE to inspect the instance status and identity before and after the authorized lifecycle action.
+f14 With the declared PyYAML dependency, import yaml; write a mapping/list configuration with yaml.safe_dump(config, file_handle), reload it with yaml.safe_load(file_handle), and inspect the required resolved fields before submitting it to the existing runtime. Safe loading accepts standard YAML tags, not arbitrary Python object constructors.
+PRACTICE Configure the supplied nonproduction runtime from demand/capacity evidence. Calculate the declared mean and standard deviation, select bounded replica settings against the service objective, edit and safely reload its YAML configuration, and inspect resolved fields before applying it. Inspect running containers and instance identity/status before and after the authorized bounded demand and lifecycle actions, then restore the original replica and lifecycle settings.
+
+mle.model_release_rollback
+f1 Resolve the previously approved registry version and its artifact as the rollback target, preserving the approval/version identity rather than selecting an unapproved latest version.
+f2 Use the recorded previous immutable image reference for the approved replacement container.
+f3 Verify readiness and a bounded prediction fixture after the rollback, and confirm the response contract still matches the service.
+f4 Do not embed secrets in Dockerfile ARG or ENV instructions, because they persist in the final image or its metadata.
+f5 Supply sensitive values through the runtime secret mechanism rather than placing their literal values in the Compose configuration.
+f6 Start the approved replacement under its distinct container identity with the required environment and published port; do not retire the faulty test release before the replacement is ready.
+f7 After replacement readiness and a verified JSON prediction/version response, stop and remove only the faulty test release, preserving the approved replacement.
+f8 Send a JSON request body as encoded bytes in urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST"), then read the response through urlopen with a stated timeout.
+f9 Use json.dumps to encode structured request/response values and json.loads to decode JSON before checking their fields.
+f10 Inspect the running container identity and State, including Health when a healthcheck is configured, and compare them with the intended release.
+f11 Inspect runtime logs for initialization and execution failures without copying sensitive request data or credentials into the evidence record.
+f12 Call the declared readiness and prediction endpoints with bounded timeouts and check the returned status and payload against the expected contracts.
+PRACTICE Restore approved version A using its recorded immutable image reference on the supplied authorized runtime while faulty test version B remains running. Use runtime-injected credentials, the required environment and a distinct published HTTP port. Inspect A's container identity, State, available Health and logs; verify readiness and the bounded JSON prediction/version fixture before stopping and removing only B. Do not retrain or change model identity.

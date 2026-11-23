@@ -1,0 +1,129 @@
+PRACTICE {
+  "type": "live_code",
+  "objective": "Implement one provider's webhook authenticity check using await request.body(), the supplied signature header, the endpoint signing secret, and the provider-supported verification library.",
+  "success": "A valid signed delivery reaches event processing. The same delivery with modified body bytes, and a delivery without a signature, are rejected before processing with responses that expose neither the secret nor verification internals.",
+  "live_code": {
+    "required_skill": "Verify the original request bytes before parsing or processing, using the provider's supported signing contract, and test the acceptance and rejection paths.",
+    "allowed_syntax": [
+      "async def and await",
+      "await request.body()",
+      "request.headers.get(...)",
+      "Variable assignment",
+      "if statements and return",
+      "try and except for documented provider verification exceptions",
+      "raise HTTPException with a generic public detail",
+      "Calls to the supplied provider-supported verification library",
+      "Calls to the supplied event-processing function after verification",
+      "String and bytes literals",
+      "TestClient requests with content and headers",
+      "assert statements"
+    ],
+    "blocked_syntax": [
+      "Delivery-ID persistence and duplicate-delivery checks",
+      "Custom timestamp-age acceptance checks",
+      "Automatic retry loops",
+      "Permission or scope enforcement",
+      "Object-ownership authorization checks"
+    ],
+    "starter_state_intent": "Provide an async webhook handler, validated endpoint signing-secret configuration, one provider's installed verification library and documented signature header, a supplied event-processing recorder, and a valid signed raw-body fixture. Leave the verification gate and the three delivery tests incomplete.",
+    "observable_success": "Tests submit the valid fixture unchanged, submit modified bytes with its original signature, and omit the signature. Only the unchanged signed delivery invokes the processing recorder; both rejected deliveries return generic failures without sensitive details."
+  }
+}
+SOLUTION
+#!/usr/bin/env bash
+set -euo pipefail
+# Requires the supplied native workspace dependencies and any provisioned service.
+cat > 'starter.py' <<'DEVSPACE_FILE_0'
+from fastapi import HTTPException
+import stripe
+async def webhook(request, signing_secret, publisher_verifier, signature_header, process_event):
+    raw_body = await request.body()
+    signature = request.headers.get(signature_header)
+    if not signature:
+        raise HTTPException(status_code=400, detail='Invalid signature')
+    try:
+        event = publisher_verifier(raw_body, signature, signing_secret)
+    except (ValueError, stripe.error.SignatureVerificationError):
+        raise HTTPException(status_code=400, detail='Invalid signature') from None
+    process_event(event)
+    return {'received': True}
+DEVSPACE_FILE_0
+cat > 'test_delivery.py' <<'DEVSPACE_FILE_1'
+from scaffold import client, config, raw_body, processed_events
+import pytest
+@pytest.fixture(autouse=True)
+def clear_recorder():
+    processed_events.clear()
+@pytest.mark.parametrize('condition', ['valid', 'modified', 'absent'])
+def test_delivery(condition):
+    body = raw_body if condition != 'modified' else raw_body + b' '
+    headers = {} if condition == 'absent' else {config['signature_header']: config['signature']}
+    with client() as http:
+        response = http.post('/webhook', content=body, headers=headers)
+        if condition == 'valid':
+            assert response.status_code == 200
+            assert response.json() == {'received': True}
+            assert len(processed_events) == 1
+        else:
+            assert response.status_code == 400
+            assert response.json() == {'detail': 'Invalid signature'}
+            assert processed_events == []
+DEVSPACE_FILE_1
+python -m pytest -q test_delivery.py
+
+
+FILE starter.py
+from fastapi import HTTPException
+import stripe
+async def webhook(request, signing_secret, publisher_verifier, signature_header, process_event):
+    raw_body = await request.body()
+    # TODO: obtain request.headers.get(signature_header), verify raw_body with
+    # publisher_verifier(raw_body, signature, signing_secret), reject absent or
+    # invalid signatures with 400 {"detail":"Invalid signature"}; catch
+    # ValueError and stripe.error.SignatureVerificationError without disclosure.
+    # Process only the verified event, then return {"received": True}.
+    raise NotImplementedError('Complete verification gate')
+
+FILE fixtures.json
+{}
+
+FILE scaffold.py
+import json
+from pathlib import Path
+import stripe
+from fastapi import FastAPI, Request
+from fastapi.testclient import TestClient
+from starter import webhook
+config = json.loads(Path('test_config.json').read_text())
+raw_body = Path('signed_body.json').read_bytes()
+processed_events = []
+def process_event(event):
+    processed_events.append(event)
+# Test-only snapshot: Stripe SDK still verifies the signature. Suppress age
+# expiry of a stored teaching fixture; do not use tolerance=0 in deployment.
+def publisher_verifier(raw, signature, signing_secret):
+    return stripe.Webhook.construct_event(raw, signature, signing_secret, tolerance=0)
+# Fail during setup if the supplied fixture is not actually SDK-verifiable.
+publisher_verifier(raw_body, config['signature'], config['endpoint_signing_secret'])
+app = FastAPI()
+@app.post('/webhook')
+async def endpoint(request: Request):
+    return await webhook(request, config['endpoint_signing_secret'],
+                         publisher_verifier, config['signature_header'], process_event)
+def client():
+    return TestClient(app)
+
+FILE test_delivery.py
+from scaffold import client, config, raw_body, processed_events
+import pytest
+@pytest.fixture(autouse=True)
+def clear_recorder():
+    processed_events.clear()
+@pytest.mark.parametrize('condition', ['valid', 'modified', 'absent'])
+def test_delivery(condition):
+    body = raw_body if condition != 'modified' else raw_body + b' '
+    headers = {} if condition == 'absent' else {config['signature_header']: config['signature']}
+    with client() as http:
+        # TODO: http.post('/webhook', content=body, headers=headers).
+        # Assert exact status/body and recorder length (one only for valid).
+        raise NotImplementedError('Complete this delivery test')

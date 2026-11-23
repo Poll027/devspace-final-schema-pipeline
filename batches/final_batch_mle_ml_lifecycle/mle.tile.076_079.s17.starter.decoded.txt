@@ -1,0 +1,119 @@
+import copy, json, math, hashlib, io
+import yaml
+
+recovery_outputs = list(declared_outputs)
+configured_build = {'steps': [{'id': 'recovery', 'name': 'python:3.11', 'args': ['python', 'learner.py', '${_CASE}'], 'waitFor': ['-']}, {'id': 'required_validation', 'name': 'python:3.11', 'args': ['python', 'learner.py', '${_CASE}'], 'waitFor': []}, {'id': 'promotion', 'name': 'python:3.11', 'args': ['python', 'downstream_entry.py', '${_ARTIFACT}'], 'waitFor': []}], 'substitutions': {'_SNAPSHOT': 'valid', '_CASE': 'accepted', '_ARTIFACT': 'A'}, 'serviceAccount': 'projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com'}
+configured_build["steps"][1]["waitFor"] = ['recovery']
+configured_build["steps"][2]["waitFor"] = ['required_validation']
+
+def verify_output(blob, state, row):
+    blob.reload()
+    data=blob.download_as_bytes(if_generation_match=blob.generation)
+    state["validations"]+=1
+    if hashlib.sha256(data).hexdigest()!=artifact_records[blob.name]["sha256"]:
+        raise ValueError("content conflict")
+    if blob.name in row["invalid_outputs"] or not artifact_records[blob.name]["validation_ok"]:
+        raise ValueError("validation failed")
+
+def recovery(state, row, inject_failure=False):
+    # Only the named recoverable failure is caught here. Other exceptions propagate.
+    if inject_failure:
+        try:
+            a=Blob("A",state)
+            if not a.exists(): a.upload_from_filename("outputs/A.txt",if_generation_match=0)
+            if row["exception"]=="RecoverableFailure":
+                raise RecoverableFailure("after A upload before B")
+            if row["exception"] is not None:
+                raise RuntimeError(row["exception"])
+        except RecoverableFailure as failure:
+            state["failure_recorded"]=type(failure).__name__
+    for name in recovery_outputs:
+        blob=Blob(name,state)
+        if blob.exists():
+            verify_output(blob,state,row)
+        else:
+            try:
+                blob.upload_from_filename("outputs/"+name+".txt",if_generation_match=0)
+            except PreconditionFailed:
+                verify_output(blob,state,row)
+            else:
+                verify_output(blob,state,row)
+    return {"ok":set(recovery_outputs)==set(declared_outputs)}
+
+def recover(row):
+    # Fixture runner retains one state across TWO distinct recovery invocations.
+    state={"objects":{},"race":list(row["race_outputs"]),"uploads":{name:0 for name in declared_outputs},"validations":0,"failure_recorded":None}
+    for name in row["initial_outputs"]:
+        Blob(name,state).upload_from_filename("outputs/"+name+".txt",if_generation_match=0)
+        if name in row.get("conflicting_outputs",[]): state["objects"][name]["bytes"]=b"conflicting content"
+    before={k:v["generation"] for k,v in state["objects"].items()}
+    before_hashes={k:hashlib.sha256(v["bytes"]).hexdigest() for k,v in state["objects"].items()}
+    reason=None
+    try:
+        first=recovery(state,row,True)
+        after_first={k:v["generation"] for k,v in state["objects"].items()}
+        counts_first=dict(state["uploads"]); validations_first=state["validations"]
+        second=recovery(state,row)
+        after={k:v["generation"] for k,v in state["objects"].items()}
+        unchanged=after_first==after and counts_first==state["uploads"]
+        assert unchanged and state["validations"]>validations_first
+        assert all(after[k]==generation for k,generation in before.items())
+        assert all(hashlib.sha256(state["objects"][k]["bytes"]).hexdigest()==value for k,value in before_hashes.items())
+        retry={"ok":first["ok"] and second["ok"]}
+    except RuntimeError as failure:
+        reason="unrelated failure"; retry={"ok":False}
+        state["failure_recorded"]=str(failure)
+    except ValueError as failure:
+        reason=str(failure); retry={"ok":False}
+    event={"event_type":"artifact_ready","case_id":"retained","artifact_id":"A"}
+    execution=execute(configured_build,trigger,event,{
+        "recovery":lambda bindings:retry,
+        "required_validation":lambda bindings:{"ok":row["gate_ok"],"required_gate_executed":True},
+        "promotion":lambda bindings:{"ok":True}})
+    stages={s["id"]:s for s in execution["steps"]}
+    retry_status=stages["recovery"]["status"]
+    downstream_status=stages["required_validation"]["status"]
+    if reason is not None:
+        result={"ok":False,"reason":reason,"before":before,"uploads":state["uploads"],"downstream_status":downstream_status}
+        if reason=="unrelated failure": result["failure_recorded"]=state["failure_recorded"]
+        return result
+    ok=stages["promotion"]["status"]=="SUCCESS" and downstream_status=="SUCCESS" and retry_status=="SUCCESS"
+    return {"ok":ok,"reason":None if ok else "required gate rejected","failure_recorded":state["failure_recorded"],"before":before,"after":after,"hashes":{k:hashlib.sha256(v["bytes"]).hexdigest() for k,v in state["objects"].items()},"uploads":state["uploads"],"validation_count":state["validations"],"retry_status":retry_status,"downstream_status":downstream_status,"second_call_unchanged":unchanged}
+
+def recovery_run():
+    with open("configured_build.yaml", "w") as file_handle:
+        yaml.safe_dump(configured_build, file_handle)
+    with open("configured_build.yaml") as file_handle:
+        resolved = yaml.safe_load(file_handle)
+    assert resolved == configured_build
+    assert resolved["steps"][0]["id"] == 'recovery'
+    assert resolved["steps"][0]["name"] == 'python:3.11'
+    assert resolved["steps"][0]["args"] == ['python', 'learner.py', '${_CASE}']
+    assert resolved["steps"][0]["waitFor"] == ['-']
+    assert resolved["steps"][1]["id"] == 'required_validation'
+    assert resolved["steps"][1]["name"] == 'python:3.11'
+    assert resolved["steps"][1]["args"] == ['python', 'learner.py', '${_CASE}']
+    assert resolved["steps"][1]["waitFor"] == ['recovery']
+    assert resolved["steps"][2]["id"] == 'promotion'
+    assert resolved["steps"][2]["name"] == 'python:3.11'
+    assert resolved["steps"][2]["args"] == ['python', 'downstream_entry.py', '${_ARTIFACT}']
+    assert resolved["steps"][2]["waitFor"] == ['required_validation']
+    for step in resolved["steps"]:
+        assert not step.get("allowFailure")
+        assert all(code == 0 for code in step.get("allowExitCodes", []))
+    evidence={k:recover(v) for k,v in cases.items()}
+    def action(b):
+        rec=recover(cases.get(b["_CASE"],cases["unrelated_failure"]))
+        rec["ok"]=rec["ok"] or rec.get("reason")=="required gate rejected"
+        return rec
+    def validation(b):
+        row=cases.get(b["_CASE"],cases["unrelated_failure"])
+        return {"ok":row["gate_ok"],"resolved_artifact":b["_ARTIFACT"],"required_gate_executed":True}
+    runs=[execute(resolved,trigger,e,{"recovery":action,"required_validation":validation}) for e in trigger["fixtures"]]
+    assert evidence["accepted"]["ok"] and evidence["boundary_completed"]["ok"] and evidence["race_412"]["ok"]
+    for k in ("invalid_existing","conflicting_content","rejected_gate","unrelated_failure"):assert not evidence[k]["ok"]
+    assert evidence["accepted"]["failure_recorded"]=="RecoverableFailure"
+    assert evidence["race_412"]["second_call_unchanged"]
+    assert runs[1]["steps"][-1]["status"]=="NOT_STARTED"
+    return {"cases":evidence,"config":resolved,"runs":runs}
+

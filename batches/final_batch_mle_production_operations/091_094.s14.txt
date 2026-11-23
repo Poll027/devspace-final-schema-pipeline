@@ -1,0 +1,60 @@
+Complete only dump_operation=safe_dump_method and load_operation=safe_load_method, the supplied yaml.safe_dump/yaml.safe_load references. The visible supplied workflow adapter writes and inspects budget.yaml using your bound safe serialization functions; unsafe object constructors are forbidden. Do not change the adapter. This narrows learner work to supported syntax; wider replay/admission behavior is supplied, not independently implemented by the learner.  Supplied workflow specification (context only, not additional learner edits): Import yaml and author config with the eight policy response fields workload_scope,budget_amount,period,threshold_ratio,notification_topic,response_pipeline,INSTANCE,ZONE plus authorized_identity and secret_version_reference (reference only, never its value). Safely write budget.yaml and reload it into resolved. The supplied fixture-only driver inspects resolved fields before application and records below/boundary/breach notifications, only the fixed authorized stop, same-target before/after states, credential review and notification-lag limitation. Complete only the configuration; provisioning or other targets are forbidden.
+
+if True:
+    import csv, json
+    from datetime import datetime, timedelta
+
+    def load(path):
+        with open(path) as f:
+            data = list(csv.DictReader(f))
+        for r in data:
+            for k,v in r.items():
+                if v == 'True': r[k] = True
+                elif v == 'False': r[k] = False
+        return data
+
+    def number(v):
+        return float(v)
+    policy = {'workload_scope': 'order-lab', 'budget_amount': 100, 'period': 'monthly', 'threshold_ratio': 0.8, 'predicate': 'observed_spend>=budget_amount*threshold_ratio', 'notification_topic': 'lab-budget-events', 'response_pipeline': 'lab-safe-stop', 'INSTANCE': 'inference-lab', 'ZONE': 'lab-zone-a', 'authorized_identity': 'lab.operator', 'secret_version_reference': 'projects/order-lab/secrets/budget-client/versions/1', 'residual_limitation': 'Notifications can lag usage and do not enforce a hard spending cap.'}
+    budget_rows=load('budget_replay.csv')
+    # Fixture-only platform application/replay. It checks fixed target and resolved fields,
+    # emits notifications, and changes simulator state only (never a cloud resource).
+    def apply_replay(resolved):
+        for field in ['workload_scope','budget_amount','period','threshold_ratio','notification_topic','response_pipeline','INSTANCE','ZONE']:
+            if resolved[field]!=policy[field]:raise ValueError('configuration binding mismatch')
+        result=[]
+        for r in budget_rows:
+            breach=number(r['observed_spend'])>=resolved['budget_amount']*resolved['threshold_ratio']
+            before={'INSTANCE':r['INSTANCE'],'ZONE':r['ZONE'],'state':'RUNNING'}
+            after={**before,'state':'TERMINATED' if breach else 'RUNNING'}
+            result.append({'fixture':r['fixture'],'spend':number(r['observed_spend']),'notification':resolved['notification_topic'] if breach else None,'response':resolved['response_pipeline'] if breach else None,'command':'gcloud compute instances stop '+resolved['INSTANCE']+' --zone='+resolved['ZONE'] if breach else None,'before':before,'after':after,'credential_review_pass':True})
+        return {'config':resolved,'replays':result,'limitation':policy['residual_limitation']}
+
+    import yaml
+    safe_dump_method=yaml.safe_dump
+    safe_load_method=yaml.safe_load
+
+dump_operation = safe_dump_method
+load_operation = safe_load_method
+
+if True:
+
+    import yaml
+    config = {'workload_scope':policy['workload_scope'], 'budget_amount':policy['budget_amount'], 'period':policy['period'], 'threshold_ratio':policy['threshold_ratio'], 'notification_topic':policy['notification_topic'], 'response_pipeline':policy['response_pipeline'], 'INSTANCE':policy['INSTANCE'], 'ZONE':policy['ZONE'], 'authorized_identity':policy['authorized_identity'], 'secret_version_reference':policy['secret_version_reference']}
+    with open('budget.yaml','w') as file_handle:
+        dump_operation(config,file_handle)
+    with open('budget.yaml') as file_handle:
+        resolved = load_operation(file_handle)
+
+    # Existing platform driver inspects before applying and captures actual simulator state.
+    report = apply_replay(resolved)
+
+    def plain(v):
+        if isinstance(v,dict):return {k:plain(x) for k,x in v.items()}
+        if isinstance(v,list):return [plain(x) for x in v]
+        if hasattr(v,'tolist'):return v.tolist()
+        return v
+    report=plain(report)
+
+CONSTRAINTS
+{'allowed_syntax': ['import yaml', 'Python dictionary and list literals', 'String and numeric literals', 'Variable assignment', 'Dictionary-key and list-index access', 'with open(...) as file_handle', 'yaml.safe_dump(config, file_handle)', 'yaml.safe_load(file_handle)', 'gcloud compute instances describe INSTANCE --zone=ZONE', 'gcloud compute instances stop INSTANCE --zone=ZONE', 'Supplied event-response YAML fields for budget scope, amount, reporting period, thresholds, existing Pub/Sub topic, event binding and fixed target', 'Supplied runtime Secret Manager references and secretEnv configuration'], 'blocked_syntax': ['gcloud compute instances delete', 'gcloud compute instance-groups managed delete', 'Wildcard or dynamically enumerated resource targets', 'yaml.load with an unsafe loader', 'YAML tags that construct arbitrary Python objects', 'Literal credentials in configuration or command arguments']}

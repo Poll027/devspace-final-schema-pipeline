@@ -1,0 +1,436 @@
+{
+  "step_id": "tile_058.s01",
+  "type": "explainer",
+  "concept_ids": [
+    "observability.verified_request_metrics"
+  ],
+  "title": "Instrument the boundary and verify it",
+  "blocks": [
+    {
+      "type": "prose",
+      "text": "Use maintained instrumentation around the application boundary for request counters, response counters and a duration histogram. Handlers need not each implement their own metrics; an exposed metrics endpoint alone does not verify the wiring.",
+      "role": "mechanism"
+    },
+    {
+      "type": "prose",
+      "text": "Import PrometheusMiddleware and metrics from starlette_prometheus. Register app.add_middleware(PrometheusMiddleware, filter_unhandled_paths=True), then app.add_route(\"/metrics/\", metrics). Use bounded nonsensitive labels such as method, matched route template and response status. Filtering unmatched paths avoids unlimited series from arbitrary requested paths.",
+      "role": "mechanism"
+    },
+    {
+      "type": "prose",
+      "text": "Send controlled successful, expected-error and delayed requests. Compare request and response counter changes and completed-response duration observations with those requests. This middleware updates its response counter even for a raised exception, but observes processing time only when the inner application returns a response.",
+      "role": "mechanism"
+    },
+    {
+      "type": "side_by_side",
+      "left": {
+        "type": "code_walkthrough",
+        "language": "python",
+        "code": "from fixture import app, CASES\nfrom starlette_prometheus import PrometheusMiddleware, metrics\n\napp.add_middleware(PrometheusMiddleware, filter_unhandled_paths=True)\napp.add_route(\"/metrics/\", metrics)\n",
+        "reveal": "all"
+      },
+      "right": {
+        "type": "code_walkthrough",
+        "language": "python",
+        "code": "from fixture import app, CASES\nfrom httpx import AsyncClient, ASGITransport\nfrom prometheus_client.parser import text_string_to_metric_families\nfrom starlette_prometheus.middleware import (\n    REQUESTS, RESPONSES, REQUESTS_PROCESSING_TIME,\n)\n\nMETRICS = (REQUESTS._name + \"_total\", RESPONSES._name + \"_total\",\n           REQUESTS_PROCESSING_TIME._name + \"_count\",\n           REQUESTS_PROCESSING_TIME._name + \"_sum\")\n\nasync def snapshot(client, route):\n    text = (await client.get(\"/metrics/\")).text\n    values = {}\n    for family in text_string_to_metric_families(text):\n        for sample in family.samples:\n            if (sample.labels.get(\"path_template\") == route\n                    and sample.labels.get(\"method\") == \"GET\"\n                    and sample.name in METRICS):\n                key = (sample.name, tuple(sorted(sample.labels.items())))\n                values[key] = sample.value\n    return values\n\nasync def evidence():\n    transport = ASGITransport(app=app, raise_app_exceptions=False)\n    rows = []\n    async with app.router.lifespan_context(app):\n        async with AsyncClient(transport=transport, base_url=\"http://testserver\") as client:\n            for case in CASES:\n                route = case[\"route_template\"]\n                before = await snapshot(client, route)\n                response = await client.request(case[\"method\"], route)\n                after = await snapshot(client, route)\n                keys = sorted(set(before) | set(after))\n                rows.append({\"case\": case, \"actual_status\": response.status_code,\n                    \"samples\": [{\"metric\": key[0], \"labels\": dict(key[1]),\n                        \"before\": before.get(key, 0), \"after\": after.get(key, 0),\n                        \"change\": after.get(key, 0) - before.get(key, 0)} for key in keys]})\n    return rows\n",
+        "reveal": "all",
+        "annotations": [
+          {
+            "start_line": 1,
+            "end_line": 39,
+            "text": "Offline execution on cw.observability.verified_request_metrics: fixture.py and the left-hand registration; corrected path_template/GET filtering isolates controlled routes. Missing series are shown explicitly."
+          }
+        ],
+        "output": {
+          "kind": "text",
+          "text": "success: GET /success | status 200 | configured delay 0 s | returns response: True\nmetric | labels | before | after | change\nstarlette_requests_total | {\"method\": \"GET\", \"path_template\": \"/success\"} | 0 | 1 | 1\nstarlette_responses_total | {\"method\": \"GET\", \"path_template\": \"/success\", \"status_code\": \"200\"} | 0 | 1 | 1\nstarlette_requests_processing_time_seconds_count | {\"method\": \"GET\", \"path_template\": \"/success\"} | 0 | 1 | 1\nstarlette_requests_processing_time_seconds_sum | {\"method\": \"GET\", \"path_template\": \"/success\"} | 0 | 0.008749171 | 0.008749171\n\nexpected_error: GET /expected-error | status 400 | configured delay 0 s | returns response: True\nmetric | labels | before | after | change\nstarlette_requests_total | {\"method\": \"GET\", \"path_template\": \"/expected-error\"} | 0 | 1 | 1\nstarlette_responses_total | {\"method\": \"GET\", \"path_template\": \"/expected-error\", \"status_code\": \"400\"} | 0 | 1 | 1\nstarlette_requests_processing_time_seconds_count | {\"method\": \"GET\", \"path_template\": \"/expected-error\"} | 0 | 1 | 1\nstarlette_requests_processing_time_seconds_sum | {\"method\": \"GET\", \"path_template\": \"/expected-error\"} | 0 | 0.00058257 | 0.00058257\n\ndelayed: GET /delayed | status 200 | configured delay 0.05 s | returns response: True\nmetric | labels | before | after | change\nstarlette_requests_total | {\"method\": \"GET\", \"path_template\": \"/delayed\"} | 0 | 1 | 1\nstarlette_responses_total | {\"method\": \"GET\", \"path_template\": \"/delayed\", \"status_code\": \"200\"} | 0 | 1 | 1\nstarlette_requests_processing_time_seconds_count | {\"method\": \"GET\", \"path_template\": \"/delayed\"} | 0 | 1 | 1\nstarlette_requests_processing_time_seconds_sum | {\"method\": \"GET\", \"path_template\": \"/delayed\"} | 0 | 0.051487407 | 0.051487407\n\nescaping_exception: GET /escaping-exception | status 500 | configured delay 0 s | returns response: False\nmetric | labels | before | after | change\nstarlette_requests_total | {\"method\": \"GET\", \"path_template\": \"/escaping-exception\"} | 0 | 1 | 1\nstarlette_responses_total | {\"method\": \"GET\", \"path_template\": \"/escaping-exception\", \"status_code\": \"500\"} | 0 | 1 | 1\nstarlette_requests_processing_time_seconds_count | {\"method\": \"GET\", \"path_template\": \"/escaping-exception\"} (absen [TRUNCATED]"
+        }
+      },
+      "left_label": "Configure and send known requests",
+      "right_label": "Observe matched-route changes",
+      "takeaway": "Compare returned responses with an escaping exception; counting and duration observation differ."
+    }
+  ]
+}
+{
+  "step_id": "tile_058.s02",
+  "type": "explainer",
+  "concept_ids": [
+    "observability.verified_request_metrics"
+  ],
+  "title": "A response count is not a duration observation",
+  "blocks": [
+    {
+      "type": "prose",
+      "text": "The registered fixture separates success, expected-error, delayed response and escaping-exception cases. Compare before/after samples for each matched route, rather than mixing them with metrics-view requests. The maintained counters and duration histogram should be checked against these controlled events, not assumed correct because /metrics/ exists.",
+      "role": "mechanism"
+    },
+    {
+      "type": "prose",
+      "text": "An expected-error response still returns a response. An escaping exception differs: this middleware updates its response counter but has no normal processing-time observation for that exception. Counts and completed-response durations therefore need not cover identical cases.",
+      "role": "mechanism"
+    }
+  ]
+}
+{
+  "step_id": "tile_058.s03",
+  "type": "check",
+  "concept_ids": [
+    "observability.verified_request_metrics"
+  ],
+  "title": "Compare measurement boundaries",
+  "interaction": {
+    "type": "choice",
+    "interaction_id": "ix.tile_058.s03",
+    "difficulty": "intro",
+    "grading_mode": "client",
+    "standalone": true,
+    "measures": [
+      {
+        "concept_id": "observability.verified_request_metrics",
+        "fact_ids": [
+          "f5"
+        ],
+        "capability": "distinguish_response_counting_from_duration_observation"
+      }
+    ],
+    "anchors": [
+      "observability.verified_request_metrics#assessment:distinguish_response_counting_from_duration_observation"
+    ],
+    "feedback": {
+      "correct": {
+        "message": "The counter and histogram have different boundaries for an escaping exception."
+      },
+      "incorrect": {
+        "message": "Revisit the stated boundary and compare it with the supplied case."
+      },
+      "hints": [
+        "Filter snapshots to the exercised route and distinguish returned responses from escaping exceptions"
+      ],
+      "remediation_step_id": "tile_058.r01"
+    },
+    "public": {
+      "prompt": "For the selected PrometheusMiddleware, an exception escapes the inner application rather than returning a response. Which boundary interpretation is correct?",
+      "options": [
+        {
+          "option_id": "o1",
+          "text": "The response counter updates, but no normal processing-time histogram observation is added."
+        },
+        {
+          "option_id": "o2",
+          "text": "Neither response counting nor duration observation occurs."
+        },
+        {
+          "option_id": "o3",
+          "text": "Both update as for a normally returned response."
+        }
+      ],
+      "selection": "single",
+      "shuffle": true
+    },
+    "grading": {
+      "correct_option_ids": [
+        "o1"
+      ],
+      "option_feedback": {
+        "o1": {
+          "message": "The counter and histogram have different boundaries for an escaping exception."
+        },
+        "o2": {
+          "message": "The response counter is updated even for a raised exception."
+        },
+        "o3": {
+          "message": "The histogram is observed only when the inner application returns a response."
+        }
+      }
+    }
+  }
+}
+{
+  "step_id": "tile_058.s04",
+  "type": "hands_on",
+  "concept_ids": [
+    "observability.verified_request_metrics"
+  ],
+  "title": "Verify controlled request metrics",
+  "interaction": {
+    "type": "code_exercise",
+    "interaction_id": "ix.tile_058.s04",
+    "difficulty": "stretch",
+    "grading_mode": "client",
+    "standalone": true,
+    "measures": [
+      {
+        "concept_id": "observability.verified_request_metrics",
+        "fact_ids": [
+          "f1",
+          "f2"
+        ],
+        "capability": "verify_application_boundary_instrumentation"
+      },
+      {
+        "concept_id": "observability.verified_request_metrics",
+        "fact_ids": [
+          "f3"
+        ],
+        "capability": "verify_bounded_nonsensitive_metric_labels"
+      },
+      {
+        "concept_id": "observability.verified_request_metrics",
+        "fact_ids": [
+          "f4"
+        ],
+        "capability": "verify_counters_and_durations_against_controlled_requests"
+      },
+      {
+        "concept_id": "observability.verified_request_metrics",
+        "fact_ids": [
+          "f5"
+        ],
+        "capability": "distinguish_response_counting_from_duration_observation"
+      }
+    ],
+    "anchors": [
+      "observability.verified_request_metrics#practice",
+      "observability.verified_request_metrics#assessment:verify_application_boundary_instrumentation",
+      "observability.verified_request_metrics#assessment:verify_bounded_nonsensitive_metric_labels",
+      "observability.verified_request_metrics#assessment:verify_counters_and_durations_against_controlled_requests",
+      "observability.verified_request_metrics#assessment:distinguish_response_counting_from_duration_observation"
+    ],
+    "feedback": {
+      "correct": {
+        "message": "The completed verification matches the supplied cases and preserves the contract."
+      },
+      "incorrect": {
+        "message": "Revisit the stated boundary and compare it with the supplied case."
+      },
+      "hints": [
+        "Filter snapshots to the exercised route and distinguish returned responses from escaping exceptions"
+      ],
+      "remediation_step_id": "tile_058.r02"
+    },
+    "public": {
+      "prompt": "Use PrometheusMiddleware and metrics from starlette_prometheus. Register app.add_middleware(PrometheusMiddleware, filter_unhandled_paths=True) and expose app.add_route('/metrics/', metrics). Preserve the supplied handlers. Run the supplied checks against successful, expected-error, delayed and escaping-exception requests, isolating each exercised route from metrics-view traffic. Compare per-route request/response counter deltas and completed-response histogram count deltas: one count for each returned response, none for the escaping exception; verify the delayed duration reflects the controlled sleep and labels are bounded and nonsensitive. Keep the supplied read-only verification scaffold unchanged.",
+      "runtime": {
+        "kind": "python_asgi",
+        "version": "0.29.5",
+        "packages": [
+          "fastapi",
+          "httpx",
+          "starlette"
+        ]
+      },
+      "workspace": {
+        "entry": "main.py",
+        "files": [
+          {
+            "path": "main.py",
+            "role": "editable",
+            "language": "python",
+            "content": "import asyncio\nfrom fastapi import FastAPI, HTTPException\n\nCASES = [{'case': 'success', 'method': 'GET', 'route_template': '/success', 'response_status': 200, 'configured_delay_seconds': 0, 'returns_response': True}, {'case': 'expected_error', 'method': 'GET', 'route_template': '/expected-error', 'response_status': 400, 'configured_delay_seconds': 0, 'returns_response': True}, {'case': 'delayed', 'method': 'GET', 'route_template': '/delayed', 'response_status': 200, 'configured_delay_seconds': 0.05, 'returns_response': True}, {'case': 'escaping_exception', 'method': 'GET', 'route_template': '/escaping-exception', 'response_status': 500, 'configured_delay_seconds': 0, 'returns_response': False}]\n\napp = FastAPI()\n\n@app.get(\"/success\")\nasync def success():\n    return {\"case\": \"success\"}\n\n@app.get(\"/expected-error\")\nasync def expected_error():\n    raise HTTPException(status_code=CASES[1][\"response_status\"], detail=\"synthetic expected error\")\n\n@app.get(\"/delayed\")\nasync def delayed():\n    await asyncio.sleep(CASES[2][\"configured_delay_seconds\"])\n    return {\"case\": \"delayed\"}\n\n@app.get(\"/escaping-exception\")\nasync def escaping_exception():\n    raise RuntimeError(\"synthetic escaping exception\")\n\nimport httpx\n\n\n# Read-only runtime provisioning: original PyPI wheels, extracted in the workspace.\ndef _provision_instrumentation():\n    \"\"\"Read-only async sandbox scaffold.\"\"\"\n    import base64, io, zipfile\n    for encoded_wheel in ['UEsDBBQAAAAIABpzwlo2SondoQIAABcHAAAdAAAAcHJvbWV0aGV1c19jbGllbnQvX19pbml0X18ucHl1VE1vnDAQvfMrXPUAKyGSXNqqUg4RokmkJBvtcomqyvLCLFgBG9kmm/z7GvyxfCScPG/ejMczb/j+7aKX4uJA2QWwN9R9qJqzIDgK3qIE0bbjQqEoQPqD945LqihnMaoKXPCmgUJxEaMWlKCF9AftExCjriHqyEU7oY6JOsELkHKaQUBFpRIfcbCxd59vm1eRbp/y7CnH+ctzhh9u8myfx6iEBhTgIRJXRMGJfOgagYHQBtZlgFTmbsqkIqwATDtcCd53lFX4FTS9Ja+AiawoJl1nzZM3H83L7ggrG3Dv6GWNFT/fOACkLGeYvk4oXCvVYQniTcdaaMxtoTHdSVBdrI5V8K6OtIFzM6btdu24TXG6fXjI0ny7i7WVOoKNsbNYdI/3TA01lFSSQwO4EKArLbEfIbDP8Yz1rb6G9BWYcu/0wHgliEbv2ZHHaN+3LZmOcKoGV4bpoyWsBeJoz3qyf7a7x+kTny17+dCVnHyS3TbN9vtZDsNdpnDyc5Hev3O6RLvs9n6f716CAGPSNBija9vTcMUOTYdCF+Ns83hn2Vk4c2ytM2wvnel77YCh4+48TMadP5+e834xdF/QerWca7FL8we5rXDobHVmIFmAq+WYOyYr4hyrJXGOxTJO4flK+mas/xnO9dVPwvmXKvL4UnDesZSud6x07uWQ [TRUNCATED]"
+          }
+        ],
+        "asset_mounts": []
+      }
+    },
+    "grading": {
+      "solution_files": [
+        {
+          "path": "main.py",
+          "content": "import asyncio\nfrom fastapi import FastAPI, HTTPException\n\nCASES = [{'case': 'success', 'method': 'GET', 'route_template': '/success', 'response_status': 200, 'configured_delay_seconds': 0, 'returns_response': True}, {'case': 'expected_error', 'method': 'GET', 'route_template': '/expected-error', 'response_status': 400, 'configured_delay_seconds': 0, 'returns_response': True}, {'case': 'delayed', 'method': 'GET', 'route_template': '/delayed', 'response_status': 200, 'configured_delay_seconds': 0.05, 'returns_response': True}, {'case': 'escaping_exception', 'method': 'GET', 'route_template': '/escaping-exception', 'response_status': 500, 'configured_delay_seconds': 0, 'returns_response': False}]\n\napp = FastAPI()\n\n@app.get(\"/success\")\nasync def success():\n    \"\"\"Read-only async sandbox scaffold.\"\"\"\n    return {\"case\": \"success\"}\n\n@app.get(\"/expected-error\")\nasync def expected_error():\n    \"\"\"Read-only async sandbox scaffold.\"\"\"\n    raise HTTPException(status_code=CASES[1][\"response_status\"], detail=\"synthetic expected error\")\n\n@app.get(\"/delayed\")\nasync def delayed():\n    \"\"\"Read-only async sandbox scaffold.\"\"\"\n    await asyncio.sleep(CASES[2][\"configured_delay_seconds\"])\n    return {\"case\": \"delayed\"}\n\n@app.get(\"/escaping-exception\")\nasync def escaping_exception():\n    \"\"\"Read-only async sandbox scaffold.\"\"\"\n    raise RuntimeError(\"synthetic escaping exception\")\n\nimport httpx\n\n\n# Read-only runtime provisioning: original PyPI wheels, extracted in the workspace.\ndef _provision_instrumentation():\n    \"\"\"Read-only async sandbox scaffold.\"\"\"\n    import base64, io, zipfile\n    for encoded_wheel in ['UEsDBBQAAAAIABpzwlo2SondoQIAABcHAAAdAAAAcHJvbWV0aGV1c19jbGllbnQvX19pbml0X18ucHl1VE1vnDAQvfMrXPUAKyGSXNqqUg4RokmkJBvtcomqyvLCLFgBG9kmm/z7GvyxfCScPG/ejMczb/j+7aKX4uJA2QWwN9R9qJqzIDgK3qIE0bbjQqEoQPqD945LqihnMaoKXPCmgUJxEaMWlKCF9AftExCjriHqyEU7oY6JOsELkHKaQUBFpRIfcbCxd59vm1eRbp/y7CnH+ctzhh9u8myfx6iEBhTgIRJXRMGJfOgagYHQBtZlgFTmbsqkIqwATDtcCd53lFX4FTS9Ja+AiawoJl1nzZM3H83L7ggrG3Dv6GWNFT/fOACkLGeYvk4oXCvVYQniTcdaaMxtoTHdSVBdrI5V8K6OtIFzM6btdu24TXG6fXjI0ny7i7WVOoKNsbNYdI/3TA01lFSSQwO4EKArLbEfIbDP8Yz1rb6G9BWYcu/0wHgliEbv2ZHHaN+3LZmOcKoGV4bpoyWsBeJoz3qyf7a7x+kTny17+dCVnHyS3TbN9vtZDsNd [TRUNCATED]"
+        }
+      ],
+      "tests": [
+        {
+          "test_id": "t1",
+          "kind": "http_equals",
+          "spec": {
+            "requests": [
+              {
+                "method": "GET",
+                "path": "/_probe",
+                "params": {
+                  "route": "/success"
+                }
+              }
+            ],
+            "expected": {
+              "status": 200,
+              "json": {
+                "route": "/success",
+                "status": 200,
+                "request_delta": 1,
+                "response_delta": 1,
+                "duration_count": 1
+              }
+            }
+          },
+          "message_on_fail": "Compare this case with the supplied contract and complete the verification without changing fixture behavior."
+        },
+        {
+          "test_id": "t2",
+          "kind": "http_equals",
+          "spec": {
+            "requests": [
+              {
+                "method": "GET",
+                "path": "/_probe",
+                "params": {
+                  "route": "/expected-error"
+                }
+              }
+            ],
+            "expected": {
+              "status": 200,
+              "json": {
+                "route": "/expected-error",
+                "status": 400,
+                "request_delta": 1,
+                "response_delta": 1,
+                "duration_count": 1
+              }
+            }
+          },
+          "message_on_fail": "Compare this case with the supplied contract and complete the verification without changing fixture behavior."
+        },
+        {
+          "test_id": "t3",
+          "kind": "http_equals",
+          "spec": {
+            "requests": [
+              {
+                "method": "GET",
+                "path": "/_probe",
+                "params": {
+                  "route": "/delayed"
+                }
+              }
+            ],
+            "expected": {
+              "status": 200,
+              "json": {
+                "route": "/delayed",
+                "status": 200,
+                "request_delta": 1,
+                "response_delta": 1,
+                "duration_count": 1
+              }
+            }
+          },
+          "message_on_fail": "Compare this case with the supplied contract and complete the verification without changing fixture behavior."
+        },
+        {
+          "test_id": "t4",
+          "kind": "http_equals",
+          "spec": {
+            "requests": [
+              {
+                "method": "GET",
+                "path": "/_probe",
+                "params": {
+                  "route": "/escaping-exception"
+                }
+              }
+            ],
+            "expected": {
+              "status": 200,
+              "json": {
+                "route": "/escaping-exception",
+                "status": 500,
+                "request_delta": 1,
+                "response_delta": 1,
+                "duration_count": 0
+              }
+            }
+          },
+          "message_on_fail": "Compare this case with the supplied contract and complete the verification without changing fixture behavior."
+        }
+      ]
+    }
+  }
+}
+{
+  "step_id": "tile_058.s05",
+  "type": "recap",
+  "concept_ids": [
+    "observability.verified_request_metrics"
+  ],
+  "title": "Keep these distinctions",
+  "blocks": [
+    {
+      "type": "prose",
+      "text": "Install maintained boundary instrumentation and expose /metrics/. Use bounded nonsensitive labels and filter unmatched paths.",
+      "role": "takeaway"
+    },
+    {
+      "type": "prose",
+      "text": "Verify known successful, expected-error and delayed requests against counter changes and duration observations. A raised exception updates this middleware\u2019s response counter, but its normal processing-time observation requires a returned response.",
+      "role": "takeaway"
+    },
+    {
+      "type": "up_next",
+      "title": "Distinct create and partial-update contracts",
+      "text": "A partial update must distinguish \"leave unchanged\" from \"set to null.\" Presence carries intent separately from value."
+    }
+  ]
+}
+{
+  "step_id": "tile_058.r01",
+  "type": "remediation",
+  "concept_ids": [
+    "observability.verified_request_metrics"
+  ],
+  "title": "Revisit: Compare measurement boundaries",
+  "blocks": [
+    {
+      "type": "prose",
+      "text": "Contrast the fixture\u2019s returned expected-error response with its escaping exception. A response count and a normal duration observation do not have identical boundaries.",
+      "role": "mental_model"
+    },
+    {
+      "type": "prose",
+      "text": "This middleware updates its response counter even for a raised exception. Its processing-time histogram is observed only when the inner application returns a response.",
+      "role": "definition"
+    }
+  ]
+}
+{
+  "step_id": "tile_058.r02",
+  "type": "remediation",
+  "concept_ids": [
+    "observability.verified_request_metrics"
+  ],
+  "title": "Revisit: Verify controlled request metrics",
+  "blocks": [
+    {
+      "type": "prose",
+      "text": "Contrast the fixture\u2019s returned expected-error response with its escaping exception. A response count and a normal duration observation do not have identical boundaries.",
+      "role": "mental_model"
+    },
+    {
+      "type": "prose",
+      "text": "Maintained boundary instrumentation supplies request/response counters and a duration histogram, rather than metrics implemented separately in each handler.",
+      "role": "definition"
+    },
+    {
+      "type": "prose",
+      "text": "Import PrometheusMiddleware and metrics from starlette_prometheus. Use app.add_middleware(PrometheusMiddleware, filter_unhandled_paths=True) and app.add_route(\"/metrics/\", metrics).",
+      "role": "definition"
+    },
+    {
+      "type": "prose",
+      "text": "Choose bounded nonsensitive labels such as method, matched route template and response status. Filter unmatched paths to avoid unlimited series from arbitrary paths.",
+      "role": "definition"
+    },
+    {
+      "type": "prose",
+      "text": "Compare controlled successful, expected-error and delayed requests with request/response counter changes and completed-response duration observations.",
+      "role": "definition"
+    },
+    {
+      "type": "prose",
+      "text": "This middleware updates its response counter even for a raised exception. Its processing-time histogram is observed only when the inner application returns a response.",
+      "role": "definition"
+    }
+  ]
+}

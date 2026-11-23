@@ -1,0 +1,145 @@
+{
+  "step_id": "tile_044.s04",
+  "interaction": {
+    "type": "code_exercise",
+    "interaction_id": "ix.tile_044.s04",
+    "difficulty": "stretch",
+    "grading_mode": "client",
+    "standalone": false,
+    "measures": [
+      {
+        "concept_id": "fastapi.cors_policy",
+        "fact_ids": [
+          "f1",
+          "f3"
+        ],
+        "capability": "identify_unsafe_origin_and_credential_combinations"
+      },
+      {
+        "concept_id": "fastapi.cors_policy",
+        "fact_ids": [
+          "f4"
+        ],
+        "capability": "distinguish_browser_access_from_endpoint_access_control"
+      }
+    ],
+    "anchors": [
+      "fastapi.cors_policy#practice",
+      "fastapi.cors_policy#assessment:identify_unsafe_origin_and_credential_combinations",
+      "fastapi.cors_policy#assessment:distinguish_browser_access_from_endpoint_access_control"
+    ],
+    "feedback": {
+      "correct": {
+        "message": "You applied the declared boundary and preserved its required behavior."
+      },
+      "incorrect": {
+        "message": "Recheck the stated boundary and distinguish the separate obligations rather than assuming one implies the other."
+      },
+      "hints": [
+        "Compare each declaration with its input or lifecycle boundary.",
+        "Trace what happens on the alternative input or exit, not only the successful path."
+      ]
+    },
+    "public": {
+      "prompt": "Register CORSMiddleware for exactly https://shop.example, explicit GET and POST methods, an explicit Content-Type header list, and allow_credentials=True. Do not use wildcards. Keep the supplied endpoint and verification harness unchanged; two preflights check the allowed client and an unrelated origin. This is browser access policy, not endpoint authorization.",
+      "runtime": {
+        "kind": "python_asgi",
+        "version": "0.29.5"
+      },
+      "workspace": {
+        "entry": "exercise.py",
+        "files": [
+          {
+            "path": "exercise.py",
+            "role": "editable",
+            "language": "python",
+            "content": "from fastapi import FastAPI\nfrom fastapi.middleware.cors import CORSMiddleware\napp = FastAPI()\n# TODO: add middleware for https://shop.example with GET, POST,\n# Content-Type, and credentials; use explicit lists with no wildcards.\nimport asyncio, inspect, json, ast\nimport httpx\nfrom contextlib import contextmanager\n\ndef _drive(coro):\n    try:\n        pending = coro.send(None)\n    except StopIteration as done:\n        return done.value\n    raise RuntimeError('Harness encountered a suspending operation: ' + repr(pending))\n\nasync def _requests(application, requests):\n    async with application.router.lifespan_context(application):\n        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=application, raise_app_exceptions=False), base_url='http://testserver') as client:\n            out=[]\n            for method,path,kwargs in requests:\n                response=await client.request(method,path,**kwargs)\n                try: body=response.json()\n                except ValueError: body=response.text\n                out.append({'status':response.status_code,'body':body})\n            return out\n@app.get('/orders')\ndef orders(): return {'result':'browser policy fixture'}\ndef _case(origin):\n    m=app.user_middleware[0]\n    assert m.cls is CORSMiddleware\n    assert m.kwargs=={'allow_origins':['https://shop.example'],'allow_methods':['GET','POST'],'allow_headers':['Content-Type'],'allow_credentials':True}\n    async def run():\n        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='http://testserver') as client:\n            r=await client.options('/orders',headers={'Origin':origin,'Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'Content-Type'})\n            return {'status':r.status_code,'origin':r.headers.get('access-control-allow-origin'),'credentials':r.headers.get('access-control-allow-credentials')}\n    return _drive(run())\nimport inspect\nfrom fastapi import FastAPI, Body\nverification_app=FastAPI()\n\nasync def verify_case(payload: dict=Body(...)):\n    result=_case(payload['case'])\n    if inspect.isawaitable(result):return await result\n    return result\nverify_case = verification_app.post('/_verify')(verify_case)\n"
+          }
+        ],
+        "asset_mounts": []
+      },
+      "constraints": {
+        "allowed_syntax": [
+          "from fastapi import FastAPI",
+          "from fastapi.middleware.cors import CORSMiddleware",
+          "app = FastAPI()",
+          "app.add_middleware(CORSMiddleware, allow_origins=[...], allow_methods=[...], allow_headers=[...], allow_credentials=...)",
+          "String literals",
+          "List literals",
+          "True and False boolean literals",
+          "Keyword arguments"
+        ],
+        "blocked_syntax": [
+          "TestClient(...)",
+          "app.dependency_overrides[...]",
+          "@app.exception_handler(...)",
+          "Header(...)",
+          "Cookie(...)",
+          "Security(...)"
+        ]
+      }
+    },
+    "grading": {
+      "solution_files": [
+        {
+          "path": "exercise.py",
+          "content": "from fastapi import FastAPI\nfrom fastapi.middleware.cors import CORSMiddleware\napp = FastAPI()\n# TODO: add middleware for https://shop.example with GET, POST,\n# Content-Type, and credentials; use explicit lists with no wildcards.\napp.add_middleware(CORSMiddleware, allow_origins=['https://shop.example'], allow_methods=['GET', 'POST'], allow_headers=['Content-Type'], allow_credentials=True)\nimport asyncio, inspect, json, ast\nimport httpx\nfrom contextlib import contextmanager\n\ndef _drive(coro):\n    try:\n        pending = coro.send(None)\n    except StopIteration as done:\n        return done.value\n    raise RuntimeError('Harness encountered a suspending operation: ' + repr(pending))\n\nasync def _requests(application, requests):\n    async with application.router.lifespan_context(application):\n        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=application, raise_app_exceptions=False), base_url='http://testserver') as client:\n            out=[]\n            for method,path,kwargs in requests:\n                response=await client.request(method,path,**kwargs)\n                try: body=response.json()\n                except ValueError: body=response.text\n                out.append({'status':response.status_code,'body':body})\n            return out\n@app.get('/orders')\ndef orders(): return {'result':'browser policy fixture'}\ndef _case(origin):\n    m=app.user_middleware[0]\n    assert m.cls is CORSMiddleware\n    assert m.kwargs=={'allow_origins':['https://shop.example'],'allow_methods':['GET','POST'],'allow_headers':['Content-Type'],'allow_credentials':True}\n    async def run():\n        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='http://testserver') as client:\n            r=await client.options('/orders',headers={'Origin':origin,'Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'Content-Type'})\n            return {'status':r.status_code,'origin':r.headers.get('access-control-allow-origin'),'credentials':r.headers.get('access-control-allow-credentials')}\n    return _drive(run())\nimport inspect\nfrom fastapi import FastAPI, Body\nverification_app=FastAPI()\n\nasync def verify_case(payload: dict=Body(...)):\n    result=_case(payload['case'])\n    if inspect.isawaitable(result):return await result\n    return result\nverify_case = verification_app.post('/_verify')(verify_case)\n"
+        }
+      ],
+      "tests": [
+        {
+          "test_id": "test_1",
+          "kind": "http_equals",
+          "spec": {
+            "requests": [
+              {
+                "method": "POST",
+                "path": "/_verify",
+                "json": {
+                  "case": "https://shop.example"
+                }
+              }
+            ],
+            "app": "verification_app",
+            "expected": {
+              "status": 200,
+              "json": {
+                "status": 200,
+                "origin": "https://shop.example",
+                "credentials": "true"
+              }
+            }
+          },
+          "visible": true,
+          "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+        },
+        {
+          "test_id": "test_2",
+          "kind": "http_equals",
+          "spec": {
+            "requests": [
+              {
+                "method": "POST",
+                "path": "/_verify",
+                "json": {
+                  "case": "https://unrelated.example"
+                }
+              }
+            ],
+            "app": "verification_app",
+            "expected": {
+              "status": 200,
+              "json": {
+                "status": 400,
+                "origin": null,
+                "credentials": "true"
+              }
+            }
+          },
+          "visible": true,
+          "message_on_fail": "The named input/lifecycle case or required declaration did not match its contract."
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,75 @@
+PROMPT Select write_config = safe_writer and read_config = safe_reader to safely write and reload the supplied guardrail mapping. Retain its workload scope, budget amount, period, threshold, existing event binding, fixed approved instance and runtime secret references. The supplied inspection and replay produce result for the below-threshold and breach fixtures, including target-only stop evidence and the delayed-notification limitation. Do not change that configuration or replay.
+CONSTRAINTS {'allowed_syntax': ['import yaml', 'Python dictionary and list literals', 'String and numeric literals', 'Variable assignment', 'Dictionary-key and list-index access', 'with open(...) as file_handle', 'yaml.safe_dump(config, file_handle)', 'yaml.safe_load(file_handle)', 'gcloud compute instances describe INSTANCE --zone=ZONE', 'gcloud compute instances stop INSTANCE --zone=ZONE', 'Supplied event-response YAML fields for budget scope, amount, reporting period, thresholds, existing Pub/Sub topic, event binding and fixed target', 'Supplied runtime Secret Manager references and secretEnv configuration'], 'blocked_syntax': ['gcloud compute instances delete', 'gcloud compute instance-groups managed delete', 'Wildcard or dynamically enumerated resource targets', 'yaml.load with an unsafe loader', 'YAML tags that construct arbitrary Python objects', 'Literal credentials in configuration or command arguments']}
+import csv, json
+
+import numpy as np
+
+policy = json.loads('{"workload_scope": "order-lab", "budget_amount": 100, "period": "monthly", "threshold_ratio": 0.8, "predicate": "observed_spend>=budget_amount*threshold_ratio", "notification_topic": "lab-budget-events", "response_pipeline": "lab-safe-stop", "INSTANCE": "inference-lab", "ZONE": "lab-zone-a", "authorized_identity": "lab.operator", "secret_version_reference": "projects/order-lab/secrets/budget-client/versions/1", "residual_limitation": "Notifications can lag usage and do not enforce a hard spending cap."}')
+
+budget_replay_rows = list(csv.DictReader(open('budget_replay.csv')))
+
+budget_replay = {}
+
+budget_replay['fixture'] = np.array([r['fixture'] for r in budget_replay_rows])
+
+budget_replay['workload_scope'] = np.array([r['workload_scope'] for r in budget_replay_rows])
+
+budget_replay['budget_amount'] = np.array([float(r['budget_amount'] or 'nan') for r in budget_replay_rows])
+
+budget_replay['period'] = np.array([r['period'] for r in budget_replay_rows])
+
+budget_replay['threshold_ratio'] = np.array([float(r['threshold_ratio'] or 'nan') for r in budget_replay_rows])
+
+budget_replay['observed_spend'] = np.array([float(r['observed_spend'] or 'nan') for r in budget_replay_rows])
+
+budget_replay['INSTANCE'] = np.array([r['INSTANCE'] for r in budget_replay_rows])
+
+budget_replay['ZONE'] = np.array([r['ZONE'] for r in budget_replay_rows])
+
+budget_replay['notification_expected'] = np.array([r['notification_expected'] == 'True' for r in budget_replay_rows])
+
+budget_replay['response_expected'] = np.array([r['response_expected'] == 'True' for r in budget_replay_rows])
+
+budget_replay['expected_after_state'] = np.array([r['expected_after_state'] for r in budget_replay_rows])
+
+import yaml
+
+def apply_and_replay(config):
+    expected = {k: policy[k] for k in ['workload_scope', 'budget_amount', 'period', 'threshold_ratio', 'notification_topic', 'response_pipeline', 'INSTANCE', 'ZONE', 'authorized_identity', 'secret_version_reference']}
+    if any((config.get(k) != v for k, v in expected.items())):
+        return {'status': 'invalid_config', 'resolved': config}
+    results = []
+    for r in budget_replay_rows:
+        crossed = float(r['observed_spend']) >= config['budget_amount'] * config['threshold_ratio']
+        results.append({'fixture': r['fixture'], 'notification': crossed, 'actions': [{'command': 'gcloud compute instances stop', 'INSTANCE': config['INSTANCE'], 'ZONE': config['ZONE']}] if crossed else [], 'before': {'INSTANCE': config['INSTANCE'], 'ZONE': config['ZONE'], 'state': 'RUNNING'}, 'after': {'INSTANCE': config['INSTANCE'], 'ZONE': config['ZONE'], 'state': 'TERMINATED' if crossed else 'RUNNING'}, 'logs': 'runtime secret reference resolved; no literal credential captured'})
+    return {'resolved': config, 'fixtures': results, 'limitation': policy['residual_limitation']}
+
+config = {'workload_scope': policy['workload_scope'], 'budget_amount': policy['budget_amount'], 'period': policy['period'], 'threshold_ratio': policy['threshold_ratio'], 'notification_topic': policy['notification_topic'], 'response_pipeline': policy['response_pipeline'], 'INSTANCE': policy['INSTANCE'], 'ZONE': policy['ZONE'], 'authorized_identity': policy['authorized_identity'], 'secret_version_reference': policy['secret_version_reference']}
+
+config['secretEnv'] = ['BUDGET_CLIENT']
+
+config['event_binding'] = {'topic': policy['notification_topic'], 'pipeline': policy['response_pipeline']}
+
+safe_writer = yaml.safe_dump
+
+write_config = safe_writer
+
+with open('guardrail.yaml', 'w') as h:
+    write_config(config, h)
+
+safe_reader = yaml.safe_load
+
+read_config = safe_reader
+
+with open('guardrail.yaml') as h:
+    resolved = read_config(h)
+
+inspected_scope = resolved['workload_scope']
+
+inspected_target = [resolved['INSTANCE'], resolved['ZONE']]
+
+inspected_binding = resolved['event_binding']
+
+inspected_secret = [resolved['secret_version_reference'], resolved['secretEnv']]
+
+result = apply_and_replay(resolved)

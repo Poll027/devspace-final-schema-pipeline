@@ -1,0 +1,297 @@
+PRACTICE {
+  "type": "live_code",
+  "objective": "Implement duplicate-safe handling of one authenticated order event, recording its publisher event identifier and durable order change in the same transaction.",
+  "success": "The first processing commits one order change and its event record. Sequential duplicates, including after an application restart, receive successful acknowledgments without another change. Concurrent deliveries with the same identifier produce exactly one committed change.",
+  "live_code": {
+    "required_skill": "Use a persistent unique event identifier and a shared transaction boundary to suppress repeated order changes, translating only a confirmed duplicate into a successful acknowledgment.",
+    "allowed_syntax": [
+      "async def",
+      "await",
+      "function calls",
+      "type annotations",
+      "if",
+      "return",
+      "try",
+      "except IntegrityError",
+      "raise",
+      "async with session.begin()",
+      "session.add(...)",
+      "await session.flush()",
+      "await session.scalar(...)",
+      "select(...)",
+      ".where(...)",
+      "attribute access and assignment",
+      "UniqueConstraint(...)",
+      "assert"
+    ],
+    "blocked_syntax": [
+      "time.time()",
+      "datetime.now()",
+      "@retry(...)"
+    ],
+    "starter_state_intent": "Provide an authenticated order event, existing order and persistent event-record models, a unique constraint on the publisher event identifier, and request-scoped sessions. Supply a test harness for sequential deliveries, application restart with the database retained, and concurrent deliveries. Leave the transactional handler and its assertions unfinished.",
+    "observable_success": "Tests independently demonstrate sequential duplicate suppression and concurrent duplicate suppression. The event record remains available after restart for the required replay window. A failed transaction leaves neither its event record nor its order change committed. A duplicate acknowledgment follows confirmation of the existing processed event, not an arbitrary database integrity failure."
+  }
+}
+SOLUTION
+#!/usr/bin/env bash
+set -euo pipefail
+# Requires the supplied native workspace dependencies and any provisioned service.
+cat > 'starter.py' <<'DEVSPACE_FILE_0'
+from sqlalchemy import String, Integer, UniqueConstraint, select
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.exc import IntegrityError
+class Base(DeclarativeBase):
+    pass
+class Order(Base):
+    __tablename__ = 'orders'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    owner_id: Mapped[str] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String)
+class ProcessedEvent(Base):
+    __tablename__ = 'processed_events'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    publisher_event_id: Mapped[str] = mapped_column(String)
+    __table_args__ = (UniqueConstraint('publisher_event_id'),)
+async def handle_authenticated_event(event, session):
+    event_id = event['publisher_event_id']
+    try:
+        async with session.begin():
+            existing = await session.scalar(select(ProcessedEvent).where(ProcessedEvent.publisher_event_id == event_id))
+            if existing is not None:
+                return {'received': True}
+            session.add(ProcessedEvent(publisher_event_id=event_id))
+            await session.flush()
+            order = await session.scalar(select(Order).where(Order.id == event['order_id']))
+            if order is None:
+                raise ValueError('Unknown controlled order')
+            order.status = event['new_status']
+        return {'received': True}
+    except IntegrityError:
+        # The failed transaction has rolled back. Confirm the persistent
+        # identity rather than treating unrelated constraint errors as success.
+        existing = await session.scalar(select(ProcessedEvent).where(ProcessedEvent.publisher_event_id == event_id))
+        if existing is not None:
+            return {'received': True}
+        raise
+DEVSPACE_FILE_0
+cat > 'delivery_checks.py' <<'DEVSPACE_FILE_1'
+import os,tempfile
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
+from fastapi.testclient import TestClient
+import application
+# Keep one durable file per scenario, including across new app instances.
+def scenario(name):
+    with tempfile.TemporaryDirectory() as directory:
+        application.DATABASE='sqlite+aiosqlite:///'+str(Path(directory)/'delivery.sqlite')
+        app=application.make_app()
+        event=application.fixtures['authenticated_events'][0]
+        with TestClient(app,raise_server_exceptions=False) as client:
+            before=client.portal.call(application.snapshot,app)
+            if name=='failure':
+                app.state.inject_failure=True
+                responses=[client.post('/authenticated-events',json=event)]
+            elif name=='concurrent':
+                with ThreadPoolExecutor(max_workers=2) as workers:
+                    responses=list(workers.map(lambda _:client.post('/authenticated-events',json=event),range(2)))
+            else:
+                responses=[client.post('/authenticated-events',json=event),client.post('/authenticated-events',json=event)]
+            after=client.portal.call(application.snapshot,app)
+            if name == 'failure':
+                assert responses[0].status_code == 500
+                assert after == before
+            else:
+                assert all(r.status_code == 200 and r.json() == {'received': True} for r in responses)
+                assert after['events'] == [event['publisher_event_id']]
+                expected_orders = [dict(row) for row in before['orders']]
+                for row in expected_orders:
+                    if row['id'] == event['order_id']:
+                        row['status'] = event.get('new_status', event.get('status'))
+                assert after['orders'] == expected_orders
+        if name=='restart':
+            restarted=application.make_app()
+            with TestClient(restarted) as client:
+                retained=client.portal.call(application.snapshot,restarted)
+                response=client.post('/authenticated-events',json=event)
+                final=client.portal.call(application.snapshot,restarted)
+                assert retained == after
+                assert final == after
+                assert response.status_code == 200
+                assert response.json() == {'received': True}
+if __name__=='__main__':
+    import sys
+    scenario(sys.argv[1])
+DEVSPACE_FILE_1
+python run_sequential.py
+python run_restart.py
+python run_concurrent.py
+python run_failure.py
+
+
+FILE starter.py
+from sqlalchemy import String, Integer, UniqueConstraint, select
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.exc import IntegrityError
+class Base(DeclarativeBase):
+    pass
+class Order(Base):
+    __tablename__ = 'orders'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    owner_id: Mapped[str] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String)
+class ProcessedEvent(Base):
+    __tablename__ = 'processed_events'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    publisher_event_id: Mapped[str] = mapped_column(String)
+    __table_args__ = (UniqueConstraint('publisher_event_id'),)
+async def handle_authenticated_event(event, session):
+    # TODO: event record and order update inside one session.begin transaction.
+    # Confirm already processed identity before acknowledging a duplicate;
+    # never translate unrelated IntegrityError into successful processing.
+    raise NotImplementedError('Complete atomic persistent deduplication')
+# application.py supplies request-scoped sessions and durable storage.
+# The request-local SQLAlchemy after_flush_postexec hook injects failure
+# before commit; no extra learner failure switch or verifier is needed.
+
+FILE fixtures.json
+{
+  "authenticated_events": [
+    {
+      "publisher_event_id": "evt_a",
+      "order_id": 101,
+      "new_status": "complete"
+    },
+    {
+      "publisher_event_id": "evt_b",
+      "order_id": 202,
+      "new_status": "complete"
+    }
+  ],
+  "orders": [
+    {
+      "id": 101,
+      "owner_id": "caller_a",
+      "status": "pending"
+    },
+    {
+      "id": 202,
+      "owner_id": "caller_b",
+      "status": "pending"
+    },
+    {
+      "id": 303,
+      "owner_id": "caller_a",
+      "status": "complete"
+    }
+  ],
+  "tests": [
+    "sequential_duplicate",
+    "restart_with_database_retained",
+    "concurrent_duplicate",
+    "transaction_failure"
+  ],
+  "initial_processed_events": []
+}
+
+FILE application.py
+import json, os
+from pathlib import Path
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Depends
+from fastapi.responses import JSONResponse
+from sqlalchemy import select, event
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from starter import Base, Order, ProcessedEvent, handle_authenticated_event
+fixtures=json.loads(Path('fixtures.json').read_text())
+DATABASE=os.environ.get('TEST_DATABASE','sqlite+aiosqlite:///delivery.sqlite')
+def make_app():
+    engine=create_async_engine(DATABASE,connect_args={'timeout':30})
+    Sessions=async_sessionmaker(engine,expire_on_commit=False)
+    @asynccontextmanager
+    async def lifespan(app):
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        async with Sessions.begin() as session:
+            for row in fixtures['orders']:
+                if await session.get(Order,row['id']) is None: session.add(Order(**row))
+        yield
+        await engine.dispose()  # never drop persistent tables on restart
+    app=FastAPI(lifespan=lifespan)
+    app.state.sessions=Sessions
+    app.state.inject_failure=False
+    async def session_provider():
+        async with Sessions() as session:
+            if app.state.inject_failure:
+                # SQLAlchemy hook fails during transaction flush, regardless
+                # of where learner flushes: both writes must be rolled back.
+                @event.listens_for(session.sync_session,'after_flush_postexec',once=True)
+                def fail(_session,_context):
+                    raise RuntimeError('controlled transaction failure')
+            yield session
+    @app.post('/authenticated-events')
+    async def deliver(value:dict,session=Depends(session_provider)):
+        # This exercise starts AFTER publisher authenticity; supplied literals
+        # are trusted controlled authenticated events, not public webhook input.
+        result=await handle_authenticated_event(value,session)
+        return result
+    return app
+async def snapshot(app):
+    async with app.state.sessions() as session:
+        orders=(await session.scalars(select(Order).order_by(Order.id))).all()
+        events=(await session.scalars(select(ProcessedEvent).order_by(ProcessedEvent.publisher_event_id))).all()
+        return {'orders':[{'id':o.id,'owner_id':o.owner_id,'status':o.status} for o in orders],
+                'events':[e.publisher_event_id for e in events]}
+app=make_app()
+
+FILE delivery_checks.py
+import os,tempfile
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
+from fastapi.testclient import TestClient
+import application
+# Keep one durable file per scenario, including across new app instances.
+def scenario(name):
+    with tempfile.TemporaryDirectory() as directory:
+        application.DATABASE='sqlite+aiosqlite:///'+str(Path(directory)/'delivery.sqlite')
+        app=application.make_app()
+        event=application.fixtures['authenticated_events'][0]
+        with TestClient(app,raise_server_exceptions=False) as client:
+            before=client.portal.call(application.snapshot,app)
+            if name=='failure':
+                app.state.inject_failure=True
+                responses=[client.post('/authenticated-events',json=event)]
+            elif name=='concurrent':
+                with ThreadPoolExecutor(max_workers=2) as workers:
+                    responses=list(workers.map(lambda _:client.post('/authenticated-events',json=event),range(2)))
+            else:
+                responses=[client.post('/authenticated-events',json=event),client.post('/authenticated-events',json=event)]
+            after=client.portal.call(application.snapshot,app)
+            # TODO: assert successful acknowledgements, one event identity and
+            # one intended state update; failure response must retain before.
+        if name=='restart':
+            restarted=application.make_app()
+            with TestClient(restarted) as client:
+                retained=client.portal.call(application.snapshot,restarted)
+                response=client.post('/authenticated-events',json=event)
+                final=client.portal.call(application.snapshot,restarted)
+                # TODO: retained and final equal after, duplicate acknowledged.
+if __name__=='__main__':
+    import sys
+    scenario(sys.argv[1])
+
+FILE run_sequential.py
+from delivery_checks import scenario
+scenario('sequential')
+
+FILE run_restart.py
+from delivery_checks import scenario
+scenario('restart')
+
+FILE run_concurrent.py
+from delivery_checks import scenario
+scenario('concurrent')
+
+FILE run_failure.py
+from delivery_checks import scenario
+scenario('failure')

@@ -1,0 +1,935 @@
+
+FILE README.md
+# Fictional lifecycle fixture runtime
+All rows, limits, identities, bucket/project names and events here are authored examples, not production claims. This is a bounded local simulator of an existing configured pipeline; no cloud requests or policy changes are authorized. A hosted exercise must replace the simulator adapter with its existing authorized runtime before describing results as actual Cloud Build results.
+
+Python 3, numpy and PyYAML are declared dependencies. Files under fixtures/ are inputs and contracts, not answer implementations. learner.py deliberately contains no imports, assertions or gate implementation. Keep protected-test observations out of fitting and tuning. Do not introduce hard-coded fixture verdicts.
+
+Existing build configuration uses the declared step IDs, execution images and entry points. Learners wire the assigned entry point, waitFor edges and fatal gate handling, then safe_dump/safe_load and inspect resolved fields. Existing triggers.json supplies bounded repository-commit and Pub/Sub bindings/filters: do not create triggers or alter filters. Accepted/rejected events are inputs, never captured run output. runtime_sim.py executes Python entry points and captures statuses, resolved args and output; results must be produced by running it, not invented. Required stages cannot use allowFailure or allowed failing exit codes.
+
+Object storage is explicitly simulated by storage_sim.py. It supports exists/reload/generation/download_as_bytes(if_generation_match=...) and upload_from_filename(if_generation_match=0), raises PreconditionFailed with status 412, and records uploads. Injected 412 is a race that creates an output before the failing call returns; recovery must reload and verify. Required validation is supplied per artifact in fixture records; a hash match does not imply a validation pass. No credential values are stored here.
+
+
+FILE requirements.txt
+numpy
+PyYAML
+
+
+FILE learner.py
+"""Assignment: Audit the served artifact’s registry, run, input, revision and configuration lineage."""
+# Write the required imports, implementation, assertions and fatal CLI entry point.
+raise NotImplementedError("Learner entry point is intentionally unwritten")
+
+
+FILE cloudbuild.yaml
+{
+  "steps": [
+    {
+      "id": "lineage_audit",
+      "name": "python:3.11",
+      "args": [
+        "python",
+        "learner.py",
+        "${_CASE}"
+      ],
+      "waitFor": [
+        "-"
+      ]
+    }
+  ],
+  "substitutions": {
+    "_SNAPSHOT": "valid",
+    "_CASE": "valid",
+    "_ARTIFACT": "A"
+  },
+  "serviceAccount": "projects/fixture-project/serviceAccounts/fixture-build@fixture-project.iam.gserviceaccount.com"
+}
+
+
+FILE triggers.json
+{
+  "repository_commit": {
+    "id": "fixture-commit-trigger",
+    "repository": "local_repo",
+    "branch_filter": "^main$",
+    "bindings": {
+      "_SNAPSHOT": "snapshot_id"
+    },
+    "fixtures": [
+      {
+        "branch": "main",
+        "snapshot_id": "valid"
+      },
+      {
+        "branch": "main",
+        "snapshot_id": "missing_required_feature"
+      },
+      {
+        "branch": "other",
+        "snapshot_id": "valid"
+      }
+    ]
+  },
+  "pubsub": {
+    "id": "fixture-artifact-trigger",
+    "topic": "projects/fixture-project/topics/artifacts",
+    "bindings": {
+      "_CASE": "case_id",
+      "_ARTIFACT": "artifact_id"
+    },
+    "filters": {
+      "event_type": "artifact_ready"
+    },
+    "fixtures": [
+      {
+        "event_type": "artifact_ready",
+        "case_id": "valid",
+        "artifact_id": "A"
+      },
+      {
+        "event_type": "artifact_ready",
+        "case_id": "approval_A_deployment_B",
+        "artifact_id": "B"
+      },
+      {
+        "event_type": "unrelated",
+        "case_id": "valid",
+        "artifact_id": "A"
+      }
+    ]
+  }
+}
+
+
+FILE runtime_sim.py
+"""Offline execution adapter. Statuses are generated, never fixture answers."""
+import json
+import subprocess
+import sys
+import yaml
+from pathlib import Path
+
+def run_build(config_path, trigger_kind, event):
+    config = yaml.safe_load(Path(config_path).read_text())
+    triggers = json.loads(Path("triggers.json").read_text())
+    trigger = triggers[trigger_kind]
+    if trigger_kind == "repository_commit":
+        import re
+        if re.fullmatch(trigger["branch_filter"], event.get("branch", "")) is None:
+            return {"triggered": False, "steps": []}
+    elif any(event.get(k) != v for k, v in trigger["filters"].items()):
+        return {"triggered": False, "steps": []}
+    bindings = dict(config.get("substitutions", {}))
+    bindings.update({k: event[field] for k, field in trigger["bindings"].items()})
+    results, by_id = [], {}
+    pending = list(config["steps"])
+    while pending:
+        progress = False
+        for step in list(pending):
+            i = config["steps"].index(step)
+            dependencies = step.get("waitFor") or [s["id"] for s in config["steps"][:i]]
+            dependencies = [d for d in dependencies if d != "-"]
+            if any(d not in by_id for d in dependencies):
+                continue
+            args = [str(a) for a in step.get("args", [])]
+            for j, arg in enumerate(args):
+                for key, value in bindings.items():
+                    arg = arg.replace("${" + key + "}", str(value)).replace(key, str(value))
+                args[j] = arg
+            record = {"id": step["id"], "name": step["name"], "resolved_args": args, "waitFor": dependencies}
+            if any(by_id[d]["status"] != "SUCCESS" for d in dependencies):
+                record.update(status="NOT_STARTED", exit_code=None, output="")
+            else:
+                if step.get("allowFailure") or any(x != 0 for x in step.get("allowExitCodes", [])):
+                    raise ValueError("required gate failures must be fatal")
+                if not args or args[0] != "python":
+                    raise ValueError("bounded adapter only supports declared Python entry points")
+                p = subprocess.run([sys.executable] + args[1:], text=True, capture_output=True)
+                record.update(status="SUCCESS" if p.returncode == 0 else "FAILURE", exit_code=p.returncode, output=p.stdout+p.stderr)
+            results.append(record); by_id[step["id"]] = record
+            pending.remove(step); progress = True
+        if not progress:
+            raise ValueError("missing dependency or cycle")
+    return {"triggered": True, "resolved_inputs": bindings, "steps": results}
+
+
+FILE storage_sim.py
+"""Bounded local Cloud Storage interface, never a real cloud client."""
+from pathlib import Path
+class PreconditionFailed(Exception):
+    status_code = 412
+class RecoverableFailure(Exception):
+    pass
+class StorageClient:
+    def __init__(self, initial=None, race=None):
+        self.objects = dict(initial or {})
+        self.race = dict(race or {})
+        self.uploads = []
+        self.requests = []
+    def blob(self, name):
+        return Blob(self, name)
+class Blob:
+    def __init__(self, client, name):
+        self.client, self.name = client, name
+        self.generation = None
+    def exists(self):
+        return self.name in self.client.objects
+    def reload(self):
+        self.generation = self.client.objects[self.name]["generation"]
+    def download_as_bytes(self, if_generation_match):
+        self.client.requests.append((self.name, if_generation_match))
+        obj = self.client.objects[self.name]
+        if obj["generation"] != if_generation_match:
+            raise PreconditionFailed("generation mismatch")
+        return obj["data"]
+    def upload_from_filename(self, path, if_generation_match):
+        if if_generation_match != 0:
+            raise ValueError("fixture contract permits create-only upload")
+        if self.name in self.client.race:
+            self.client.objects[self.name] = self.client.race.pop(self.name)
+            raise PreconditionFailed("412 concurrent creation")
+        if self.exists():
+            raise PreconditionFailed("412 already exists")
+        self.client.objects[self.name] = {"generation": 1, "data": Path(path).read_bytes()}
+        self.client.uploads.append(self.name)
+        self.reload()
+
+
+FILE fixtures/anchor_contract.json
+{
+  "type": "live_code",
+  "objective": "Implement a learner-defined Python function with learner-written dependency imports that audits the supplied deployment, registry, run, approval, dataset, configuration, artifact and code records. Resolve dictionary links, compare identities pairwise, download the exact recorded artifact generation, verify its content identity, and inspect the recorded revision in the supplied local repository. Return the verified lineage chain or an explicit missing or mismatched link.",
+  "success": "The function reports a verified chain only when the supplied identity links, downloaded artifact content and local commit checks agree. It explicitly reports missing links and identity mismatches without relying on similar names. Learner-written assert predicates pass for the declared valid, boundary and failure fixtures; a deliberately false predicate raises AssertionError during ordinary non-optimized execution.",
+  "live_code": {
+    "required_skill": "Resolve supplied provenance records and validate their pairwise identities using dictionary lookup, exact-generation object retrieval, content verification and local Git inspection.",
+    "allowed_syntax": [
+      "import statements for required library and storage-client dependencies",
+      "def with parameters and return",
+      "variable assignment",
+      "dictionary literals, key lookup and dict.get()",
+      "list and tuple literals",
+      "if, elif and else",
+      "for loops over supplied records",
+      "equality, inequality, membership and Boolean predicates",
+      "assert predicate",
+      "function and method calls",
+      "the supplied storage client's version-qualified artifact download interface",
+      "file byte reads and the supplied content-identity hashing method",
+      "subprocess.run() with argument lists, a local repository working directory and captured command results",
+      "git rev-parse --verify REVISION and git show REVISION invoked through subprocess",
+      "command return-code and output inspection"
+    ],
+    "blocked_syntax": [],
+    "starter_state_intent": "Provide dictionary fixtures for deployment, registry, run, approval, dataset, configuration, artifact and code records; authorized object-storage references with an exact artifact generation and expected content identity; and a local repository containing the referenced revision. Include declared valid, boundary and failure cases, including approval for artifact A paired with deployment artifact B and a missing lineage link. Supply client-interface documentation and case contracts, but no complete function or dependency imports.",
+    "observable_success": "The returned result identifies the checked lineage edges. The artifact request uses the registry's recorded generation, and the downloaded content is compared with the recorded identity. The recorded revision is inspected with both required Git commands, with unsuccessful command results preventing a verified-chain report. Assertions check the declared case outcomes, including explicit missing-link and mismatch results."
+  }
+}
+
+
+FILE fixtures/visual_intent.json
+{
+  "type": "code",
+  "purpose": "Make the supplied records, intermediate pairwise identity checks, exact-generation artifact request, content comparison, local Git inspection results and final audit result visible alongside the declared case assertions."
+}
+
+
+FILE training_entry.py
+"""Existing training entry point, kept unchanged by dataset-gate exercises."""
+import json
+import sys
+from pathlib import Path
+if __name__ == "__main__":
+    snapshot_id = sys.argv[1]
+    Path("training_invocation.json").write_text(json.dumps({"snapshot_id": snapshot_id, "started": True}))
+
+
+FILE downstream_entry.py
+"""Supplied downstream execution marker; no gate bypass."""
+import json
+import sys
+from pathlib import Path
+if __name__ == "__main__":
+    Path("downstream_invocation.json").write_text(json.dumps({"artifact_id": sys.argv[1], "started": True}))
+
+
+FILE outputs/A.txt
+fictional fitted package A
+preprocess: divide feature by 5
+threshold: 0.4
+
+
+FILE outputs/B.txt
+fictional fitted package B
+preprocess: divide feature by 5
+threshold: 0.5
+
+
+FILE fixtures/artifacts.json
+{
+  "A": {
+    "artifact_id": "A",
+    "uri": "gs://fixture-artifacts/A.txt",
+    "generation": 1,
+    "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+    "validation_ok": true
+  },
+  "B": {
+    "artifact_id": "B",
+    "uri": "gs://fixture-artifacts/B.txt",
+    "generation": 1,
+    "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+    "validation_ok": true
+  }
+}
+
+
+FILE dataset.csv
+sample_id,feature,label
+sample.101,0,0
+sample.102,1,0
+sample.103,2,1
+sample.104,3,1
+sample.105,4,1
+sample.106,5,1
+
+
+FILE fixtures/lineage_cases.json
+{
+  "valid": {
+    "deployment": {
+      "deployment_id": "deployment.A",
+      "registry_version": "1",
+      "artifact_id": "A"
+    },
+    "registry": {
+      "1": {
+        "model_name": "fixture_model",
+        "version": "1",
+        "artifact_id": "A",
+        "artifact_source": "gs://fixture-artifacts/A.txt",
+        "generation": 1,
+        "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+        "run_id": "run.A"
+      }
+    },
+    "runs": {
+      "run.A": {
+        "run_id": "run.A",
+        "artifact_id": "A",
+        "artifact_sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+        "dataset_id": "snapshot.A",
+        "configuration_id": "config.A",
+        "code_id": "code.A"
+      }
+    },
+    "approval": {
+      "approval_id": "approval.A",
+      "registry_version": "1",
+      "artifact_id": "A",
+      "authorized": true,
+      "accountable_identity": "fixture-promoter"
+    },
+    "datasets": {
+      "snapshot.A": {
+        "sha256": "94d86c2f748dbd3ec7fb8e27dded66533bde22a109a97d9fde2191d96b831d61",
+        "file": "dataset.csv"
+      }
+    },
+    "configurations": {
+      "config.A": {
+        "sha256": "75bc2039e3a69484813ab3b30218dba912ae9ecc3f03a7087a068915072e8e4a",
+        "resolved": {
+          "feature_scale": 5.0,
+          "threshold": 0.4,
+          "package": "A"
+        }
+      }
+    },
+    "artifacts": {
+      "A": {
+        "artifact_id": "A",
+        "uri": "gs://fixture-artifacts/A.txt",
+        "generation": 1,
+        "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+        "validation_ok": true
+      },
+      "B": {
+        "artifact_id": "B",
+        "uri": "gs://fixture-artifacts/B.txt",
+        "generation": 1,
+        "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+        "validation_ok": true
+      }
+    },
+    "code": {
+      "code.A": {
+        "revision": "da89ee877040e427fd3de821dffbdc0abd82017b",
+        "repository": "local_repo"
+      }
+    }
+  },
+  "boundary_same_name_other_version": {
+    "deployment": {
+      "deployment_id": "deployment.A",
+      "registry_version": "1",
+      "artifact_id": "A"
+    },
+    "registry": {
+      "1": {
+        "model_name": "fixture_model",
+        "version": "1",
+        "artifact_id": "A",
+        "artifact_source": "gs://fixture-artifacts/A.txt",
+        "generation": 1,
+        "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+        "run_id": "run.A"
+      },
+      "2": {
+        "model_name": "fixture_model",
+        "version": "2",
+        "artifact_id": "A",
+        "artifact_source": "gs://fixture-artifacts/A.txt",
+        "generation": 1,
+        "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+        "run_id": "run.A"
+      }
+    },
+    "runs": {
+      "run.A": {
+        "run_id": "run.A",
+        "artifact_id": "A",
+        "artifact_sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+        "dataset_id": "snapshot.A",
+        "configuration_id": "config.A",
+        "code_id": "code.A"
+      }
+    },
+    "approval": {
+      "approval_id": "approval.A",
+      "registry_version": "1",
+      "artifact_id": "A",
+      "authorized": true,
+      "accountable_identity": "fixture-promoter"
+    },
+    "datasets": {
+      "snapshot.A": {
+        "sha256": "94d86c2f748dbd3ec7fb8e27dded66533bde22a109a97d9fde2191d96b831d61",
+        "file": "dataset.csv"
+      }
+    },
+    "configurations": {
+      "config.A": {
+        "sha256": "75bc2039e3a69484813ab3b30218dba912ae9ecc3f03a7087a068915072e8e4a",
+        "resolved": {
+          "feature_scale": 5.0,
+          "threshold": 0.4,
+          "package": "A"
+        }
+      }
+    },
+    "artifacts": {
+      "A": {
+        "artifact_id": "A",
+        "uri": "gs://fixture-artifacts/A.txt",
+        "generation": 1,
+        "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+        "validation_ok": true
+      },
+      "B": {
+        "artifact_id": "B",
+        "uri": "gs://fixture-artifacts/B.txt",
+        "generation": 1,
+        "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+        "validation_ok": true
+      }
+    },
+    "code": {
+      "code.A": {
+        "revision": "da89ee877040e427fd3de821dffbdc0abd82017b",
+        "repository": "local_repo"
+      }
+    }
+  },
+  "approval_A_deployment_B": {
+    "deployment": {
+      "deployment_id": "deployment.A",
+      "registry_version": "1",
+      "artifact_id": "B"
+    },
+    "registry": {
+      "1": {
+        "model_name": "fixture_model",
+        "version": "1",
+        "artifact_id": "A",
+        "artifact_source": "gs://fixture-artifacts/A.txt",
+        "generation": 1,
+        "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+        "run_id": "run.A"
+      }
+    },
+    "runs": {
+      "run.A": {
+        "run_id": "run.A",
+        "artifact_id": "A",
+        "artifact_sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+        "dataset_id": "snapshot.A",
+        "configuration_id": "config.A",
+        "code_id": "code.A"
+      }
+    },
+    "approval": {
+      "approval_id": "approval.A",
+      "registry_version": "1",
+      "artifact_id": "A",
+      "authorized": true,
+      "accountable_identity": "fixture-promoter"
+    },
+    "datasets": {
+      "snapshot.A": {
+        "sha256": "94d86c2f748dbd3ec7fb8e27dded66533bde22a109a97d9fde2191d96b831d61",
+        "file": "dataset.csv"
+      }
+    },
+    "configurations": {
+      "config.A": {
+        "sha256": "75bc2039e3a69484813ab3b30218dba912ae9ecc3f03a7087a068915072e8e4a",
+        "resolved": {
+          "feature_scale": 5.0,
+          "threshold": 0.4,
+          "package": "A"
+        }
+      }
+    },
+    "artifacts": {
+      "A": {
+        "artifact_id": "A",
+        "uri": "gs://fixture-artifacts/A.txt",
+        "generation": 1,
+        "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+        "validation_ok": true
+      },
+      "B": {
+        "artifact_id": "B",
+        "uri": "gs://fixture-artifacts/B.txt",
+        "generation": 1,
+        "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+        "validation_ok": true
+      }
+    },
+    "code": {
+      "code.A": {
+        "revision": "da89ee877040e427fd3de821dffbdc0abd82017b",
+        "repository": "local_repo"
+      }
+    }
+  },
+  "missing_run_link": {
+    "deployment": {
+      "deployment_id": "deployment.A",
+      "registry_version": "1",
+      "artifact_id": "A"
+    },
+    "registry": {
+      "1": {
+        "model_name": "fixture_model",
+        "version": "1",
+        "artifact_id": "A",
+        "artifact_source": "gs://fixture-artifacts/A.txt",
+        "generation": 1,
+        "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6"
+      }
+    },
+    "runs": {
+      "run.A": {
+        "run_id": "run.A",
+        "artifact_id": "A",
+        "artifact_sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+        "dataset_id": "snapshot.A",
+        "configuration_id": "config.A",
+        "code_id": "code.A"
+      }
+    },
+    "approval": {
+      "approval_id": "approval.A",
+      "registry_version": "1",
+      "artifact_id": "A",
+      "authorized": true,
+      "accountable_identity": "fixture-promoter"
+    },
+    "datasets": {
+      "snapshot.A": {
+        "sha256": "94d86c2f748dbd3ec7fb8e27dded66533bde22a109a97d9fde2191d96b831d61",
+        "file": "dataset.csv"
+      }
+    },
+    "configurations": {
+      "config.A": {
+        "sha256": "75bc2039e3a69484813ab3b30218dba912ae9ecc3f03a7087a068915072e8e4a",
+        "resolved": {
+          "feature_scale": 5.0,
+          "threshold": 0.4,
+          "package": "A"
+        }
+      }
+    },
+    "artifacts": {
+      "A": {
+        "artifact_id": "A",
+        "uri": "gs://fixture-artifacts/A.txt",
+        "generation": 1,
+        "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+        "validation_ok": true
+      },
+      "B": {
+        "artifact_id": "B",
+        "uri": "gs://fixture-artifacts/B.txt",
+        "generation": 1,
+        "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+        "validation_ok": true
+      }
+    },
+    "code": {
+      "code.A": {
+        "revision": "da89ee877040e427fd3de821dffbdc0abd82017b",
+        "repository": "local_repo"
+      }
+    }
+  },
+  "wrong_generation": {
+    "deployment": {
+      "deployment_id": "deployment.A",
+      "registry_version": "1",
+      "artifact_id": "A"
+    },
+    "registry": {
+      "1": {
+        "model_name": "fixture_model",
+        "version": "1",
+        "artifact_id": "A",
+        "artifact_source": "gs://fixture-artifacts/A.txt",
+        "generation": 2,
+        "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+        "run_id": "run.A"
+      }
+    },
+    "runs": {
+      "run.A": {
+        "run_id": "run.A",
+        "artifact_id": "A",
+        "artifact_sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+        "dataset_id": "snapshot.A",
+        "configuration_id": "config.A",
+        "code_id": "code.A"
+      }
+    },
+    "approval": {
+      "approval_id": "approval.A",
+      "registry_version": "1",
+      "artifact_id": "A",
+      "authorized": true,
+      "accountable_identity": "fixture-promoter"
+    },
+    "datasets": {
+      "snapshot.A": {
+        "sha256": "94d86c2f748dbd3ec7fb8e27dded66533bde22a109a97d9fde2191d96b831d61",
+        "file": "dataset.csv"
+      }
+    },
+    "configurations": {
+      "config.A": {
+        "sha256": "75bc2039e3a69484813ab3b30218dba912ae9ecc3f03a7087a068915072e8e4a",
+        "resolved": {
+          "feature_scale": 5.0,
+          "threshold": 0.4,
+          "package": "A"
+        }
+      }
+    },
+    "artifacts": {
+      "A": {
+        "artifact_id": "A",
+        "uri": "gs://fixture-artifacts/A.txt",
+        "generation": 1,
+        "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+        "validation_ok": true
+      },
+      "B": {
+        "artifact_id": "B",
+        "uri": "gs://fixture-artifacts/B.txt",
+        "generation": 1,
+        "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+        "validation_ok": true
+      }
+    },
+    "code": {
+      "code.A": {
+        "revision": "da89ee877040e427fd3de821dffbdc0abd82017b",
+        "repository": "local_repo"
+      }
+    }
+  },
+  "missing_code_revision": {
+    "deployment": {
+      "deployment_id": "deployment.A",
+      "registry_version": "1",
+      "artifact_id": "A"
+    },
+    "registry": {
+      "1": {
+        "model_name": "fixture_model",
+        "version": "1",
+        "artifact_id": "A",
+        "artifact_source": "gs://fixture-artifacts/A.txt",
+        "generation": 1,
+        "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+        "run_id": "run.A"
+      }
+    },
+    "runs": {
+      "run.A": {
+        "run_id": "run.A",
+        "artifact_id": "A",
+        "artifact_sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+        "dataset_id": "snapshot.A",
+        "configuration_id": "config.A",
+        "code_id": "code.A"
+      }
+    },
+    "approval": {
+      "approval_id": "approval.A",
+      "registry_version": "1",
+      "artifact_id": "A",
+      "authorized": true,
+      "accountable_identity": "fixture-promoter"
+    },
+    "datasets": {
+      "snapshot.A": {
+        "sha256": "94d86c2f748dbd3ec7fb8e27dded66533bde22a109a97d9fde2191d96b831d61",
+        "file": "dataset.csv"
+      }
+    },
+    "configurations": {
+      "config.A": {
+        "sha256": "75bc2039e3a69484813ab3b30218dba912ae9ecc3f03a7087a068915072e8e4a",
+        "resolved": {
+          "feature_scale": 5.0,
+          "threshold": 0.4,
+          "package": "A"
+        }
+      }
+    },
+    "artifacts": {
+      "A": {
+        "artifact_id": "A",
+        "uri": "gs://fixture-artifacts/A.txt",
+        "generation": 1,
+        "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+        "validation_ok": true
+      },
+      "B": {
+        "artifact_id": "B",
+        "uri": "gs://fixture-artifacts/B.txt",
+        "generation": 1,
+        "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+        "validation_ok": true
+      }
+    },
+    "code": {
+      "code.A": {
+        "revision": "refs/heads/not-present",
+        "repository": "local_repo"
+      }
+    }
+  },
+  "configuration_mismatch": {
+    "deployment": {
+      "deployment_id": "deployment.A",
+      "registry_version": "1",
+      "artifact_id": "A"
+    },
+    "registry": {
+      "1": {
+        "model_name": "fixture_model",
+        "version": "1",
+        "artifact_id": "A",
+        "artifact_source": "gs://fixture-artifacts/A.txt",
+        "generation": 1,
+        "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+        "run_id": "run.A"
+      }
+    },
+    "runs": {
+      "run.A": {
+        "run_id": "run.A",
+        "artifact_id": "A",
+        "artifact_sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+        "dataset_id": "snapshot.A",
+        "configuration_id": "config.A",
+        "code_id": "code.A"
+      }
+    },
+    "approval": {
+      "approval_id": "approval.A",
+      "registry_version": "1",
+      "artifact_id": "A",
+      "authorized": true,
+      "accountable_identity": "fixture-promoter"
+    },
+    "datasets": {
+      "snapshot.A": {
+        "sha256": "94d86c2f748dbd3ec7fb8e27dded66533bde22a109a97d9fde2191d96b831d61",
+        "file": "dataset.csv"
+      }
+    },
+    "configurations": {
+      "config.A": {
+        "sha256": "8c33410a780a94782ddb3fb52ce48f2a640b6a9c9b2994dd26da2d7090267a29",
+        "resolved": {
+          "feature_scale": 5.0,
+          "threshold": 0.4,
+          "package": "A"
+        }
+      }
+    },
+    "artifacts": {
+      "A": {
+        "artifact_id": "A",
+        "uri": "gs://fixture-artifacts/A.txt",
+        "generation": 1,
+        "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+        "validation_ok": true
+      },
+      "B": {
+        "artifact_id": "B",
+        "uri": "gs://fixture-artifacts/B.txt",
+        "generation": 1,
+        "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+        "validation_ok": true
+      }
+    },
+    "code": {
+      "code.A": {
+        "revision": "da89ee877040e427fd3de821dffbdc0abd82017b",
+        "repository": "local_repo"
+      }
+    }
+  },
+  "dataset_mismatch": {
+    "deployment": {
+      "deployment_id": "deployment.A",
+      "registry_version": "1",
+      "artifact_id": "A"
+    },
+    "registry": {
+      "1": {
+        "model_name": "fixture_model",
+        "version": "1",
+        "artifact_id": "A",
+        "artifact_source": "gs://fixture-artifacts/A.txt",
+        "generation": 1,
+        "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+        "run_id": "run.A"
+      }
+    },
+    "runs": {
+      "run.A": {
+        "run_id": "run.A",
+        "artifact_id": "A",
+        "artifact_sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+        "dataset_id": "snapshot.A",
+        "configuration_id": "config.A",
+        "code_id": "code.A"
+      }
+    },
+    "approval": {
+      "approval_id": "approval.A",
+      "registry_version": "1",
+      "artifact_id": "A",
+      "authorized": true,
+      "accountable_identity": "fixture-promoter"
+    },
+    "datasets": {
+      "snapshot.A": {
+        "sha256": "44b492d1f805be945fa7b81e144b75bd5cbf16bfa5ff01a00e8e2d526c53a82f",
+        "file": "dataset.csv"
+      }
+    },
+    "configurations": {
+      "config.A": {
+        "sha256": "75bc2039e3a69484813ab3b30218dba912ae9ecc3f03a7087a068915072e8e4a",
+        "resolved": {
+          "feature_scale": 5.0,
+          "threshold": 0.4,
+          "package": "A"
+        }
+      }
+    },
+    "artifacts": {
+      "A": {
+        "artifact_id": "A",
+        "uri": "gs://fixture-artifacts/A.txt",
+        "generation": 1,
+        "sha256": "9400790a7154c4bb7f0ff81cbe3691b7543bda6ce749e6f872b29e64453618b6",
+        "validation_ok": true
+      },
+      "B": {
+        "artifact_id": "B",
+        "uri": "gs://fixture-artifacts/B.txt",
+        "generation": 1,
+        "sha256": "6d5f5cbc73990d86a040e72f9e6d1cad2cb36297b10887e5444900c7286f634a",
+        "validation_ok": true
+      }
+    },
+    "code": {
+      "code.A": {
+        "revision": "da89ee877040e427fd3de821dffbdc0abd82017b",
+        "repository": "local_repo"
+      }
+    }
+  }
+}
+
+
+FILE bootstrap_local_repo.py
+"""Run in the exercise runtime only; creates the supplied local repo fixture."""
+from pathlib import Path
+import subprocess
+import os
+root = Path("local_repo")
+root.mkdir(exist_ok=True)
+(root / "model_source.py").write_text('"""Fictional package source retained for lineage inspection."""\ndef transform(feature):\n    return feature / 5.0\n')
+env = dict(os.environ, GIT_AUTHOR_DATE="1700000000 +0000", GIT_COMMITTER_DATE="1700000000 +0000", GIT_CONFIG_NOSYSTEM="1")
+def run(*args):
+    return subprocess.run(["git", *args], cwd=root, env=env, check=True, capture_output=True, text=True).stdout.strip()
+run("init", "--initial-branch=main")
+run("config", "user.name", "Fixture Author")
+run("config", "user.email", "fixture@example.invalid")
+run("config", "core.autocrlf", "false")
+run("add", "model_source.py")
+run("-c", "commit.gpgsign=false", "commit", "-m", "Authored lineage fixture")
+assert run("rev-parse", "HEAD") == 'da89ee877040e427fd3de821dffbdc0abd82017b'
+
+
+FILE model_source.py
+"""Fictional package source retained for lineage inspection."""
+def transform(feature):
+    return feature / 5.0
+
+
+FILE fixtures/lineage_contract.json
+{
+  "repository_setup": "Run bootstrap_local_repo.py once in the exercise runtime; audit must independently inspect the recorded revision with both required git commands. No local repository was created by this stage.",
+  "hash_algorithm": "sha256",
+  "configuration_serialization": "json.dumps(resolved,sort_keys=True,separators=(comma,colon)).encode()",
+  "edge_checks": [
+    "deployment to registry",
+    "approval to deployed artifact/version",
+    "registry to artifact exact source/generation/hash and originating run",
+    "run to dataset content identity",
+    "run to resolved configuration identity",
+    "run to artifact identity",
+    "code revision to existing local commit"
+  ],
+  "failure_handling": "report the explicit missing or mismatched edge, never infer links from names",
+  "boundary_case": "a second unselected registry version with the same model name does not invalidate the selected exact version"
+}
