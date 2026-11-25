@@ -293,6 +293,8 @@ def run_sql(registry, ix):
     o.hidden_checks = hidden
     cons = pub.get("constraints") or {}
     viol, unmapped = sqlsyntax.judge(solution, cons.get("allowed_syntax", []), cons.get("blocked_syntax", []), coltypes)
+    if UNTAUGHT_ADVISORY:  # profile opt-in: outside the glossary's allowed list is not an error; blocked syntax still is
+        viol = [v for v in viol if not v.endswith("(not yet taught)")]
     if syntax_exempt(ix):
         viol, unmapped = [], []
     o.problems += [f"solution {v}" for v in viol]
@@ -903,6 +905,8 @@ def run_sheet(registry, ix):
     o.hidden_checks = hidden
     cons = pub.get("constraints") or {}
     viol, unmapped, _ = sheetsyntax.judge(solution, cons.get("allowed_syntax", []), cons.get("blocked_syntax", []))
+    if UNTAUGHT_ADVISORY:  # profile opt-in: outside the glossary's allowed list is not an error; blocked syntax still is
+        viol = [v for v in viol if not v.endswith("(not yet taught)")]
     if syntax_exempt(ix):
         viol, unmapped = [], []
     o.problems += [f"solution {v}" for v in viol]
