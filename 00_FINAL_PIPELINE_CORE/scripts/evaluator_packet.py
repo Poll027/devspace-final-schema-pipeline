@@ -189,6 +189,10 @@ def render_interaction(P, i, taught_at):
         for f in gr.get("solution_files", []):
             P.w(f"  SOLUTION {f['path']}:\n{f['content']}")
         for tst in gr["tests"]:
+            if tst["kind"] == "dart_test":  # the evaluator must read the whole hidden test file, not a truncated one
+                sp = tst["spec"]
+                P.w(f"  test {tst['test_id']} (dart_test, expect={sp.get('expect', 'pass')}) | on-fail: {tst['message_on_fail']}\n{sp.get('code', '(runs the learner test file)')}" + "".join(f"\n  replaces {k}:\n{v}" for k, v in (sp.get("replace") or {}).items()))
+                continue
             P.w(f"  test {tst['test_id']} ({tst['kind']}, visible={tst.get('visible')}): {j(tst['spec'], 500)} | on-fail: {tst['message_on_fail']}")
         if gr.get("execution_provenance"):
             P.w(f"  provenance: {j(gr['execution_provenance'], 300)}")

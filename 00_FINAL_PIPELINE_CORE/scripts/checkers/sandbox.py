@@ -17,7 +17,7 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import sqlsyntax
+from . import dart, sqlsyntax
 from .dataset import resolve_dataset
 
 CORE = Path(__file__).resolve().parents[2]
@@ -960,6 +960,70 @@ def grade_learner_sheet(registry, ix, learner_sheet):
 
 run_chart, grade_learner_chart = run_python, grade_learner_py  # the same code path; the exercise's runtime.kind picks chart mode
 RUNNERS = {"sql": run_sql, "python": run_python, "spreadsheet": run_sheet, "chart_renderer": run_python, "python_asgi": run_python}
+
+
+def run_flutter(registry, ix):
+    o = Outcome()
+    pub, gr, pin = ix["public"], ix["grading"], RUNTIMES["flutter"]
+    if pub["runtime"].get("version") != pin["version"]:
+        o.problems.append(f"runtime.version {pub['runtime'].get('version')!r} must equal the pinned {pin['version']!r} (registry/runtimes.json)")
+    files = pub["workspace"]["files"]
+    editable = {f["path"] for f in files if f["role"] == "editable"}
+    sol = {f["path"]: f["content"] for f in gr["solution_files"]}
+    tests = gr["tests"]
+    for path in [f["path"] for f in files] + list(sol):
+        if not re.fullmatch(r"(lib|test)/[A-Za-z0-9_/]+\.dart", path):
+            o.problems.append(f"file path {path!r}: use lib/....dart or test/....dart (no pubspec, assets or platform files)")
+    if not editable:
+        o.problems.append("no editable file in workspace.files")
+    if set(sol) - editable or editable - set(sol):
+        o.problems.append(f"grading.solution_files must give exactly the editable files {sorted(editable)} (got {sorted(sol)})")
+    learner_tests = any(p.startswith("test/") and p.endswith("_test.dart") for p in editable)
+    for t in tests:
+        sp = t["spec"]
+        if t["kind"] != "dart_test":
+            o.problems.append(f"{t['test_id']}: the flutter runtime supports only dart_test tests")
+        elif sp.get("expect", "pass") not in ("pass", "fail"):
+            o.problems.append(f"{t['test_id']}: spec.expect is 'pass' or 'fail'")
+        elif not sp.get("code") and not learner_tests:
+            o.problems.append(f"{t['test_id']}: spec.code (a complete test file) is required unless the learner edits a test/..._test.dart file")
+        elif set(sp.get("replace") or {}) & editable:
+            o.problems.append(f"{t['test_id']}: spec.replace may only swap readonly files")
+    if learner_tests and {t["spec"].get("expect", "pass") for t in tests if not t["spec"].get("code")} != {"pass", "fail"}:
+        o.problems.append("a test-writing exercise needs one dart_test expecting pass (correct code) and one expecting fail (spec.replace a broken version): otherwise an empty test passes")
+    if not learner_tests and sum(len(re.findall(r"\bexpect(?:Later)?\(", t["spec"].get("code", ""))) for t in tests) < 2:
+        o.problems.append("the hidden tests need at least two expect() calls on different inputs or states, or a hard-coded answer passes")
+    if o.problems:
+        return o
+    missing = dart.flutter_missing(pin)
+    if missing:
+        o.unverified = missing
+        return o
+    runs, where = dart.build_runs(files, gr["solution_files"], tests)
+    try:
+        res = dart.execute(pin, runs)
+    except (RuntimeError, subprocess.TimeoutExpired) as ex:
+        o.problems.append(f"sandbox: {ex}")
+        return o
+    starter_matches = True
+    for t in tests:
+        want = t["spec"].get("expect", "pass")
+        got, why = dart.outcome_of(res, where, "solution", t["test_id"])
+        o.tests_total += 1
+        if got == want:
+            o.tests_passed += 1
+        else:
+            o.problems.append(f"{t['test_id']}: with the solution the test {'does not compile/load' if got == 'error' else got + 's'} (expected {want}): {why[-900:]}")
+        starter_matches = starter_matches and dart.outcome_of(res, where, "starter", t["test_id"])[0] == want
+    if not o.problems and starter_matches:
+        o.problems.append("the starter code already passes every result test: the learner has nothing to do")
+    if not o.problems:
+        entry = pub["workspace"].get("entry") or next(f["path"] for f in files if f["role"] == "editable")
+        o.provenance = {"runtime": pin["engine"], "runtime_version": pin["version"], "solution_sha256": sha(sol.get(entry, "")), "tests_passed": o.tests_passed}
+    return o
+
+
+RUNNERS["flutter"] = run_flutter
 
 
 UNTAUGHT_ADVISORY = False  # set by the callers from the path profile (syntax_untaught_advisory)

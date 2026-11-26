@@ -830,10 +830,34 @@ def unit_formula_entry():
     return fails
 
 
+# ---- flutter (headless `flutter test` in the systemd sandbox; skipped on hosts without the SDK) ----
+def unit_flutter_runner():
+    from checkers import dart, sandbox
+    pin = sandbox.RUNTIMES["flutter"]
+    if dart.flutter_missing(pin):
+        print("skip  flutter runner (SDK not installed on this host)")
+        return 0
+    start = "int total(int a, int b) => 0;\n"
+    test = "import 'package:flutter_test/flutter_test.dart';\nimport 'package:exercise/exercise.dart';\nvoid main() { test('sum', () { expect(total(1, 2), 3); expect(total(5, 5), 10); }); }\n"
+    ix = lambda sol, st=start: {"type": "code_exercise", "interaction_id": "ix.a", "anchors": [], "public": {"prompt": "p", "runtime": {"kind": "flutter", "version": pin["version"]},
+                              "workspace": {"entry": "lib/exercise.dart", "files": [{"path": "lib/exercise.dart", "role": "editable", "content": st}]}},
+                              "grading": {"solution_files": [{"path": "lib/exercise.dart", "content": sol}], "tests": [{"test_id": "t", "kind": "dart_test", "spec": {"code": test}, "message_on_fail": "no"}]}}
+    good = "int total(int a, int b) => a + b;\n"
+    cases = [("correct solution passes", ix(good), True), ("wrong solution caught", ix("int total(int a, int b) => a * b;\n"), False),
+             ("compile error caught", ix("int total(int a, int b) => nope;\n"), False), ("starter that already passes caught", ix(good, good), False)]
+    fails = 0
+    for name, case, ok in cases:
+        o = sandbox.run_exercise({}, case)
+        got = not o.problems and bool(o.provenance)
+        fails += got != ok
+        print(("ok    " if got == ok else "MISSED ") + "flutter: " + name + ("" if got == ok else f" {o.problems}"))
+    return fails
+
+
 def main():
     src = Path(sys.argv[1]).resolve()
     tmp_root = src.parent / TMP_NAME
-    failures = unit_interactions(src) + unit_fail_closed(src) + unit_graph_blocks() + unit_stale_cleanup(src) + unit_sql_runner() + unit_python_runner() + unit_sheet_runner() + unit_chart_runner() + unit_asgi_runner() + unit_formula_entry()
+    failures = unit_interactions(src) + unit_fail_closed(src) + unit_graph_blocks() + unit_stale_cleanup(src) + unit_sql_runner() + unit_python_runner() + unit_sheet_runner() + unit_chart_runner() + unit_asgi_runner() + unit_formula_entry() + unit_flutter_runner()
     for name, fn, expect in MUTATIONS:
         d = tmp_root / "case"
         if d.exists():
