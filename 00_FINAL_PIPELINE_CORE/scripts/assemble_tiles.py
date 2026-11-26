@@ -127,6 +127,8 @@ def main():
                 if s["interaction"]["type"] == "code_exercise":  # provenance comes from a real run, never from the model
                     s["interaction"]["grading"].pop("execution_provenance", None)
                     s["interaction"]["grading"].pop("hidden_checks", None)
+                    if s["interaction"]["public"]["runtime"]["kind"] == "flutter":  # cannot run in a browser, and the hidden tests are the answer key: never ship them to the client
+                        s["interaction"]["grading_mode"] = "server"
                     run = sandbox.run_exercise(registry, s["interaction"])
                     if run.provenance:
                         s["interaction"]["grading"]["execution_provenance"] = run.provenance

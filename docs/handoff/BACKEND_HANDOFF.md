@@ -2,6 +2,7 @@
 
 **Written for:** the engineers who will build Devspace's backend (content store, API, grading service, progress and mastery tracking) and who need the complete context of what the content pipeline produced and why.
 **State described:** the Data Analyst path, all 72 tiles generated, validated and committed; the shared grader built. As of 2026-11-05, repository `Poll027/devspace-final-schema-pipeline`, `main`.
+**Added 2026-11-26, needs your answer:** Flutter coding exercises only work if the backend runs them. See section 6.6.
 **Not covered because it does not exist yet:** the backend, the publish step (pipeline stage 12), the player's integration of the grader. This document is the input for building them.
 
 How to read this: sections 1-3 are context, 4-9 are the contracts and what the pipeline implements, 10 is what the backend has to build (recommendations, clearly marked), 11-14 are limitations, decisions, operations and open items. Five appendices hold the bulk data (listed in section 15).
@@ -324,6 +325,21 @@ The pipeline's Node runners define the contract. They are in `00_FINAL_PIPELINE_
 - `run_sheet.mjs`: job `{scripts:[{id, content, sheets:[{name, columns, rows}], probes}]}`; builds a fresh HyperFormula workbook per script (header in row 1, data from row 2; the file's cells are overlaid); probes read cells or ranges; error cells read as their text (`#DIV/0!`), empty cells as null.
 
 All three run under Node's permission model in the pipeline (no filesystem writes, no child processes, network globals removed). The browser sandbox in the player needs equivalent isolation for learner code.
+
+### 6.6 Flutter: the backend must host a runner (open question, added 2026-11-26)
+
+> Flutter exercises need server-side grading: run `flutter test` (Flutter 3.47.9) in an isolated, no-network container, about 6-15 seconds per submission. **Can we host that?**
+
+Dart cannot run in the learner's browser, so none of sections 6.5 or 8 (player engines, `grader-core`) covers it. Without a runner, the Flutter coding exercises cannot be graded.
+
+- **Exercises:** `public.runtime = {kind: "flutter", version: "3.47.9"}`, `grading_mode: "server"`. The public lesson copy therefore has no `grading`; the hidden tests live in `grading/<tile>.json`.
+- **Toolchain:** Flutter 3.47.9 (Dart 3.13.7) and a template app named `exercise` with the packages listed under `flutter` in `00_FINAL_PIPELINE_CORE/registry/runtimes.json` (go_router 17.x; system libsqlite3, because the sandbox has no network).
+- **Grading one submission:** copy the template; write `public.workspace.files`, with the learner's text in the editable files; for each `grading.tests[]` (`kind: "dart_test"`) write `spec.code` to `test/<test_id>_grader_test.dart` (no `code` means run the learner's own `test/..._test.dart`) and apply `spec.replace`; run `flutter test`. A test is satisfied when the outcome equals `spec.expect`: `"pass"` (default) or `"fail"` (it ran and failed; a compile error does not count). The answer is correct when every test is satisfied.
+- **Isolation (required, this runs learner code):** no network, no secrets or host files, unprivileged user, memory, process and time limits.
+- **Reference implementation:** `00_FINAL_PIPELINE_CORE/scripts/checkers/dart.py` and `dartbox_runner.py` (systemd sandbox on Ubuntu 24.04).
+- **Timing:** one compile per submission, about 6-15 s on a 16-core machine. Hosting cost has not been estimated.
+- **Coverage:** 83 of the path's 112 concepts have graded code. The other 29 (device runs, native and Firebase configuration, signing, store submission) are read-and-judge and need no runner.
+- **Status on 2026-11-26:** the first Flutter lessons with exercises are still being generated; none has passed the pipeline yet.
 
 ---
 
