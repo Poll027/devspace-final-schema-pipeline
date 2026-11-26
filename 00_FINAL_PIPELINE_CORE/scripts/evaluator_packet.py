@@ -244,8 +244,10 @@ def render(L, env):
             P.w(f"{aid}: {a['asset_kind'] if a else 'MISSING'}")
             continue
         P.w(f"{aid}: {a['title']} — columns: " + ", ".join(f"{c['name']}({c['semantic_role']}{',digits-as-label' if c.get('numeric_looking_label') else ''})" for c in a["columns"]))
-        for r in a["rows"][:(60 if aid in img_ds else 8)]:
+        for r in a["rows"][:(60 if aid in img_ds else 40)]:
             P.w("   " + j(r, 300))
+        if len(a["rows"]) > (60 if aid in img_ds else 40):  # say so: an evaluator shown a silently cut table reports its later rows as missing
+            P.w(f"   ... {len(a['rows']) - (60 if aid in img_ds else 40)} more rows exist in the registry but are not shown here")
         for v in a.get("variants", []):
             P.w(f"   variant {v['variant_id']}: {len(v['ops'])} ops; planted: " + "; ".join(f"{p['issue_id']}({p['kind']})" for p in v.get("planted_issues", [])))
     blocked = []
